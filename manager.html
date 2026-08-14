@@ -19,6 +19,28 @@
     <div v-else-if="!venue" class="glass card" style="text-align:center;padding:50px">⏳ Ваш аккаунт ещё не привязан к заведению. Администратор должен назначить вам заведение.</div>
 
     <template v-else>
+      <!-- БАННЕР ПОДПИСКИ -->
+      <div v-if="subscription" class="glass card" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px"
+           :style="daysLeft<=0?{borderColor:'rgba(248,113,113,.4)'}:daysLeft<=7?{borderColor:'rgba(251,191,36,.4)'}:{}">
+        <div>
+          <div class="row">
+            <b>Тариф: {{ subscriptionPlanName }}</b>
+            <span class="badge" :class="subBadgeClass">{{ subscriptionStatusName }}</span>
+          </div>
+          <div class="muted" style="font-size:12px;margin-top:4px" v-if="subscription.expires_at">
+            {{ daysLeft>0 ? 'Осталось '+daysLeft+' дн. · до '+formatDate(subscription.expires_at) : '⛔ Подписка истекла!' }}
+          </div>
+          <div class="muted" style="font-size:12px;margin-top:2px" v-if="currentPlan">
+            Лимиты: {{ currentPlan.max_products>=9999?'∞':currentPlan.max_products }} блюд · {{ currentPlan.max_cooks>=999?'∞':currentPlan.max_cooks }} поваров
+          </div>
+        </div>
+        <div class="row">
+          <button v-if="daysLeft<=7" class="btn btn-primary btn-sm" @click="openPaymentModal">💳 Продлить подписку</button>
+          <span v-if="daysLeft<=3&&daysLeft>0" class="badge b-cooking">⚠️ Скоро истечёт</span>
+        </div>
+      </div>
+
+      <!-- СТАТИСТИКА -->
       <div class="stats" style="margin-bottom:18px">
         <div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
         <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ orders.length }}</div><div class="lbl">Заказов</div></div>
@@ -26,6 +48,7 @@
         <div class="glass stat" style="border-color:#34d399"><div class="num">{{ products.length }}</div><div class="lbl">Позиций</div></div>
       </div>
 
+      <!-- ВКЛАДКИ -->
       <div class="tabs" style="margin-bottom:18px">
         <button :class="{on:tab==='menu'}" @click="tab='menu'">🍔 Меню</button>
         <button :class="{on:tab==='orders'}" @click="tab='orders'">📋 Заказы</button>
@@ -36,7 +59,7 @@
       <!-- МЕНЮ -->
       <div v-if="tab==='menu'">
         <div class="spread" style="margin-bottom:14px">
-          <h3 style="margin:0">Позиции меню</h3>
+          <h3 style="margin:0">Позиции меню <span class="muted" style="font-size:13px">{{ products.length }}<span v-if="currentPlan"> / {{ currentPlan.max_products>=9999?'∞':currentPlan.max_products }}</span></span></h3>
           <button class="btn btn-primary btn-sm" @click="openAdd">+ Добавить блюдо</button>
         </div>
         <div v-for="p in products" :key="p.id" class="glass menu-item" style="margin-bottom:10px">
@@ -80,6 +103,9 @@
 
       <!-- ПОВАРА -->
       <div v-if="tab==='staff'">
+        <div class="spread" style="margin-bottom:14px">
+          <h3 style="margin:0">Повара <span class="muted" style="font-size:13px">{{ cooks.length }}<span v-if="currentPlan"> / {{ currentPlan.max_cooks>=999?'∞':currentPlan.max_cooks }}</span></span></h3>
+        </div>
         <div class="glass card" style="margin-bottom:14px"><div class="row">
           <input v-model="cookName" placeholder="Имя повара" style="flex:1;min-width:160px">
           <button class="btn btn-green btn-sm" @click="addCook">+ Добавить повара</button></div></div>
@@ -163,6 +189,30 @@
     </div>
   </div>
 
+  <!-- МОДАЛКА ОПЛАТЫ ПОДПИСКИ -->
+  <div v-if="showPaymentModal" class="modal" @click.self="showPaymentModal=false">
+    <div class="glass box" style="max-width:420px">
+      <h3 style="margin-top:0">💳 Продление подписки</h3>
+      <div class="field">
+        <label>Выберите тариф</label>
+        <select v-model="payPlan">
+          <option v-for="p in availablePlans" :key="p.id" :value="p.id">{{ p.name }} — {{ fmt(p.price) }} ₽/мес</option>
+        </select>
+      </div>
+      <div class="glass card" style="margin-bottom:14px;background:rgba(255,255,255,.02)">
+        <div class="spread"><span>Тариф:</span><b>{{ selectedPayPlan?selectedPayPlan.name:'' }}</b></div>
+        <div class="spread"><span>Период:</span><b>30 дней</b></div>
+        <div class="spread" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)">
+          <span>Итого:</span><b style="font-size:20px;color:#a5b4fc">{{ selectedPayPlan?fmt(selectedPayPlan.price):0 }} ₽</b></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin-bottom:14px">После отправки запроса администратор подтвердит оплату, и подписка будет продлена на 30 дней.</p>
+      <div class="row">
+        <button class="btn btn-primary" style="flex:1" @click="requestPayment" :disabled="payBusy">{{ payBusy?'Отправка...':'Запросить оплату' }}</button>
+        <button class="btn btn-ghost" @click="showPaymentModal=false">Отмена</button></div>
+      <div v-if="payMsg" class="msg" :class="payMsgType">{{ payMsg }}</div>
+    </div>
+  </div>
+
   <!-- ДИАЛОГ ПОДТВЕРЖДЕНИЯ -->
   <div v-if="confirmDialog.show" class="modal">
     <div class="glass box" style="max-width:360px">
@@ -184,15 +234,24 @@ Vue.createApp({
     showModal:false,editing:null,pform:{name:'',description:'',price:0,category:'main',image_url:'',modifiers:[]},
     cookName:'',vform:{name:'',description:'',logo_url:'',brand_color:'#6366f1'},msg:'',msgType:'',
     timer:null,uploading:false,busy:false,saving:false,formError:'',
-    confirmDialog:{show:false,title:'',text:'',onConfirm:null},toast:{show:false,text:''}}},
+    confirmDialog:{show:false,title:'',text:'',onConfirm:null},toast:{show:false,text:''},
+    subscription:null,plans:[],showPaymentModal:false,payPlan:'start',payBusy:false,payMsg:'',payMsgType:''}},
   computed:{
     revenue(){return this.orders.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price),0)},
     activeCount(){return this.orders.filter(o=>['new','cooking','delivery'].includes(o.status)).length},
     clientLink(){return this.venue?location.origin+'/menu.html?venue='+this.venue.slug:''},
-    qrUrl(){return 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink)}
+    qrUrl(){return 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink)},
+    subscriptionPlanName(){if(!this.subscription)return '';const p=this.plans.find(x=>x.id===this.subscription.plan_id);return p?p.name:this.subscription.plan_id},
+    subscriptionStatusName(){if(!this.subscription)return '';return{trial:'Пробный период',active:'Активна',paused:'Пауза',expired:'Истекла'}[this.subscription.status]||''},
+    subBadgeClass(){if(!this.subscription)return 'b-done';return{trial:'b-new',active:'b-ready',paused:'b-cooking',expired:'b-cancelled'}[this.subscription.status]||'b-done'},
+    daysLeft(){if(!this.subscription||!this.subscription.expires_at)return 999;return Math.ceil((new Date(this.subscription.expires_at)-new Date())/(1000*60*60*24))},
+    currentPlan(){return this.plans.find(p=>p.id===this.subscription?.plan_id)||null},
+    availablePlans(){return this.plans.filter(p=>p.is_active&&p.price>0)},
+    selectedPayPlan(){return this.plans.find(p=>p.id===this.payPlan)||null}
   },
   methods:{
     fmt,statusName,logout,
+    formatDate(d){if(!d)return '—';return new Date(d).toLocaleDateString('ru-RU')},
     categoryLabel(c){return{main:'Блюдо',drink:'Напиток',addon:'Доп/соус'}[c]||c},
     categoryBadge(c){return c==='addon'?'b-delivery':c==='drink'?'b-cooking':'b-new'},
     statusColor(s){return{new:'#60a5fa',cooking:'#fbbf24',ready:'#34d399',delivery:'#a78bfa',done:'#64748b',cancelled:'#f87171'}[s]||'#64748b'},
@@ -203,9 +262,27 @@ Vue.createApp({
         const {data}=await db.from('venues').select('*').eq('id',this.profile.venue_id).maybeSingle();
         this.venue=data;
         if(this.venue){this.vform={name:this.venue.name,description:this.venue.description,logo_url:this.venue.logo_url,brand_color:this.venue.brand_color};
-          await Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks()]);
+          await Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadSubscription()]);
           this.timer=setInterval(()=>this.loadOrders(),5000)}}
       this.ready=true;
+    },
+    async loadSubscription(){
+      await db.rpc('check_subscription_expiry');
+      const {data:plans}=await db.from('plans').select('*').order('sort_order');
+      this.plans=plans||[];
+      const {data:subs}=await db.from('subscriptions').select('*').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(1);
+      if(subs&&subs.length){this.subscription=subs[0];this.payPlan=this.subscription.plan_id}
+    },
+    openPaymentModal(){this.payMsg='';this.showPaymentModal=true},
+    async requestPayment(){
+      if(!this.selectedPayPlan)return;
+      this.payBusy=true;this.payMsg='';
+      try{
+        await db.from('payment_requests').insert({venue_id:this.venue.id,plan_id:this.payPlan,amount:this.selectedPayPlan.price});
+        this.payMsg='Запрос отправлен! Администратор подтвердит оплату.';this.payMsgType='ok';
+        setTimeout(()=>{this.showPaymentModal=false},2000);
+      }catch(e){this.payMsg='Ошибка: '+e.message;this.payMsgType='err'}
+      finally{this.payBusy=false}
     },
     async loadProducts(){const {data}=await db.from('products').select('*, modifiers(*)').eq('venue_id',this.venue.id).order('created_at');this.products=data||[]},
     async loadOrders(){const {data}=await db.from('orders').select('*').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50);this.orders=data||[]},
@@ -219,6 +296,14 @@ Vue.createApp({
       if(!this.pform.name||!this.pform.name.trim())return this.formError='Укажите название';
       this.busy=true;
       try{
+        // Проверка лимита блюд тарифа
+        if(!this.editing&&this.currentPlan){
+          const {count}=await db.from('products').select('id',{count:'exact',head:true}).eq('venue_id',this.venue.id);
+          if(count>=this.currentPlan.max_products){
+            this.formError='Лимит тарифа «'+this.currentPlan.name+'»: максимум '+this.currentPlan.max_products+' блюд. Продлите или улучшите тариф.';
+            this.busy=false;return;
+          }
+        }
         const row={name:this.pform.name.trim(),description:this.pform.description,price:Number(this.pform.price)||0,category:this.pform.category,image_url:this.pform.image_url||null};
         let productId;
         if(this.editing){await db.from('products').update(row).eq('id',this.editing.id);productId=this.editing.id;
@@ -233,7 +318,14 @@ Vue.createApp({
     doConfirm(){if(this.confirmDialog.onConfirm)this.confirmDialog.onConfirm();this.confirmDialog.show=false},
     cancelConfirm(){this.confirmDialog.show=false},
     async toggleAvail(p){await db.from('products').update({is_available:!p.is_available}).eq('id',p.id);await this.loadProducts()},
-    async addCook(){if(!this.cookName.trim())return;const pin=String(Math.floor(1000+Math.random()*9000));
+    async addCook(){
+      if(!this.cookName.trim())return;
+      // Проверка лимита поваров тарифа
+      if(this.currentPlan){
+        const {count}=await db.from('cooks').select('id',{count:'exact',head:true}).eq('venue_id',this.venue.id);
+        if(count>=this.currentPlan.max_cooks){this.showToast('Лимит тарифа: максимум '+this.currentPlan.max_cooks+' поваров');return}
+      }
+      const pin=String(Math.floor(1000+Math.random()*9000));
       await db.from('cooks').insert({venue_id:this.venue.id,name:this.cookName.trim(),pin});this.cookName='';await this.loadCooks()},
     delCook(c){this.confirmDialog={show:true,title:'Удалить повара?',text:c.name+' потеряет доступ к кухне.',onConfirm:async()=>{await db.from('cooks').delete().eq('id',c.id);await this.loadCooks()}}},
     async setStatus(id,status){await db.from('orders').update({status}).eq('id',id);await this.loadOrders()},
