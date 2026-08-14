@@ -1,266 +1,267 @@
-<!DOCTYPE html><html lang="ru"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QR-Меню</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
-.hero{padding:20px 0 16px;text-align:center}
-.hero .logo{width:64px;height:64px;border-radius:18px;object-fit:cover;margin:0 auto 12px;display:block;border:2px solid rgba(255,255,255,.1)}
-.hero h1{margin:0;font-size:26px;font-weight:800}
-.hero .desc{color:#94a3b8;font-size:13px;margin-top:6px}
-.hero .tags{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
-.hero .tag{font-size:11px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
-.cats{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
-.cats::-webkit-scrollbar{display:none}
-.cats button{flex-shrink:0;padding:8px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#94a3b8;font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
-.cats button.on{background:var(--brand,#6366f1);color:#fff;border-color:transparent}
-.food{display:flex;gap:14px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden}
-.food img{width:96px;height:96px;border-radius:16px;object-fit:cover;flex-shrink:0}
-.food .info{flex:1;min-width:0;display:flex;flex-direction:column}
-.food .name{font-weight:700;font-size:15px}
-.food .d{color:#94a3b8;font-size:12px;margin-top:3px;line-height:1.4}
-.food .bottom{margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding-top:8px}
-.food .price{font-weight:800;font-size:16px;color:#fff}
-.hit{position:absolute;top:10px;left:10px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;z-index:2}
-.addbtn{width:38px;height:38px;border-radius:12px;border:none;background:var(--brand,#6366f1);color:#fff;font-size:20px;font-weight:700;cursor:pointer;transition:.15s;box-shadow:0 4px 12px rgba(0,0,0,.3)}
-.addbtn:active{transform:scale(.9)}
-.steps{display:flex;justify-content:space-between;margin:24px 0 12px;position:relative}
-.steps::before{content:'';position:absolute;top:18px;left:10%;right:10%;height:2px;background:rgba(255,255,255,.08);z-index:0}
-.step{position:relative;z-index:1;text-align:center;flex:1}
-.step .dot{width:36px;height:36px;border-radius:50%;background:#1e293b;border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:16px;transition:.3s}
-.step.done .dot{background:var(--brand,#6366f1);border-color:var(--brand,#6366f1)}
-.step.current .dot{animation:pulse 1.2s infinite}
-.step .lbl{font-size:10px;color:#64748b;margin-top:6px}
-.step.done .lbl,.step.current .lbl{color:#fff}
-@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.3)}100%{box-shadow:0 0 0 12px rgba(255,255,255,0)}}
+  [v-cloak]{display:none}
+  .b-new{background:rgba(96,165,250,.15);color:#93c5fd}
+  .b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
+  .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
+  .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
+  .b-done{background:rgba(100,116,139,.2);color:#cbd5e1}
+  .b-changed{background:rgba(251,146,60,.15);color:#fdba74}
+  .alert-box{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:15px;margin:15px 0}
+  .cartbar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
 </style>
-</head><body>
-<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;right:-100px"></div>
-<div id="app" v-cloak :style="{'--brand':venue?venue.brand_color:'#6366f1'}">
-  <div class="wrap" style="max-width:520px;padding-top:16px">
+</head>
+<body>
+<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
+<div id="app" v-cloak>
+  <div class="topbar">
+    <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'QR-Меню' }}</span></div>
+    <div class="row">
+      <button v-if="view==='menu'" class="btn btn-ghost btn-sm" @click="view='tracking'">📦 Мои заказы</button>
+      <button v-else class="btn btn-ghost btn-sm" @click="view='menu'">← В меню</button>
+    </div>
+  </div>
 
-    <!-- ВЫБОР ЗАВЕДЕНИЯ -->
-    <div v-if="picker">
-      <h2 style="text-align:center">Выберите заведение</h2>
-      <div v-for="v in venues" :key="v.id" class="glass card" style="margin-bottom:12px;cursor:pointer" @click="choose(v.slug)">
-        <div class="spread"><b>{{ v.name }}</b><span class="muted">→</span></div>
-        <div class="muted" style="font-size:13px">{{ v.description }}</div></div>
-      <p v-if="!venues.length" class="muted" style="text-align:center">Нет активных заведений.</p>
+  <div class="wrap">
+    <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
+
+    <div v-else-if="!venue">
+      <h3>Выберите заведение</h3>
+      <div v-for="v in venues" :key="v.id" class="glass menu-item" style="margin-bottom:10px">
+        <div style="flex:1"><b>{{ v.name }}</b><div class="muted" style="font-size:12px">{{ v.description }}</div></div>
+        <button class="btn btn-primary btn-sm" @click="selectVenue(v)">→</button>
+      </div>
+      <p v-if="!venues.length" class="muted">Нет активных заведений.</p>
     </div>
 
-    <div v-else-if="loading" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
-    <div v-else-if="paused" class="glass card" style="text-align:center;padding:50px">⏸ Заведение временно не принимает заказы.</div>
-
-    <template v-else-if="venue">
-      <!-- ШАПКА -->
-      <div class="hero">
-        <img v-if="venue.logo_url" :src="venue.logo_url" class="logo">
-        <div v-else class="logo" style="background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:28px">🍴</div>
-        <h1>{{ venue.name }}</h1>
-        <div class="desc">{{ venue.description }}</div>
-        <div class="tags">
-          <span class="tag">⏱ Доставка ~25 мин</span>
-          <span class="tag">⭐ Премиум качество</span>
-          <span class="tag">💳 Любая оплата</span>
-        </div>
-      </div>
+    <template v-else>
+      <div v-if="venue.status!=='active'" class="glass card" style="text-align:center;padding:40px">⏸ Заведение временно не принимает заказы.</div>
 
       <!-- МЕНЮ -->
-      <div v-if="view==='menu'">
-        <div v-if="myOrders.length" class="glass card" style="margin-bottom:14px;padding:12px">
+      <template v-else-if="view==='menu'">
+        <div class="glass card" style="margin-bottom:14px">
+          <b>{{ venue.name }}</b>
+          <div class="muted" style="font-size:13px">{{ venue.description }}</div>
+        </div>
+        <div v-for="p in products" :key="p.id" class="glass menu-item" style="margin-bottom:10px">
+          <img v-if="p.image_url" class="thumb" :src="p.image_url" alt="">
+          <div style="flex:1;min-width:0"><b>{{ p.name }}</b><div class="muted" style="font-size:12px">{{ p.description }}</div></div>
+          <b style="color:#a5b4fc">{{ p.price }} ₽</b>
+          <button class="btn btn-primary btn-sm" @click="addToCart(p)">+ В корзину</button>
+        </div>
+        <p v-if="!products.length" class="muted">Меню пока пустое.</p>
+
+        <div class="cartbar" v-if="cart.length">
+          <button class="btn btn-primary" style="width:100%" @click="showCart=true">Оформить заказ · {{ fmt(cartItemsTotal) }} ₽</button>
+        </div>
+      </template>
+
+      <!-- ОТСЛЕЖИВАНИЕ -->
+      <template v-else>
+        <div class="glass card" style="margin-bottom:14px">
+          <h3 style="margin-top:0">Отследить заказ</h3>
+          <div class="row">
+            <input v-model="trackPhone" type="tel" placeholder="Ваш номер телефона" style="flex:1" @keyup.enter="trackOrder">
+            <button class="btn btn-primary btn-sm" @click="trackOrder">Найти</button>
+          </div>
+        </div>
+
+        <div v-if="tracking" class="glass order-card" :style="{borderTopColor: statusColor(tracking.status)}">
           <div class="spread">
-            <b style="font-size:13px">📦 Мои заказы</b>
-            <div class="row"><button v-for="id in myOrders.slice(0,3)" :key="id" class="btn btn-ghost btn-sm" @click="openTracking(id)">Отследить</button></div>
-          </div></div>
+            <b>{{ statusEmoji }} Заказ №{{ tracking.order_number }}</b>
+            <span class="badge" :class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span>
+          </div>
 
-        <div class="cats">
-          <button :class="{on:cat==='all'}" @click="cat='all'">Все</button>
-          <button :class="{on:cat==='main'}" @click="cat='main'">🌯 Еда</button>
-          <button :class="{on:cat==='drink'}" @click="cat='drink'">🥤 Напитки</button>
-          <button :class="{on:cat==='addon'}" @click="cat='addon'">🥫 Соусы</button>
-        </div>
-
-        <div v-for="(p,i) in filteredProducts" :key="p.id" class="glass food">
-          <span v-if="p.is_hit" class="hit">🔥 ХИТ</span>
-          <img :src="p.image_url||DEFAULT_IMG">
-          <div class="info">
-            <div class="name">{{ p.name }} <span v-if="p.has_mods" style="font-size:10px;color:#94a3b8">• опции</span></div>
-            <div class="d">{{ p.description }}</div>
-            <div class="bottom">
-              <span class="price">{{ p.price }} ₽</span>
-              <button class="addbtn" @click="addToCart(p)">+</button>
+          <!-- ЗАКАЗ ИЗМЕНЁН ПОВАРОМ -->
+          <div v-if="tracking.status==='changed'" class="alert-box">
+            <b style="color:#fdba74">⚠️ Заказ будет изменён</b>
+            <p style="font-size:13px;margin:8px 0">К сожалению, некоторых ингредиентов сейчас нет в наличии. Повар скорректировал ваш заказ. Новая сумма: <b>{{ fmt(tracking.total_price) }} ₽</b></p>
+            <div style="font-size:13px;margin-bottom:10px">
+              <div v-for="it in (tracking.items||[])" :key="it.name">✔️ {{ it.qty }}x {{ it.name }}</div>
+              <div v-for="a in (tracking.addons||[])" :key="a.name" class="muted">+ {{ a.name }}</div>
             </div>
-          </div></div>
-        <p v-if="!filteredProducts.length" class="muted" style="text-align:center;padding:30px">В этой категории пока пусто.</p>
+            <div class="row">
+              <button class="btn btn-green btn-sm" style="flex:1" @click="confirmChangedOrder">✅ Согласен, готовьте</button>
+              <button class="btn btn-ghost btn-sm" style="flex:1" @click="revertOrder">🔄 Переделать самому</button>
+            </div>
+          </div>
 
-        <div v-if="cart.length" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:520px;z-index:30">
-          <button class="btn" style="width:100%;padding:16px;background:var(--brand);font-size:16px" @click="openCheckout">
-            🛒 Оформить заказ · {{ fmt(cartItemsTotal) }} ₽</button></div>
-      </div>
-
-      <!-- ОФОРМЛЕНИЕ -->
-      <div v-if="view==='checkout'" class="glass card">
-        <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Корзина</h3>
-          <button class="btn btn-ghost btn-sm" @click="view='menu'">← Назад</button></div>
-        <div v-for="(i,idx) in cart" :key="idx" class="spread" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-          <div><b>{{ i.name }}</b><div class="muted" style="font-size:12px">{{ i.price }} ₽</div>
-            <div v-for="m in (i.selectedModifiers||[])" :key="m.id" class="muted" style="font-size:11px">+ {{ m.name }} (+{{ m.price }} ₽)</div></div>
-          <div class="qty"><button @click="changeQty(idx,-1)">−</button><span>{{ i.qty }}</span><button @click="changeQty(idx,1)">+</button></div></div>
-        <div v-if="addons.length" style="margin-top:14px"><label>Добавить соус / доп</label>
-          <div class="row"><button v-for="a in addons" :key="a.id" class="chip" :class="{on:isAddon(a.id)}" @click="toggleAddon(a)">+ {{ a.name }} · {{ a.price }} ₽</button></div></div>
-        <div style="margin-top:16px"><label>Как получить</label>
-          <div class="row"><button class="chip" :class="{on:orderType==='pickup'}" @click="orderType='pickup'">🏠 Самовывоз</button>
-            <button class="chip" :class="{on:orderType==='delivery'}" @click="orderType='delivery'">🚗 Доставка (+{{ DELIVERY_FEE }} ₽)</button></div></div>
-        <div style="margin-top:14px"><label>Имя</label><input v-model="cname" placeholder="Ваше имя"></div>
-        <div style="margin-top:10px"><label>Телефон *</label><input v-model="cphone" type="tel" placeholder="+7..."></div>
-        <div v-if="orderType==='delivery'" style="margin-top:10px"><label>Адрес доставки *</label><input v-model="caddress" placeholder="Улица, дом, квартира"></div>
-        <div style="margin-top:10px"><label>Комментарий</label><textarea v-model="ccomment" rows="2" placeholder="Без лука, код домофона…"></textarea></div>
-        <div style="margin-top:14px"><label>Оплата</label>
-          <div class="row"><button class="chip" :class="{on:cpayment==='cash'}" @click="cpayment='cash'">💵 Наличными</button>
-            <button class="chip" :class="{on:cpayment==='card'}" @click="cpayment='card'">💳 Картой</button></div></div>
-        <div class="glass card" style="margin-top:16px;background:rgba(255,255,255,.02)">
-          <div class="spread"><span class="muted">Товары</span><span>{{ fmt(cartItemsTotal) }} ₽</span></div>
-          <div class="spread"><span class="muted">Допы</span><span>{{ fmt(addonsTotal) }} ₽</span></div>
-          <div class="spread"><span class="muted">Доставка</span><span>{{ deliveryFee }} ₽</span></div>
-          <div class="spread" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><b>Итого</b><b style="font-size:20px;color:var(--brand)">{{ fmt(total) }} ₽</b></div></div>
-        <button class="btn" style="width:100%;margin-top:16px;padding:15px;background:var(--brand);font-size:16px" :disabled="busy" @click="placeOrder">Подтвердить заказ</button>
-        <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
-      </div>
-
-      <!-- ТРЕКИНГ -->
-      <div v-if="view==='tracking'&&tracking" class="glass card" style="text-align:center;padding:28px">
-        <h2 style="margin:0 0 4px">Заказ №{{ tracking.order_number }}</h2>
-        <span class="badge" :class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span>
-        <div class="steps">
-          <div v-for="(s,i) in trackingSteps" :key="i" class="step" :class="{done:i<currentStep,current:i===currentStep}">
-            <div class="dot">{{ s.icon }}</div><div class="lbl">{{ s.label }}</div></div>
+          <div v-else>
+            <div style="font-size:14px;margin:10px 0">{{ statusHint }}</div>
+            <div style="font-size:13px">
+              <div v-for="it in (tracking.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }} — {{ it.price*it.qty }} ₽</div>
+              <div v-for="a in (tracking.addons||[])" :key="a.name" class="muted">+ {{ a.name }} — {{ a.price }} ₽</div>
+            </div>
+            <div class="spread" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
+              <span class="muted">Итого:</span><b>{{ fmt(tracking.total_price) }} ₽</b>
+            </div>
+          </div>
         </div>
-        <div class="muted" style="font-size:13px;margin-top:8px">{{ statusHint }}</div>
-        <div v-if="tracking.status==='done'||tracking.status==='cancelled'" style="margin-top:18px">
-          <button class="btn" style="background:var(--brand)" @click="newOrder">Новый заказ</button></div>
-        <button v-else class="btn btn-ghost btn-sm" style="margin-top:18px" @click="view='menu'">← Вернуться в меню</button>
-      </div>
+        <p v-else-if="trackSearched" class="muted">Заказов с этим номером не найдено.</p>
+      </template>
     </template>
   </div>
 
-  <!-- МОДАЛКА МОДИФИКАТОРОВ -->
-  <div v-if="showProductModal" class="modal" @click.self="closeProductModal">
-    <div class="glass box" style="max-width:500px">
-      <div class="spread" style="margin-bottom:16px"><h3 style="margin:0">{{ selectedProduct.name }}</h3>
-        <button class="btn btn-ghost btn-sm" @click="closeProductModal">✕</button></div>
-      <div v-if="selectedProduct.description" class="muted" style="margin-bottom:16px">{{ selectedProduct.description }}</div>
-      <div v-if="selectedProduct.modifiers&&selectedProduct.modifiers.length" style="margin-bottom:16px">
-        <label style="margin-bottom:10px;display:block">Соберите своё блюдо:</label>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div v-for="m in selectedProduct.modifiers" :key="m.id" class="row"
-               style="padding:12px;border-radius:12px;background:rgba(255,255,255,.03);cursor:pointer" @click="toggleModifier(m)">
-            <input type="checkbox" :checked="isModifierSelected(m.id)" style="width:auto;pointer-events:none">
-            <div style="flex:1"><div>{{ m.name }}</div><div v-if="m.is_required" class="muted" style="font-size:12px">Обязательно</div></div>
-            <b style="color:var(--brand)">+{{ m.price }} ₽</b></div></div></div>
-      <div class="glass" style="padding:14px;margin-bottom:16px">
-        <div class="spread"><span>Итого:</span><b style="font-size:20px;color:var(--brand)">{{ productTotal }} ₽</b></div></div>
-      <button class="btn" style="width:100%;background:var(--brand)" @click="confirmAddToCart">Добавить в корзину</button>
+  <!-- КОРЗИНА -->
+  <div v-if="showCart" class="modal" @click.self="showCart=false">
+    <div class="glass box">
+      <h3 style="margin-top:0">Корзина</h3>
+      <div v-for="i in cart" :key="i.id" class="row" style="margin-bottom:8px">
+        <div style="flex:1">{{ i.name }} <span class="muted" style="font-size:12px">{{ i.price }} ₽</span></div>
+        <button class="btn btn-ghost btn-sm" @click="dec(i)">−</button><b>{{ i.qty }}</b><button class="btn btn-ghost btn-sm" @click="i.qty++">+</button>
+      </div>
+
+      <div v-if="addonsList.length" style="margin:12px 0">
+        <div class="muted" style="font-size:12px;margin-bottom:8px">Дополнительно / соусы</div>
+        <div v-for="a in addonsList" :key="a.id" class="row" style="margin-bottom:6px">
+          <div style="flex:1;font-size:13px">{{ a.name }} · {{ a.price }} ₽</div>
+          <button v-if="!hasAddon(a.id)" class="btn btn-ghost btn-sm" @click="selectedAddons.push({id:a.id,name:a.name,price:a.price})">+</button>
+          <button v-else class="btn btn-danger btn-sm" @click="selectedAddons=selectedAddons.filter(x=>x.id!==a.id)">−</button>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top:15px"><label>Имя</label><input v-model="form.name"></div>
+      <div class="field"><label>Телефон *</label><input v-model="form.phone" type="tel"></div>
+      <div class="field">
+        <label>Как получить</label>
+        <div class="row">
+          <button class="btn" :class="form.type==='pickup'?'btn-primary':'btn-ghost'" style="flex:1" @click="form.type='pickup'">🏠 Самовывоз</button>
+          <button class="btn" :class="form.type==='delivery'?'btn-primary':'btn-ghost'" style="flex:1" @click="form.type='delivery'">🚗 Доставка (+{{ DELIVERY_FEE }} ₽)</button>
+        </div>
+      </div>
+      <div v-if="form.type==='delivery'" class="field"><label>Адрес доставки *</label><input v-model="form.address"></div>
+      <div class="field"><label>Комментарий</label><textarea v-model="form.comment" rows="2"></textarea></div>
+      <div class="field">
+        <label>Оплата</label>
+        <div class="row">
+          <button class="btn" :class="form.payment==='cash'?'btn-primary':'btn-ghost'" style="flex:1" @click="form.payment='cash'">💵 Наличными</button>
+          <button class="btn" :class="form.payment==='card'?'btn-primary':'btn-ghost'" style="flex:1" @click="form.payment='card'">💳 Картой</button>
+        </div>
+      </div>
+
+      <div class="muted" style="font-size:13px">Товары {{ fmt(cartItemsTotal) }} ₽ · Допы {{ fmt(addonsTotal) }} ₽ · Доставка {{ deliveryFee }} ₽</div>
+      <div class="spread" style="margin-top:6px"><span class="muted">Итого:</span><b>{{ fmt(total) }} ₽</b></div>
+      <button class="btn btn-primary" style="width:100%;margin-top:15px" @click="checkout" :disabled="busy">{{ busy?'Оформляем...':'Подтвердить заказ' }}</button>
+      <div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
     </div>
   </div>
 </div>
 
-<script src="js/config.js"></script><script src="js/auth.js"></script><script src="js/app.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
 <script>
+const DELIVERY_FEE = 150;
 Vue.createApp({
-  data(){return{picker:false,loading:true,paused:false,slug:null,venue:null,venues:[],products:[],addons:[],cart:[],selectedAddons:[],
-    view:'menu',cat:'all',orderType:'pickup',cname:'',cphone:'',caddress:'',ccomment:'',cpayment:'cash',
-    trackingId:null,tracking:null,timer:null,myOrders:[],busy:false,msg:'',msgType:'',
-    selectedProduct:null,showProductModal:false,selectedModifiers:[]}},
+  data(){return{
+    ready:false, venue:null, venues:[], products:[], addonsList:[], view:'menu',
+    cart:[], selectedAddons:[], showCart:false,
+    form:{name:'',phone:'',type:'pickup',address:'',comment:'',payment:'cash'},
+    msg:'', busy:false, trackPhone:'', tracking:null, trackSearched:false, DELIVERY_FEE
+  }},
   computed:{
-    filteredProducts(){return this.products.filter(p=>p.is_available&&(this.cat==='all'||p.category===this.cat))},
-    cartItemsTotal(){return this.cart.reduce((s,i)=>{const mods=(i.selectedModifiers||[]).reduce((a,m)=>a+m.price,0);return s+(i.price+mods)*i.qty},0)},
-    addonsTotal(){return this.selectedAddons.reduce((s,a)=>s+a.price,0)},
-    deliveryFee(){return this.orderType==='delivery'?DELIVERY_FEE:0},
-    total(){return this.cartItemsTotal+this.addonsTotal+this.deliveryFee},
-    trackingSteps(){
-      if(!this.tracking)return [];
-      const base=[{icon:'🆕',label:'Принят'},{icon:'🔥',label:'Готовится'},{icon:'✅',label:'Готов'}];
-      if(this.tracking.order_type==='delivery')base.push({icon:'🚗',label:'В пути'});
-      base.push({icon:'🎉',label:'Готово'});
-      return base;
-    },
-    currentStep(){
-      if(!this.tracking)return 0;
-      const map={new:0,cooking:1,ready:2,delivery:3,done:this.trackingSteps.length-1,cancelled:0};
-      return map[this.tracking.status]??0;
-    },
-    statusHint(){return this.tracking?(STATUS_HINT[this.tracking.status]||''):''},
-    productTotal(){if(!this.selectedProduct)return 0;return this.selectedProduct.price+this.selectedModifiers.reduce((s,m)=>s+m.price,0)}
+    cartItemsTotal(){ return this.cart.reduce((s,i)=>s+i.price*i.qty,0); },
+    addonsTotal(){ return this.selectedAddons.reduce((s,a)=>s+Number(a.price||0),0); },
+    deliveryFee(){ return this.form.type==='delivery'?DELIVERY_FEE:0; },
+    total(){ return this.cartItemsTotal+this.addonsTotal+this.deliveryFee; },
+    statusEmoji(){ return {new:'🆕',cooking:'🔥',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[this.tracking?this.tracking.status:'']||''; },
+    statusHint(){
+      if(!this.tracking) return '';
+      return {new:'Мы получили ваш заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать.',delivery:'Курьер уже мчится к вам 🚗',done:'Спасибо за заказ! Ждём вас снова.'}[this.tracking.status]||'';
+    }
   },
   methods:{
-    fmt,statusName,
-    choose(s){location.href='menu.html?venue='+s},
+    fmt(v){ return typeof window.fmt==='function' ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
+    statusName(s){ return {new:'Новый заказ',cooking:'Готовится',ready:'Готов к выдаче',delivery:'Курьер везёт',done:'Выполнен',changed:'Требует внимания'}[s]||s; },
+    statusColor(s){ return {new:'#60a5fa',cooking:'#fbbf24',ready:'#34d399',delivery:'#a78bfa',done:'#64748b',changed:'#fb923c'}[s]||'#64748b'; },
+    hasAddon(id){ return this.selectedAddons.some(a=>a.id===id); },
+
     async init(){
-      const p=new URLSearchParams(location.search);this.slug=p.get('venue');
-      if(!this.slug){this.picker=true;this.loading=false;const {data}=await db.from('venues').select('*').eq('status','active');this.venues=data||[];return}
-      await this.loadVenue();
+      const slug=new URLSearchParams(location.search).get('venue');
+      if(slug){
+        const {data}=await db.from('venues').select('*').eq('slug',slug).maybeSingle();
+        this.venue=data;
+        if(this.venue) await this.loadProducts();
+      }else{
+        const {data}=await db.from('venues').select('*').eq('status','active');
+        this.venues=data||[];
+      }
+      this.ready=true;
     },
-    async loadVenue(){
-      const {data:v}=await db.from('venues').select('*').eq('slug',this.slug).maybeSingle();
-      this.loading=false;
-      if(!v){this.picker=true;const {data}=await db.from('venues').select('*').eq('status','active');this.venues=data||[];return}
-      this.venue=v;this.paused=v.status!=='active';
-      const {data:pr}=await db.from('products').select('*, modifiers(id)').eq('venue_id',v.id);
-      const all=pr||[];
-      this.products=all.filter(x=>x.category!=='addon').map((x,i)=>({...x,has_mods:(x.modifiers||[]).length>0,is_hit:i<2&&x.category==='main'}));
-      this.addons=all.filter(x=>x.category==='addon'&&x.is_available);
-      this.myOrders=JSON.parse(localStorage.getItem('myorders_'+v.id)||'[]');
+    async selectVenue(v){ this.venue=v; await this.loadProducts(); },
+    async loadProducts(){
+      const {data}=await db.from('products').select('*').eq('venue_id',this.venue.id).eq('is_available',true).order('category');
+      const all=data||[];
+      this.products=all.filter(p=>p.category!=='addon');
+      this.addonsList=all.filter(p=>p.category==='addon');
     },
-    async addToCart(p){
-      const {data:mods}=await db.from('modifiers').select('*').eq('product_id',p.id);
-      if(mods&&mods.length){this.selectedProduct={...p,modifiers:mods};this.selectedModifiers=[];this.showProductModal=true}
-      else this.pushToCart(p,[]);
+    addToCart(p){ this.cart.push({...p,qty:1}); },
+    dec(i){ i.qty>1?i.qty--:this.cart.splice(this.cart.indexOf(i),1); },
+
+    async checkout(){
+      this.msg='';
+      if(!this.cart.length){ this.msg='Корзина пустая'; return; }
+      if(!this.form.phone){ this.msg='Укажите телефон'; return; }
+      if(this.form.type==='delivery'&&!this.form.address){ this.msg='Укажите адрес'; return; }
+      this.busy=true;
+      try{
+        // ОДИН insert: items и addons хранятся как jsonb внутри orders
+        const {error}=await db.from('orders').insert({
+          venue_id:this.venue.id,
+          customer_name:this.form.name||null,
+          customer_phone:this.form.phone,
+          order_type:this.form.type,
+          delivery_address:this.form.type==='delivery'?this.form.address:null,
+          comment:this.form.comment||null,
+          payment_method:this.form.payment,
+          total_price:this.total,
+          status:'new',
+          items:this.cart.map(i=>({product_id:i.id,name:i.name,price:i.price,qty:i.qty})),
+          addons:this.selectedAddons.map(a=>({product_id:a.id,name:a.name,price:a.price}))
+        });
+        if(error) throw error;
+        this.trackPhone=this.form.phone;
+        this.cart=[]; this.selectedAddons=[]; this.showCart=false;
+        this.view='tracking';
+        await this.trackOrder();
+      }catch(e){ this.msg='Ошибка: '+e.message; }
+      finally{ this.busy=false; }
     },
-    pushToCart(p,mods){
-      const item={id:p.id,name:p.name,price:p.price,qty:1,selectedModifiers:mods};
-      const ex=this.cart.find(i=>i.id===item.id&&JSON.stringify(i.selectedModifiers)===JSON.stringify(item.selectedModifiers));
-      if(ex)ex.qty++;else this.cart.push(item);
+
+    async trackOrder(){
+      if(!this.trackPhone) return;
+      const {data}=await db.from('orders').select('*')
+        .eq('venue_id',this.venue.id).eq('customer_phone',this.trackPhone)
+        .order('created_at',{ascending:false}).limit(1).maybeSingle();
+      this.tracking=data;
+      this.trackSearched=true;
     },
-    closeProductModal(){this.showProductModal=false;this.selectedProduct=null;this.selectedModifiers=[]},
-    toggleModifier(m){const i=this.selectedModifiers.findIndex(x=>x.id===m.id);if(i>-1)this.selectedModifiers.splice(i,1);else this.selectedModifiers.push({...m})},
-    isModifierSelected(id){return this.selectedModifiers.some(m=>m.id===id)},
-    confirmAddToCart(){
-      if(this.selectedProduct&&this.selectedProduct.modifiers){
-        for(const r of this.selectedProduct.modifiers.filter(m=>m.is_required)){
-          if(!this.isModifierSelected(r.id))return alert('Обязательно выберите: '+r.name)}}
-      this.pushToCart(this.selectedProduct,[...this.selectedModifiers]);this.closeProductModal();
+
+    async confirmChangedOrder(){
+      await db.from('orders').update({status:'cooking'}).eq('id',this.tracking.id);
+      await this.trackOrder();
     },
-    changeQty(idx,d){const i=this.cart[idx];if(!i)return;i.qty+=d;if(i.qty<=0)this.cart.splice(idx,1)},
-    isAddon(id){return this.selectedAddons.some(a=>a.id===id)},
-    toggleAddon(a){const i=this.selectedAddons.findIndex(x=>x.id===a.id);if(i>-1)this.selectedAddons.splice(i,1);else this.selectedAddons.push(a)},
-    openCheckout(){this.msg='';this.view='checkout'},
-    async placeOrder(){
-      if(!this.cphone.trim())return this.showErr('Укажите телефон');
-      if(this.orderType==='delivery'&&!this.caddress.trim())return this.showErr('Укажите адрес доставки');
-      this.busy=true;const oid=uuid();
-      const items=this.cart.map(i=>({id:i.id,name:i.name,price:i.price,qty:i.qty,modifiers:(i.selectedModifiers||[]).map(m=>({name:m.name,price:m.price}))}));
-      const addons=this.selectedAddons.map(a=>({id:a.id,name:a.name,price:a.price}));
-      const {error}=await db.from('orders').insert({id:oid,venue_id:this.venue.id,status:'new',order_type:this.orderType,
-        customer_name:this.cname||null,customer_phone:this.cphone,
-        delivery_address:this.orderType==='delivery'?this.caddress:null,comment:this.ccomment||null,
-        payment_method:this.cpayment,items,addons,total_price:this.total});
-      this.busy=false;if(error)return this.showErr('Ошибка: '+error.message);
-      this.myOrders.unshift(oid);localStorage.setItem('myorders_'+this.venue.id,JSON.stringify(this.myOrders.slice(0,5)));
-      this.cart=[];this.selectedAddons=[];this.cname='';this.cphone='';this.caddress='';this.ccomment='';
-      this.openTracking(oid);
-    },
-    showErr(t){this.msg=t;this.msgType='err'},
-    openTracking(id){this.trackingId=id;this.view='tracking';this.poll();if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>this.poll(),3000)},
-    async poll(){if(!this.trackingId)return;
-      const {data,error}=await db.rpc('track_order',{oid:this.trackingId});
-      if(!error&&data&&data.length){this.tracking=data[0];
-        if(['done','cancelled'].includes(this.tracking.status)&&this.timer){clearInterval(this.timer);this.timer=null}}},
-    newOrder(){if(this.timer){clearInterval(this.timer);this.timer=null}this.trackingId=null;this.tracking=null;this.view='menu'}
+    async revertOrder(){
+      await db.from('orders').update({status:'new'}).eq('id',this.tracking.id);
+      this.tracking=null;
+      this.view='menu';
+      alert('Заказ возвращён в статус «Новый». Соберите корзину заново — меню открыто.');
+    }
   },
-  mounted(){this.init()},
-  beforeUnmount(){if(this.timer)clearInterval(this.timer)}
+  mounted(){
+    this.init();
+    this.timer=setInterval(()=>{ if(this.tracking&&this.tracking.status!=='done') this.trackOrder(); },5000);
+  },
+  beforeUnmount(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
 </script>
-</body></html>
+</body>
+</html>
