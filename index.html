@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QR-Меню для Бизнеса — Вход</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -14,188 +13,92 @@
 <body>
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
-  <div class="topbar">
-    <div class="brand"><div class="logo">QR</div><span>QR-Меню для Бизнеса</span></div>
-    <a class="btn btn-ghost btn-sm" href="menu.html">📱 Я клиент</a>
-  </div>
-
-  <div class="wrap">
-    <div class="glass card" style="max-width:420px;margin:30px auto">
-      <div class="tabs" style="margin-bottom:16px">
-        <button :class="{on:tab==='login'}" @click="tab='login'">Вход</button>
-        <button :class="{on:tab==='reg'}" @click="tab='reg'">Регистрация</button>
-        <button :class="{on:tab==='cook'}" @click="tab='cook'">Повар (PIN)</button>
-      </div>
-
-      <!-- ВХОД -->
-      <template v-if="tab==='login'">
-        <div class="field"><label>Email</label><input v-model.trim="lform.email" type="email" @keyup.enter="login"></div>
-        <div class="field"><label>Пароль</label><input v-model="lform.password" type="password" @keyup.enter="login"></div>
-        <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">
-          {{ busy ? 'Входим...' : 'Войти' }}
-        </button>
-      </template>
-
-      <!-- РЕГИСТРАЦИЯ -->
-      <template v-else-if="tab==='reg'">
-        <div class="field"><label>Ваше имя</label><input v-model.trim="rform.name"></div>
-        <div class="field"><label>Email</label><input v-model.trim="rform.email" type="email"></div>
-        <div class="field"><label>Пароль (мин. 6)</label><input v-model="rform.password" type="password"></div>
-        <button class="btn btn-primary" style="width:100%" @click="register" :disabled="busy">
-          {{ busy ? 'Создаём...' : 'Создать аккаунт управляющего' }}
-        </button>
-      </template>
-
-      <!-- ПОВАР -->
-      <template v-else>
-        <div class="field"><label>Код заведения (slug)</label><input v-model.trim="cform.slug" placeholder="my-cafe"></div>
-        <div class="field"><label>PIN-код</label><input v-model.trim="cform.pin" type="password" inputmode="numeric" @keyup.enter="cookLogin"></div>
-        <button class="btn btn-primary" style="width:100%" @click="cookLogin" :disabled="busy">
-          {{ busy ? 'Проверяем...' : 'Войти на кухню' }}
-        </button>
-      </template>
-
-      <div v-if="msg" class="msg" :class="msgType" style="margin-top:12px">{{ msg }}</div>
-
-      <p class="muted" style="font-size:12px;margin-top:14px;line-height:1.5">
-        Регистрируются управляющие. Поваров добавляет управляющий, вход для них — по PIN.
-      </p>
+<div class="topbar">
+  <div class="brand"><div class="logo">QR</div><span>QR-Меню для Бизнеса</span></div>
+  <a class="btn btn-ghost btn-sm" href="menu.html">📱 Я клиент</a>
+</div>
+<div class="wrap">
+  <div class="glass card" style="max-width:420px;margin:30px auto">
+    <div class="tabs" style="margin-bottom:16px">
+      <button :class="{on:tab==='login'}" @click="tab='login'">Вход</button>
+      <button :class="{on:tab==='reg'}" @click="tab='reg'">Регистрация</button>
+      <button :class="{on:tab==='cook'}" @click="tab='cook'">Повар (PIN)</button>
     </div>
+    <template v-if="tab==='login'">
+      <div class="field"><label>Email</label><input v-model.trim="lform.email" type="email" @keyup.enter="login"></div>
+      <div class="field"><label>Пароль</label><input v-model="lform.password" type="password" @keyup.enter="login"></div>
+      <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy?'Входим...':'Войти' }}</button>
+    </template>
+    <template v-else-if="tab==='reg'">
+      <div class="field"><label>Ваше имя</label><input v-model.trim="rform.name"></div>
+      <div class="field"><label>Email</label><input v-model.trim="rform.email" type="email"></div>
+      <div class="field"><label>Пароль (мин. 6)</label><input v-model="rform.password" type="password"></div>
+      <button class="btn btn-primary" style="width:100%" @click="register" :disabled="busy">{{ busy?'Создаём...':'Создать аккаунт управляющего' }}</button>
+    </template>
+    <template v-else>
+      <div class="field"><label>Код заведения (slug)</label><input v-model.trim="cform.slug" placeholder="my-cafe"></div>
+      <div class="field"><label>PIN-код</label><input v-model.trim="cform.pin" type="password" inputmode="numeric" @keyup.enter="cookLogin"></div>
+      <button class="btn btn-primary" style="width:100%" @click="cookLogin" :disabled="busy">{{ busy?'Проверяем...':'Войти на кухню' }}</button>
+    </template>
+    <div v-if="msg" class="msg" :class="msgType" style="margin-top:12px">{{ msg }}</div>
+    <p class="muted" style="font-size:12px;margin-top:14px">Регистрируются управляющие. Поваров добавляет управляющий, вход для них — по PIN.</p>
   </div>
 </div>
-
+</div>
 <script src="js/config.js"></script>
+<script src="js/app.js"></script>
 <script>
 Vue.createApp({
-  data(){ return {
-    tab:'login', busy:false, msg:'', msgType:'',
-    lform:{ email:'', password:'' },
-    rform:{ name:'', email:'', password:'' },
-    cform:{ slug:'', pin:'' }
-  }},
-  methods:{
-    async login(){
-      this.msg=''; this.msgType='';
-      if(!this.lform.email || !this.lform.password){
-        this.msg='Заполните email и пароль'; this.msgType='error'; return;
-      }
-      this.busy=true;
-      try{
-        const { data, error } = await db.auth.signInWithPassword({
-          email: this.lform.email,
-          password: this.lform.password
-        });
-        if(error) throw error;
-        await this.routeByRole(data.user.id);
-      }catch(e){
-        this.msg = 'Ошибка входа: ' + (e.message || e);
-        this.msgType = 'error';
-        this.busy = false;
-      }
-    },
-
-    async register(){
-      this.msg=''; this.msgType='';
-      if(!this.rform.email || !this.rform.password || !this.rform.name){
-        this.msg='Заполните все поля'; this.msgType='error'; return;
-      }
-      if(this.rform.password.length < 6){
-        this.msg='Пароль должен быть минимум 6 символов'; this.msgType='error'; return;
-      }
-      this.busy=true;
-      try{
-        const { data, error } = await db.auth.signUp({
-          email: this.rform.email,
-          password: this.rform.password,
-          options:{
-            data:{ display_name: this.rform.name, role:'manager' }
-          }
-        });
-        if(error) throw error;
-
-        // Создаём профиль
-        if(data.user){
-          await db.from('profiles').upsert({
-            id: data.user.id,
-            email: this.rform.email,
-            display_name: this.rform.name,
-            role: 'manager'
-          }).catch(()=>{});
-        }
-
-        // Если сессия есть — сразу входим
-        if(data.session){
-          await this.routeByRole(data.user.id);
-        } else {
-          this.msg = '✓ Аккаунт создан! Проверьте email для подтверждения и войдите.';
-          this.msgType = 'ok';
-          this.tab = 'login';
-          this.busy = false;
-        }
-      }catch(e){
-        const errMsg = e.message || String(e);
-        if(errMsg.toLowerCase().includes('already registered')){
-          this.msg = 'Этот email уже зарегистрирован. Войдите или восстановите пароль.';
-        } else {
-          this.msg = 'Ошибка: ' + errMsg;
-        }
-        this.msgType = 'error';
-        this.busy = false;
-      }
-    },
-
-    async cookLogin(){
-      this.msg=''; this.msgType='';
-      const slug = (this.cform.slug||'').trim().toLowerCase();
-      const pin = (this.cform.pin||'').trim();
-      if(!slug || !pin){
-        this.msg='Заполните код заведения и PIN'; this.msgType='error'; return;
-      }
-      this.busy=true;
-      try{
-        const { data: venue } = await db.from('venues').select('id,name,slug').eq('slug',slug).maybeSingle();
-        if(!venue){ this.msg='Заведение не найдено'; this.msgType='error'; this.busy=false; return; }
-
-        const { data: cook } = await db.from('cooks').select('*').eq('venue_id',venue.id).eq('pin',pin).maybeSingle();
-        if(!cook){ this.msg='Неверный PIN'; this.msgType='error'; this.busy=false; return; }
-
-        localStorage.setItem('cook_session', JSON.stringify({
-          venueId: venue.id, venueName: venue.name, venueSlug: venue.slug,
-          cookId: cook.id, cookName: cook.name
-        }));
-        location.href = 'cook.html';
-      }catch(e){
-        this.msg = 'Ошибка: ' + e.message;
-        this.msgType = 'error';
-        this.busy = false;
-      }
-    },
-
-    // Автоматический редирект после успешного входа
-    async routeByRole(userId){
-      const { data: profile } = await db.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if(!profile){ location.href='manager.html'; return; }
-      if(profile.role === 'admin'){ location.href = 'admin.html'; }
-      else { location.href = 'manager.html'; }
-    }
+data(){return{tab:'login',busy:false,msg:'',msgType:'',
+lform:{email:'',password:''},rform:{name:'',email:'',password:''},cform:{slug:'',pin:''}}},
+methods:{
+  async login(){
+    this.msg=''; if(!this.lform.email||!this.lform.password){this.msg='Заполните email и пароль';this.msgType='error';return}
+    this.busy=true;
+    const {data,error}=await db.auth.signInWithPassword({email:this.lform.email,password:this.lform.password});
+    if(error){this.msg='Ошибка входа: '+error.message;this.msgType='error';this.busy=false;return}
+    await this.routeByRole(data.user.id);
   },
-
-  // Проверка сессии при загрузке — без getProfile!
-  async mounted(){
-    try{
-      if(typeof db === 'undefined'){
-        console.warn('Supabase не подключён');
-        return;
-      }
-      const { data:{ session } } = await db.auth.getSession();
-      if(session && session.user){
-        // Уже залогинен — редиректим в нужный кабинет
-        await this.routeByRole(session.user.id);
-      }
-    }catch(e){
-      console.error('Session check error:', e);
+  async register(){
+    this.msg='';
+    if(!this.rform.email||!this.rform.password||!this.rform.name){this.msg='Заполните все поля';this.msgType='error';return}
+    if(this.rform.password.length<6){this.msg='Пароль минимум 6 символов';this.msgType='error';return}
+    this.busy=true;
+    const {data,error}=await db.auth.signUp({email:this.rform.email,password:this.rform.password,
+      options:{data:{display_name:this.rform.name,role:'manager'}}});
+    if(error){
+      this.msgType='error';
+      this.msg=error.message.toLowerCase().includes('already registered')?'Этот email уже зарегистрирован. Войдите.':'Ошибка: '+error.message;
+      this.busy=false;return;
     }
+    if(data.user){await db.from('profiles').upsert({id:data.user.id,email:this.rform.email,display_name:this.rform.name,role:'manager'}).catch(()=>{})}
+    if(data.session){await this.routeByRole(data.user.id)}
+    else{this.msg='✓ Аккаунт создан! Подтвердите email и войдите.';this.msgType='ok';this.tab='login';this.busy=false}
+  },
+  async cookLogin(){
+    this.msg='';
+    const slug=(this.cform.slug||'').trim().toLowerCase(), pin=(this.cform.pin||'').trim();
+    if(!slug||!pin){this.msg='Заполните код и PIN';this.msgType='error';return}
+    this.busy=true;
+    const {data:venue}=await db.from('venues').select('id,name,slug').eq('slug',slug).maybeSingle();
+    if(!venue){this.msg='Заведение не найдено';this.msgType='error';this.busy=false;return}
+    const {data:cook}=await db.from('cooks').select('*').eq('venue_id',venue.id).eq('pin',pin).maybeSingle();
+    if(!cook){this.msg='Неверный PIN';this.msgType='error';this.busy=false;return}
+    localStorage.setItem('cook_session',JSON.stringify({venueId:venue.id,venueName:venue.name,venueSlug:venue.slug,cookId:cook.id,cookName:cook.name}));
+    location.href='cook.html';
+  },
+  async routeByRole(userId){
+    const {data:profile}=await db.from('profiles').select('*').eq('id',userId).maybeSingle();
+    location.href=(profile&&profile.role==='admin')?'admin.html':'manager.html';
   }
+},
+async mounted(){
+  try{
+    if(typeof db==='undefined')return;
+    const {data:{session}}=await db.auth.getSession();
+    if(session&&session.user)await this.routeByRole(session.user.id);
+  }catch(e){console.error(e)}
+}
 }).mount('#app');
 </script>
 </body>
