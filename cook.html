@@ -18,21 +18,18 @@
   .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
   .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
   .b-done{background:rgba(100,116,139,.2);color:#cbd5e1}
-  .b-changed{background:rgba(251,146,60,.15);color:#fdba74} /* Новый цвет для измененных */
+  .b-changed{background:rgba(251,146,60,.15);color:#fdba74}
 </style>
 </head>
 <body>
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
   <div class="topbar">
-    <div class="brand"><div class="logo">👨‍🍳</div><span>Кухня{{ session ? ' · '+session.venueName : '' }}</span></div>
-    <div class="row">
-      <button v-if="session" class="btn btn-ghost btn-sm" @click="logout">Выйти</button>
-    </div>
+    <div class="brand"><div class="logo">👨🍳</div><span>Кухня{{ session ? ' · '+session.venueName : '' }}</span></div>
+    <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div>
   </div>
 
   <div class="wrap">
-    <!-- ВХОД -->
     <div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
       <h3 style="margin-top:0">Вход для повара</h3>
       <div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="например: my-cafe"></div>
@@ -41,19 +38,20 @@
       <div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
     </div>
 
-    <!-- ДОСКА -->
     <template v-else>
       <div class="muted" style="font-size:12px;margin-bottom:12px">👨‍🍳 {{ session.cookName }} · обновление каждые 3 сек</div>
-
       <div class="cols">
-        <!-- НОВЫЕ -->
         <div class="col">
           <h4>🆕 Новые ({{ colNew.length }})</h4>
           <div v-for="o in colNew" :key="o.id" class="glass wcard">
-            <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-new">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span></div>
+            <div class="spread">
+              <b>№{{ o.order_number }}</b>
+              <span v-if="o.status==='changed'" class="badge b-changed">⏳ ждёт клиента</span>
+              <span v-else class="badge b-new">{{ o.order_type==='delivery'?'🚗':'' }}</span>
+            </div>
             <div style="font-size:13px;margin-top:6px">
-              <div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div>
-              <div v-for="a in o.addons" :key="a.id" class="muted">+ {{ a.name }}</div>
+              <div v-for="it in (o.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }}</div>
+              <div v-for="a in (o.addons||[])" :key="a.name" class="muted">+ {{ a.name }}</div>
             </div>
             <div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
             <div class="row" style="margin-top:10px">
@@ -64,26 +62,24 @@
           <p v-if="!colNew.length" class="muted">Пусто</p>
         </div>
 
-        <!-- ГОТОВЯТСЯ -->
         <div class="col">
           <h4>🔥 Готовятся ({{ colCooking.length }})</h4>
           <div v-for="o in colCooking" :key="o.id" class="glass wcard">
-            <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span></div>
+            <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ o.order_type==='delivery'?'🚗':'' }}</span></div>
             <div style="font-size:13px;margin-top:6px">
-              <div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div>
+              <div v-for="it in (o.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }}</div>
             </div>
             <button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" @click="setStatus(o.id,'ready')">Готово ✓</button>
           </div>
           <p v-if="!colCooking.length" class="muted">Пусто</p>
         </div>
 
-        <!-- ВЫДАЧА -->
         <div class="col">
           <h4>✅ Выдача ({{ colReady.length }})</h4>
           <div v-for="o in colReady" :key="o.id" class="glass wcard">
             <div class="spread"><b>№{{ o.order_number }}</b><span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span></div>
             <div style="font-size:13px;margin-top:6px">
-              <div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div>
+              <div v-for="it in (o.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }}</div>
             </div>
             <div class="row" style="margin-top:10px">
               <button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" @click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
@@ -96,40 +92,32 @@
     </template>
   </div>
 
-  <!-- МОДАЛКА РЕДАКТИРОВАНИЯ ЗАКАЗА (НОВОЕ) -->
+  <!-- МОДАЛКА ИЗМЕНЕНИЯ ЗАКАЗА -->
   <div v-if="showEditModal" class="modal" @click.self="showEditModal=false">
     <div class="glass box">
       <h3 style="margin-top:0">Изменение заказа №{{ editingOrder ? editingOrder.order_number : '' }}</h3>
       <p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии. Клиент увидит изменения и подтвердит их.</p>
-      
       <div v-if="editingOrder">
-        <div v-for="it in editingOrder.items" :key="it.id" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px">
-          <div style="flex:1">
-            <b>{{ it.name }}</b><br>
-            <span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span>
-          </div>
-          <button class="btn btn-ghost btn-sm" @click="changeQty(it, -1)">−</button>
+        <div v-for="(it,idx) in editingOrder.items" :key="idx" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px">
+          <div style="flex:1"><b>{{ it.name }}</b><br><span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span></div>
+          <button class="btn btn-ghost btn-sm" @click="it.qty>1?it.qty--:null">−</button>
           <b style="width:20px;text-align:center">{{ it.qty }}</b>
-          <button class="btn btn-ghost btn-sm" @click="changeQty(it, 1)">+</button>
-          <button class="btn btn-danger btn-sm" @click="removeItem(it.id)">🗑</button>
+          <button class="btn btn-ghost btn-sm" @click="it.qty++">+</button>
+          <button class="btn btn-danger btn-sm" @click="editingOrder.items.splice(idx,1)">🗑</button>
         </div>
-        
         <div v-if="editingOrder.addons && editingOrder.addons.length" style="margin-top:15px">
           <div class="muted" style="font-size:12px;margin-bottom:8px">Дополнительно:</div>
-          <div v-for="a in editingOrder.addons" :key="a.id" class="row" style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.03);border-radius:10px">
+          <div v-for="(a,idx) in editingOrder.addons" :key="idx" class="row" style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.03);border-radius:10px">
             <div style="flex:1;font-size:13px">{{ a.name }} ({{ a.price }} ₽)</div>
-            <button class="btn btn-danger btn-sm" @click="removeAddon(a.id)">🗑</button>
+            <button class="btn btn-danger btn-sm" @click="editingOrder.addons.splice(idx,1)">🗑</button>
           </div>
         </div>
-
         <div class="spread" style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,.1)">
-          <span class="muted">Новая сумма:</span>
-          <b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b>
+          <span class="muted">Новая сумма:</span><b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b>
         </div>
       </div>
-
       <div class="row" style="margin-top:20px">
-        <button class="btn btn-primary" style="flex:1" @click="saveEditedOrder" :disabled="busy || editingOrder.items.length === 0">
+        <button class="btn btn-primary" style="flex:1" @click="saveEditedOrder" :disabled="busy || !editingOrder.items.length">
           {{ busy ? 'Сохранение...' : '✅ Сохранить и уведомить клиента' }}
         </button>
         <button class="btn btn-ghost" @click="showEditModal=false" :disabled="busy">Отмена</button>
@@ -137,31 +125,31 @@
       <div v-if="editError" class="msg error" style="margin-top:10px">{{ editError }}</div>
     </div>
   </div>
-
 </div>
 
 <script src="js/config.js"></script>
 <script>
+const DELIVERY_FEE = 150;
 Vue.createApp({
   data(){return{
     session:null, busy:false, err:'', loginForm:{slug:'',pin:''}, orders:[], timer:null,
     showEditModal:false, editingOrder:null, editError:''
   }},
   computed:{
-    colNew(){ return this.orders.filter(o=>o.status==='new'); },
+    colNew(){ return this.orders.filter(o=>['new','changed'].includes(o.status)); },
     colCooking(){ return this.orders.filter(o=>o.status==='cooking'); },
-    colReady(){ return this.orders.filter(o=>['ready','delivery','changed'].includes(o.status)); },
+    colReady(){ return this.orders.filter(o=>['ready','delivery'].includes(o.status)); },
     newTotal(){
       if(!this.editingOrder) return 0;
-      let sum = this.editingOrder.items.reduce((s,i)=>s+(i.price*i.qty),0);
-      if(this.editingOrder.addons) sum += this.editingOrder.addons.reduce((s,a)=>s+a.price,0);
-      if(this.editingOrder.order_type==='delivery') sum += 150; // DELIVERY_FEE
+      let sum=(this.editingOrder.items||[]).reduce((s,i)=>s+i.price*i.qty,0);
+      sum+=(this.editingOrder.addons||[]).reduce((s,a)=>s+Number(a.price||0),0);
+      if(this.editingOrder.order_type==='delivery') sum+=DELIVERY_FEE;
       return sum;
     }
   },
   methods:{
     fmt(v){ return typeof window.fmt==='function' ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
-    statusName(s){ return {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',cancelled:'Отменён',changed:'Изменён'}[s]||s; },
+    statusName(s){ return {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',changed:'Изменён'}[s]||s; },
 
     async login(){
       this.err=''; this.busy=true;
@@ -185,88 +173,45 @@ Vue.createApp({
     },
     async load(){
       if(!this.session) return;
-      const {data,error}=await db.from('orders').select('*, items:order_items(*), addons:order_addons(*)')
-        .eq('venue_id',this.session.venueId).neq('status','done').neq('status','cancelled')
+      const {data,error}=await db.from('orders').select('*')
+        .eq('venue_id',this.session.venueId)
+        .neq('status','done').neq('status','cancelled')
         .order('created_at',{ascending:false}).limit(30);
       if(!error) this.orders=data||[];
     },
     startTimer(){ if(this.timer) clearInterval(this.timer); this.timer=setInterval(()=>this.load(),3000); },
-    
+
     async setStatus(id,status){
       const {error}=await db.from('orders').update({status}).eq('id',id);
       if(error){ alert('Ошибка: '+error.message); return; }
       await this.load();
     },
 
-    // Логика редактирования
     openEditOrder(o){
-      // Создаем глубокую копию, чтобы не менять оригинал до сохранения
-      this.editingOrder = JSON.parse(JSON.stringify(o));
-      this.editError = '';
-      this.showEditModal = true;
+      const copy=JSON.parse(JSON.stringify(o));
+      copy.items=copy.items||[];
+      copy.addons=copy.addons||[];
+      this.editingOrder=copy;
+      this.editError='';
+      this.showEditModal=true;
     },
-    changeQty(item, delta){
-      item.qty += delta;
-      if(item.qty < 1) item.qty = 1;
-    },
-    removeItem(itemId){
-      this.editingOrder.items = this.editingOrder.items.filter(i => i.id !== itemId);
-    },
-    removeAddon(addonId){
-      this.editingOrder.addons = this.editingOrder.addons.filter(a => a.id !== addonId);
-    },
+
     async saveEditedOrder(){
-      if(this.editingOrder.items.length === 0){
-        this.editError = 'В заказе должна остаться хотя бы одна позиция';
-        return;
-      }
-      this.busy = true; this.editError = '';
+      if(!this.editingOrder.items.length){ this.editError='В заказе должна остаться хотя бы одна позиция'; return; }
+      this.busy=true; this.editError='';
       try{
-        // 1. Обновляем статус и сумму
-        const {error: oErr} = await db.from('orders').update({
-          status: 'changed',
-          total_price: this.newTotal
-        }).eq('id', this.editingOrder.id);
-        if(oErr) throw oErr;
-
-        // 2. Удаляем убранные позиции
-        const currentItemIds = this.editingOrder.items.map(i => i.id);
-        const originalItemIds = this.orders.find(o => o.id === this.editingOrder.id).items.map(i => i.id);
-        const deletedItemIds = originalItemIds.filter(id => !currentItemIds.includes(id));
-        
-        if(deletedItemIds.length > 0){
-          const {error: dErr} = await db.from('order_items').delete().in('id', deletedItemIds);
-          if(dErr) throw dErr;
-        }
-
-        // 3. Обновляем количество оставшихся
-        for(let item of this.editingOrder.items){
-          const original = this.orders.find(o => o.id === this.editingOrder.id).items.find(i => i.id === item.id);
-          if(original && original.qty !== item.qty){
-            const {error: uErr} = await db.from('order_items').update({qty: item.qty}).eq('id', item.id);
-            if(uErr) throw uErr;
-          }
-        }
-
-        // 4. Удаляем убранные добавки (если есть)
-        if(this.editingOrder.addons !== undefined){
-          const currentAddonIds = this.editingOrder.addons.map(a => a.id);
-          const originalAddons = this.orders.find(o => o.id === this.editingOrder.id).addons || [];
-          const originalAddonIds = originalAddons.map(a => a.id);
-          const deletedAddonIds = originalAddonIds.filter(id => !currentAddonIds.includes(id));
-          
-          if(deletedAddonIds.length > 0){
-            await db.from('order_addons').delete().in('id', deletedAddonIds);
-          }
-        }
-
-        this.showEditModal = false;
+        // Один запрос: перезаписываем jsonb-массивы, сумму и статус
+        const {error}=await db.from('orders').update({
+          status:'changed',
+          total_price:this.newTotal,
+          items:this.editingOrder.items,
+          addons:this.editingOrder.addons
+        }).eq('id',this.editingOrder.id);
+        if(error) throw error;
+        this.showEditModal=false;
         await this.load();
-      }catch(e){
-        this.editError = 'Ошибка сохранения: ' + e.message;
-      }finally{
-        this.busy = false;
-      }
+      }catch(e){ this.editError='Ошибка сохранения: '+e.message; }
+      finally{ this.busy=false; }
     }
   },
   async mounted(){
