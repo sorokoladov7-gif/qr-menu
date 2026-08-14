@@ -17,7 +17,6 @@
   <div class="wrap">
     <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
     <template v-else>
-      <!-- СТАТИСТИКА -->
       <div class="stats" style="margin-bottom:18px">
         <div class="glass stat"><div class="num">{{ venues.length }}</div><div class="lbl">Заведений</div></div>
         <div class="glass stat" style="border-color:#34d399"><div class="num">{{ fmt(mrr) }} ₽</div><div class="lbl">MRR / мес</div></div>
@@ -25,7 +24,6 @@
         <div class="glass stat" style="border-color:#a78bfa"><div class="num">{{ pendingPayments }}</div><div class="lbl">Ждут оплаты</div></div>
       </div>
 
-      <!-- ВКЛАДКИ -->
       <div class="tabs" style="margin-bottom:18px">
         <button :class="{on:tab==='venues'}" @click="tab='venues'">🏪 Заведения</button>
         <button :class="{on:tab==='subs'}" @click="tab='subs'">📅 Подписки</button>
@@ -33,7 +31,7 @@
         <button :class="{on:tab==='managers'}" @click="tab='managers'">👤 Управляющие</button>
       </div>
 
-      <!-- ===== ЗАВЕДЕНИЯ ===== -->
+      <!-- ЗАВЕДЕНИЯ -->
       <div v-if="tab==='venues'">
         <div class="spread" style="margin-bottom:14px">
           <h3 style="margin:0">Заведения</h3>
@@ -51,12 +49,8 @@
                   </select>
                 </td>
                 <td>
-                  <span v-if="getSub(v.id)" class="badge" :class="subBadge(getSub(v.id).status)">
-                    {{ subStatusName(getSub(v.id).status) }}
-                  </span>
-                  <div class="muted" style="font-size:11px;margin-top:2px" v-if="getSub(v.id)&&getSub(v.id).expires_at">
-                    до {{ formatDate(getSub(v.id).expires_at) }}
-                  </div>
+                  <span v-if="getSub(v.id)" class="badge" :class="subBadge(getSub(v.id).status)">{{ subStatusName(getSub(v.id).status) }}</span>
+                  <div class="muted" style="font-size:11px;margin-top:2px" v-if="getSub(v.id)&&getSub(v.id).expires_at">до {{ formatDate(getSub(v.id).expires_at) }}</div>
                 </td>
                 <td><span class="badge" :class="v.status==='active'?'b-ready':'b-cooking'">{{ v.status==='active'?'Активен':'Пауза' }}</span></td>
                 <td>
@@ -73,35 +67,27 @@
         </div>
       </div>
 
-      <!-- ===== ПОДПИСКИ ===== -->
+      <!-- ПОДПИСКИ -->
       <div v-if="tab==='subs'">
         <div class="spread" style="margin-bottom:14px">
           <h3 style="margin:0">Запросы на оплату</h3>
           <span v-if="pendingPayments" class="badge b-cooking">{{ pendingPayments }} ждут</span>
         </div>
-
-        <!-- Запросы на оплату -->
         <div v-if="paymentRequests.length" style="margin-bottom:24px">
           <div v-for="pr in paymentRequests" :key="pr.id" class="glass card" style="margin-bottom:10px;border-left:3px solid #fbbf24">
             <div class="spread">
-              <div>
-                <b>{{ getVenueName(pr.venue_id) }}</b> хочет тариф <b>{{ getPlanName(pr.plan_id) }}</b>
-                <div class="muted" style="font-size:12px">Запрошено: {{ formatDate(pr.requested_at) }}</div>
-              </div>
+              <div><b>{{ getVenueName(pr.venue_id) }}</b> хочет тариф <b>{{ getPlanName(pr.plan_id) }}</b>
+                <div class="muted" style="font-size:12px">Запрошено: {{ formatDate(pr.requested_at) }}</div></div>
               <b style="font-size:18px;color:#a5b4fc">{{ fmt(pr.amount) }} ₽</b>
             </div>
             <div class="row" style="margin-top:10px" v-if="pr.status==='pending'">
               <button class="btn btn-green btn-sm" @click="approvePayment(pr)">✓ Подтвердить оплату</button>
               <button class="btn btn-danger btn-sm" @click="rejectPayment(pr)">✕ Отклонить</button>
             </div>
-            <span v-else class="badge" :class="pr.status==='approved'?'b-ready':'b-cancelled'">
-              {{ pr.status==='approved'?'Оплачено':'Отклонено' }}
-            </span>
+            <span v-else class="badge" :class="pr.status==='approved'?'b-ready':'b-cancelled'">{{ pr.status==='approved'?'Оплачено':'Отклонено' }}</span>
           </div>
         </div>
         <p v-else class="muted" style="margin-bottom:24px">Нет запросов на оплату.</p>
-
-        <!-- Все подписки -->
         <h3>Все подписки</h3>
         <div class="glass" style="overflow-x:auto">
           <table class="table">
@@ -127,7 +113,7 @@
         </div>
       </div>
 
-      <!-- ===== ТАРИФЫ ===== -->
+      <!-- ТАРИФЫ -->
       <div v-if="tab==='plans'">
         <div class="spread" style="margin-bottom:14px">
           <h3 style="margin:0">Тарифные планы</h3>
@@ -139,47 +125,46 @@
               <b style="font-size:16px">{{ p.name }}</b>
               <span class="badge" :class="p.is_active?'b-ready':'b-cancelled'">{{ p.is_active?'Активен':'Выкл' }}</span>
             </div>
-            <div class="field">
-              <label>Цена ₽/мес</label>
-              <input v-model.number="p.price" type="number" @change="savePlan(p)">
-            </div>
-            <div class="field">
-              <label>Макс. блюд</label>
-              <input v-model.number="p.max_products" type="number" @change="savePlan(p)">
-            </div>
-            <div class="field">
-              <label>Макс. поваров</label>
-              <input v-model.number="p.max_cooks" type="number" @change="savePlan(p)">
-            </div>
-            <div class="field">
-              <label>Особенности (через запятую)</label>
-              <textarea v-model="p.featuresStr" rows="2" @change="savePlanFeatures(p)" placeholder="QR-меню, Доставка, Аналитика"></textarea>
-            </div>
+            <div class="field"><label>Цена ₽/мес</label><input v-model.number="p.price" type="number" @change="savePlan(p)"></div>
+            <div class="field"><label>Макс. блюд</label><input v-model.number="p.max_products" type="number" @change="savePlan(p)"></div>
+            <div class="field"><label>Макс. поваров</label><input v-model.number="p.max_cooks" type="number" @change="savePlan(p)"></div>
+            <div class="field"><label>Особенности (через запятую)</label><textarea v-model="p.featuresStr" rows="2" @change="savePlanFeatures(p)"></textarea></div>
             <button class="btn btn-ghost btn-sm" @click="togglePlanActive(p)">{{ p.is_active?'Выключить тариф':'Включить тариф' }}</button>
           </div>
         </div>
       </div>
 
-      <!-- ===== УПРАВЛЯЮЩИЕ ===== -->
+      <!-- УПРАВЛЯЮЩИЕ -->
       <div v-if="tab==='managers'">
-        <h3 style="margin-bottom:14px">Управляющие</h3>
+        <div class="spread" style="margin-bottom:14px">
+          <h3 style="margin:0">Управляющие <span class="muted" style="font-size:13px">{{ managersFull.length }}</span></h3>
+          <label style="margin:0;display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none">
+            <input type="checkbox" v-model="showOnlyInactive" style="width:auto">
+            <span style="font-size:13px">Только неактивные</span>
+          </label>
+        </div>
         <div class="glass" style="overflow-x:auto">
           <table class="table">
-            <thead><tr><th>Имя</th><th>Email</th><th>Заведение</th></tr></thead>
+            <thead><tr><th>Имя</th><th>Email</th><th>Последний вход</th><th>Статус</th><th>Заведение</th><th></th></tr></thead>
             <tbody>
-              <tr v-for="m in managers" :key="m.id">
-                <td>{{ m.display_name }}</td><td class="muted">{{ m.email }}</td>
+              <tr v-for="m in filteredManagers" :key="m.id">
+                <td>{{ m.display_name || '—' }}</td>
+                <td class="muted">{{ m.email }}</td>
+                <td class="muted" style="font-size:12px">{{ m.last_sign_in_at ? timeAgo(m.last_sign_in_at) : 'никогда' }}</td>
+                <td><span class="badge" :class="managerStatus(m).class">{{ managerStatus(m).label }}</span></td>
                 <td>
                   <select :value="m.venue_id||''" @change="assign(m,$event.target.value)" style="width:auto;padding:7px 10px;font-size:13px">
                     <option value="">— не назначен —</option>
                     <option v-for="v in venues" :key="v.id" :value="v.id">{{ v.name }}</option>
                   </select>
                 </td>
+                <td><button class="btn btn-danger btn-sm" @click="delManager(m)" :title="'Удалить '+m.email">🗑</button></td>
               </tr>
-              <tr v-if="!managers.length"><td colspan="3" class="muted" style="text-align:center;padding:20px">Нет управляющих</td></tr>
+              <tr v-if="!filteredManagers.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет управляющих</td></tr>
             </tbody>
           </table>
         </div>
+        <p class="muted" style="font-size:12px;margin-top:10px">💡 Неактивный = не входил более 7 дней. Удаление необратимо: аккаунт и профиль будут стёрты.</p>
       </div>
     </template>
   </div>
@@ -191,33 +176,72 @@
       <div class="field"><label>Название</label><input v-model="form.name" @input="form.slug=slugify(form.name)"></div>
       <div class="field"><label>Код (slug)</label><input v-model="form.slug"></div>
       <div class="field"><label>Тариф</label>
-        <select v-model="form.plan"><option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} · {{ p.price }} ₽/мес</option></select>
-      </div>
+        <select v-model="form.plan"><option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} · {{ p.price }} ₽/мес</option></select></div>
       <div class="field"><label>Пробный период (дней)</label><input v-model.number="form.trialDays" type="number"></div>
       <div class="field"><label>Описание</label><textarea v-model="form.description" rows="2"></textarea></div>
       <div class="row">
         <button class="btn btn-primary" style="flex:1" @click="createVenue">Создать</button>
-        <button class="btn btn-ghost" @click="showCreate=false">Отмена</button>
-      </div>
+        <button class="btn btn-ghost" @click="showCreate=false">Отмена</button></div>
       <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
     </div>
   </div>
+
+  <!-- ДИАЛОГ ПОДТВЕРЖДЕНИЯ -->
+  <div v-if="confirmDialog.show" class="modal">
+    <div class="glass box" style="max-width:380px">
+      <h3 style="margin-top:0">{{ confirmDialog.title }}</h3>
+      <p class="muted">{{ confirmDialog.text }}</p>
+      <div class="row">
+        <button class="btn btn-danger" style="flex:1" @click="doConfirm">Удалить</button>
+        <button class="btn btn-ghost" style="flex:1" @click="cancelConfirm">Отмена</button></div>
+    </div>
+  </div>
+
+  <!-- ТОСТ -->
+  <div v-if="toast.show" class="glass" style="position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 22px;z-index:80">{{ toast.text }}</div>
 </div>
 
 <script src="js/config.js"></script><script src="js/auth.js"></script><script src="js/app.js"></script>
 <script>
 Vue.createApp({
-  data(){return{ready:false,profile:null,venues:[],managers:[],plans:[],subscriptions:[],paymentRequests:[],
-    tab:'venues',showCreate:false,form:{name:'',slug:'',plan:'start',description:'',trialDays:14},msg:'',msgType:''}},
+  data(){return{ready:false,profile:null,venues:[],managers:[],usersInfo:[],plans:[],subscriptions:[],paymentRequests:[],
+    tab:'venues',showCreate:false,showOnlyInactive:false,
+    form:{name:'',slug:'',plan:'start',description:'',trialDays:14},msg:'',msgType:'',
+    confirmDialog:{show:false,title:'',text:'',onConfirm:null},toast:{show:false,text:''}}},
   computed:{
-    mrr(){return this.subscriptions.filter(s=>s.status==='active').reduce((sum,s)=>{
-      const p=this.plans.find(x=>x.id===s.plan_id);return sum+(p?p.price:0)},0)},
+    mrr(){return this.subscriptions.filter(s=>s.status==='active').reduce((sum,s)=>{const p=this.plans.find(x=>x.id===s.plan_id);return sum+(p?p.price:0)},0)},
     pausedCount(){return this.venues.filter(v=>v.status==='paused').length},
-    pendingPayments(){return this.paymentRequests.filter(p=>p.status==='pending').length}
+    pendingPayments(){return this.paymentRequests.filter(p=>p.status==='pending').length},
+    managersFull(){
+      return this.managers.map(m=>{
+        const u=this.usersInfo.find(x=>x.id===m.id);
+        return {...m,last_sign_in_at:u?u.last_sign_in_at:null};
+      });
+    },
+    filteredManagers(){
+      if(!this.showOnlyInactive)return this.managersFull;
+      return this.managersFull.filter(m=>this.managerStatus(m).type!=='active');
+    }
   },
   methods:{
     fmt,slugify,logout,
     formatDate(d){if(!d)return '—';return new Date(d).toLocaleDateString('ru-RU')},
+    timeAgo(ts){
+      const diff=Date.now()-new Date(ts).getTime();
+      const days=Math.floor(diff/86400000);
+      if(days===0)return 'сегодня';
+      if(days===1)return 'вчера';
+      if(days<7)return days+' дн. назад';
+      if(days<30)return Math.floor(days/7)+' нед. назад';
+      return Math.floor(days/30)+' мес. назад';
+    },
+    managerStatus(m){
+      if(!m.last_sign_in_at)return {label:'Не входил',class:'b-cancelled',type:'never'};
+      const days=Math.floor((Date.now()-new Date(m.last_sign_in_at).getTime())/86400000);
+      if(days<=7)return {label:'Активен',class:'b-ready',type:'active'};
+      return {label:'Не входил '+days+' дн.',class:'b-cooking',type:'inactive'};
+    },
+    showToast(t){this.toast={show:true,text:t};setTimeout(()=>this.toast.show=false,2500)},
     getVenueName(id){const v=this.venues.find(x=>x.id===id);return v?v.name:'?'},
     getPlanName(id){const p=this.plans.find(x=>x.id===id);return p?p.name:id},
     getSub(venueId){return this.subscriptions.find(s=>s.venue_id===venueId&&['active','trial'].includes(s.status))},
@@ -240,6 +264,8 @@ Vue.createApp({
       this.venues=v.data||[];this.managers=m.data||[];
       this.plans=(p.data||[]).map(x=>({...x,featuresStr:(x.features||[]).join(', ')}));
       this.subscriptions=s.data||[];this.paymentRequests=pr.data||[];
+      const {data:users}=await db.rpc('list_users_for_admin');
+      this.usersInfo=users||[];
     },
 
     // Заведения
@@ -249,14 +275,9 @@ Vue.createApp({
         name:this.form.name,slug:this.form.slug.toLowerCase(),plan:this.form.plan,description:this.form.description
       }).select('id').single();
       if(error){this.msg='Ошибка: '+error.message;this.msgType='err';return}
-      
-      // Создаём подписку с пробным периодом
       const expiresAt=new Date();expiresAt.setDate(expiresAt.getDate()+this.form.trialDays);
-      await db.from('subscriptions').insert({
-        venue_id:venue.id,plan_id:this.form.plan,status:'trial',
-        starts_at:new Date().toISOString(),expires_at:expiresAt.toISOString(),amount:0
-      });
-      
+      await db.from('subscriptions').insert({venue_id:venue.id,plan_id:this.form.plan,status:'trial',
+        starts_at:new Date().toISOString(),expires_at:expiresAt.toISOString(),amount:0});
       this.showCreate=false;this.form={name:'',slug:'',plan:'start',description:'',trialDays:14};
       await this.loadAll();
     },
@@ -267,7 +288,10 @@ Vue.createApp({
       if(sub)await db.from('subscriptions').update({plan_id:plan}).eq('id',sub.id);
       await this.loadAll();
     },
-    async delVenue(v){if(confirm('Удалить "'+v.name+'" и все данные?')){await db.from('venues').delete().eq('id',v.id);await this.loadAll()}},
+    delVenue(v){
+      this.confirmDialog={show:true,title:'Удалить заведение?',text:'«'+v.name+'» и все его данные будут удалены безвозвратно.',
+        onConfirm:async()=>{await db.from('venues').delete().eq('id',v.id);await this.loadAll();this.showToast('Заведение удалено')}};
+    },
 
     // Подписки
     async extendSub(s){
@@ -287,24 +311,16 @@ Vue.createApp({
       await db.from('venues').update({status:'active'}).eq('id',s.venue_id);
       await this.loadAll();
     },
-
-    // Оплата
     async approvePayment(pr){
-      // Обновляем запрос
       await db.from('payment_requests').update({status:'approved',processed_at:new Date().toISOString(),processed_by:this.profile.id}).eq('id',pr.id);
-      // Обновляем или создаём подписку
       const existing=this.subscriptions.find(s=>s.venue_id===pr.venue_id);
       const newExpiry=new Date();newExpiry.setDate(newExpiry.getDate()+30);
       if(existing){
-        await db.from('subscriptions').update({
-          plan_id:pr.plan_id,status:'active',amount:pr.amount,
-          starts_at:new Date().toISOString(),expires_at:newExpiry.toISOString()
-        }).eq('id',existing.id);
+        await db.from('subscriptions').update({plan_id:pr.plan_id,status:'active',amount:pr.amount,
+          starts_at:new Date().toISOString(),expires_at:newExpiry.toISOString()}).eq('id',existing.id);
       }else{
-        await db.from('subscriptions').insert({
-          venue_id:pr.venue_id,plan_id:pr.plan_id,status:'active',amount:pr.amount,
-          starts_at:new Date().toISOString(),expires_at:newExpiry.toISOString()
-        });
+        await db.from('subscriptions').insert({venue_id:pr.venue_id,plan_id:pr.plan_id,status:'active',amount:pr.amount,
+          starts_at:new Date().toISOString(),expires_at:newExpiry.toISOString()});
       }
       await db.from('venues').update({status:'active',plan:pr.plan_id}).eq('id',pr.venue_id);
       await this.loadAll();
@@ -315,20 +331,23 @@ Vue.createApp({
     },
 
     // Тарифы
-    async savePlan(p){
-      await db.from('plans').update({price:p.price,max_products:p.max_products,max_cooks:p.max_cooks}).eq('id',p.id);
-    },
-    async savePlanFeatures(p){
-      const features=p.featuresStr.split(',').map(x=>x.trim()).filter(x=>x);
-      await db.from('plans').update({features}).eq('id',p.id);
-    },
-    async togglePlanActive(p){
-      await db.from('plans').update({is_active:!p.is_active}).eq('id',p.id);
-      await this.loadAll();
-    },
+    async savePlan(p){await db.from('plans').update({price:p.price,max_products:p.max_products,max_cooks:p.max_cooks}).eq('id',p.id)},
+    async savePlanFeatures(p){const features=p.featuresStr.split(',').map(x=>x.trim()).filter(x=>x);await db.from('plans').update({features}).eq('id',p.id)},
+    async togglePlanActive(p){await db.from('plans').update({is_active:!p.is_active}).eq('id',p.id);await this.loadAll()},
 
     // Управляющие
-    async assign(m,venueId){await db.from('profiles').update({venue_id:venueId||null}).eq('id',m.id);await this.loadAll()}
+    async assign(m,venueId){await db.from('profiles').update({venue_id:venueId||null}).eq('id',m.id);await this.loadAll()},
+    delManager(m){
+      this.confirmDialog={show:true,title:'Удалить управляющего?',
+        text:m.email+' будет удалён без возможности восстановления. Его доступ к заведению будет закрыт.',
+        onConfirm:async()=>{
+          const {error}=await db.rpc('delete_user',{user_id:m.id});
+          if(error){alert('Ошибка: '+error.message)}
+          else{this.showToast('Управляющий удалён');await this.loadAll()}
+        }};
+    },
+    doConfirm(){if(this.confirmDialog.onConfirm)this.confirmDialog.onConfirm();this.confirmDialog.show=false},
+    cancelConfirm(){this.confirmDialog.show=false}
   },
   mounted(){this.init()}
 }).mount('#app');
