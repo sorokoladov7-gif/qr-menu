@@ -11,11 +11,12 @@
 <style>
   [v-cloak]{display:none}
   .tblwrap{overflow-x:auto}
-  .tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:640px}
+  .tbl{width:100%;border-collapse:collapse;font-size:13px;min-width:800px}
   .tbl th,.tbl td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left;vertical-align:middle}
   .tbl th{color:#9ca3af;font-weight:600;font-size:12px}
   .b-on{background:rgba(52,211,153,.15);color:#6ee7b7}
   .b-off{background:rgba(248,113,113,.15);color:#fca5a5}
+  .b-trial{background:rgba(96,165,250,.15);color:#93c5fd}
   .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
   .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
   .checkbox-label { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.05); padding: 6px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
@@ -39,14 +40,13 @@
       <div class="stats" style="margin-bottom:18px">
         <div class="glass stat"><div class="num">{{ venues.length }}</div><div class="lbl">Заведений</div></div>
         <div class="glass stat" style="border-color:#34d399"><div class="num">{{ fmt(mrr) }} ₽</div><div class="lbl">MRR / мес</div></div>
-        <div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ pausedCount }}</div><div class="lbl">На паузе</div></div>
+        <div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ expiringSoon }}</div><div class="lbl">Истекает скоро</div></div>
         <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ managers.length }}</div><div class="lbl">Управляющих</div></div>
-        <div class="glass stat" style="border-color:#a78bfa"><div class="num">{{ cooksCount }}</div><div class="lbl">Поваров</div></div>
       </div>
 
       <div class="tabs" style="margin-bottom:18px">
         <button :class="{on:tab==='stats'}" @click="tab='stats'; loadGlobalStats()">📊 Статистика</button>
-        <button :class="{on:tab==='venues'}" @click="tab='venues'">🏢 Заведения</button>
+        <button :class="{on:tab==='venues'}" @click="tab='venues'">🏢 Заведения и Подписки</button>
         <button :class="{on:tab==='managers'}" @click="tab='managers'">👤 Управляющие</button>
       </div>
 
@@ -82,7 +82,7 @@
         </div>
       </div>
 
-      <!-- ЗАВЕДЕНИЯ -->
+      <!-- ЗАВЕДЕНИЯ И ПОДПИСКИ -->
       <div v-if="tab==='venues'">
         <div class="spread" style="margin-bottom:14px">
           <h3 style="margin:0">Заведения</h3>
@@ -90,16 +90,21 @@
         </div>
         <div class="glass card tblwrap">
           <table class="tbl">
-            <tr><th>Заведение</th><th>Тариф</th><th>Статус</th><th>Повара</th><th></th></tr>
+            <tr><th>Заведение</th><th>Тариф</th><th>Статус подписки</th><th>Действует до</th><th>Действия</th></tr>
             <tr v-for="v in venues" :key="v.id">
               <td><b>{{ v.name }}</b><div class="muted" style="font-size:12px">/{{ v.slug }}</div></td>
               <td>
-                <select :value="v.plan" @change="setPlan(v,$event.target.value)" style="width:auto;padding:6px 8px">
-                  <option v-for="(p,key) in PLANS" :key="key" :value="key">{{ p.label }} · {{ p.price }} ₽</option>
+                <select :value="v.plan" @change="changePlan(v, $event.target.value)" style="width:auto;padding:6px 8px">
+                  <option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} ({{ p.price }}₽)</option>
                 </select>
               </td>
-              <td><span class="badge" :class="v.status==='active'?'b-on':'b-off'">{{ v.status==='active'?'Активен':'Пауза' }}</span></td>
-              <td>{{ cooksByVenue(v.id) }}</td>
+              <td>
+                <span class="badge" :class="getSubStatusClass(v)">{{ getSubStatusLabel(v) }}</span>
+              </td>
+              <td>
+                <div style="font-size:12px">{{ fmtDate(v.subscription_end) }}</div>
+                <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px;margin-top:4px" @click="extendSub(v)">+ 30 дн.</button>
+              </td>
               <td style="white-space:nowrap">
                 <a class="btn btn-ghost btn-sm" :href="'menu.html?venue='+v.slug" target="_blank">🔗</a>
                 <button class="btn btn-ghost btn-sm" @click="toggleStatus(v)">{{ v.status==='active'?'⏸':'▶️' }}</button>
@@ -111,7 +116,7 @@
         </div>
       </div>
 
-      <!-- УПРАВЛЯЮЩИЕ (ОБНОВЛЕНО) -->
+      <!-- УПРАВЛЯЮЩИЕ -->
       <div v-if="tab==='managers'">
         <div class="glass card tblwrap">
           <table class="tbl">
@@ -132,7 +137,6 @@
           </table>
           <p v-if="!managers.length" class="muted" style="padding:14px">Нет зарегистрированных управляющих.</p>
         </div>
-        <p class="muted" style="font-size:12px;margin-top:12px">Порядок: вы создаёте заведение → управляющий регистрируется на index.html → вы назначаете ему доступы здесь (или он сам создает свои).</p>
       </div>
     </template>
   </div>
@@ -144,11 +148,11 @@
       <div class="field"><label>Название</label><input v-model.trim="nform.name"></div>
       <div class="field"><label>Код (slug)</label><input v-model.trim="nform.slug" placeholder="my-cafe"></div>
       <div class="field"><label>Тариф</label>
-        <select v-model="nform.plan"><option v-for="(p,key) in PLANS" :key="key" :value="key">{{ p.label }} · {{ p.price }} ₽/мес</option></select>
+        <select v-model="nform.plan"><option v-for="p in plans" :key="p.id" :value="p.id">{{ p.name }} ({{ p.price }}₽)</option></select>
       </div>
       <div class="field"><label>Описание</label><textarea v-model="nform.description" rows="2"></textarea></div>
       <div class="row">
-        <button class="btn btn-primary" style="flex:1" @click="createVenue" :disabled="busy">Создать</button>
+        <button class="btn btn-primary" style="flex:1" @click="createVenue" :disabled="busy">Создать (14 дней триал)</button>
         <button class="btn btn-ghost" @click="showModal=false">Отмена</button>
       </div>
       <div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
@@ -159,25 +163,50 @@
 <script src="js/config.js"></script>
 <script src="js/auth.js"></script>
 <script>
-const PLANS={ start:{label:'Старт',price:990}, pro:{label:'Про',price:1990}, vip:{label:'VIP',price:3990} };
-
 Vue.createApp({
   data(){return{
     ready:false, busy:false, profile:null, tab:'stats',
-    venues:[], managers:[], cooksAll:[], links:[],
+    venues:[], managers:[], links:[], plans:[],
     showModal:false, nform:{name:'',slug:'',plan:'start',description:''}, msg:'',
     statsPeriod: '7',
     globalStats: { revenue: 0, orders: 0, clients: 0, venueStats: [] }
   }},
   computed:{
-    mrr(){ return this.venues.filter(v=>v.status==='active').reduce((s,v)=>s+(PLANS[v.plan]?PLANS[v.plan].price:0),0); },
-    pausedCount(){ return this.venues.filter(v=>v.status!=='active').length; },
-    cooksCount(){ return this.cooksAll.length; }
+    mrr(){ 
+      return this.venues.filter(v=>v.status==='active' && v.plan!=='start').reduce((s,v)=>{
+        const p = this.plans.find(pl=>pl.id===v.plan);
+        return s + (p ? p.price : 0);
+      },0); 
+    },
+    expiringSoon(){
+      const now = new Date();
+      const limit = new Date(); limit.setDate(limit.getDate() + 3);
+      return this.venues.filter(v => v.subscription_end && new Date(v.subscription_end) > now && new Date(v.subscription_end) <= limit).length;
+    }
   },
   methods:{
     fmt(v){ return typeof window.fmt==='function' ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
-    cooksByVenue(id){ return this.cooksAll.filter(c=>c.venue_id===id).length; },
+    fmtDate(d){ return d ? new Date(d).toLocaleDateString('ru-RU') : '—'; },
     isAssigned(managerId, venueId){ return this.links.some(l => l.manager_id === managerId && l.venue_id === venueId); },
+    
+    getSubStatusClass(v) {
+      if (!v.subscription_end) return 'b-off';
+      const end = new Date(v.subscription_end);
+      const now = new Date();
+      if (end < now) return 'b-off'; // Expired
+      const diffDays = (end - now) / (1000 * 60 * 60 * 24);
+      if (diffDays <= 3) return 'b-trial'; // Expiring soon / Trial
+      return 'b-on'; // Active
+    },
+    getSubStatusLabel(v) {
+      if (!v.subscription_end) return 'Нет данных';
+      const end = new Date(v.subscription_end);
+      const now = new Date();
+      if (end < now) return 'Истекла';
+      const diffDays = (end - now) / (1000 * 60 * 60 * 24);
+      if (diffDays <= 3) return diffDays < 1 ? 'Истекает сегодня' : `Осталось ${Math.ceil(diffDays)} дн.`;
+      return 'Активна';
+    },
 
     async init(){
       this.profile=await requireAuth(['admin']);
@@ -187,22 +216,36 @@ Vue.createApp({
       this.ready=true;
     },
     async loadAll(){
-      const [v,m,c,l]=await Promise.all([
+      const [v,m,l,p]=await Promise.all([
         db.from('venues').select('*').order('created_at'),
         db.from('profiles').select('*').eq('role','manager').order('email'),
-        db.from('cooks').select('venue_id'),
-        db.from('manager_venues').select('*')
+        db.from('manager_venues').select('*'),
+        db.from('plans').select('*').order('price')
       ]);
-      this.venues=v.data||[]; this.managers=m.data||[]; this.cooksAll=c.data||[]; this.links=l.data||[];
+      this.venues=v.data||[]; this.managers=m.data||[]; this.links=l.data||[]; this.plans=p.data||[];
     },
 
     async toggleAssign(managerId, venueId, isChecked) {
-      if (isChecked) {
-        await db.from('manager_venues').insert({ manager_id: managerId, venue_id: venueId });
-      } else {
-        await db.from('manager_venues').delete().eq('manager_id', managerId).eq('venue_id', venueId);
-      }
+      if (isChecked) await db.from('manager_venues').insert({ manager_id: managerId, venue_id: venueId });
+      else await db.from('manager_venues').delete().eq('manager_id', managerId).eq('venue_id', venueId);
       await this.loadAll();
+    },
+
+    async changePlan(v, planId) {
+      await db.from('venues').update({plan: planId}).eq('id', v.id);
+      await db.from('subscriptions').update({plan_id: planId}).eq('venue_id', v.id);
+      await this.loadAll();
+    },
+
+    async extendSub(v) {
+      const currentEnd = v.subscription_end ? new Date(v.subscription_end) : new Date();
+      if (currentEnd < new Date()) currentEnd.setTime(new Date().getTime()); // If expired, start from now
+      currentEnd.setDate(currentEnd.getDate() + 30);
+      
+      await db.from('venues').update({subscription_end: currentEnd.toISOString(), status: 'active'}).eq('id', v.id);
+      await db.from('subscriptions').update({current_period_end: currentEnd.toISOString(), status: 'active'}).eq('venue_id', v.id);
+      await this.loadAll();
+      this.showToast('Подписка продлена на 30 дней');
     },
 
     async loadGlobalStats() {
@@ -238,19 +281,31 @@ Vue.createApp({
     async createVenue(){
       this.msg=''; if(!this.nform.name||!this.nform.slug){ this.msg='Заполните название и slug'; return; }
       this.busy=true;
-      const {error}=await db.from('venues').insert({ name:this.nform.name, slug:this.nform.slug.toLowerCase(), plan:this.nform.plan, description:this.nform.description||null });
+      const endDate = new Date(); endDate.setDate(endDate.getDate() + 14);
+      
+      const {data: newV, error}=await db.from('venues').insert({ 
+        name:this.nform.name, slug:this.nform.slug.toLowerCase(), plan:this.nform.plan, 
+        description:this.nform.description||null, subscription_end: endDate.toISOString() 
+      }).select().single();
+      
+      if(error){ this.msg='Ошибка: '+error.message; this.busy=false; return; }
+      
+      await db.from('subscriptions').insert({
+        venue_id: newV.id, plan_id: this.nform.plan, status: 'trialing', current_period_end: endDate.toISOString()
+      });
+
       this.busy=false;
-      if(error){ this.msg='Ошибка: '+error.message; return; }
       this.showModal=false; this.nform={name:'',slug:'',plan:'start',description:''}; await this.loadAll();
     },
-    async setPlan(v,plan){ await db.from('venues').update({plan}).eq('id',v.id); await this.loadAll(); },
+    
     async toggleStatus(v){ await db.from('venues').update({status:v.status==='active'?'paused':'active'}).eq('id',v.id); await this.loadAll(); },
     async delVenue(v){
       if(!confirm('Удалить заведение "'+v.name+'"?')) return;
       const {error}=await db.from('venues').delete().eq('id',v.id);
       if(error) alert('Ошибка: '+error.message); await this.loadAll();
     },
-    async logout(){ try{ if(typeof window.logout==='function') await window.logout(); }catch(e){} window.location.href='/index.html'; }
+    async logout(){ try{ if(typeof window.logout==='function') await window.logout(); }catch(e){} window.location.href='/index.html'; },
+    showToast(t) { alert(t); } // Simple fallback for admin
   },
   mounted(){ this.init(); }
 }).mount('#app');
