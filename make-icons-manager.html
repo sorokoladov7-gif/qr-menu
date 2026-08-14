@@ -1,1 +1,40 @@
-
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Иконки «Кабинет»</title>
+<style>body{font-family:sans-serif;background:#0b1020;color:#fff;display:flex;flex-direction:column;align-items:center;padding:40px;gap:16px}button{padding:12px 24px;border:none;border-radius:10px;background:#059669;color:#fff;font-size:15px;font-weight:700;cursor:pointer}canvas{border-radius:24px;box-shadow:0 10px 40px rgba(16,185,129,.4)}</style>
+</head>
+<body>
+<h2>🏢 Иконки для приложения «Кабинет»</h2>
+<canvas id="c" width="512" height="512" style="width:200px;height:200px"></canvas>
+<button onclick="dl(512,'icon-manager-512.png')">⬇️ Скачать icon-manager-512.png</button>
+<button onclick="dl(192,'icon-manager-192.png')">⬇️ Скачать icon-manager-192.png</button>
+<button onclick="dl(180,'apple-touch-icon-manager.png')">⬇️ Скачать apple-touch-icon-manager.png (iPhone)</button>
+<p style="max-width:500px;text-align:center;color:#9ca3af;font-size:13px">Скачайте все 3 файла и загрузите в корень репозитория (GitHub → Add file → Upload files).</p>
+<script>
+function draw(size) {
+  var c = document.createElement('canvas'); c.width = size; c.height = size;
+  var x = c.getContext('2d');
+  var g = x.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, '#059669'); g.addColorStop(1, '#10b981');
+  x.fillStyle = g; x.fillRect(0, 0, size, size);
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = Math.round(size * 0.55) + 'px serif';
+  x.fillText('🏢', size / 2, size / 2 + size * 0.04);
+  return c;
+}
+(function() {
+  document.getElementById('c').getContext('2d').drawImage(draw(512), 0, 0);
+})();
+function dl(size, name) {
+  draw(size).toBlob(function(b) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = name;
+    a.click();
+  }, 'image/png');
+}
+</script>
+</body>
+</html>
