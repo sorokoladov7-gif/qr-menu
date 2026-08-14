@@ -1,63 +1,114 @@
 <!DOCTYPE html><html lang="ru"><head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>QR-Меню</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<style>.prod{display:flex;gap:12px;padding:12px}.prod img{width:84px;height:84px;border-radius:14px;object-fit:cover}
-.qty{display:flex;align-items:center;gap:8px}.qty button{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-weight:700}
-.cartbar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:520px;z-index:30}</style>
+<style>
+.hero{padding:20px 0 16px;text-align:center}
+.hero .logo{width:64px;height:64px;border-radius:18px;object-fit:cover;margin:0 auto 12px;display:block;border:2px solid rgba(255,255,255,.1)}
+.hero h1{margin:0;font-size:26px;font-weight:800}
+.hero .desc{color:#94a3b8;font-size:13px;margin-top:6px}
+.hero .tags{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.hero .tag{font-size:11px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08)}
+.cats{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cats button{flex-shrink:0;padding:8px 18px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);color:#94a3b8;font-weight:600;font-size:13px;cursor:pointer;transition:.2s}
+.cats button.on{background:var(--brand,#6366f1);color:#fff;border-color:transparent}
+.food{display:flex;gap:14px;padding:14px;margin-bottom:12px;position:relative;overflow:hidden}
+.food img{width:96px;height:96px;border-radius:16px;object-fit:cover;flex-shrink:0}
+.food .info{flex:1;min-width:0;display:flex;flex-direction:column}
+.food .name{font-weight:700;font-size:15px}
+.food .d{color:#94a3b8;font-size:12px;margin-top:3px;line-height:1.4}
+.food .bottom{margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding-top:8px}
+.food .price{font-weight:800;font-size:16px;color:#fff}
+.hit{position:absolute;top:10px;left:10px;background:linear-gradient(135deg,#f59e0b,#ef4444);color:#fff;font-size:10px;font-weight:800;padding:3px 10px;border-radius:999px;z-index:2}
+.addbtn{width:38px;height:38px;border-radius:12px;border:none;background:var(--brand,#6366f1);color:#fff;font-size:20px;font-weight:700;cursor:pointer;transition:.15s;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+.addbtn:active{transform:scale(.9)}
+.steps{display:flex;justify-content:space-between;margin:24px 0 12px;position:relative}
+.steps::before{content:'';position:absolute;top:18px;left:10%;right:10%;height:2px;background:rgba(255,255,255,.08);z-index:0}
+.step{position:relative;z-index:1;text-align:center;flex:1}
+.step .dot{width:36px;height:36px;border-radius:50%;background:#1e293b;border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;margin:0 auto;font-size:16px;transition:.3s}
+.step.done .dot{background:var(--brand,#6366f1);border-color:var(--brand,#6366f1)}
+.step.current .dot{animation:pulse 1.2s infinite}
+.step .lbl{font-size:10px;color:#64748b;margin-top:6px}
+.step.done .lbl,.step.current .lbl{color:#fff}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,255,255,.3)}100%{box-shadow:0 0 0 12px rgba(255,255,255,0)}}
+</style>
 </head><body>
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;right:-100px"></div>
-<div id="app" v-cloak>
-  <div class="topbar">
-    <div class="brand"><div class="logo">QR</div><span>{{ venue?venue.name:'QR-Меню' }}</span></div>
-    <a v-if="view!=='menu'&&venue" href="#" @click.prevent="view='menu'" class="btn btn-ghost btn-sm">← В меню</a>
-  </div>
+<div id="app" v-cloak :style="{'--brand':venue?venue.brand_color:'#6366f1'}">
+  <div class="wrap" style="max-width:520px;padding-top:16px">
 
-  <div class="wrap" style="max-width:560px">
+    <!-- ВЫБОР ЗАВЕДЕНИЯ -->
     <div v-if="picker">
-      <h2>Выберите заведение</h2>
+      <h2 style="text-align:center">Выберите заведение</h2>
       <div v-for="v in venues" :key="v.id" class="glass card" style="margin-bottom:12px;cursor:pointer" @click="choose(v.slug)">
         <div class="spread"><b>{{ v.name }}</b><span class="muted">→</span></div>
         <div class="muted" style="font-size:13px">{{ v.description }}</div></div>
-      <p v-if="!venues.length" class="muted">Нет активных заведений.</p>
+      <p v-if="!venues.length" class="muted" style="text-align:center">Нет активных заведений.</p>
     </div>
 
-    <div v-else-if="loading" class="muted" style="text-align:center;padding:40px">Загрузка…</div>
-    <div v-else-if="paused" class="glass card" style="text-align:center;padding:40px">⏸ Заведение временно не принимает заказы.</div>
+    <div v-else-if="loading" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
+    <div v-else-if="paused" class="glass card" style="text-align:center;padding:50px">⏸ Заведение временно не принимает заказы.</div>
 
     <template v-else-if="venue">
+      <!-- ШАПКА -->
+      <div class="hero">
+        <img v-if="venue.logo_url" :src="venue.logo_url" class="logo">
+        <div v-else class="logo" style="background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:28px">🍴</div>
+        <h1>{{ venue.name }}</h1>
+        <div class="desc">{{ venue.description }}</div>
+        <div class="tags">
+          <span class="tag">⏱ Доставка ~25 мин</span>
+          <span class="tag">⭐ Премиум качество</span>
+          <span class="tag">💳 Любая оплата</span>
+        </div>
+      </div>
+
       <!-- МЕНЮ -->
       <div v-if="view==='menu'">
-        <div style="margin:6px 0 16px"><h2 style="margin:0">{{ venue.name }}</h2>
-          <div class="muted" style="font-size:13px">{{ venue.description }}</div></div>
-        <div v-if="myOrders.length" class="glass card" style="margin-bottom:16px">
-          <b style="font-size:13px">Мои заказы</b>
-          <div class="row" style="margin-top:8px"><button v-for="id in myOrders" :key="id" class="btn btn-ghost btn-sm" @click="openTracking(id)">Отследить</button></div></div>
-        <div v-for="p in menuProducts" :key="p.id" class="glass prod" style="margin-bottom:10px">
-          <img :src="p.image_url||DEFAULT_IMG">
-          <div style="flex:1;min-width:0">
-            <b>{{ p.name }}</b> <span v-if="p.has_mods" class="badge b-ready">опции</span>
-            <div class="muted" style="font-size:12px">{{ p.description }}</div>
-            <div class="spread" style="margin-top:6px"><b style="color:#a5b4fc">{{ p.price }} ₽</b>
-              <button class="btn btn-primary btn-sm" @click="addToCart(p)">+ В корзину</button></div>
+        <div v-if="myOrders.length" class="glass card" style="margin-bottom:14px;padding:12px">
+          <div class="spread">
+            <b style="font-size:13px">📦 Мои заказы</b>
+            <div class="row"><button v-for="id in myOrders.slice(0,3)" :key="id" class="btn btn-ghost btn-sm" @click="openTracking(id)">Отследить</button></div>
           </div></div>
-        <p v-if="!menuProducts.length" class="muted" style="text-align:center;padding:30px">Меню пока пустое.</p>
-        <div v-if="cart.length" class="cartbar">
-          <button class="btn btn-primary" style="width:100%;padding:16px" @click="openCheckout">Оформить заказ · {{ fmt(cartItemsTotal) }} ₽</button></div>
+
+        <div class="cats">
+          <button :class="{on:cat==='all'}" @click="cat='all'">Все</button>
+          <button :class="{on:cat==='main'}" @click="cat='main'">🌯 Еда</button>
+          <button :class="{on:cat==='drink'}" @click="cat='drink'">🥤 Напитки</button>
+          <button :class="{on:cat==='addon'}" @click="cat='addon'">🥫 Соусы</button>
+        </div>
+
+        <div v-for="(p,i) in filteredProducts" :key="p.id" class="glass food">
+          <span v-if="p.is_hit" class="hit">🔥 ХИТ</span>
+          <img :src="p.image_url||DEFAULT_IMG">
+          <div class="info">
+            <div class="name">{{ p.name }} <span v-if="p.has_mods" style="font-size:10px;color:#94a3b8">• опции</span></div>
+            <div class="d">{{ p.description }}</div>
+            <div class="bottom">
+              <span class="price">{{ p.price }} ₽</span>
+              <button class="addbtn" @click="addToCart(p)">+</button>
+            </div>
+          </div></div>
+        <p v-if="!filteredProducts.length" class="muted" style="text-align:center;padding:30px">В этой категории пока пусто.</p>
+
+        <div v-if="cart.length" style="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:520px;z-index:30">
+          <button class="btn" style="width:100%;padding:16px;background:var(--brand);font-size:16px" @click="openCheckout">
+            🛒 Оформить заказ · {{ fmt(cartItemsTotal) }} ₽</button></div>
       </div>
 
       <!-- ОФОРМЛЕНИЕ -->
       <div v-if="view==='checkout'" class="glass card">
-        <h3 style="margin-top:0">Корзина</h3>
-        <div v-for="(i,idx) in cart" :key="idx" class="spread" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+        <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Корзина</h3>
+          <button class="btn btn-ghost btn-sm" @click="view='menu'">← Назад</button></div>
+        <div v-for="(i,idx) in cart" :key="idx" class="spread" style="padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)">
           <div><b>{{ i.name }}</b><div class="muted" style="font-size:12px">{{ i.price }} ₽</div>
             <div v-for="m in (i.selectedModifiers||[])" :key="m.id" class="muted" style="font-size:11px">+ {{ m.name }} (+{{ m.price }} ₽)</div></div>
-          <div class="qty"><button @click="changeQty(idx,-1)">−</button><span>{{ i.qty }}</span><button @click="changeQty(idx,1)">+</button></div>
-        </div>
-        <div v-if="addons.length" style="margin-top:14px"><label>Дополнительно / соусы</label>
+          <div class="qty"><button @click="changeQty(idx,-1)">−</button><span>{{ i.qty }}</span><button @click="changeQty(idx,1)">+</button></div></div>
+        <div v-if="addons.length" style="margin-top:14px"><label>Добавить соус / доп</label>
           <div class="row"><button v-for="a in addons" :key="a.id" class="chip" :class="{on:isAddon(a.id)}" @click="toggleAddon(a)">+ {{ a.name }} · {{ a.price }} ₽</button></div></div>
         <div style="margin-top:16px"><label>Как получить</label>
           <div class="row"><button class="chip" :class="{on:orderType==='pickup'}" @click="orderType='pickup'">🏠 Самовывоз</button>
@@ -73,42 +124,44 @@
           <div class="spread"><span class="muted">Товары</span><span>{{ fmt(cartItemsTotal) }} ₽</span></div>
           <div class="spread"><span class="muted">Допы</span><span>{{ fmt(addonsTotal) }} ₽</span></div>
           <div class="spread"><span class="muted">Доставка</span><span>{{ deliveryFee }} ₽</span></div>
-          <div class="spread" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><b>Итого</b><b style="font-size:20px">{{ fmt(total) }} ₽</b></div></div>
-        <button class="btn btn-green" style="width:100%;margin-top:16px;padding:15px" :disabled="busy" @click="placeOrder">Подтвердить заказ</button>
+          <div class="spread" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><b>Итого</b><b style="font-size:20px;color:var(--brand)">{{ fmt(total) }} ₽</b></div></div>
+        <button class="btn" style="width:100%;margin-top:16px;padding:15px;background:var(--brand);font-size:16px" :disabled="busy" @click="placeOrder">Подтвердить заказ</button>
         <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
       </div>
 
       <!-- ТРЕКИНГ -->
-      <div v-if="view==='tracking'&&tracking" class="glass card" style="text-align:center;padding:32px">
-        <div style="font-size:44px" :class="{pulse:tracking.status==='cooking'}">{{ statusEmoji }}</div>
-        <h2 style="margin:10px 0 4px">Заказ №{{ tracking.order_number }}</h2>
+      <div v-if="view==='tracking'&&tracking" class="glass card" style="text-align:center;padding:28px">
+        <h2 style="margin:0 0 4px">Заказ №{{ tracking.order_number }}</h2>
         <span class="badge" :class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span>
-        <div class="progress" style="margin:20px 0 8px"><div :style="{width:progress+'%'}"></div></div>
-        <div class="muted" style="font-size:13px">{{ statusHint }}</div>
+        <div class="steps">
+          <div v-for="(s,i) in trackingSteps" :key="i" class="step" :class="{done:i<currentStep,current:i===currentStep}">
+            <div class="dot">{{ s.icon }}</div><div class="lbl">{{ s.label }}</div></div>
+        </div>
+        <div class="muted" style="font-size:13px;margin-top:8px">{{ statusHint }}</div>
         <div v-if="tracking.status==='done'||tracking.status==='cancelled'" style="margin-top:18px">
-          <button class="btn btn-primary" @click="newOrder">Новый заказ</button></div>
+          <button class="btn" style="background:var(--brand)" @click="newOrder">Новый заказ</button></div>
+        <button v-else class="btn btn-ghost btn-sm" style="margin-top:18px" @click="view='menu'">← Вернуться в меню</button>
       </div>
     </template>
   </div>
 
-  <!-- МОДАЛКА ВЫБОРА МОДИФИКАТОРОВ -->
+  <!-- МОДАЛКА МОДИФИКАТОРОВ -->
   <div v-if="showProductModal" class="modal" @click.self="closeProductModal">
     <div class="glass box" style="max-width:500px">
       <div class="spread" style="margin-bottom:16px"><h3 style="margin:0">{{ selectedProduct.name }}</h3>
         <button class="btn btn-ghost btn-sm" @click="closeProductModal">✕</button></div>
       <div v-if="selectedProduct.description" class="muted" style="margin-bottom:16px">{{ selectedProduct.description }}</div>
-      <div class="spread" style="margin-bottom:16px"><b>Базовая цена:</b><b style="color:#a5b4fc">{{ selectedProduct.price }} ₽</b></div>
       <div v-if="selectedProduct.modifiers&&selectedProduct.modifiers.length" style="margin-bottom:16px">
-        <label style="margin-bottom:10px;display:block">Дополнительные опции:</label>
+        <label style="margin-bottom:10px;display:block">Соберите своё блюдо:</label>
         <div style="display:flex;flex-direction:column;gap:8px">
           <div v-for="m in selectedProduct.modifiers" :key="m.id" class="row"
-               style="padding:10px;border-radius:10px;background:rgba(255,255,255,.03);cursor:pointer" @click="toggleModifier(m)">
+               style="padding:12px;border-radius:12px;background:rgba(255,255,255,.03);cursor:pointer" @click="toggleModifier(m)">
             <input type="checkbox" :checked="isModifierSelected(m.id)" style="width:auto;pointer-events:none">
             <div style="flex:1"><div>{{ m.name }}</div><div v-if="m.is_required" class="muted" style="font-size:12px">Обязательно</div></div>
-            <b style="color:#a5b4fc">+{{ m.price }} ₽</b></div></div></div>
+            <b style="color:var(--brand)">+{{ m.price }} ₽</b></div></div></div>
       <div class="glass" style="padding:14px;margin-bottom:16px">
-        <div class="spread"><span>Итого:</span><b style="font-size:20px;color:#a5b4fc">{{ productTotal }} ₽</b></div></div>
-      <button class="btn btn-primary" style="width:100%" @click="confirmAddToCart">Добавить в корзину</button>
+        <div class="spread"><span>Итого:</span><b style="font-size:20px;color:var(--brand)">{{ productTotal }} ₽</b></div></div>
+      <button class="btn" style="width:100%;background:var(--brand)" @click="confirmAddToCart">Добавить в корзину</button>
     </div>
   </div>
 </div>
@@ -117,18 +170,28 @@
 <script>
 Vue.createApp({
   data(){return{picker:false,loading:true,paused:false,slug:null,venue:null,venues:[],products:[],addons:[],cart:[],selectedAddons:[],
-    view:'menu',orderType:'pickup',cname:'',cphone:'',caddress:'',ccomment:'',cpayment:'cash',
+    view:'menu',cat:'all',orderType:'pickup',cname:'',cphone:'',caddress:'',ccomment:'',cpayment:'cash',
     trackingId:null,tracking:null,timer:null,myOrders:[],busy:false,msg:'',msgType:'',
     selectedProduct:null,showProductModal:false,selectedModifiers:[]}},
   computed:{
-    menuProducts(){return this.products.filter(p=>p.category!=='addon'&&p.is_available)},
+    filteredProducts(){return this.products.filter(p=>p.is_available&&(this.cat==='all'||p.category===this.cat))},
     cartItemsTotal(){return this.cart.reduce((s,i)=>{const mods=(i.selectedModifiers||[]).reduce((a,m)=>a+m.price,0);return s+(i.price+mods)*i.qty},0)},
     addonsTotal(){return this.selectedAddons.reduce((s,a)=>s+a.price,0)},
     deliveryFee(){return this.orderType==='delivery'?DELIVERY_FEE:0},
     total(){return this.cartItemsTotal+this.addonsTotal+this.deliveryFee},
-    progress(){return this.tracking?(STATUS_PROGRESS[this.tracking.status]||0):0},
+    trackingSteps(){
+      if(!this.tracking)return [];
+      const base=[{icon:'🆕',label:'Принят'},{icon:'🔥',label:'Готовится'},{icon:'✅',label:'Готов'}];
+      if(this.tracking.order_type==='delivery')base.push({icon:'🚗',label:'В пути'});
+      base.push({icon:'🎉',label:'Готово'});
+      return base;
+    },
+    currentStep(){
+      if(!this.tracking)return 0;
+      const map={new:0,cooking:1,ready:2,delivery:3,done:this.trackingSteps.length-1,cancelled:0};
+      return map[this.tracking.status]??0;
+    },
     statusHint(){return this.tracking?(STATUS_HINT[this.tracking.status]||''):''},
-    statusEmoji(){const m={new:'🆕',cooking:'🔥',ready:'✅',delivery:'🚗',done:'🎉',cancelled:'⛔'};return this.tracking?(m[this.tracking.status]||'🆕'):'🆕'},
     productTotal(){if(!this.selectedProduct)return 0;return this.selectedProduct.price+this.selectedModifiers.reduce((s,m)=>s+m.price,0)}
   },
   methods:{
@@ -146,7 +209,7 @@ Vue.createApp({
       this.venue=v;this.paused=v.status!=='active';
       const {data:pr}=await db.from('products').select('*, modifiers(id)').eq('venue_id',v.id);
       const all=pr||[];
-      this.products=all.filter(x=>x.category!=='addon').map(x=>({...x,has_mods:(x.modifiers||[]).length>0}));
+      this.products=all.filter(x=>x.category!=='addon').map((x,i)=>({...x,has_mods:(x.modifiers||[]).length>0,is_hit:i<2&&x.category==='main'}));
       this.addons=all.filter(x=>x.category==='addon'&&x.is_available);
       this.myOrders=JSON.parse(localStorage.getItem('myorders_'+v.id)||'[]');
     },
