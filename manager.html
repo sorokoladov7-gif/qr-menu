@@ -38,18 +38,18 @@
 <div class="glass box" style="max-width:500px;text-align:center">
 <div style="font-size:48px">🔒</div>
 <h2>Подписка истекла</h2>
-<p class="muted">Продлите подписку через СБП.</p>
-<button class="btn btn-primary" style="width:100%;margin-top:16px" @click="isBlocked=false;tab='billing'">Перейти к оплате</button>
-<button class="btn btn-ghost" style="width:100%;margin-top:10px" @click="logout">Выйти</button>
+<p class="muted">Доступ ограничен. Продлите подписку через СБП.</p>
+<button class="btn btn-primary" style="width:100%;margin-top:16px" v-on:click="isBlocked=false;tab='billing'">Перейти к оплате</button>
+<button class="btn btn-ghost" style="width:100%;margin-top:10px" v-on:click="logout">Выйти</button>
 </div>
 </div>
 
 <div class="topbar">
-<div class="brand"><div class="logo">QR</div><span>{{ venue?venue.name:'Мои заведения' }}</span></div>
+<div class="brand"><div class="logo">QR</div><span>{{ venueName }}</span></div>
 <div class="row">
-<button v-if="venue" class="btn btn-ghost btn-sm" @click="backToList">К списку</button>
-<span class="muted" style="font-size:13px">{{ profile?profile.display_name:'' }}</span>
-<button class="btn btn-ghost btn-sm" @click="logout">Выйти</button>
+<button v-if="venue" class="btn btn-ghost btn-sm" v-on:click="backToList">К списку</button>
+<span class="muted" style="font-size:13px">{{ profileName }}</span>
+<button class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button>
 </div>
 </div>
 
@@ -60,23 +60,23 @@
 <div style="font-size:40px">⚠️</div>
 <h3>Не удалось загрузить</h3>
 <p class="muted">{{ loadError }}</p>
-<button class="btn btn-primary" @click="init">Повторить</button>
+<button class="btn btn-primary" v-on:click="init">Повторить</button>
 </div>
 
 <div v-else-if="!venue">
 <div class="spread" style="margin-bottom:20px">
 <h2>Ваши заведения</h2>
-<button class="btn btn-primary" @click="showCreateVenue=true" :disabled="!canCreateVenue">+ Создать</button>
+<button class="btn btn-primary" v-on:click="showCreateVenue=true" v-bind:disabled="!canCreateVenue">+ Создать</button>
 </div>
 <div v-if="!myVenues.length" class="glass card" style="text-align:center;padding:50px">
 У вас пока нет заведений.<br>Создайте первое - 14 дней бесплатно!
 </div>
 <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
-<div v-for="v in myVenues" :key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" @click="selectVenue(v)">
+<div v-for="v in myVenues" v-bind:key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" v-on:click="selectVenue(v)">
 <div style="font-size:19px;font-weight:800">{{ v.name }}</div>
 <div class="muted" style="font-size:12px;margin:6px 0">/{{ v.slug }}</div>
 <div class="muted" style="font-size:11px">до {{ fmtDate(v.subscription_end) }}</div>
-<span class="badge" :class="isExpired(v)?'b-cancelled':'b-ready'">{{ isExpired(v)?'Истекла':'Активна' }}</span>
+<span class="badge" v-bind:class="venueBadge(v)">{{ venueLabel(v) }}</span>
 </div>
 </div>
 </div>
@@ -84,7 +84,7 @@
 <template v-else>
 <div v-if="daysLeft<=3&&daysLeft>0" class="msg" style="background:rgba(251,191,36,.15);color:#fcd34d;margin-bottom:16px">
 Подписка истекает через {{ daysLeft }} дн.
-<a href="#" @click.prevent="tab='billing'" style="color:#fcd34d">Продлить</a>
+<a href="#" v-on:click.prevent="tab='billing'" style="color:#fcd34d">Продлить</a>
 </div>
 
 <div class="stats" style="margin-bottom:18px">
@@ -95,49 +95,49 @@
 </div>
 
 <div class="tabs" style="margin-bottom:18px">
-<button :class="{on:tab==='menu'}" @click="tab='menu'">Меню</button>
-<button :class="{on:tab==='orders'}" @click="tab='orders'">Заказы</button>
-<button :class="{on:tab==='analytics'}" @click="tab='analytics';loadAnalytics()">Аналитика</button>
-<button :class="{on:tab==='staff'}" @click="tab='staff'">Повара</button>
-<button :class="{on:tab==='billing'}" @click="tab='billing';loadPayments()">Тарифы</button>
-<button :class="{on:tab==='settings'}" @click="tab='settings'">Настройки</button>
+<button v-bind:class="{on:tab==='menu'}" v-on:click="tab='menu'">Меню</button>
+<button v-bind:class="{on:tab==='orders'}" v-on:click="tab='orders'">Заказы</button>
+<button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
+<button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">Повара</button>
+<button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
+<button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
 </div>
 
 <div v-if="tab==='menu'">
 <div class="spread" style="margin-bottom:14px">
 <h3>Позиции меню</h3>
-<button class="btn btn-primary btn-sm" @click="openAdd" :disabled="busy">+ Добавить</button>
+<button class="btn btn-primary btn-sm" v-on:click="openAdd" v-bind:disabled="busy">+ Добавить</button>
 </div>
-<div v-for="p in products" :key="p.id" class="glass menu-item" style="margin-bottom:10px">
-<img class="thumb" :src="p.image_url||DEFAULT_IMG" alt="">
+<div v-for="p in products" v-bind:key="p.id" class="glass menu-item" style="margin-bottom:10px">
+<img class="thumb" v-bind:src="p.image_url||DEFAULT_IMG" alt="">
 <div style="flex:1;min-width:0">
 <b>{{ p.name }}</b>
-<span class="badge" :class="p.category==='addon'?'b-delivery':'b-new'">{{ categoryLabel(p.category) }}</span>
+<span class="badge" v-bind:class="itemBadge(p.category)">{{ categoryLabel(p.category) }}</span>
 <div class="muted" style="font-size:12px">{{ p.description }}</div>
 </div>
 <b style="color:#a5b4fc">{{ p.price }} ₽</b>
-<button class="btn btn-ghost btn-sm" @click="toggleAvail(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
-<button class="btn btn-ghost btn-sm" @click="openEdit(p)">✏️</button>
-<button class="btn btn-danger btn-sm" @click="delProduct(p)">🗑</button>
+<button class="btn btn-ghost btn-sm" v-on:click="toggleAvail(p)">{{ availLabel(p.is_available) }}</button>
+<button class="btn btn-ghost btn-sm" v-on:click="openEdit(p)">✏️</button>
+<button class="btn btn-danger btn-sm" v-on:click="delProduct(p)">🗑</button>
 </div>
 <p v-if="!products.length" class="muted">Меню пустое.</p>
 </div>
 
 <div v-if="tab==='orders'">
-<div v-for="o in orders" :key="o.id" class="glass order-card" :style="{borderTopColor:statusColor(o.status)}">
+<div v-for="o in orders" v-bind:key="o.id" class="glass order-card" v-bind:style="{borderTopColor:statusColor(o.status)}">
 <div class="spread">
-<div><b>№{{ o.order_number }}</b> <span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span></div>
+<div><b>№{{ o.order_number }}</b> <span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span> {{ deliveryIcon(o.order_type) }}</div>
 <b>{{ fmt(o.total_price) }} ₽</b>
 </div>
 <div class="muted" style="font-size:13px;margin-top:6px">{{ o.customer_phone }} {{ o.customer_name }}</div>
 <div style="margin-top:6px;font-size:13px">
-<div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div>
+<div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div>
 </div>
 <div class="row" style="margin-top:10px">
-<button v-if="o.status==='new'" class="btn btn-primary btn-sm" @click="setStatus(o.id,'cooking')">В работу</button>
-<button v-if="o.status==='cooking'" class="btn btn-green btn-sm" @click="setStatus(o.id,'ready')">Готово</button>
-<button v-if="['ready','delivery'].includes(o.status)" class="btn btn-green btn-sm" @click="setStatus(o.id,'done')">Выдан</button>
-<button v-if="['new','cooking'].includes(o.status)" class="btn btn-danger btn-sm" @click="setStatus(o.id,'cancelled')">Отменить</button>
+<button v-if="o.status==='new'" class="btn btn-primary btn-sm" v-on:click="setStatus(o.id,'cooking')">В работу</button>
+<button v-if="o.status==='cooking'" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'ready')">Готово</button>
+<button v-if="isReadyOrDelivery(o.status)" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'done')">Выдан</button>
+<button v-if="isNewOrCooking(o.status)" class="btn btn-danger btn-sm" v-on:click="setStatus(o.id,'cancelled')">Отменить</button>
 </div>
 </div>
 <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
@@ -146,7 +146,7 @@
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px">
 <h3>Аналитика</h3>
-<select v-model="analyticsPeriod" @change="loadAnalytics" style="width:auto">
+<select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto">
 <option value="7">7 дней</option>
 <option value="30">30 дней</option>
 <option value="all">Всё время</option>
@@ -162,7 +162,7 @@
 <h4>Статистика поваров</h4>
 <table class="tbl">
 <tr><th>Повар</th><th>Заказов</th><th>Ср. время</th></tr>
-<tr v-for="c in analytics.cooks" :key="c.name">
+<tr v-for="c in analytics.cooks" v-bind:key="c.name">
 <td>{{ c.name }}</td>
 <td>{{ c.count }}</td>
 <td><b>{{ c.avg }} мин</b></td>
@@ -173,7 +173,7 @@
 <div class="glass card">
 <h4>Топ-5 блюд</h4>
 <ul class="top-list">
-<li v-for="i in analytics.topItems" :key="i.name">
+<li v-for="i in analytics.topItems" v-bind:key="i.name">
 <span>{{ i.name }}</span>
 <b style="color:#a5b4fc">{{ i.count }} шт.</b>
 </li>
@@ -185,37 +185,36 @@
 <div v-if="tab==='staff'">
 <div class="glass card" style="margin-bottom:14px">
 <div class="row">
-<input v-model.trim="cookName" placeholder="Имя повара" style="flex:1" @keyup.enter="addCook">
-<button class="btn btn-green btn-sm" @click="addCook" :disabled="!cookName">+ Добавить</button>
+<input v-model.trim="cookName" placeholder="Имя повара" style="flex:1" v-on:keyup.enter="addCook">
+<button class="btn btn-green btn-sm" v-on:click="addCook" v-bind:disabled="!cookName">+ Добавить</button>
 </div>
-<p class="muted" style="font-size:11px;margin:8px 0 0">Лимит: {{ currentPlan?currentPlan.max_cooks:999 }} ({{ cooks.length }} занято)</p>
+<p class="muted" style="font-size:11px;margin:8px 0 0">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</p>
 </div>
-<div v-for="c in cooks" :key="c.id" class="glass menu-item" style="margin-bottom:10px">
+<div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px">
 <div style="flex:1">
 <b>{{ c.name }}</b>
 <div class="muted" style="font-size:12px">PIN: <b style="color:#a5b4fc">{{ c.pin }}</b></div>
 </div>
-<button class="btn btn-danger btn-sm" @click="delCook(c)">🗑</button>
+<button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button>
 </div>
 </div>
 
 <div v-if="tab==='billing'">
 <div class="glass card" style="margin-bottom:16px;text-align:center">
-<h3>Тариф: {{ currentPlan?currentPlan.name:'-' }}</h3>
+<h3>Тариф: {{ currentPlanName }}</h3>
 <p class="muted">Активен до <b style="color:#fff">{{ fmtDate(subscriptionEnd) }}</b></p>
 </div>
 <div class="plans-grid">
-<div v-for="p in plans" :key="p.id" class="glass plan-card" :class="{popular:p.id==='business'}">
+<div v-for="p in plans" v-bind:key="p.id" class="glass plan-card" v-bind:class="{popular:p.id==='business'}">
 <h3>{{ p.name }}</h3>
-<div style="font-size:30px;font-weight:800;margin:14px 0">{{ p.price===0?'0':fmt(p.price)+' ₽' }}<span style="font-size:13px;color:#9ca3af">/мес</span></div>
+<div style="font-size:30px;font-weight:800;margin:14px 0">{{ planPriceLabel(p) }}<span style="font-size:13px;color:#9ca3af">/мес</span></div>
 <ul style="list-style:none;padding:0;margin:0 0 16px;font-size:12px;color:#d1d5db;text-align:left">
 <li style="margin-bottom:6px">Заведений: {{ p.max_venues }}</li>
 <li style="margin-bottom:6px">Поваров: {{ p.max_cooks }}</li>
 <li style="margin-bottom:6px">Позиций: {{ p.max_products }}</li>
 </ul>
-<button class="btn" :class="currentPlan&&currentPlan.id===p.id?'btn-ghost':'btn-primary'" style="width:100%"
-:disabled="currentPlan&&currentPlan.id===p.id" @click="choosePlan(p)">
-{{ currentPlan&&currentPlan.id===p.id?'Текущий':'Выбрать' }}
+<button class="btn" v-bind:class="planBtnClass(p)" style="width:100%" v-bind:disabled="isCurrentPlan(p)" v-on:click="choosePlan(p)">
+{{ planBtnLabel(p) }}
 </button>
 </div>
 </div>
@@ -225,23 +224,21 @@
 <p style="margin:10px 0">Переведите <b style="font-size:18px">{{ fmt(payPlan.price) }} ₽</b> на номер:</p>
 <div class="row">
 <b style="font-size:22px;letter-spacing:1px">8 905 320-43-50</b>
-<button class="btn btn-ghost btn-sm" @click="copySbp">Копировать</button>
+<button class="btn btn-ghost btn-sm" v-on:click="copySbp">Копировать</button>
 </div>
 <p class="muted" style="font-size:12px;margin:10px 0">В комментарии: <b>{{ venue.slug }}</b></p>
-<button class="btn btn-green" style="width:100%" @click="markPaid">Я оплатил</button>
+<button class="btn btn-green" style="width:100%" v-on:click="markPaid">Я оплатил</button>
 </div>
 
 <div v-if="myPayments.length" class="glass card" style="margin-top:16px">
 <h4>Мои оплаты</h4>
 <table class="tbl">
 <tr><th>Дата</th><th>Тариф</th><th>Сумма</th><th>Статус</th></tr>
-<tr v-for="pay in myPayments" :key="pay.id">
+<tr v-for="pay in myPayments" v-bind:key="pay.id">
 <td>{{ fmtDate(pay.created_at) }}</td>
 <td>{{ pay.plan_id }}</td>
 <td>{{ fmt(pay.amount) }} ₽</td>
-<td><span class="badge" :class="pay.status==='confirmed'?'b-ready':pay.status==='rejected'?'b-cancelled':'b-cooking'">
-{{ pay.status==='confirmed'?'Активна':pay.status==='rejected'?'Отклонена':'На проверке' }}
-</span></td>
+<td><span class="badge" v-bind:class="payBadge(pay.status)">{{ payLabel(pay.status) }}</span></td>
 </tr>
 </table>
 </div>
@@ -251,39 +248,39 @@
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
-<button class="btn btn-primary" @click="saveVenue">Сохранить</button>
+<button class="btn btn-primary" v-on:click="saveVenue">Сохранить</button>
 <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
 <label>QR-код для клиентов</label>
 <div class="row">
-<img :src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
+<img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
 <div style="flex:1">
 <div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div>
-<button class="btn btn-ghost btn-sm" style="margin-top:8px" @click="copyLink">Копировать</button>
-<a class="btn btn-primary btn-sm" style="margin-top:8px" :href="clientLink" target="_blank">Открыть меню</a>
+<button class="btn btn-ghost btn-sm" style="margin-top:8px" v-on:click="copyLink">Копировать</button>
+<a class="btn btn-primary btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a>
 </div>
 </div>
 </div>
-<div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
+<div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
 </div>
 </template>
 </div>
 
-<div v-if="showCreateVenue" class="modal" @click.self="showCreateVenue=false">
+<div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false">
 <div class="glass box">
 <h3>Новое заведение</h3>
 <div class="field"><label>Название</label><input v-model.trim="newVenueForm.name"></div>
 <div class="field"><label>Код (slug)</label><input v-model.trim="newVenueForm.slug" placeholder="shaurma-lenina"></div>
 <div class="row">
-<button class="btn btn-primary" style="flex:1" @click="createVenue">Создать</button>
-<button class="btn btn-ghost" @click="showCreateVenue=false">Отмена</button>
+<button class="btn btn-primary" style="flex:1" v-on:click="createVenue">Создать</button>
+<button class="btn btn-ghost" v-on:click="showCreateVenue=false">Отмена</button>
 </div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div>
 </div>
 
-<div v-if="showModal" class="modal" @click.self="closeModal">
+<div v-if="showModal" class="modal" v-on:click.self="closeModal">
 <div class="glass box">
-<h3>{{ editing?'Редактировать':'Новое блюдо' }}</h3>
+<h3>{{ modalTitle }}</h3>
 <div class="field"><label>Название</label><input v-model.trim="pform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="pform.description" rows="2"></textarea></div>
 <div class="row">
@@ -299,226 +296,274 @@
 <div class="field">
 <label>Фото</label>
 <div v-if="pform.image_url" style="margin-bottom:10px">
-<img :src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt="">
+<img v-bind:src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt="">
 </div>
 <label class="btn btn-ghost btn-sm" style="cursor:pointer">
 <span v-if="!uploading">Загрузить фото</span>
 <span v-else>Загружаю...</span>
-<input type="file" accept="image/*" @change="uploadImage" :disabled="uploading" style="display:none">
+<input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none">
 </label>
 <input v-model="pform.image_url" placeholder="или ссылка" style="margin-top:8px">
 </div>
 <div class="row">
-<button class="btn btn-primary" style="flex:1" @click="saveProduct" :disabled="uploading">Сохранить</button>
-<button class="btn btn-ghost" @click="closeModal">Отмена</button>
+<button class="btn btn-primary" style="flex:1" v-on:click="saveProduct" v-bind:disabled="uploading">Сохранить</button>
+<button class="btn btn-ghost" v-on:click="closeModal">Отмена</button>
 </div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div>
 </div>
 
-<div v-if="toast" class="toast" :class="toast.type">{{ toast.text }}</div>
+<div v-if="toast" class="toast" v-bind:class="toast.type">{{ toast.text }}</div>
 </div>
 
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
 Vue.createApp({
-data(){return{ready:false,busy:false,uploading:false,loadError:'',profile:null,myVenues:[],venue:null,
+data: function() {
+return {
+ready:false,busy:false,uploading:false,loadError:'',profile:null,myVenues:[],venue:null,
 products:[],orders:[],cooks:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},cookName:'',vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
 analyticsPeriod:'7',analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],cooks:[]},
 subscriptionEnd:null,isBlocked:false,payPlan:null,myPayments:[],
-DEFAULT_IMG:window.DEFAULT_IMG}},
-computed:{
-revenue(){return this.orders.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0)},
-activeCount(){return this.orders.filter(o=>['new','cooking','delivery'].includes(o.status)).length},
-clientLink(){return this.venue?location.origin+'/menu.html?venue='+encodeURIComponent(this.venue.slug):''},
-qrUrl(){return this.clientLink?'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink):''},
-daysLeft(){return this.subscriptionEnd?Math.ceil((new Date(this.subscriptionEnd)-new Date())/864e5):0},
-currentPlan(){return this.venue?this.plans.find(p=>p.id===this.venue.plan):null},
-canCreateVenue(){var p=this.plans.find(function(x){return x.id==='start'});return this.myVenues.length<(p?p.max_venues:1)}
+DEFAULT_IMG:window.DEFAULT_IMG
+}},
+computed: {
+venueName: function() { return this.venue ? this.venue.name : 'Мои заведения'; },
+profileName: function() { return this.profile ? this.profile.display_name : ''; },
+modalTitle: function() { return this.editing ? 'Редактировать' : 'Новое блюдо'; },
+currentPlanName: function() { return this.currentPlan ? this.currentPlan.name : '-'; },
+maxCooks: function() { return this.currentPlan ? this.currentPlan.max_cooks : 999; },
+revenue: function() { return this.orders.filter(function(o){return o.status==='done'}).reduce(function(s,o){return s+Number(o.total_price||0)},0); },
+activeCount: function() { return this.orders.filter(function(o){return ['new','cooking','delivery'].indexOf(o.status)!==-1}).length; },
+clientLink: function() { return this.venue ? location.origin+'/menu.html?venue='+encodeURIComponent(this.venue.slug) : ''; },
+qrUrl: function() { return this.clientLink ? 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink) : ''; },
+daysLeft: function() { return this.subscriptionEnd ? Math.ceil((new Date(this.subscriptionEnd)-new Date())/864e5) : 0; },
+currentPlan: function() { return this.venue ? this.plans.find(function(p){return p.id===this.venue.plan}.bind(this)) : null; },
+canCreateVenue: function() { var p=this.plans.find(function(x){return x.id==='start'}); return this.myVenues.length < (p ? p.max_venues : 1); }
 },
-methods:{
-fmt:function(v){return window.fmt(v)},
-fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'-'},
-statusName:function(s){return window.statusName(s)},
-statusColor:function(s){return window.statusColor(s)},
-categoryLabel:function(c){return window.categoryLabel(c)},
-isExpired:function(v){return v.subscription_end&&new Date(v.subscription_end)<new Date()},
-showToast:function(t,type){type=type||'ok';this.toast={text:t,type:type};var self=this;clearTimeout(this._t);this._t=setTimeout(function(){self.toast=null},2500)},
-init:async function(){
-this.loadError='';this.ready=false;
-try{
-if(typeof db==='undefined')throw new Error('Supabase не подключен');
-this.profile=await requireAuth(['manager','admin']);
-if(!this.profile){this.ready=true;return}
-var pl=await db.from('plans').select('*').order('price');this.plans=pl.data||[];
-await this.loadMyVenues();
-}catch(e){this.loadError=e.message||String(e)}
-finally{this.ready=true}
+methods: {
+fmt: function(v){ return window.fmt(v); },
+fmtDate: function(d){ return d ? new Date(d).toLocaleDateString('ru-RU') : '-'; },
+statusName: function(s){ return window.statusName(s); },
+statusColor: function(s){ return window.statusColor(s); },
+categoryLabel: function(c){ return window.categoryLabel(c); },
+itemBadge: function(c){ return c === 'addon' ? 'b-delivery' : 'b-new'; },
+orderBadge: function(s){ return 'b-' + s; },
+venueBadge: function(v){ return this.isExpired(v) ? 'b-cancelled' : 'b-ready'; },
+venueLabel: function(v){ return this.isExpired(v) ? 'Истекла' : 'Активна'; },
+availLabel: function(b){ return b ? 'Вкл' : 'Выкл'; },
+deliveryIcon: function(t){ return t === 'delivery' ? '🚗' : ''; },
+payBadge: function(s){ return s === 'confirmed' ? 'b-ready' : (s === 'rejected' ? 'b-cancelled' : 'b-cooking'); },
+payLabel: function(s){ return s === 'confirmed' ? 'Активна' : (s === 'rejected' ? 'Отклонена' : 'На проверке'); },
+planBtnLabel: function(p){ return (this.currentPlan && this.currentPlan.id === p.id) ? 'Текущий' : 'Выбрать'; },
+planBtnClass: function(p){ return (this.currentPlan && this.currentPlan.id === p.id) ? 'btn-ghost' : 'btn-primary'; },
+isCurrentPlan: function(p){ return this.currentPlan && this.currentPlan.id === p.id; },
+planPriceLabel: function(p){ return p.price === 0 ? '0' : this.fmt(p.price) + ' ₽'; },
+isReadyOrDelivery: function(s){ return s === 'ready' || s === 'delivery'; },
+isNewOrCooking: function(s){ return s === 'new' || s === 'cooking'; },
+isExpired: function(v){ return v.subscription_end && new Date(v.subscription_end) < new Date(); },
+showToast: function(t,type){ type=type||'ok'; this.toast={text:t,type:type}; var self=this; clearTimeout(this._t); this._t=setTimeout(function(){self.toast=null},2500); },
+
+init: function(){
+var self = this;
+self.loadError=''; self.ready=false;
+try {
+if(typeof db==='undefined') throw new Error('Supabase не подключен');
+requireAuth(['manager','admin']).then(function(profile){
+self.profile = profile;
+if(!profile){ self.ready=true; return; }
+db.from('plans').select('*').order('price').then(function(pl){
+self.plans = pl.data || [];
+self.loadMyVenues().then(function(){ self.ready = true; });
+});
+});
+} catch(e) { self.loadError = e.message || String(e); self.ready = true; }
 },
-loadMyVenues:async function(){
-var ids=null;var self=this;
-if(this.profile.role!=='admin'){
-var l=await db.from('manager_venues').select('venue_id').eq('manager_id',this.profile.id);
-if(!l.error)ids=(l.data||[]).map(function(x){return x.venue_id});
+
+loadMyVenues: function(){
+var self = this;
+return new Promise(function(resolve){
+var ids = null;
+var p = Promise.resolve();
+if(self.profile.role !== 'admin'){
+p = db.from('manager_venues').select('venue_id').eq('manager_id', self.profile.id).then(function(l){
+if(!l.error) ids = (l.data || []).map(function(x){ return x.venue_id; });
+});
 }
-var q=db.from('venues').select('*');
-if(this.profile.role!=='admin'){
-if(ids===null){if(!this.profile.venue_id){this.myVenues=[];return}q=q.eq('id',this.profile.venue_id)}
-else if(!ids.length){this.myVenues=[];return}
-else q=q.in('id',ids);
+p.then(function(){
+var q = db.from('venues').select('*');
+if(self.profile.role !== 'admin'){
+if(ids === null){ if(!self.profile.venue_id){ self.myVenues=[]; resolve(); return; } q = q.eq('id', self.profile.venue_id); }
+else if(!ids.length){ self.myVenues=[]; resolve(); return; }
+else q = q.in('id', ids);
 }
-var r=await q.order('created_at',{ascending:false});
-this.myVenues=r.data||[];
+q.order('created_at',{ascending:false}).then(function(r){
+self.myVenues = r.data || [];
+resolve();
+});
+});
+});
 },
-backToList:function(){this.venue=null;if(this.timer){clearInterval(this.timer);this.timer=null}this.loadMyVenues()},
-selectVenue:async function(v){
-this.venue=v;this.tab='menu';this.subscriptionEnd=v.subscription_end;
+
+backToList: function(){ this.venue=null; if(this.timer){clearInterval(this.timer);this.timer=null} this.loadMyVenues(); },
+selectVenue: function(v){
+var self = this;
+this.venue=v; this.tab='menu'; this.subscriptionEnd=v.subscription_end;
 this.vform={name:v.name,description:v.description,brand_color:v.brand_color};
-if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else this.isBlocked=false;
-await Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadPayments()]);
-if(this.timer)clearInterval(this.timer);
-var self=this;this.timer=setInterval(function(){self.loadOrders()},5000);
+if(this.isExpired(v)){ this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
+Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadPayments()]).then(function(){
+if(self.timer) clearInterval(self.timer);
+self.timer = setInterval(function(){ self.loadOrders(); }, 5000);
+});
 },
-loadProducts:async function(){var r=await db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at');this.products=r.data||[]},
-loadOrders:async function(){var r=await db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50);this.orders=r.data||[]},
-loadCooks:async function(){var r=await db.from('cooks').select('*').eq('venue_id',this.venue.id);this.cooks=r.data||[]},
-loadPayments:async function(){var r=await db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false});this.myPayments=r.data||[]},
-loadAnalytics:async function(){
+loadProducts: function(){ var self=this; return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ self.products=r.data||[]; }); },
+loadOrders: function(){ var self=this; return db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50).then(function(r){ self.orders=r.data||[]; }); },
+loadCooks: function(){ var self=this; return db.from('cooks').select('*').eq('venue_id',this.venue.id).then(function(r){ self.cooks=r.data||[]; }); },
+loadPayments: function(){ var self=this; return db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false}).then(function(r){ self.myPayments=r.data||[]; }); },
+
+loadAnalytics: function(){
+var self=this;
 var q=db.from('orders').select('total_price,customer_phone,cooking_started_at,ready_at,cook_name,items').eq('venue_id',this.venue.id).eq('status','done');
-if(this.analyticsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(this.analyticsPeriod));q=q.gte('created_at',d.toISOString())}
-var r=await q;var os=r.data||[];var rev=0;var ph={};var t=[];var ic={};var cm={};
+if(this.analyticsPeriod!=='all'){ var d=new Date(); d.setDate(d.getDate()-parseInt(this.analyticsPeriod)); q=q.gte('created_at',d.toISOString()); }
+q.then(function(r){
+var os=r.data||[]; var rev=0; var ph={}; var t=[]; var ic={}; var cm={};
 for(var i=0;i<os.length;i++){
-var o=os[i];rev+=Number(o.total_price||0);
-if(o.customer_phone)ph[o.customer_phone.replace(/[^\d]/g,'')]=1;
-if(o.cooking_started_at&&o.ready_at){var m=(new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4;t.push(m);
-if(o.cook_name){if(!cm[o.cook_name])cm[o.cook_name]={name:o.cook_name,count:0,t:[]};cm[o.cook_name].count++;cm[o.cook_name].t.push(m)}}
-var items=o.items||[];for(var j=0;j<items.length;j++){ic[items[j].name]=(ic[items[j].name]||0)+items[j].qty}
+var o=os[i]; rev+=Number(o.total_price||0);
+if(o.customer_phone) ph[o.customer_phone.replace(/[^\d]/g,'')]=1;
+if(o.cooking_started_at && o.ready_at){ var m=(new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4; t.push(m);
+if(o.cook_name){ if(!cm[o.cook_name]) cm[o.cook_name]={name:o.cook_name,count:0,t:[]}; cm[o.cook_name].count++; cm[o.cook_name].t.push(m); }
 }
-var topItems=[];for(var name in ic)topItems.push({name:name,count:ic[name]});
-topItems.sort(function(a,b){return b.count-a.count});
-this.analytics={
-revenue:rev,
-clients:Object.keys(ph).length,
+var items=o.items||[]; for(var j=0;j<items.length;j++){ ic[items[j].name]=(ic[items[j].name]||0)+items[j].qty; }
+}
+var topItems=[]; for(var name in ic) topItems.push({name:name,count:ic[name]});
+topItems.sort(function(a,b){ return b.count-a.count; });
+self.analytics={
+revenue:rev, clients:Object.keys(ph).length,
 avgCheck:os.length?Math.round(rev/os.length):0,
 avgCookTime:t.length?Math.round(t.reduce(function(a,b){return a+b},0)/t.length):0,
 topItems:topItems.slice(0,5),
-cooks:Object.keys(cm).map(function(k){var c=cm[k];return{name:c.name,count:c.count,avg:Math.round(c.t.reduce(function(a,b){return a+b},0)/c.t.length)}})
-}},
-choosePlan:function(p){if(p.price===0)this.subscribeFree(p);else this.payPlan=p},
-subscribeFree:async function(p){
-this.busy=true;var e=new Date();e.setMonth(e.getMonth()+1);
-await db.from('venues').update({plan:p.id,subscription_end:e.toISOString()}).eq('id',this.venue.id);
-await db.from('subscriptions').update({plan_id:p.id,status:'active',current_period_end:e.toISOString()}).eq('venue_id',this.venue.id);
-this.subscriptionEnd=e.toISOString();this.busy=false;this.showToast('Тариф изменен')
+cooks:Object.keys(cm).map(function(k){ var c=cm[k]; return {name:c.name,count:c.count,avg:Math.round(c.t.reduce(function(a,b){return a+b},0)/c.t.length)}; })
+};
+});
 },
-copySbp:async function(){try{await navigator.clipboard.writeText(window.SBP_PHONE);this.showToast('Номер скопирован')}catch(e){prompt('Скопируйте:',window.SBP_PHONE)}},
-markPaid:async function(){
-this.busy=true;
-var r=await db.from('payments').insert({venue_id:this.venue.id,manager_id:this.profile.id,plan_id:this.payPlan.id,amount:this.payPlan.price});
-this.busy=false;
-if(r.error){this.showToast('Ошибка: '+r.error.message,'error');return}
-this.payPlan=null;await this.loadPayments();this.showToast('Заявка отправлена!')
+
+choosePlan: function(p){ if(p.price===0) this.subscribeFree(p); else this.payPlan=p; },
+subscribeFree: function(p){
+var self=this; self.busy=true; var e=new Date(); e.setMonth(e.getMonth()+1);
+db.from('venues').update({plan:p.id,subscription_end:e.toISOString()}).eq('id',this.venue.id).then(function(){
+return db.from('subscriptions').update({plan_id:p.id,status:'active',current_period_end:e.toISOString()}).eq('venue_id',self.venue.id);
+}).then(function(){
+self.subscriptionEnd=e.toISOString(); self.busy=false; self.showToast('Тариф изменен');
+});
 },
-createVenue:async function(){
-this.formError='';
-if(!this.newVenueForm.name||!this.newVenueForm.slug){this.formError='Заполните поля';return}
-if(!this.canCreateVenue){this.formError='Лимит заведений';return}
-this.busy=true;
-try{
-var e=new Date();e.setDate(e.getDate()+14);
-var r=await db.from('venues').insert({name:this.newVenueForm.name,slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),status:'active',plan:'start',subscription_end:e.toISOString()}).select().single();
-if(r.error)throw r.error;
-await db.from('subscriptions').insert({venue_id:r.data.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()});
-if(this.profile.role!=='admin')await db.from('manager_venues').insert({manager_id:this.profile.id,venue_id:r.data.id});
-this.showCreateVenue=false;await this.loadMyVenues();this.selectVenue(r.data);this.showToast('Создано!')
-}catch(e){this.formError='Ошибка: '+e.message}
-finally{this.busy=false}
+copySbp: function(){ try{ navigator.clipboard.writeText(window.SBP_PHONE); this.showToast('Номер скопирован'); }catch(e){ prompt('Скопируйте:',window.SBP_PHONE); } },
+markPaid: function(){
+var self=this; self.busy=true;
+db.from('payments').insert({venue_id:this.venue.id,manager_id:this.profile.id,plan_id:this.payPlan.id,amount:this.payPlan.price}).then(function(r){
+self.busy=false;
+if(r.error){ self.showToast('Ошибка: '+r.error.message,'error'); return; }
+self.payPlan=null; self.loadPayments(); self.showToast('Заявка отправлена!');
+});
 },
-openAdd:function(){
-if(this.currentPlan&&this.products.length>=this.currentPlan.max_products){this.showToast('Лимит позиций','error');return}
-this.editing=null;this.pform={name:'',description:'',price:0,category:'main',image_url:''};this.formError='';this.showModal=true
+
+createVenue: function(){
+var self=this; self.formError='';
+if(!this.newVenueForm.name || !this.newVenueForm.slug){ this.formError='Заполните поля'; return; }
+if(!this.canCreateVenue){ this.formError='Лимит заведений'; return; }
+self.busy=true;
+var e=new Date(); e.setDate(e.getDate()+14);
+db.from('venues').insert({name:this.newVenueForm.name,slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),status:'active',plan:'start',subscription_end:e.toISOString()}).select().single().then(function(r){
+if(r.error) throw r.error;
+return db.from('subscriptions').insert({venue_id:r.data.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()}).then(function(){
+if(self.profile.role!=='admin') return db.from('manager_venues').insert({manager_id:self.profile.id,venue_id:r.data.id});
+}).then(function(){
+self.showCreateVenue=false; self.loadMyVenues().then(function(){ self.selectVenue(r.data); self.showToast('Создано!'); });
+});
+}).catch(function(err){ self.formError='Ошибка: '+err.message; }).finally(function(){ self.busy=false; });
 },
-openEdit:function(p){this.editing=p;this.pform={name:p.name,description:p.description||'',price:Number(p.price)||0,category:p.category,image_url:p.image_url||''};this.formError='';this.showModal=true},
-closeModal:function(){this.showModal=false;this.pform={}},
-saveProduct:async function(){
-if(!this.pform.name){this.formError='Введите название';return}
-this.busy=true;
+
+openAdd: function(){
+if(this.currentPlan && this.products.length>=this.currentPlan.max_products){ this.showToast('Лимит позиций','error'); return; }
+this.editing=null; this.pform={name:'',description:'',price:0,category:'main',image_url:''}; this.formError=''; this.showModal=true;
+},
+openEdit: function(p){ this.editing=p; this.pform={name:p.name,description:p.description||'',price:Number(p.price)||0,category:p.category,image_url:p.image_url||''}; this.formError=''; this.showModal=true; },
+closeModal: function(){ this.showModal=false; this.pform={}; },
+
+saveProduct: function(){
+var self=this;
+if(!this.pform.name){ this.formError='Введите название'; return; }
+self.busy=true;
 var row={name:this.pform.name,description:this.pform.description||null,price:Number(this.pform.price)||0,category:this.pform.category,image_url:this.pform.image_url||null};
-try{
-if(this.editing){var r=await db.from('products').update(row).eq('id',this.editing.id);if(r.error)throw r.error}
-else{row.venue_id=this.venue.id;row.is_available=true;var r=await db.from('products').insert(row);if(r.error)throw r.error}
-this.showModal=false;await this.loadProducts();this.showToast('Сохранено')
-}catch(e){this.formError='Ошибка: '+e.message}
-finally{this.busy=false}
+var p;
+if(this.editing){ p = db.from('products').update(row).eq('id',this.editing.id); }
+else { row.venue_id=this.venue.id; row.is_available=true; p = db.from('products').insert(row); }
+p.then(function(r){
+if(r.error) throw r.error;
+self.showModal=false; self.loadProducts().then(function(){ self.showToast('Сохранено'); });
+}).catch(function(e){ self.formError='Ошибка: '+e.message; }).finally(function(){ self.busy=false; });
 },
-uploadImage:async function(ev){
-var f=ev.target.files[0];if(!f)return;this.uploading=true;
-try{
-var blob=await this.resizeImage(f,900,.85);
-var fn=this.venue.id+'/'+Date.now()+'.jpg';
-var r=await db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'});
-if(r.error)throw r.error;
-this.pform.image_url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl
-}catch(e){this.showToast('Ошибка: '+e.message,'error')}
-finally{this.uploading=false;ev.target.value=''}
+
+uploadImage: function(ev){
+var self=this; var f=ev.target.files[0]; if(!f) return; self.uploading=true;
+self.resizeImage(f,900,.85).then(function(blob){
+var fn=self.venue.id+'/'+Date.now()+'.jpg';
+return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
+if(r.error) throw r.error;
+self.pform.image_url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
+});
+}).catch(function(e){ self.showToast('Ошибка: '+e.message,'error'); }).finally(function(){ self.uploading=false; ev.target.value=''; });
 },
-resizeImage:function(file,mw,q){
+
+resizeImage: function(file,mw,q){
 return new Promise(function(res,rej){
 var r=new FileReader();
 r.onload=function(e){
 var i=new Image();
 i.onload=function(){
-var c=document.createElement('canvas');
-var w=i.width,h=i.height;
-if(w>mw){h=Math.round(h*mw/w);w=mw}
-c.width=w;c.height=h;
-c.getContext('2d').drawImage(i,0,0,w,h);
-c.toBlob(function(b){b?res(b):rej(new Error('err'))},'image/jpeg',q)
+var c=document.createElement('canvas'); var w=i.width,h=i.height;
+if(w>mw){ h=Math.round(h*mw/w); w=mw; }
+c.width=w; c.height=h; c.getContext('2d').drawImage(i,0,0,w,h);
+c.toBlob(function(b){ b?res(b):rej(new Error('err')); },'image/jpeg',q);
 };
-i.onerror=function(){rej(new Error('err'))};
-i.src=e.target.result
+i.onerror=function(){ rej(new Error('err')); };
+i.src=e.target.result;
 };
-r.onerror=function(){rej(new Error('err'))};
-r.readAsDataURL(file)
-})
+r.onerror=function(){ rej(new Error('err')); };
+r.readAsDataURL(file);
+});
 },
-delProduct:function(p){
-if(!confirm('Удалить "'+p.name+'"?'))return;
+
+delProduct: function(p){ if(!confirm('Удалить?')) return; var self=this; db.from('products').delete().eq('id',p.id).then(function(){ self.loadProducts(); self.showToast('Удалено'); }); },
+toggleAvail: function(p){ var self=this; db.from('products').update({is_available:!p.is_available}).eq('id',p.id).then(function(){ self.loadProducts(); }); },
+addCook: function(){
 var self=this;
-db.from('products').delete().eq('id',p.id).then(function(){self.loadProducts();self.showToast('Удалено')})
+if(this.currentPlan && this.cooks.length>=this.currentPlan.max_cooks){ this.showToast('Лимит поваров','error'); return; }
+var pin,a=0; do{ pin=String(Math.floor(1000+Math.random()*9000)); a++; }while(this.cooks.some(function(c){return c.pin===pin}) && a<10);
+db.from('cooks').insert({venue_id:this.venue.id,name:this.cookName,pin:pin}).then(function(){ self.cookName=''; self.loadCooks(); self.showToast('Повар добавлен'); });
 },
-toggleAvail:async function(p){await db.from('products').update({is_available:!p.is_available}).eq('id',p.id);await this.loadProducts()},
-addCook:async function(){
-if(this.currentPlan&&this.cooks.length>=this.currentPlan.max_cooks){this.showToast('Лимит поваров','error');return}
-var pin,a=0;
-do{pin=String(Math.floor(1000+Math.random()*9000));a++}while(this.cooks.some(function(c){return c.pin===pin})&&a<10);
-await db.from('cooks').insert({venue_id:this.venue.id,name:this.cookName,pin:pin});
-this.cookName='';await this.loadCooks();this.showToast('Повар добавлен')
+delCook: function(c){ if(!confirm('Удалить?')) return; var self=this; db.from('cooks').delete().eq('id',c.id).then(function(){ self.loadCooks(); self.showToast('Удалено'); }); },
+
+setStatus: function(id,status){
+var self=this; var u={status:status};
+if(status==='cooking') u.cooking_started_at=new Date().toISOString();
+if(status==='ready') u.ready_at=new Date().toISOString();
+db.from('orders').update(u).eq('id',id).then(function(){ self.loadOrders(); });
 },
-delCook:function(c){
-if(!confirm('Удалить '+c.name+'?'))return;
-var self=this;
-db.from('cooks').delete().eq('id',c.id).then(function(){self.loadCooks();self.showToast('Удалено')})
+
+saveVenue: function(){
+var self=this; self.busy=true;
+db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color}).eq('id',this.venue.id).then(function(){
+return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
+}).then(function(r){ self.venue=r.data; self.busy=false; self.showToast('Сохранено'); });
 },
-setStatus:async function(id,status){
-var u={status:status};
-if(status==='cooking')u.cooking_started_at=new Date().toISOString();
-if(status==='ready')u.ready_at=new Date().toISOString();
-await db.from('orders').update(u).eq('id',id);await this.loadOrders()
+
+copyLink: function(){ try{ navigator.clipboard.writeText(this.clientLink); this.showToast('Скопировано'); }catch(e){} },
+logout: function(){ try{ db.auth.signOut(); }catch(e){} if(this.timer) clearInterval(this.timer); location.href='/index.html'; }
 },
-saveVenue:async function(){
-this.busy=true;
-await db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color}).eq('id',this.venue.id);
-var r=await db.from('venues').select('*').eq('id',this.venue.id).maybeSingle();
-this.venue=r.data;this.busy=false;this.showToast('Сохранено')
-},
-copyLink:async function(){try{await navigator.clipboard.writeText(this.clientLink);this.showToast('Скопировано')}catch(e){}},
-logout:async function(){try{await db.auth.signOut()}catch(e){}if(this.timer)clearInterval(this.timer);location.href='/index.html'}
-},
-mounted:function(){this.init()},
-beforeUnmount:function(){if(this.timer)clearInterval(this.timer)}
+mounted: function(){ this.init(); },
+beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
 </script>
 </body>
