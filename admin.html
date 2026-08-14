@@ -264,7 +264,7 @@ Vue.createApp({
       if(error){this.msg='Ошибка: '+error.message;this.msgType='err';return}
       const expiresAt=new Date();expiresAt.setDate(expiresAt.getDate()+this.form.trialDays);
       await db.from('subscriptions').insert({venue_id:venue.id,plan_id:this.form.plan,status:'trial',starts_at:new Date().toISOString(),expires_at:expiresAt.toISOString(),amount:0});
-      this.showCreate=false;this.form={name:'',slug:'',plan:'start',description:'',trialDays:14};
+      this.showCreate=false;this.form={name:'',slug:'',plan:'start',description:'',trialDays:7};
       await this.loadAll();
     },
     async togglePause(v){await db.from('venues').update({status:v.status==='active'?'paused':'active'}).eq('id',v.id);await this.loadAll()},
