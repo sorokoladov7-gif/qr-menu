@@ -17,6 +17,8 @@
   .b-on{background:rgba(52,211,153,.15);color:#6ee7b7}
   .b-off{background:rgba(248,113,113,.15);color:#fca5a5}
   .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .checkbox-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .checkbox-label { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.05); padding: 6px 10px; border-radius: 8px; font-size: 12px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -48,7 +50,7 @@
         <button :class="{on:tab==='managers'}" @click="tab='managers'">👤 Управляющие</button>
       </div>
 
-      <!-- СТАТИСТИКА (НОВОЕ) -->
+      <!-- СТАТИСТИКА -->
       <div v-if="tab==='stats'">
         <div class="spread" style="margin-bottom:14px">
           <h3 style="margin:0">Общая статистика сети</h3>
@@ -58,13 +60,11 @@
             <option value="all">За всё время</option>
           </select>
         </div>
-
         <div class="analytics-grid">
           <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(globalStats.revenue) }} ₽</div><div class="lbl">Общая выручка</div></div>
           <div class="glass stat"><div class="num" style="color:#60a5fa">{{ globalStats.orders }}</div><div class="lbl">Всего заказов</div></div>
           <div class="glass stat"><div class="num" style="color:#fbbf24">{{ globalStats.clients }}</div><div class="lbl">Уникальных клиентов</div></div>
         </div>
-
         <div class="glass card tblwrap">
           <h4 style="margin-top:0;margin-bottom:14px">🏆 Рейтинг заведений по выручке</h4>
           <table class="tbl">
@@ -111,25 +111,28 @@
         </div>
       </div>
 
-      <!-- УПРАВЛЯЮЩИЕ -->
+      <!-- УПРАВЛЯЮЩИЕ (ОБНОВЛЕНО) -->
       <div v-if="tab==='managers'">
         <div class="glass card tblwrap">
           <table class="tbl">
-            <tr><th>Имя</th><th>Email</th><th>Заведение</th></tr>
+            <tr><th>Имя</th><th>Email</th><th>Заведения (доступы)</th></tr>
             <tr v-for="m in managers" :key="m.id">
               <td>{{ m.display_name }}</td>
               <td class="muted">{{ m.email }}</td>
               <td>
-                <select :value="m.venue_id||''" @change="assign(m,$event.target.value)" style="max-width:220px">
-                  <option value="">— не назначен —</option>
-                  <option v-for="v in venues" :key="v.id" :value="v.id">{{ v.name }}</option>
-                </select>
+                <div class="checkbox-group">
+                  <label v-for="v in venues" :key="v.id" class="checkbox-label">
+                    <input type="checkbox" :checked="isAssigned(m.id, v.id)" @change="toggleAssign(m.id, v.id, $event.target.checked)">
+                    {{ v.name }}
+                  </label>
+                  <span v-if="venues.length === 0" class="muted">Нет заведений</span>
+                </div>
               </td>
             </tr>
           </table>
           <p v-if="!managers.length" class="muted" style="padding:14px">Нет зарегистрированных управляющих.</p>
         </div>
-        <p class="muted" style="font-size:12px;margin-top:12px">Порядок: вы создаёте заведение → управляющий регистрируется на index.html → вы назначаете его сюда → он добавляет блюда и поваров.</p>
+        <p class="muted" style="font-size:12px;margin-top:12px">Порядок: вы создаёте заведение → управляющий регистрируется на index.html → вы назначаете ему доступы здесь (или он сам создает свои).</p>
       </div>
     </template>
   </div>
@@ -161,7 +164,7 @@ const PLANS={ start:{label:'Старт',price:990}, pro:{label:'Про',price:19
 Vue.createApp({
   data(){return{
     ready:false, busy:false, profile:null, tab:'stats',
-    venues:[], managers:[], cooksAll:[],
+    venues:[], managers:[], cooksAll:[], links:[],
     showModal:false, nform:{name:'',slug:'',plan:'start',description:''}, msg:'',
     statsPeriod: '7',
     globalStats: { revenue: 0, orders: 0, clients: 0, venueStats: [] }
@@ -174,6 +177,7 @@ Vue.createApp({
   methods:{
     fmt(v){ return typeof window.fmt==='function' ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
     cooksByVenue(id){ return this.cooksAll.filter(c=>c.venue_id===id).length; },
+    isAssigned(managerId, venueId){ return this.links.some(l => l.manager_id === managerId && l.venue_id === venueId); },
 
     async init(){
       this.profile=await requireAuth(['admin']);
@@ -183,12 +187,22 @@ Vue.createApp({
       this.ready=true;
     },
     async loadAll(){
-      const [v,m,c]=await Promise.all([
+      const [v,m,c,l]=await Promise.all([
         db.from('venues').select('*').order('created_at'),
         db.from('profiles').select('*').eq('role','manager').order('email'),
-        db.from('cooks').select('venue_id')
+        db.from('cooks').select('venue_id'),
+        db.from('manager_venues').select('*')
       ]);
-      this.venues=v.data||[]; this.managers=m.data||[]; this.cooksAll=c.data||[];
+      this.venues=v.data||[]; this.managers=m.data||[]; this.cooksAll=c.data||[]; this.links=l.data||[];
+    },
+
+    async toggleAssign(managerId, venueId, isChecked) {
+      if (isChecked) {
+        await db.from('manager_venues').insert({ manager_id: managerId, venue_id: venueId });
+      } else {
+        await db.from('manager_venues').delete().eq('manager_id', managerId).eq('venue_id', venueId);
+      }
+      await this.loadAll();
     },
 
     async loadGlobalStats() {
@@ -201,21 +215,15 @@ Vue.createApp({
       const orders = data || [];
 
       let rev = 0; const phones = new Set(); const vMap = {};
-      
       orders.forEach(o => {
         rev += Number(o.total_price || 0);
         if (o.customer_phone) phones.add(o.customer_phone.replace(/\D/g, ''));
-        
         const vid = o.venue_id;
-        if (!vMap[vid]) {
-          vMap[vid] = { id: vid, name: o.venues ? o.venues.name : 'Неизвестно', revenue: 0, orders: 0, clients: new Set(), cookTimes: [] };
-        }
+        if (!vMap[vid]) vMap[vid] = { id: vid, name: o.venues ? o.venues.name : 'Неизвестно', revenue: 0, orders: 0, clients: new Set(), cookTimes: [] };
         vMap[vid].revenue += Number(o.total_price || 0);
         vMap[vid].orders += 1;
         if (o.customer_phone) vMap[vid].clients.add(o.customer_phone.replace(/\D/g, ''));
-        if (o.cooking_started_at && o.ready_at) {
-          vMap[vid].cookTimes.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 60000);
-        }
+        if (o.cooking_started_at && o.ready_at) vMap[vid].cookTimes.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 60000);
       });
 
       const venueStats = Object.values(vMap).map(v => ({
@@ -239,11 +247,9 @@ Vue.createApp({
     async toggleStatus(v){ await db.from('venues').update({status:v.status==='active'?'paused':'active'}).eq('id',v.id); await this.loadAll(); },
     async delVenue(v){
       if(!confirm('Удалить заведение "'+v.name+'"?')) return;
-      await db.from('profiles').update({venue_id:null}).eq('venue_id',v.id);
       const {error}=await db.from('venues').delete().eq('id',v.id);
       if(error) alert('Ошибка: '+error.message); await this.loadAll();
     },
-    async assign(m,venueId){ await db.from('profiles').update({venue_id:venueId||null}).eq('id',m.id); await this.loadAll(); },
     async logout(){ try{ if(typeof window.logout==='function') await window.logout(); }catch(e){} window.location.href='/index.html'; }
   },
   mounted(){ this.init(); }
