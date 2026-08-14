@@ -16,15 +16,31 @@
     .top-list li:last-child { border-bottom: none; }
     .venue-card { cursor: pointer; transition: transform 0.2s; }
     .venue-card:hover { transform: translateY(-2px); border-color: #6366f1; }
+    .paywall { position: fixed; inset: 0; background: rgba(11,16,32,.95); z-index: 999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
+    .plan-card { border: 1px solid rgba(255,255,255,.1); border-radius: 16px; padding: 20px; text-align: center; background: rgba(255,255,255,.03); }
+    .plan-card.popular { border-color: #6366f1; background: rgba(99,102,241,.1); }
   </style>
 </head>
 <body>
   <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
   <div id="app" v-cloak>
+    
+    <!-- БЛОКИРОВКА ПРИ НЕОПЛАТЕ -->
+    <div v-if="isBlocked" class="paywall">
+      <div class="glass box" style="max-width:500px;text-align:center">
+        <div style="font-size:48px;margin-bottom:10px">🔒</div>
+        <h2 style="margin-top:0">Подписка истекла</h2>
+        <p class="muted">Доступ к управлению заведением «{{ venue ? venue.name : '' }}» временно ограничен.</p>
+        <p>Чтобы продолжить приём заказов и работу с меню, пожалуйста, продлите подписку.</p>
+        <button class="btn btn-primary" style="width:100%;margin-top:20px" @click="tab='billing'; isBlocked=false">Перейти к оплате</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:10px" @click="logout">Выйти</button>
+      </div>
+    </div>
+
     <div class="topbar">
       <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'Мои заведения' }}</span></div>
       <div class="row">
-        <button v-if="venue" class="btn btn-ghost btn-sm" @click="venue=null">← К списку</button>
+        <button v-if="venue" class="btn btn-ghost btn-sm" @click="venue=null; checkGlobalBlock()">← К списку</button>
         <span class="muted" style="font-size:13px">{{ profile ? profile.display_name : '' }}</span>
         <button class="btn btn-ghost btn-sm" @click="logout" :disabled="busy">Выйти</button>
       </div>
@@ -33,31 +49,49 @@
     <div class="wrap">
       <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
 
-      <!-- СПИСОК ЗАВЕДЕНИЙ (НОВОЕ) -->
-      <div v-else-if="!venue">
+      <!-- СПИСОК ЗАВЕДЕНИЙ -->
+      <div v-else-if="!venue && !globalBlocked">
         <div class="spread" style="margin-bottom:20px">
           <h2 style="margin:0">Ваши заведения</h2>
-          <button class="btn btn-primary" @click="showCreateVenue=true">+ Создать заведение</button>
+          <button class="btn btn-primary" @click="showCreateVenue=true" :disabled="!canCreateVenue">+ Создать заведение</button>
         </div>
         
+        <div v-if="!canCreateVenue" class="msg error" style="margin-bottom:20px">
+          ⚠️ Лимит заведений по вашему тарифу исчерпан. Перейдите в раздел «Тарифы» для расширения.
+        </div>
+
         <div v-if="myVenues.length === 0" class="glass card" style="text-align:center;padding:50px">
           🏢 У вас пока нет заведений.<br>Нажмите кнопку выше, чтобы создать первое!
         </div>
 
         <div class="stats" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
           <div v-for="v in myVenues" :key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" @click="selectVenue(v)">
-            <div style="font-size:20px;font-weight:800;margin-bottom:8px">{{ v.name }}</div>
-            <div class="muted" style="font-size:13px;margin-bottom:12px">/{{ v.slug }}</div>
-            <div style="display:flex;gap:10px;margin-top:auto">
-              <span class="badge b-new">Меню</span>
-              <span class="badge b-ready">Заказы</span>
+            <div style="display:flex;justify-content:space-between;align-items:start">
+              <div style="font-size:20px;font-weight:800;margin-bottom:8px">{{ v.name }}</div>
+              <span v-if="isVenueExpired(v)" class="badge b-cancelled">Истекла</span>
+              <span v-else class="badge b-ready">Активна</span>
             </div>
+            <div class="muted" style="font-size:13px;margin-bottom:12px">/{{ v.slug }}</div>
+            <div style="font-size:12px;color:#9ca3af">до {{ fmtDate(v.subscription_end) }}</div>
           </div>
         </div>
       </div>
 
-      <!-- ИНТЕРФЕЙС КОНКРЕТНОГО ЗАВЕДЕНИЯ -->
+      <!-- ГЛОБАЛЬНАЯ БЛОКИРОВКА (если все истекли) -->
+      <div v-else-if="globalBlocked" class="glass card" style="text-align:center;padding:60px">
+        <div style="font-size:48px;margin-bottom:10px">🔒</div>
+        <h2>Все подписки истекли</h2>
+        <p class="muted">Пожалуйста, выберите заведение и продлите доступ.</p>
+        <button class="btn btn-primary" @click="globalBlocked=false">Выбрать заведение</button>
+      </div>
+
+      <!-- ИНТЕРФЕЙС ЗАВЕДЕНИЯ -->
       <template v-else>
+        <!-- Баннер предупреждения -->
+        <div v-if="daysLeft <= 3 && daysLeft > 0" class="msg" style="background:rgba(251,191,36,.15);color:#fcd34d;margin-bottom:18px;border:1px solid rgba(251,191,36,.3)">
+          ⚠️ Подписка истекает через {{ daysLeft }} дн. <a href="#" @click.prevent="tab='billing'" style="color:#fcd34d;text-decoration:underline;margin-left:10px">Продлить</a>
+        </div>
+
         <div class="stats" style="margin-bottom:18px">
           <div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
           <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ orders.length }}</div><div class="lbl">Заказов</div></div>
@@ -70,6 +104,7 @@
           <button :class="{on:tab==='orders'}" @click="tab='orders'">📋 Заказы</button>
           <button :class="{on:tab==='analytics'}" @click="tab='analytics'; loadAnalytics()">📊 Аналитика</button>
           <button :class="{on:tab==='staff'}" @click="tab='staff'">👨‍🍳 Повара</button>
+          <button :class="{on:tab==='billing'}" @click="tab='billing'; loadPlans()">💳 Тарифы</button>
           <button :class="{on:tab==='settings'}" @click="tab='settings'">⚙️ Настройки</button>
         </div>
 
@@ -169,6 +204,32 @@
           <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
         </div>
 
+        <!-- ТАРИФЫ И ОПЛАТА (НОВОЕ) -->
+        <div v-if="tab==='billing'">
+          <div class="glass card" style="margin-bottom:20px;text-align:center">
+            <h3 style="margin-top:0">Текущий тариф: {{ currentPlan ? currentPlan.name : 'Нет' }}</h3>
+            <p class="muted">Подписка активна до: <b style="color:#fff">{{ fmtDate(subscriptionEnd) }}</b></p>
+          </div>
+
+          <div class="stats" style="grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));">
+            <div v-for="p in plans" :key="p.id" class="glass plan-card" :class="{popular: p.id==='business'}">
+              <h3 style="margin:0 0 10px">{{ p.name }}</h3>
+              <div style="font-size:32px;font-weight:800;margin-bottom:20px">{{ p.price === 0 ? 'Бесплатно' : p.price + ' ₽' }}<span v-if="p.price>0" style="font-size:14px;color:#9ca3af;font-weight:400">/мес</span></div>
+              <ul style="list-style:none;padding:0;margin:0 0 20px;text-align:left;font-size:13px;color:#d1d5db">
+                <li v-for="f in p.features" :key="f" style="margin-bottom:8px">✓ {{ f }}</li>
+              </ul>
+              <button 
+                class="btn" 
+                :class="currentPlan && currentPlan.id === p.id ? 'btn-ghost' : 'btn-primary'" 
+                style="width:100%" 
+                @click="subscribe(p.id)"
+                :disabled="busy || (currentPlan && currentPlan.id === p.id)">
+                {{ currentPlan && currentPlan.id === p.id ? 'Текущий план' : (p.price === 0 ? 'Перейти' : 'Оплатить') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- НАСТРОЙКИ -->
         <div v-if="tab==='settings'" class="glass card" style="max-width:560px">
           <div class="field"><label>Название</label><input v-model="vform.name" :disabled="busy"></div>
@@ -193,7 +254,7 @@
       </template>
     </div>
 
-    <!-- Модалка создания заведения (НОВОЕ) -->
+    <!-- Модалка создания заведения -->
     <div v-if="showCreateVenue" class="modal" @click.self="showCreateVenue=false">
       <div class="glass box">
         <h3 style="margin-top:0">Новое заведение</h3>
@@ -201,7 +262,7 @@
         <div class="field"><label>Код (slug) *</label><input v-model.trim="newVenueForm.slug" placeholder="shaurma-lenina (только латиница и дефисы)"></div>
         <div class="field"><label>Описание</label><textarea v-model="newVenueForm.description" rows="2"></textarea></div>
         <div class="row">
-          <button class="btn btn-primary" style="flex:1" @click="createVenue" :disabled="busy">{{ busy ? 'Создание...' : 'Создать' }}</button>
+          <button class="btn btn-primary" style="flex:1" @click="createVenue" :disabled="busy">{{ busy ? 'Создание...' : 'Создать (14 дней бесплатно)' }}</button>
           <button class="btn btn-ghost" @click="showCreateVenue=false" :disabled="busy">Отмена</button>
         </div>
         <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
@@ -268,16 +329,14 @@
     data() {
       return {
         ready: false, busy: false, saving: false, profile: null, 
-        myVenues: [], // Список всех заведений управляющего
-        venue: null,  // Текущее выбранное заведение
-        products: [], orders: [], cooks: [], tab: 'menu', showModal: false,
+        myVenues: [], venue: null, products: [], orders: [], cooks: [], tab: 'menu', showModal: false,
         editing: null, pform: {}, cookName: '', vform: {}, msg: '', msgType: '',
         toast: null, timer: null, uploading: false, formError: '',
-        showCreateVenue: false,
-        newVenueForm: { name: '', slug: '', description: '' },
-        analyticsPeriod: '7',
-        analytics: { revenue: 0, clients: 0, avgCheck: 0, avgCookTime: 0, topItems: [] },
-        confirmDialog: { show: false, title: '', text: '', onConfirm: () => {} }
+        showCreateVenue: false, newVenueForm: { name: '', slug: '', description: '' },
+        analyticsPeriod: '7', analytics: { revenue: 0, clients: 0, avgCheck: 0, avgCookTime: 0, topItems: [] },
+        confirmDialog: { show: false, title: '', text: '', onConfirm: () => {} },
+        // Subscription data
+        plans: [], currentPlan: null, subscriptionEnd: null, isBlocked: false, globalBlocked: false
       };
     },
     computed: {
@@ -285,29 +344,51 @@
       activeCount() { return this.orders.filter(o => ['new', 'cooking', 'delivery'].includes(o.status)).length; },
       clientLink() { return this.venue ? location.origin + '/menu.html?venue=' + encodeURIComponent(this.venue.slug) : ''; },
       qrUrl() { return this.clientLink ? 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(this.clientLink) : ''; },
-      isFormValid() { return this.pform.name && this.pform.name.trim().length > 0 && Number(this.pform.price) >= 0; }
+      isFormValid() { return this.pform.name && this.pform.name.trim().length > 0 && Number(this.pform.price) >= 0; },
+      daysLeft() {
+        if (!this.subscriptionEnd) return 0;
+        const diff = new Date(this.subscriptionEnd) - new Date();
+        return Math.ceil(diff / (1000 * 60 * 60 * 24));
+      },
+      canCreateVenue() {
+        if (!this.currentPlan) return true; // Default allow if no plan loaded yet
+        return this.myVenues.length < this.currentPlan.max_venues;
+      }
     },
     methods: {
       fmt(v) { return typeof window.fmt === 'function' ? window.fmt(v) : Number(v || 0).toLocaleString('ru-RU'); },
+      fmtDate(d) { return d ? new Date(d).toLocaleDateString('ru-RU') : '—'; },
       statusName(s) { return typeof window.statusName === 'function' ? window.statusName(s) : ({new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',cancelled:'Отменён'}[s]||s); },
       statusColor(s) { return STATUS_COLORS[s] || '#64748b'; },
       categoryLabel(c) { return CATEGORY_LABELS[c] || 'Блюдо'; },
       showToast(text, type = 'ok', ms = 2500) { this.toast = { text, type }; clearTimeout(this._toastTimer); this._toastTimer = setTimeout(() => { this.toast = null; }, ms); },
+      isVenueExpired(v) { return v.subscription_end && new Date(v.subscription_end) < new Date(); },
 
       async init() {
         try {
           this.profile = await requireAuth(['manager', 'admin']);
           if (!this.profile) { this.ready = true; return; }
-          
-          // Загружаем список заведений управляющего
           await this.loadMyVenues();
-          
+          await this.loadPlans();
+          this.checkGlobalBlock();
         } catch (e) { this.showToast('Ошибка загрузки: ' + e.message, 'error', 4000); }
         finally { this.ready = true; }
       },
 
+      checkGlobalBlock() {
+        if (this.myVenues.length > 0 && this.myVenues.every(v => this.isVenueExpired(v))) {
+          this.globalBlocked = true;
+        } else {
+          this.globalBlocked = false;
+        }
+      },
+
+      async loadPlans() {
+        const { data } = await db.from('plans').select('*').eq('is_active', true).order('price');
+        this.plans = data || [];
+      },
+
       async loadMyVenues() {
-        // Если админ - грузим все, если менеджер - только свои через manager_venues
         let query = db.from('venues').select('*');
         if (this.profile.role !== 'admin') {
           const { data: links } = await db.from('manager_venues').select('venue_id').eq('manager_id', this.profile.id);
@@ -323,6 +404,19 @@
         this.venue = v;
         this.tab = 'menu';
         this.vform = { name: v.name, description: v.description, logo_url: v.logo_url, brand_color: v.brand_color };
+        this.subscriptionEnd = v.subscription_end;
+        
+        // Load subscription details
+        const { data: sub } = await db.from('subscriptions').select('*, plans(*)').eq('venue_id', v.id).maybeSingle();
+        this.currentPlan = sub ? sub.plans : this.plans.find(p => p.id === 'start');
+
+        if (this.isVenueExpired(v)) {
+          this.isBlocked = true;
+          this.tab = 'billing';
+        } else {
+          this.isBlocked = false;
+        }
+
         await Promise.all([this.loadProducts(), this.loadOrders(), this.loadCooks()]);
         if (this.timer) clearInterval(this.timer);
         this.timer = setInterval(() => this.loadOrders(), 5000);
@@ -331,33 +425,67 @@
       async createVenue() {
         this.formError = '';
         if (!this.newVenueForm.name || !this.newVenueForm.slug) { this.formError = 'Заполните название и код'; return; }
+        if (!this.canCreateVenue) { this.formError = 'Лимит заведений исчерпан'; return; }
+        
         this.busy = true;
         try {
-          // 1. Создаем заведение
+          const endDate = new Date(); endDate.setDate(endDate.getDate() + 14); // 14 days trial
+          
           const { data: newV, error: vErr } = await db.from('venues').insert({
             name: this.newVenueForm.name,
             slug: this.newVenueForm.slug.toLowerCase().replace(/\s+/g, '-'),
             description: this.newVenueForm.description,
             status: 'active',
-            plan: 'start'
+            plan: 'start',
+            subscription_end: endDate.toISOString()
           }).select().single();
           if (vErr) throw vErr;
 
-          // 2. Привязываем к себе (если не админ)
+          // Create subscription record
+          await db.from('subscriptions').insert({
+            venue_id: newV.id, plan_id: 'start', status: 'trialing', current_period_end: endDate.toISOString()
+          });
+
           if (this.profile.role !== 'admin') {
-            const { error: lErr } = await db.from('manager_venues').insert({
-              manager_id: this.profile.id,
-              venue_id: newV.id
-            });
-            if (lErr) throw lErr;
+            await db.from('manager_venues').insert({ manager_id: this.profile.id, venue_id: newV.id });
           }
 
           this.showCreateVenue = false;
           this.newVenueForm = { name: '', slug: '', description: '' };
           await this.loadMyVenues();
-          this.selectVenue(newV); // Сразу открываем созданное
-          this.showToast('Заведение создано!');
+          this.selectVenue(newV);
+          this.showToast('Заведение создано! 14 дней бесплатно.');
         } catch (e) { this.formError = 'Ошибка: ' + e.message; }
+        finally { this.busy = false; }
+      },
+
+      async subscribe(planId) {
+        this.busy = true;
+        try {
+          const plan = this.plans.find(p => p.id === planId);
+          if (plan.price === 0) {
+            // Free plan switch
+            const newEnd = new Date(); newEnd.setMonth(newEnd.getMonth() + 1);
+            await db.from('venues').update({ plan: planId, subscription_end: newEnd.toISOString() }).eq('id', this.venue.id);
+            await db.from('subscriptions').update({ plan_id: planId, status: 'active', current_period_end: newEnd.toISOString() }).eq('venue_id', this.venue.id);
+            this.subscriptionEnd = newEnd.toISOString();
+            this.currentPlan = plan;
+            this.showToast('Тариф изменен на Старт');
+          } else {
+            // Paid plan - In real app, call Edge Function to create YooKassa payment
+            // For demo, we simulate instant activation
+            const confirmPay = confirm(`Перейти к оплате ${plan.price} ₽ за тариф ${plan.name}? (Демо-режим: оплата пройдет мгновенно)`);
+            if (confirmPay) {
+              const newEnd = new Date(); newEnd.setMonth(newEnd.getMonth() + 1);
+              await db.from('venues').update({ plan: planId, subscription_end: newEnd.toISOString(), status: 'active' }).eq('id', this.venue.id);
+              await db.from('subscriptions').update({ plan_id: planId, status: 'active', current_period_end: newEnd.toISOString() }).eq('venue_id', this.venue.id);
+              this.subscriptionEnd = newEnd.toISOString();
+              this.currentPlan = plan;
+              this.isBlocked = false;
+              this.showToast('Оплата прошла успешно! Подписка продлена.');
+            }
+          }
+        } catch (e) { this.showToast('Ошибка оплаты: ' + e.message, 'error'); }
         finally { this.busy = false; }
       },
 
@@ -373,7 +501,6 @@
         }
         const { data } = await query;
         const orders = data || [];
-        
         let rev = 0; const phones = new Set(); let cookTimes = []; const itemCounts = {};
         orders.forEach(o => {
           rev += Number(o.total_price || 0);
@@ -381,10 +508,8 @@
           if (o.cooking_started_at && o.ready_at) cookTimes.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 60000);
           if (Array.isArray(o.items)) o.items.forEach(it => { itemCounts[it.name] = (itemCounts[it.name] || 0) + Number(it.qty || 1); });
         });
-
         const topItems = Object.entries(itemCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5);
         const avgCookTime = cookTimes.length ? Math.round(cookTimes.reduce((a, b) => a + b, 0) / cookTimes.length) : 0;
-
         this.analytics = { revenue: rev, clients: phones.size, avgCheck: orders.length ? Math.round(rev / orders.length) : 0, avgCookTime, topItems };
       },
 
