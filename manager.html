@@ -188,6 +188,7 @@
 </div>
 </div>
 
+<!-- ПОВАРА: НОВАЯ ВЕРСИЯ -->
 <div v-if="tab==='staff'">
 <div class="glass card" style="margin-bottom:14px">
 <div class="row">
@@ -196,13 +197,27 @@
 </div>
 <p class="muted" style="font-size:11px;margin:8px 0 0">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</p>
 </div>
-<div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px">
-<div style="flex:1">
-<b>{{ c.name }}</b>
-<div class="muted" style="font-size:12px">PIN: <b style="color:#a5b4fc">{{ c.pin }}</b></div>
+
+<div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
+<label>🔑 Данные для входа поваров на кухню</label>
+<div class="row" style="margin-top:8px">
+<b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
+<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button>
 </div>
+<p class="muted" style="font-size:11px;margin:8px 0 0">Повар открывает cook.html и вводит: код заведения + свой PIN.</p>
+</div>
+
+<div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px;align-items:flex-start">
+<div style="flex:1;min-width:0">
+<b>👨‍🍳 {{ c.name }}</b>
+<span class="badge" v-bind:class="c.last_login_at?'b-ready':'b-cooking'">{{ c.last_login_at?'Заходил в кабинет':'Ещё не заходил' }}</span>
+<div class="muted" style="font-size:12px;margin-top:6px">🕒 Последний вход: {{ fmtDateTime(c.last_login_at) }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">🔑 Вход: код <b style="color:#a5b4fc">{{ venue.slug }}</b> + PIN <b style="color:#a5b4fc">{{ c.pin }}</b></div>
+</div>
+<button class="btn btn-ghost btn-sm" v-on:click="copyCookLogin(c)">📋 Копировать доступ</button>
 <button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button>
 </div>
+<p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
 </div>
 
 <div v-if="tab==='billing'">
@@ -278,7 +293,7 @@
 <a class="btn btn-ghost btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a>
 </div>
 </div>
-<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px — подходит для печати на визитках и наклейках.</p>
+<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px — подходит для печати.</p>
 </div>
 <div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
 </div>
@@ -371,6 +386,11 @@ canCreateVenue: function() { var p=this.plans.find(function(x){return x.id==='st
 methods: {
 fmt: function(v){ return window.fmt(v); },
 fmtDate: function(d){ return d ? new Date(d).toLocaleDateString('ru-RU') : '-'; },
+fmtDateTime: function(d){
+if(!d) return 'ещё не заходил';
+var dt=new Date(d);
+return dt.toLocaleDateString('ru-RU')+' '+dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+},
 statusName: function(s){ return window.statusName(s); },
 statusColor: function(s){ return window.statusColor(s); },
 categoryLabel: function(c){ return window.categoryLabel(c); },
@@ -390,6 +410,11 @@ isReadyOrDelivery: function(s){ return s === 'ready' || s === 'delivery'; },
 isNewOrCooking: function(s){ return s === 'new' || s === 'cooking'; },
 isExpired: function(v){ return v.subscription_end && new Date(v.subscription_end) < new Date(); },
 showToast: function(t,type){ type=type||'ok'; this.toast={text:t,type:type}; var self=this; clearTimeout(this._t); this._t=setTimeout(function(){self.toast=null},2500); },
+copyText: function(t){ var self=this; try{ navigator.clipboard.writeText(t); self.showToast('Скопировано'); }catch(e){ prompt('Скопируйте:',t); } },
+copyCookLogin: function(c){
+var txt='Вход для повара '+c.name+':\nСайт: '+location.origin+'/cook.html\nКод заведения: '+this.venue.slug+'\nPIN: '+c.pin;
+this.copyText(txt);
+},
 
 init: function(){
 var self = this;
@@ -445,7 +470,7 @@ self.timer = setInterval(function(){ self.loadOrders(); }, 5000);
 },
 loadProducts: function(){ var self=this; return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ self.products=r.data||[]; }); },
 loadOrders: function(){ var self=this; return db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50).then(function(r){ self.orders=r.data||[]; }); },
-loadCooks: function(){ var self=this; return db.from('cooks').select('*').eq('venue_id',this.venue.id).then(function(r){ self.cooks=r.data||[]; }); },
+loadCooks: function(){ var self=this; return db.from('cooks').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ if(r.error){ self.showToast('Ошибка загрузки поваров: '+r.error.message,'error'); } self.cooks=r.data||[]; }); },
 loadPayments: function(){ var self=this; return db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false}).then(function(r){ self.myPayments=r.data||[]; }); },
 
 loadAnalytics: function(){
@@ -483,7 +508,7 @@ return db.from('subscriptions').update({plan_id:p.id,status:'active',current_per
 self.subscriptionEnd=e.toISOString(); self.busy=false; self.showToast('Тариф изменен');
 });
 },
-copySbp: function(){ try{ navigator.clipboard.writeText(window.SBP_PHONE); this.showToast('Номер скопирован'); }catch(e){ prompt('Скопируйте:',window.SBP_PHONE); } },
+copySbp: function(){ this.copyText(window.SBP_PHONE); },
 markPaid: function(){
 var self=this; self.busy=true;
 db.from('payments').insert({venue_id:this.venue.id,manager_id:this.profile.id,plan_id:this.payPlan.id,amount:this.payPlan.price}).then(function(r){
@@ -590,9 +615,12 @@ addCook: function(){
 var self=this;
 if(this.currentPlan && this.cooks.length>=this.currentPlan.max_cooks){ this.showToast('Лимит поваров','error'); return; }
 var pin,a=0; do{ pin=String(Math.floor(1000+Math.random()*9000)); a++; }while(this.cooks.some(function(c){return c.pin===pin}) && a<10);
-db.from('cooks').insert({venue_id:this.venue.id,name:this.cookName,pin:pin}).then(function(){ self.cookName=''; self.loadCooks(); self.showToast('Повар добавлен'); });
+db.from('cooks').insert({venue_id:this.venue.id,name:this.cookName,pin:pin}).then(function(r){
+if(r.error){ self.showToast('Ошибка: '+r.error.message,'error'); return; }
+self.cookName=''; self.loadCooks(); self.showToast('Повар добавлен! PIN: '+pin);
+});
 },
-delCook: function(c){ if(!confirm('Удалить?')) return; var self=this; db.from('cooks').delete().eq('id',c.id).then(function(){ self.loadCooks(); self.showToast('Удалено'); }); },
+delCook: function(c){ if(!confirm('Удалить повара '+c.name+'?')) return; var self=this; db.from('cooks').delete().eq('id',c.id).then(function(){ self.loadCooks(); self.showToast('Удалено'); }); },
 
 setStatus: function(id,status){
 var self=this; var u={status:status};
@@ -608,7 +636,7 @@ return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
 }).then(function(r){ self.venue=r.data; self.busy=false; self.showToast('Сохранено'); });
 },
 
-copyLink: function(){ try{ navigator.clipboard.writeText(this.clientLink); this.showToast('Скопировано'); }catch(e){} },
+copyLink: function(){ this.copyText(this.clientLink); },
 logout: function(){ try{ db.auth.signOut(); }catch(e){} if(this.timer) clearInterval(this.timer); location.href='/index.html'; }
 },
 mounted: function(){ this.init(); },
