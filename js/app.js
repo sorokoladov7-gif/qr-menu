@@ -1,3 +1,9 @@
+function fmt(n){ return Number(n||0).toLocaleString('ru-RU'); }
+function statusName(s){ return {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',cancelled:'Отменён',changed:'Изменён'}[s]||s; }
+async function logout(){ await db.auth.signOut(); location.href='index.html'; }
+
+// ИКОНКА-ЗАГЛУШКА ДЛЯ БЛЮД БЕЗ ФОТО
+window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 // ===== СТАТУСЫ ЗАКАЗОВ =====
 const STATUS_NAME={new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',cancelled:'Отменён'};
 const STATUS_PROGRESS={new:15,cooking:45,ready:70,delivery:88,done:100,cancelled:0};
