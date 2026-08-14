@@ -87,10 +87,17 @@ methods:{
     localStorage.setItem('cook_session',JSON.stringify({venueId:venue.id,venueName:venue.name,venueSlug:venue.slug,cookId:cook.id,cookName:cook.name}));
     location.href='cook.html';
   },
-  async routeByRole(userId){
-    const {data:profile}=await db.from('profiles').select('*').eq('id',userId).maybeSingle();
-    location.href=(profile&&profile.role==='admin')?'admin.html':'manager.html';
+ async routeByRole(userId){
+  const { data: profile } = await db.from('profiles').select('*').eq('id', userId).maybeSingle();
+  if(!profile){
+    // Не редиректим, если профиля нет - остаёмся на странице входа
+    this.msg = '⚠️ Профиль не найден. Выполните SQL в Supabase Dashboard (инструкция появится при попытке входа).';
+    this.msgType = 'error';
+    return;
   }
+  sessionStorage.removeItem('last_redirect');
+  location.href = (profile.role === 'admin') ? 'admin.html' : 'manager.html';
+}
 },
 async mounted(){
   try{
