@@ -202,7 +202,7 @@ Vue.createApp({
   data(){return{ready:false,profile:null,venues:[],managers:[],usersInfo:[],plans:[],subscriptions:[],paymentRequests:[],
     activity:[],activityFilter:'all',
     tab:'venues',showCreate:false,showOnlyInactive:false,
-    form:{name:'',slug:'',plan:'start',description:'',trialDays:14},msg:'',msgType:'',
+    form:{name:'',slug:'',plan:'start',description:'',trialDays:7},msg:'',msgType:'',
     confirmDialog:{show:false,title:'',text:'',onConfirm:null},toast:{show:false,text:''}}},
   computed:{
     mrr(){return this.subscriptions.filter(s=>s.status==='active').reduce((sum,s)=>{const p=this.plans.find(x=>x.id===s.plan_id);return sum+(p?p.price:0)},0)},
