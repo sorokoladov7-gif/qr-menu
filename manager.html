@@ -45,7 +45,11 @@
 </div>
 
 <div class="topbar">
-<div class="brand"><div class="logo">QR</div><span>{{ venueName }}</span></div>
+<div class="brand">
+<img v-if="venue&&venue.logo_url" v-bind:src="venue.logo_url" style="width:38px;height:38px;border-radius:12px;object-fit:cover" alt="">
+<div v-else class="logo">QR</div>
+<span>{{ venueName }}</span>
+</div>
 <div class="row">
 <button v-if="venue" class="btn btn-ghost btn-sm" v-on:click="backToList">К списку</button>
 <span class="muted" style="font-size:13px">{{ profileName }}</span>
@@ -73,10 +77,12 @@
 </div>
 <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
 <div v-for="v in myVenues" v-bind:key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" v-on:click="selectVenue(v)">
+<div class="spread">
 <div style="font-size:19px;font-weight:800">{{ v.name }}</div>
+<span class="badge" v-bind:class="venueBadge(v)">{{ venueLabel(v) }}</span>
+</div>
 <div class="muted" style="font-size:12px;margin:6px 0">/{{ v.slug }}</div>
 <div class="muted" style="font-size:11px">до {{ fmtDate(v.subscription_end) }}</div>
-<span class="badge" v-bind:class="venueBadge(v)">{{ venueLabel(v) }}</span>
 </div>
 </div>
 </div>
@@ -91,7 +97,7 @@
 <div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
 <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ orders.length }}</div><div class="lbl">Заказов</div></div>
 <div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ activeCount }}</div><div class="lbl">В работе</div></div>
-<div class="glass stat" style="border-color:#34d399"><div class="num">{{ products.length }}</div><div class="lbl">Позиций</div></div>
+<div class="glass stat" style="border-color:#34d399"><div class="num">{{ products.length }}/{{ maxProducts }}</div><div class="lbl">Позиций</div></div>
 </div>
 
 <div class="tabs" style="margin-bottom:18px">
@@ -247,6 +253,18 @@
 <div v-if="tab==='settings'" class="glass card" style="max-width:560px">
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
+<div class="field">
+<label>Логотип заведения</label>
+<div v-if="vform.logo_url" style="margin-bottom:10px;position:relative;display:inline-block">
+<img v-bind:src="vform.logo_url" style="width:90px;height:90px;object-fit:cover;border-radius:16px;border:1px solid rgba(255,255,255,.15)" alt="Логотип">
+<button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="vform.logo_url=''">×</button>
+</div><br>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">
+<span v-if="!uploadingLogo">🖼 Загрузить логотип</span>
+<span v-else>⏳ Загружаю...</span>
+<input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none">
+</label>
+</div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
 <button class="btn btn-primary" v-on:click="saveVenue">Сохранить</button>
 <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
@@ -255,10 +273,12 @@
 <img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
 <div style="flex:1">
 <div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div>
+<button class="btn btn-primary btn-sm" style="margin-top:8px" v-on:click="downloadQr">⬇️ Скачать QR</button>
 <button class="btn btn-ghost btn-sm" style="margin-top:8px" v-on:click="copyLink">Копировать</button>
-<a class="btn btn-primary btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a>
+<a class="btn btn-ghost btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a>
 </div>
 </div>
+<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px — подходит для печати на визитках и наклейках.</p>
 </div>
 <div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
 </div>
@@ -299,8 +319,8 @@
 <img v-bind:src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt="">
 </div>
 <label class="btn btn-ghost btn-sm" style="cursor:pointer">
-<span v-if="!uploading">Загрузить фото</span>
-<span v-else>Загружаю...</span>
+<span v-if="!uploading">📸 Загрузить фото</span>
+<span v-else>⏳ Загружаю...</span>
 <input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none">
 </label>
 <input v-model="pform.image_url" placeholder="или ссылка" style="margin-top:8px">
@@ -322,7 +342,7 @@
 Vue.createApp({
 data: function() {
 return {
-ready:false,busy:false,uploading:false,loadError:'',profile:null,myVenues:[],venue:null,
+ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:null,myVenues:[],venue:null,
 products:[],orders:[],cooks:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},cookName:'',vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
 analyticsPeriod:'7',analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],cooks:[]},
@@ -335,12 +355,17 @@ profileName: function() { return this.profile ? this.profile.display_name : ''; 
 modalTitle: function() { return this.editing ? 'Редактировать' : 'Новое блюдо'; },
 currentPlanName: function() { return this.currentPlan ? this.currentPlan.name : '-'; },
 maxCooks: function() { return this.currentPlan ? this.currentPlan.max_cooks : 999; },
+maxProducts: function() { return this.currentPlan ? this.currentPlan.max_products : '∞'; },
 revenue: function() { return this.orders.filter(function(o){return o.status==='done'}).reduce(function(s,o){return s+Number(o.total_price||0)},0); },
 activeCount: function() { return this.orders.filter(function(o){return ['new','cooking','delivery'].indexOf(o.status)!==-1}).length; },
 clientLink: function() { return this.venue ? location.origin+'/menu.html?venue='+encodeURIComponent(this.venue.slug) : ''; },
 qrUrl: function() { return this.clientLink ? 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink) : ''; },
 daysLeft: function() { return this.subscriptionEnd ? Math.ceil((new Date(this.subscriptionEnd)-new Date())/864e5) : 0; },
-currentPlan: function() { return this.venue ? this.plans.find(function(p){return p.id===this.venue.plan}.bind(this)) : null; },
+currentPlan: function() {
+if(!this.venue) return null;
+var planId = this.venue.plan;
+return this.plans.find(function(p){ return p.id === planId; }) || null;
+},
 canCreateVenue: function() { var p=this.plans.find(function(x){return x.id==='start'}); return this.myVenues.length < (p ? p.max_venues : 1); }
 },
 methods: {
@@ -411,7 +436,7 @@ backToList: function(){ this.venue=null; if(this.timer){clearInterval(this.timer
 selectVenue: function(v){
 var self = this;
 this.venue=v; this.tab='menu'; this.subscriptionEnd=v.subscription_end;
-this.vform={name:v.name,description:v.description,brand_color:v.brand_color};
+this.vform={name:v.name,description:v.description,brand_color:v.brand_color,logo_url:v.logo_url||''};
 if(this.isExpired(v)){ this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
 Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadPayments()]).then(function(){
 if(self.timer) clearInterval(self.timer);
@@ -516,6 +541,30 @@ self.pform.image_url=db.storage.from('menu-images').getPublicUrl(fn).data.public
 }).catch(function(e){ self.showToast('Ошибка: '+e.message,'error'); }).finally(function(){ self.uploading=false; ev.target.value=''; });
 },
 
+uploadLogo: function(ev){
+var self=this; var f=ev.target.files[0]; if(!f) return; self.uploadingLogo=true;
+self.resizeImage(f,512,.9).then(function(blob){
+var fn='logos/'+self.venue.id+'/'+Date.now()+'.jpg';
+return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
+if(r.error) throw r.error;
+self.vform.logo_url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
+self.showToast('Логотип загружен. Нажмите «Сохранить»');
+});
+}).catch(function(e){ self.showToast('Ошибка: '+e.message,'error'); }).finally(function(){ self.uploadingLogo=false; ev.target.value=''; });
+},
+
+downloadQr: function(){
+var self=this;
+var big='https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data='+encodeURIComponent(self.clientLink);
+fetch(big).then(function(r){ if(!r.ok) throw new Error('fetch'); return r.blob(); }).then(function(b){
+var a=document.createElement('a');
+a.href=URL.createObjectURL(b);
+a.download='qr-'+(self.venue?self.venue.slug:'menu')+'.png';
+document.body.appendChild(a); a.click(); a.remove();
+self.showToast('QR скачан в высоком качестве');
+}).catch(function(e){ window.open(big,'_blank'); self.showToast('QR открылся в новой вкладке — сохраните вручную'); });
+},
+
 resizeImage: function(file,mw,q){
 return new Promise(function(res,rej){
 var r=new FileReader();
@@ -554,7 +603,7 @@ db.from('orders').update(u).eq('id',id).then(function(){ self.loadOrders(); });
 
 saveVenue: function(){
 var self=this; self.busy=true;
-db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color}).eq('id',this.venue.id).then(function(){
+db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color,logo_url:this.vform.logo_url||null}).eq('id',this.venue.id).then(function(){
 return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
 }).then(function(r){ self.venue=r.data; self.busy=false; self.showToast('Сохранено'); });
 },
