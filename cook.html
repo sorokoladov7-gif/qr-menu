@@ -25,7 +25,7 @@
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
 <div class="topbar">
-<div class="brand"><div class="logo">👨‍🍳</div><span>Кухня{{ session?' · '+session.venueName:'' }}</span></div>
+<div class="brand"><div class="logo">👨‍</div><span>Кухня{{ session?' · '+session.venueName:'' }}</span></div>
 <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
 </div>
 <div class="wrap">
@@ -110,9 +110,9 @@ Vue.createApp({
 data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,
 showEditModal:false,editingOrder:null,editError:'' }},
 computed: {
-colNew: function(){ return this.orders.filter(function(o){return o.status==='new'}); },
+colNew: function(){ return this.orders.filter(function(o){return o.status==='new'||o.status==='changed'}); },
 colCooking: function(){ return this.orders.filter(function(o){return o.status==='cooking'}); },
-colReady: function(){ return this.orders.filter(function(o){return ['ready','delivery','changed'].indexOf(o.status)!==-1}); },
+colReady: function(){ return this.orders.filter(function(o){return ['ready','delivery'].indexOf(o.status)!==-1}); },
 newTotal: function(){
 if(!this.editingOrder) return 0;
 var s=this.editingOrder.items.reduce(function(x,i){return x+i.price*i.qty},0);
@@ -136,7 +136,6 @@ db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(v){
 if(!v.data){ self.err='Заведение не найдено'; self.busy=false; return; }
 return db.from('cooks').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(c){
 if(!c.data){ self.err='Неверный PIN'; self.busy=false; return; }
-// НОВОЕ: отмечаем время входа повара в кабинет
 db.from('cooks').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
 self.session={venueId:v.data.id,venueName:v.data.name,cookId:c.data.id,cookName:c.data.name};
 localStorage.setItem('cook_session',JSON.stringify(self.session));
@@ -152,9 +151,21 @@ this.session=null; this.orders=[]; this.loginForm={slug:'',pin:''};
 },
 load: function(){
 var self=this; if(!self.session) return;
-db.from('orders').select('*, items:order_items(*), addons:order_addons(*)')
+db.from('orders').select('*, items:order_items(*)')
 .eq('venue_id',self.session.venueId).neq('status','done').neq('status','cancelled')
-.order('created_at',{ascending:false}).limit(30).then(function(r){ if(!r.error) self.orders=r.data||[]; });
+.order('created_at',{ascending:false}).limit(30).then(function(r){
+if(r.error){ console.error(r.error); self.orders=[]; return; }
+self.orders=r.data||[];
+var ids=self.orders.map(function(o){return o.id});
+if(ids.length){
+db.from('order_addons').select('*').in('order_id',ids).then(function(a){
+if(a.error) return;
+var map={};
+(a.data||[]).forEach(function(x){ (map[x.order_id]=map[x.order_id]||[]).push(x); });
+self.orders.forEach(function(o){ o.addons=map[o.id]||[]; });
+});
+}
+});
 },
 startTimer: function(){ if(this.timer) clearInterval(this.timer); var self=this; this.timer=setInterval(function(){ self.load(); },3000); },
 setStatus: function(id,status){
@@ -163,7 +174,7 @@ if(status==='cooking'){ u.cooking_started_at=new Date().toISOString(); u.cook_na
 if(status==='ready'){ u.ready_at=new Date().toISOString(); }
 db.from('orders').update(u).eq('id',id).then(function(){ self.load(); });
 },
-openEditOrder: function(o){ this.editingOrder=JSON.parse(JSON.stringify(o)); this.editError=''; this.showEditModal=true; },
+openEditOrder: function(o){ this.editingOrder=JSON.parse(JSON.stringify(o)); if(!this.editingOrder.addons) this.editingOrder.addons=[]; this.editError=''; this.showEditModal=true; },
 changeQty: function(item,d){ item.qty+=d; if(item.qty<1) item.qty=1; },
 removeItem: function(id){ this.editingOrder.items=this.editingOrder.items.filter(function(i){return i.id!==id}); },
 removeAddon: function(id){ this.editingOrder.addons=this.editingOrder.addons.filter(function(a){return a.id!==id}); },
@@ -187,10 +198,10 @@ if(o&&o.qty!==it.qty){ chain=chain.then(function(){ return db.from('order_items'
 });
 return chain;
 }).then(function(){
-if(self.editingOrder.addons!==undefined&&orig.addons){
+if(orig.addons&&orig.addons.length){
 var curA=self.editingOrder.addons.map(function(a){return a.id});
 var delA=orig.addons.map(function(a){return a.id}).filter(function(id){return curA.indexOf(id)===-1});
-if(delA.length) return db.from('order_addons').delete().in('id',delA);
+if(delA.length) return db.from('order_addons').delete().in('id',delA).then(function(){});
 }
 }).then(function(){
 self.showEditModal=false; self.load();
