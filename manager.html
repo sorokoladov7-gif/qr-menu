@@ -712,5 +712,12 @@ mounted: function(){ this.init(); },
 beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
 </script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  });
+}
+</script>
 </body>
 </html>
