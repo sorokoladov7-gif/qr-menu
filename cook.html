@@ -25,7 +25,7 @@
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
 <div class="topbar">
-<div class="brand"><div class="logo">👨‍</div><span>Кухня{{ session?' · '+session.venueName:'' }}</span></div>
+<div class="brand"><div class="logo">👨‍🍳</div><span>Кухня{{ session?' · '+session.venueName:'' }}</span></div>
 <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
 </div>
 <div class="wrap">
@@ -37,7 +37,7 @@
 <div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
 </div>
 <template v-else>
-<div class="muted" style="font-size:12px;margin-bottom:12px">👨‍ {{ session.cookName }} · обновление каждые 3 сек</div>
+<div class="muted" style="font-size:12px;margin-bottom:12px">👨‍ {{ session.cookName }} · заказы приходят автоматически, выбирайте любой</div>
 <div class="cols">
 <div class="col"><h4>🆕 Новые ({{ colNew.length }})</h4>
 <div v-for="o in colNew" v-bind:key="o.id" class="glass wcard">
@@ -49,14 +49,15 @@
 <div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
 <div class="row" style="margin-top:10px">
 <button class="btn btn-ghost btn-sm" style="flex:1" v-on:click="openEditOrder(o)">✏️ Изменить</button>
-<button class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'cooking')">В работу 🔥</button>
+<button class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'cooking')">✋ Взять заказ</button>
 </div>
 </div>
-<p v-if="!colNew.length" class="muted">Пусто</p>
+<p v-if="!colNew.length" class="muted">Пусто — новые заказы появятся сами</p>
 </div>
 <div class="col"><h4>🔥 Готовятся ({{ colCooking.length }})</h4>
 <div v-for="o in colCooking" v-bind:key="o.id" class="glass wcard">
 <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ deliveryIcon(o.order_type) }}</span></div>
+<div class="muted" style="font-size:12px;margin-top:4px">👨‍🍳 Готовит: <b style="color:#fcd34d">{{ o.cook_name||'—' }}</b></div>
 <div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
 <button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" v-on:click="setStatus(o.id,'ready')">Готово ✓</button>
 </div>
@@ -65,6 +66,7 @@
 <div class="col"><h4>✅ Выдача ({{ colReady.length }})</h4>
 <div v-for="o in colReady" v-bind:key="o.id" class="glass wcard">
 <div class="spread"><b>№{{ o.order_number }}</b><span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span></div>
+<div class="muted" style="font-size:12px;margin-top:4px">👨‍ {{ o.cook_name||'—' }}</div>
 <div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
 <div class="row" style="margin-top:10px">
 <button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
