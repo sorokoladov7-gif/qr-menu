@@ -35,6 +35,15 @@
 .b-done{background:rgba(100,116,139,.2);color:#cbd5e1}.b-changed{background:rgba(251,146,60,.15);color:#fdba74}
 .alert-box{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:15px;margin:15px 0}
 .status-big{text-align:center;padding:20px 0 10px;font-size:52px;animation:pop .4s ease}
+
+/* НОВАЯ ПЛАВАЮЩАЯ КНОПКА "ЗАКАЗАТЬ ЕЩЁ" */
+.reorder-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
+.reorder-bar button{width:100%;background:linear-gradient(90deg,#10b981,#059669);border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer;box-shadow:0 8px 24px rgba(16,185,129,.4);animation:pop .3s ease}
+.reorder-bar button:active{transform:scale(.97)}
+
+/* Завершённый заказ — большая кнопка действия */
+.done-actions{display:flex;gap:10px;margin-top:15px}
+.done-actions button{flex:1;padding:12px;font-weight:700;border-radius:12px;cursor:pointer;font-size:14px}
 </style>
 </head>
 <body>
@@ -49,7 +58,7 @@
     </div>
     <div class="row">
       <button v-if="venue&&view==='menu'" class="btn btn-ghost btn-sm" v-on:click="goToTracking">📦 Мои заказы</button>
-      <button v-if="view==='tracking'" class="btn btn-ghost btn-sm" v-on:click="view='menu'">← В меню</button>
+      <button v-if="venue&&view==='tracking'" class="btn btn-ghost btn-sm" v-on:click="view='menu'">← В меню</button>
     </div>
   </div>
 
@@ -103,6 +112,10 @@
             <input v-model="trackPhone" type="tel" placeholder="Ваш номер телефона" style="flex:1" v-on:keyup.enter="trackOrder">
             <button class="btn btn-primary btn-sm" v-on:click="trackOrder">Найти</button>
           </div>
+          <!-- КНОПКА В ШАПКЕ ТРЕКИНГА -->
+          <button class="btn btn-green" style="width:100%;margin-top:12px" v-on:click="goToMenu">
+            🍔 Заказать ещё
+          </button>
         </div>
 
         <div v-if="tracking" class="glass order-card" v-bind:style="{borderTopColor:statusColor(tracking.status)}">
@@ -112,6 +125,7 @@
             <span class="badge" v-bind:class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span>
           </div>
 
+          <!-- ИЗМЕНЁННЫЙ ЗАКАЗ -->
           <div v-if="tracking.status==='changed'" class="alert-box">
             <b style="color:#fdba74">⚠️ Заказ будет изменён</b>
             <p style="font-size:13px;margin:8px 0">Некоторых ингредиентов нет в наличии. Повар скорректировал заказ. Новая сумма: <b>{{ fmt(tracking.total_price) }} ₽</b></p>
@@ -125,6 +139,7 @@
             </div>
           </div>
 
+          <!-- ОБЫЧНЫЙ СТАТУС -->
           <template v-else>
             <div class="muted" style="text-align:center;margin:8px 0">{{ statusHint(tracking.status) }}</div>
             <div style="font-size:13px">
@@ -134,9 +149,22 @@
             <div class="spread" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
               <span class="muted">Итого:</span><b>{{ fmt(tracking.total_price) }} ₽</b>
             </div>
+
+            <!-- НОВОЕ: БЛОК ДЕЙСТВИЙ ПРИ ЗАВЕРШЁННОМ ЗАКАЗЕ -->
+            <div v-if="tracking.status==='done'" class="done-actions">
+              <button class="btn btn-green" v-on:click="goToMenu">🍔 Новый заказ</button>
+              <button class="btn btn-ghost" v-on:click="repeatOrder">🔁 Повторить</button>
+            </div>
           </template>
         </div>
         <p v-if="trackSearched&&!tracking" class="muted">Заказов с этим номером не найдено.</p>
+
+        <!-- НОВОЕ: ПЛАВАЮЩАЯ КНОПКА "ЗАКАЗАТЬ ЕЩЁ" -->
+        <div class="reorder-bar" v-if="tracking&&tracking.status!=='changed'">
+          <button v-on:click="goToMenu">
+            {{ tracking.status==='done' ? '🍔 Сделать новый заказ' : '🍔 Заказать ещё пока ждёте' }}
+          </button>
+        </div>
       </template>
     </template>
   </div>
@@ -221,7 +249,7 @@ Vue.createApp({
     categoryLabel: function(c){ return window.categoryLabel(c); },
     catEmoji: function(c){ return { main:'🍔', drink:'🥤', addon:'🧂' }[c] || '🍽'; },
     statusName: function(s){ return window.statusName(s); },
-    statusEmoji: function(s){ return { new:'🆕', cooking:'👨‍', ready:'✅', delivery:'🚗', done:'🎉', changed:'⚠️' }[s] || '📦'; },
+    statusEmoji: function(s){ return { new:'🆕', cooking:'👨‍🍳', ready:'✅', delivery:'🚗', done:'🎉', changed:'⚠️' }[s] || '📦'; },
     statusColor: function(s){ return window.statusColor(s); },
     statusHint: function(s){
       return {
@@ -238,6 +266,40 @@ Vue.createApp({
       var last = localStorage.getItem('last_phone') || '';
       this.view = 'tracking';
       if(last){ this.trackPhone = last; this.trackOrder(); }
+    },
+
+    goToMenu: function(){
+      this.view = 'menu';
+      window.scrollTo(0, 0);
+    },
+
+    repeatOrder: function(){
+      var self = this;
+      if(!this.tracking) return;
+      var items = this.tracking.items || [];
+      var addons = this.tracking.addons || [];
+      // Находим блюда в меню и добавляем в корзину
+      items.forEach(function(it){
+        var p = self.products.find(function(x){ return x.id === it.product_id; });
+        if(p){
+          var f = self.cart.find(function(i){ return i.id === p.id; });
+          if(f){ f.qty += it.qty; }
+          else { self.cart.push({ id:p.id, name:p.name, price:Number(p.price)||0, qty:it.qty }); }
+        }
+      });
+      addons.forEach(function(a){
+        var ca = self.cartAddons.find(function(x){ return x.name === a.name; });
+        if(ca){ ca.qty++; }
+      });
+      this.view = 'menu';
+      this.showToast('Блюда из прошлого заказа добавлены в корзину');
+      window.scrollTo(0, 0);
+    },
+
+    showToast: function(t){
+      var self = this;
+      self.msg = t;
+      setTimeout(function(){ self.msg = ''; }, 3000);
     },
 
     init: function(){
@@ -279,7 +341,6 @@ Vue.createApp({
       if(!self.cart.length){ self.msg = 'Корзина пустая'; return; }
       self.busy = true;
 
-      // 1. Создаём заказ с нормализованным телефоном
       db.from('orders').insert({
         venue_id: self.venue.id,
         customer_name: self.form.name || null,
@@ -294,13 +355,11 @@ Vue.createApp({
         if(r.error) throw r.error;
         var orderId = r.data.id;
 
-        // 2. Сохраняем позиции в order_items
         return db.from('order_items').insert(self.cart.map(function(i){
           return { order_id: orderId, product_id: i.id, name: i.name, price: i.price, qty: i.qty };
         })).then(function(ri){
           if(ri.error) throw ri.error;
 
-          // 3. Сохраняем добавки в order_addons (по одной записи на штуку)
           var rows = [];
           self.cartAddons.forEach(function(a){
             for(var k = 0; k < a.qty; k++){
@@ -310,7 +369,6 @@ Vue.createApp({
           var pAdd = rows.length ? db.from('order_addons').insert(rows).then(function(){}) : Promise.resolve();
 
           return pAdd.then(function(){
-            // 4. Запоминаем номер + переходим в трекинг
             localStorage.setItem('last_phone', phone);
             self.cart = [];
             self.cartAddons = self.cartAddons.map(function(a){ return { id:a.id, name:a.name, price:a.price, qty:0 }; });
@@ -340,7 +398,6 @@ Vue.createApp({
         .limit(1).maybeSingle().then(function(r){
           self.tracking = r.data || null;
           if(self.tracking){
-            // Подтягиваем добавки отдельно (чтобы не падал весь запрос)
             db.from('order_addons').select('*').eq('order_id', self.tracking.id).then(function(a){
               if(!a.error) self.tracking.addons = a.data || [];
             });
