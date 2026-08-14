@@ -73,7 +73,7 @@
 <button class="btn btn-primary" v-on:click="showCreateVenue=true" v-bind:disabled="!canCreateVenue">+ Создать</button>
 </div>
 <div v-if="!myVenues.length" class="glass card" style="text-align:center;padding:50px">
-У вас пока нет заведений.<br>Создайте первое - 14 дней бесплатно!
+У вас пока нет заведений.<br>Создайте первое - 3 дня бесплатно!
 </div>
 <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
 <div v-for="v in myVenues" v-bind:key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" v-on:click="selectVenue(v)">
@@ -136,6 +136,7 @@
 <b>{{ fmt(o.total_price) }} ₽</b>
 </div>
 <div class="muted" style="font-size:13px;margin-top:6px">{{ o.customer_phone }} {{ o.customer_name }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">👨‍ Готовит: <b style="color:#a5b4fc">{{ o.cook_name||'ещё не назначен' }}</b></div>
 <div style="margin-top:6px;font-size:13px">
 <div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div>
 </div>
@@ -188,7 +189,6 @@
 </div>
 </div>
 
-<!-- ПОВАРА: НОВАЯ ВЕРСИЯ -->
 <div v-if="tab==='staff'">
 <div class="glass card" style="margin-bottom:14px">
 <div class="row">
@@ -209,7 +209,7 @@
 
 <div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px;align-items:flex-start">
 <div style="flex:1;min-width:0">
-<b>👨‍🍳 {{ c.name }}</b>
+<b>👨‍ {{ c.name }}</b>
 <span class="badge" v-bind:class="c.last_login_at?'b-ready':'b-cooking'">{{ c.last_login_at?'Заходил в кабинет':'Ещё не заходил' }}</span>
 <div class="muted" style="font-size:12px;margin-top:6px">🕒 Последний вход: {{ fmtDateTime(c.last_login_at) }}</div>
 <div class="muted" style="font-size:12px;margin-top:4px">🔑 Вход: код <b style="color:#a5b4fc">{{ venue.slug }}</b> + PIN <b style="color:#a5b4fc">{{ c.pin }}</b></div>
@@ -523,7 +523,7 @@ var self=this; self.formError='';
 if(!this.newVenueForm.name || !this.newVenueForm.slug){ this.formError='Заполните поля'; return; }
 if(!this.canCreateVenue){ this.formError='Лимит заведений'; return; }
 self.busy=true;
-var e=new Date(); e.setDate(e.getDate()+14);
+var e=new Date(); e.setDate(e.getDate()+3);
 db.from('venues').insert({name:this.newVenueForm.name,slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),status:'active',plan:'start',subscription_end:e.toISOString()}).select().single().then(function(r){
 if(r.error) throw r.error;
 return db.from('subscriptions').insert({venue_id:r.data.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()}).then(function(){
