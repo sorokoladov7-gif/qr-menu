@@ -1,750 +1,333 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Кабинет управляющего</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Кабинет управляющего — QR-Меню</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 </head>
 <body>
-  <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
-  <div id="app" v-cloak>
-    <div class="topbar">
-      <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'Кабинет' }}</span></div>
-      <div class="row">
-        <span class="muted" style="font-size:13px">{{ profile ? profile.display_name : '' }}</span>
-        <button class="btn btn-ghost btn-sm" @click="logout" :disabled="busy">Выйти</button>
-      </div>
+<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
+
+<div id="app" v-cloak>
+  <div class="topbar">
+    <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'Кабинет' }}</span></div>
+    <div class="row">
+      <span class="muted" style="font-size:13px">{{ profile ? profile.display_name : '' }}</span>
+      <button class="btn btn-ghost btn-sm" @click="logout">Выйти</button>
     </div>
-
-    <div class="wrap">
-      <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
-
-      <div v-else-if="!venue" class="glass card" style="text-align:center;padding:50px">
-        ⏳ Ваш аккаунт ещё не привязан к заведению.<br>Администратор должен назначить вам заведение.
-      </div>
-
-      <template v-else>
-        <div class="stats" style="margin-bottom:18px">
-          <div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
-          <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ orders.length }}</div><div class="lbl">Заказов</div></div>
-          <div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ activeCount }}</div><div class="lbl">В работе</div></div>
-          <div class="glass stat" style="border-color:#34d399"><div class="num">{{ products.length }}</div><div class="lbl">Позиций</div></div>
-        </div>
-
-        <div class="tabs" style="margin-bottom:18px">
-          <button :class="{on:tab==='menu'}" @click="tab='menu'">🍔 Меню</button>
-          <button :class="{on:tab==='orders'}" @click="tab='orders'">📋 Заказы</button>
-          <button :class="{on:tab==='staff'}" @click="tab='staff'">👨‍🍳 Повара</button>
-          <button :class="{on:tab==='settings'}" @click="tab='settings'">⚙️ Настройки</button>
-        </div>
-
-        <!-- МЕНЮ -->
-        <div v-if="tab==='menu'">
-          <div class="spread" style="margin-bottom:14px">
-            <h3 style="margin:0">Позиции меню</h3>
-            <button class="btn btn-primary btn-sm" @click="openAdd" :disabled="busy">+ Добавить блюдо</button>
-          </div>
-          <div v-for="p in products" :key="p.id" class="glass menu-item" style="margin-bottom:10px">
-            <img class="thumb" :src="p.image_url || DEFAULT_IMG" alt="">
-            <div style="flex:1;min-width:0">
-              <b>{{ p.name }}</b>
-              <span class="badge" :class="p.category==='addon' ? 'b-delivery' : 'b-new'">
-                {{ categoryLabel(p.category) }}
-              </span>
-              <div class="muted" style="font-size:12px">{{ p.description }}</div>
-            </div>
-            <b style="color:#a5b4fc">{{ p.price }} ₽</b>
-            <button class="btn btn-ghost btn-sm" @click="toggleAvail(p)" :disabled="busy">
-              {{ p.is_available ? 'Вкл' : 'Выкл' }}
-            </button>
-            <button class="btn btn-ghost btn-sm" @click="openEdit(p)" :disabled="busy">✏️</button>
-            <button class="btn btn-danger btn-sm" @click="delProduct(p)" :disabled="busy">🗑</button>
-          </div>
-          <p v-if="!products.length" class="muted">Меню пустое — добавьте первое блюдо.</p>
-        </div>
-
-        <!-- ЗАКАЗЫ -->
-        <div v-if="tab==='orders'">
-          <div v-for="o in orders" :key="o.id" class="glass order-card" :style="{borderTopColor: statusColor(o.status)}">
-            <div class="spread">
-              <div>
-                <b>№{{ o.order_number }}</b>
-                <span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span>
-                <span class="muted" style="font-size:12px;margin-left:6px">
-                  {{ o.order_type==='delivery' ? '🚗 Доставка' : '🏠 Самовывоз' }}
-                </span>
-              </div>
-              <b>{{ fmt(o.total_price) }} ₽</b>
-            </div>
-            <div class="muted" style="font-size:13px;margin-top:6px">
-              📞 {{ o.customer_phone }}
-              <span v-if="o.customer_name">· {{ o.customer_name }}</span>
-              <span v-if="o.delivery_address"> · 📍 {{ o.delivery_address }}</span>
-            </div>
-            <div style="margin-top:6px;font-size:13px">
-              <div v-for="it in o.items" :key="it.id">{{ it.qty }}× {{ it.name }} — {{ it.price * it.qty }} ₽</div>
-              <div v-for="a in o.addons" :key="a.id" class="muted">+ {{ a.name }} — {{ a.price }} ₽</div>
-            </div>
-            <div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
-            <div class="row" style="margin-top:10px">
-              <span class="muted" style="font-size:12px">Оплата: {{ o.payment_method==='card' ? 'карта' : 'наличные' }}</span>
-              <button v-if="o.status==='ready' && o.order_type==='delivery'"
-                      class="btn btn-primary btn-sm" @click="setStatus(o.id,'delivery')" :disabled="busy">
-                Курьеру
-              </button>
-              <button v-if="['ready','delivery'].includes(o.status)"
-                      class="btn btn-green btn-sm" @click="setStatus(o.id,'done')" :disabled="busy">
-                Завершить
-              </button>
-              <button v-if="['new','cooking'].includes(o.status)"
-                      class="btn btn-danger btn-sm" @click="setStatus(o.id,'cancelled')" :disabled="busy">
-                Отменить
-              </button>
-            </div>
-          </div>
-          <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
-        </div>
-
-        <!-- ПОВАРА -->
-        <div v-if="tab==='staff'">
-          <div class="glass card" style="margin-bottom:14px">
-            <div class="row">
-              <input v-model.trim="cookName" placeholder="Имя повара" style="flex:1;min-width:160px"
-                     @keyup.enter="addCook" :disabled="busy" maxlength="40">
-              <button class="btn btn-green btn-sm" @click="addCook" :disabled="busy || !cookName">+ Добавить повара</button>
-            </div>
-          </div>
-          <div v-for="c in cooks" :key="c.id" class="glass menu-item" style="margin-bottom:10px">
-            <div style="flex:1">
-              <b>👨‍🍳 {{ c.name }}</b>
-              <div class="muted" style="font-size:12px">
-                PIN: <b style="color:#a5b4fc">{{ c.pin }}</b>
-                · вход на cook.html (код заведения: <b>{{ venue.slug }}</b>)
-              </div>
-            </div>
-            <button class="btn btn-danger btn-sm" @click="delCook(c)" :disabled="busy">🗑</button>
-          </div>
-          <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
-        </div>
-
-        <!-- НАСТРОЙКИ -->
-        <div v-if="tab==='settings'" class="glass card" style="max-width:560px">
-          <div class="field"><label>Название</label><input v-model="vform.name" :disabled="busy"></div>
-          <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2" :disabled="busy"></textarea></div>
-          <div class="field"><label>URL логотипа</label><input v-model="vform.logo_url" placeholder="https://..." :disabled="busy"></div>
-          <div class="field">
-            <label>Фирменный цвет</label>
-            <input v-model="vform.brand_color" type="color" style="height:44px;padding:4px" :disabled="busy">
-          </div>
-          <button class="btn btn-primary" @click="saveVenue" :disabled="busy || saving">
-            {{ saving ? 'Сохранение...' : 'Сохранить' }}
-          </button>
-
-          <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
-            <label>QR-код и ссылка для клиентов</label>
-            <div class="row">
-              <img :src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
-              <div style="flex:1;min-width:200px">
-                <div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div>
-                <button class="btn btn-ghost btn-sm" style="margin-top:8px" @click="copyLink">Копировать ссылку</button>
-                <a class="btn btn-primary btn-sm" style="margin-top:8px" :href="clientLink" target="_blank">Открыть меню</a>
-              </div>
-            </div>
-          </div>
-          <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
-        </div>
-      </template>
-    </div>
-
-    <!-- Модалка блюда -->
-    <div v-if="showModal" class="modal" @click.self="closeModal">
-      <div class="glass box">
-        <h3 style="margin-top:0">{{ editing ? 'Редактировать блюдо' : 'Новое блюдо' }}</h3>
-
-        <div class="field">
-          <label>Название *</label>
-          <input v-model.trim="pform.name" :disabled="busy" maxlength="80">
-        </div>
-        <div class="field">
-          <label>Описание</label>
-          <textarea v-model="pform.description" rows="2" :disabled="busy" maxlength="500"></textarea>
-        </div>
-        <div class="row">
-          <div class="field" style="flex:1">
-            <label>Цена ₽ *</label>
-            <input v-model.number="pform.price" type="number" min="0" step="1" :disabled="busy">
-          </div>
-          <div class="field" style="flex:1">
-            <label>Категория</label>
-            <select v-model="pform.category" :disabled="busy">
-              <option value="main">Блюдо</option>
-              <option value="drink">Напиток</option>
-              <option value="addon">Доп/соус</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="field">
-          <label>Фото блюда</label>
-          <div v-if="pform.image_url" style="margin-bottom:10px;position:relative;display:inline-block">
-            <img :src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.1)" alt="">
-            <button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" @click="pform.image_url=''" :disabled="uploading">×</button>
-          </div>
-          <br>
-          <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex" :class="{disabled: uploading || busy}">
-            <span v-if="!uploading">📸 Загрузить фото</span>
-            <span v-else>⏳ Загружаю…</span>
-            <input type="file" accept="image/*" @change="uploadImage" :disabled="uploading || busy" style="display:none">
-          </label>
-          <input v-model="pform.image_url" placeholder="или вставь ссылку на картинку" style="margin-top:8px" :disabled="busy">
-        </div>
-
-        <div class="row">
-          <button class="btn btn-primary" style="flex:1" @click="saveProduct" :disabled="busy || uploading || !isFormValid">
-            {{ busy ? 'Сохранение...' : 'Сохранить' }}
-          </button>
-          <button class="btn btn-ghost" @click="closeModal" :disabled="busy">Отмена</button>
-        </div>
-
-        <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
-      </div>
-    </div>
-
-    <!-- Подтверждение удаления -->
-    <div v-if="confirmDialog.show" class="modal" @click.self="confirmDialog.show=false">
-      <div class="glass box" style="max-width:400px">
-        <h3 style="margin-top:0">{{ confirmDialog.title }}</h3>
-        <p>{{ confirmDialog.text }}</p>
-        <div class="row">
-          <button class="btn btn-danger" style="flex:1" @click="confirmDialog.onConfirm();confirmDialog.show=false">Удалить</button>
-          <button class="btn btn-ghost" @click="confirmDialog.show=false">Отмена</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Toast -->
-    <div v-if="toast" class="toast" :class="toast.type">{{ toast.text }}</div>
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/auth.js"></script>
-  <script src="js/app.js"></script>
+  <div class="wrap">
+    <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
 
-  <script>
-  // Константы вынесены из компонента
-  const STATUS_COLORS = {
-    new: '#60a5fa',
-    cooking: '#fbbf24',
-    ready: '#34d399',
-    delivery: '#a78bfa',
-    done: '#64748b',
-    cancelled: '#f87171'
-  };
-  const STATUS_NAMES = {
-    new: 'Новый',
-    cooking: 'Готовится',
-    ready: 'Готов',
-    delivery: 'В доставке',
-    done: 'Завершён',
-    cancelled: 'Отменён'
-  };
-  const CATEGORY_LABELS = {
-    main: 'Блюдо',
-    drink: 'Напиток',
-    addon: 'Доп'
-  };
-  const DEFAULT_IMG = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" fill="%231f2937"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="30">🍽</text></svg>';
+    <div v-else-if="!venue" class="glass card" style="text-align:center;padding:50px">
+      ⏳ Ваш аккаунт ещё не привязан к заведению.<br>Админ должен назначить вам заведение в админ-панели.
+    </div>
 
-  Vue.createApp({
-    data() {
-      return {
-        ready: false,
-        busy: false,
-        saving: false,
-        profile: null,
-        venue: null,
-        products: [],
-        orders: [],
-        cooks: [],
-        tab: 'menu',
-        showModal: false,
-        editing: null,
-        pform: {},
-        cookName: '',
-        vform: {},
-        msg: '',
-        msgType: '',
-        toast: null,
-        timer: null,
-        realtimeChannel: null,
-        uploading: false,
-        formError: '',
-        confirmDialog: {
-          show: false,
-          title: '',
-          text: '',
-          onConfirm: () => {}
+    <template v-else>
+      <!-- СТАТИСТИКА -->
+      <div class="stats" style="margin-bottom:18px">
+        <div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
+        <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ orders.length }}</div><div class="lbl">Заказов</div></div>
+        <div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ activeCount }}</div><div class="lbl">В работе</div></div>
+        <div class="glass stat" style="border-color:#34d399"><div class="num">{{ products.length }}</div><div class="lbl">Позиций</div></div>
+      </div>
+
+      <!-- ВКЛАДКИ -->
+      <div class="tabs" style="margin-bottom:18px">
+        <button :class="{on:tab==='menu'}" @click="tab='menu'">🍔 Меню</button>
+        <button :class="{on:tab==='orders'}" @click="tab='orders'">📋 Заказы</button>
+        <button :class="{on:tab==='staff'}" @click="tab='staff'">👨‍🍳 Повара</button>
+        <button :class="{on:tab==='settings'}" @click="tab='settings'">⚙️ Настройки</button>
+      </div>
+
+      <!-- ===== МЕНЮ ===== -->
+      <div v-if="tab==='menu'">
+        <div class="spread" style="margin-bottom:14px">
+          <h3 style="margin:0">Позиции меню</h3>
+          <button class="btn btn-primary btn-sm" @click="openAdd">+ Добавить блюдо</button>
+        </div>
+
+        <div v-for="p in products" :key="p.id" class="glass menu-item" style="margin-bottom:10px">
+          <img class="thumb" :src="p.image_url || DEFAULT_IMG">
+          <div style="flex:1;min-width:0">
+            <b>{{ p.name }}</b>
+            <span class="badge" :class="catBadge(p.category)">{{ catLabel(p.category) }}</span>
+            <div class="muted" style="font-size:12px">{{ p.description }}</div>
+          </div>
+          <b style="color:#a5b4fc">{{ p.price }} ₽</b>
+          <button class="btn btn-ghost btn-sm" @click="toggleAvail(p)">{{ p.is_available ? 'Вкл' : 'Выкл' }}</button>
+          <button class="btn btn-ghost btn-sm" @click="openEdit(p)">✏️</button>
+          <button class="btn btn-danger btn-sm" @click="delProduct(p)">🗑</button>
+        </div>
+        <p v-if="!products.length" class="muted">Меню пустое — добавьте первое блюдо.</p>
+      </div>
+
+      <!-- ===== ЗАКАЗЫ ===== -->
+      <div v-if="tab==='orders'">
+        <div v-for="o in orders" :key="o.id" class="glass order-card" :style="{borderTopColor: statusColor(o.status)}">
+          <div class="spread">
+            <div>
+              <b>№{{ o.order_number }}</b>
+              <span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span>
+              <span class="muted" style="font-size:12px;margin-left:6px">{{ o.order_type==='delivery' ? '🚗 Доставка' : '🏠 Самовывоз' }}</span>
+            </div>
+            <b>{{ fmt(o.total_price) }} ₽</b>
+          </div>
+
+          <div class="muted" style="font-size:13px;margin-top:6px">
+            📞 {{ o.customer_phone }}<span v-if="o.customer_name"> · {{ o.customer_name }}</span>
+            <span v-if="o.delivery_address"> · 📍 {{ o.delivery_address }}</span>
+            <span> · {{ timeStr(o.created_at) }}</span>
+          </div>
+
+          <div style="margin-top:6px;font-size:13px">
+            <div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }} — {{ it.price*it.qty }} ₽</div>
+            <div v-for="a in o.addons" :key="a.id" class="muted">+ {{ a.name }} — {{ a.price }} ₽</div>
+          </div>
+
+          <div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
+
+          <div class="row" style="margin-top:10px">
+            <span class="muted" style="font-size:12px">Оплата: {{ o.payment_method==='card' ? 'карта' : 'наличные' }}</span>
+            <button v-if="o.status==='ready' && o.order_type==='delivery'" class="btn btn-primary btn-sm" @click="setStatus(o.id,'delivery')">Курьеру</button>
+            <button v-if="['ready','delivery'].includes(o.status)" class="btn btn-green btn-sm" @click="setStatus(o.id,'done')">Завершить</button>
+            <button v-if="['new','cooking'].includes(o.status)" class="btn btn-danger btn-sm" @click="setStatus(o.id,'cancelled')">Отменить</button>
+          </div>
+        </div>
+        <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
+      </div>
+
+      <!-- ===== ПОВАРА ===== -->
+      <div v-if="tab==='staff'">
+        <div class="glass card" style="margin-bottom:14px">
+          <div class="row">
+            <input v-model="cookName" placeholder="Имя повара" style="flex:1;min-width:160px">
+            <button class="btn btn-green btn-sm" @click="addCook">+ Добавить повара</button>
+          </div>
+        </div>
+
+        <div v-for="c in cooks" :key="c.id" class="glass menu-item" style="margin-bottom:10px">
+          <div style="flex:1">
+            <b>👨‍🍳 {{ c.name }}</b>
+            <div class="muted" style="font-size:12px">
+              PIN: <b style="color:#a5b4fc">{{ c.pin }}</b> · вход на cook.html (код заведения: {{ venue.slug }})
+            </div>
+          </div>
+          <button class="btn btn-danger btn-sm" @click="delCook(c)">🗑</button>
+        </div>
+        <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
+      </div>
+
+      <!-- ===== НАСТРОЙКИ ===== -->
+      <div v-if="tab==='settings'" class="glass card" style="max-width:560px">
+        <div class="field"><label>Название</label><input v-model="vform.name"></div>
+        <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
+
+        <div class="field">
+          <label>Логотип заведения</label>
+          <div v-if="vform.logo_url" style="margin-bottom:10px">
+            <img :src="vform.logo_url" style="width:70px;height:70px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+          </div>
+          <div class="row">
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">
+              <span v-if="!uploading">📸 Загрузить логотип</span>
+              <span v-else>⏳ Загружаю…</span>
+              <input type="file" accept="image/*" @change="uploadImage($event,'logo')" :disabled="uploading" style="display:none">
+            </label>
+            <button v-if="vform.logo_url" class="btn btn-danger btn-sm" @click="vform.logo_url=''">✕ Убрать</button>
+          </div>
+          <input v-model="vform.logo_url" placeholder="или вставь ссылку на логотип" style="margin-top:8px">
+        </div>
+
+        <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
+        <button class="btn btn-primary" @click="saveVenue">Сохранить</button>
+
+        <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
+          <label>QR-код и ссылка для клиентов</label>
+          <div class="row">
+            <img :src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px">
+            <div style="flex:1;min-width:200px">
+              <div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px" @click="copyLink">Копировать ссылку</button>
+              <a class="btn btn-primary btn-sm" style="margin-top:8px" :href="clientLink" target="_blank">Открыть меню</a>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ===== МОДАЛКА БЛЮДА ===== -->
+  <div v-if="showModal" class="modal" @click.self="showModal=false">
+    <div class="glass box">
+      <h3 style="margin-top:0">{{ editing ? 'Редактировать блюдо' : 'Новое блюдо' }}</h3>
+
+      <div class="field"><label>Название</label><input v-model="pform.name"></div>
+      <div class="field"><label>Описание</label><textarea v-model="pform.description" rows="2"></textarea></div>
+
+      <div class="row">
+        <div class="field" style="flex:1"><label>Цена ₽</label><input v-model.number="pform.price" type="number"></div>
+        <div class="field" style="flex:1">
+          <label>Категория</label>
+          <select v-model="pform.category">
+            <option value="main">Блюдо</option>
+            <option value="drink">Напиток</option>
+            <option value="addon">Доп / соус</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Фото блюда</label>
+        <div v-if="pform.image_url" style="margin-bottom:10px">
+          <img :src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.1)">
+        </div>
+        <div class="row">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">
+            <span v-if="!uploading">📸 Загрузить фото</span>
+            <span v-else>⏳ Загружаю…</span>
+            <input type="file" accept="image/*" @change="uploadImage($event,'product')" :disabled="uploading" style="display:none">
+          </label>
+          <button v-if="pform.image_url" class="btn btn-danger btn-sm" @click="pform.image_url=''">✕ Убрать</button>
+        </div>
+        <input v-model="pform.image_url" placeholder="…или вставь ссылку на картинку" style="margin-top:8px">
+      </div>
+
+      <div class="row">
+        <button class="btn btn-primary" style="flex:1" @click="saveProduct">Сохранить</button>
+        <button class="btn btn-ghost" @click="showModal=false">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app.js"></script>
+<script>
+Vue.createApp({
+  data(){return{
+    ready:false, profile:null, venue:null,
+    products:[], orders:[], cooks:[],
+    tab:'menu', showModal:false, editing:null, pform:{},
+    cookName:'', vform:{}, msg:'', msgType:'', timer:null, uploading:false
+  }},
+  computed:{
+    revenue(){return this.orders.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price),0)},
+    activeCount(){return this.orders.filter(o=>['new','cooking','delivery'].includes(o.status)).length},
+    clientLink(){return this.venue ? location.origin + '/menu.html?venue=' + this.venue.slug : ''},
+    qrUrl(){return 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' + encodeURIComponent(this.clientLink)}
+  },
+  methods:{
+    fmt, statusName, logout,
+    statusColor(s){return {new:'#60a5fa',cooking:'#fbbf24',ready:'#34d399',delivery:'#a78bfa',done:'#64748b',cancelled:'#f87171'}[s]||'#64748b'},
+    catLabel(c){return {main:'Блюдо',drink:'Напиток',addon:'Доп'}[c]||c},
+    catBadge(c){return c==='addon' ? 'b-delivery' : c==='drink' ? 'b-cooking' : 'b-new'},
+    timeStr(ts){const d=new Date(ts);return d.toLocaleDateString('ru-RU')+' '+d.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})},
+
+    async init(){
+      this.profile = await requireAuth(['manager','admin']);
+      if(!this.profile) return;
+      if(this.profile.venue_id){
+        const {data} = await db.from('venues').select('*').eq('id', this.profile.venue_id).maybeSingle();
+        this.venue = data;
+        if(this.venue){
+          this.vform = {name:this.venue.name, description:this.venue.description, logo_url:this.venue.logo_url, brand_color:this.venue.brand_color};
+          await Promise.all([this.loadProducts(), this.loadOrders(), this.loadCooks()]);
+          this.timer = setInterval(()=>this.loadOrders(), 5000);
         }
-      };
-    },
-    computed: {
-      revenue() {
-        return this.orders
-          .filter(o => o.status === 'done')
-          .reduce((s, o) => s + Number(o.total_price || 0), 0);
-      },
-      activeCount() {
-        return this.orders.filter(o => ['new', 'cooking', 'delivery'].includes(o.status)).length;
-      },
-      clientLink() {
-        return this.venue
-          ? location.origin + '/menu.html?venue=' + encodeURIComponent(this.venue.slug)
-          : '';
-      },
-      qrUrl() {
-        if (!this.clientLink) return '';
-        return 'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=' +
-               encodeURIComponent(this.clientLink);
-      },
-      isFormValid() {
-        return this.pform.name &&
-               this.pform.name.trim().length > 0 &&
-               Number(this.pform.price) >= 0;
       }
+      this.ready = true;
     },
-    methods: {
-      // Глобальные функции (должны быть определены в app.js/auth.js/config.js)
-      // fmt, statusName, logout, requireAuth — используются как есть, но делаем обёртки на случай отсутствия
-      fmt(v) {
-        if (typeof window.fmt === 'function') return window.fmt(v);
-        return Number(v || 0).toLocaleString('ru-RU');
-      },
-      statusName(s) {
-        if (typeof window.statusName === 'function') return window.statusName(s);
-        return STATUS_NAMES[s] || s;
-      },
-      statusColor(s) {
-        return STATUS_COLORS[s] || '#64748b';
-      },
-      categoryLabel(c) {
-        return CATEGORY_LABELS[c] || 'Блюдо';
-      },
+    async loadProducts(){const {data}=await db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at');this.products=data||[]},
+    async loadOrders(){const {data}=await db.from('orders').select('*').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50);this.orders=data||[]},
+    async loadCooks(){const {data}=await db.from('cooks').select('*').eq('venue_id',this.venue.id);this.cooks=data||[]},
 
-      showToast(text, type = 'ok', ms = 2500) {
-        this.toast = { text, type };
-        clearTimeout(this._toastTimer);
-        this._toastTimer = setTimeout(() => { this.toast = null; }, ms);
-      },
+    openAdd(){this.editing=null;this.pform={name:'',description:'',price:0,category:'main',image_url:''};this.showModal=true},
+    openEdit(p){this.editing=p;this.pform={...p};this.showModal=true},
+    async saveProduct(){
+      if(!this.pform.name) return;
+      const row={name:this.pform.name, description:this.pform.description, price:this.pform.price||0, category:this.pform.category, image_url:this.pform.image_url||null};
+      if(this.editing){ await db.from('products').update(row).eq('id',this.editing.id); }
+      else { row.venue_id=this.venue.id; await db.from('products').insert(row); }
+      this.showModal=false; await this.loadProducts();
+    },
+    async delProduct(p){if(confirm('Удалить "'+p.name+'"?')){await db.from('products').delete().eq('id',p.id);await this.loadProducts()}},
+    async toggleAvail(p){await db.from('products').update({is_available:!p.is_available}).eq('id',p.id);await this.loadProducts()},
 
-      async init() {
-        try {
-          this.profile = await requireAuth(['manager', 'admin']);
-          if (!this.profile) {
-            this.ready = true;
-            return;
-          }
-          if (this.profile.venue_id) {
-            const { data, error } = await db
-              .from('venues')
-              .select('*')
-              .eq('id', this.profile.venue_id)
-              .maybeSingle();
+    async addCook(){
+      if(!this.cookName.trim()) return;
+      const pin=String(Math.floor(1000+Math.random()*9000));
+      await db.from('cooks').insert({venue_id:this.venue.id, name:this.cookName.trim(), pin});
+      this.cookName=''; await this.loadCooks();
+    },
+    async delCook(c){if(confirm('Удалить повара '+c.name+'?')){await db.from('cooks').delete().eq('id',c.id);await this.loadCooks()}},
 
-            if (error) throw error;
-            this.venue = data || null;
+    async setStatus(id,status){await db.from('orders').update({status}).eq('id',id);await this.loadOrders()},
 
-            if (this.venue) {
-              this.vform = {
-                name: this.venue.name,
-                description: this.venue.description,
-                logo_url: this.venue.logo_url,
-                brand_color: this.venue.brand_color
-              };
-              await Promise.all([
-                this.loadProducts(),
-                this.loadOrders(),
-                this.loadCooks()
-              ]);
-              this.subscribeRealtime();
-            }
-          }
-        } catch (e) {
-          console.error('Init error:', e);
-          this.showToast('Ошибка загрузки: ' + e.message, 'error', 4000);
-        } finally {
-          this.ready = true;
-        }
-      },
+    async saveVenue(){
+      await db.from('venues').update({name:this.vform.name, description:this.vform.description, logo_url:this.vform.logo_url, brand_color:this.vform.brand_color}).eq('id',this.venue.id);
+      this.msg='Сохранено'; this.msgType='ok';
+      const {data}=await db.from('venues').select('*').eq('id',this.venue.id).maybeSingle(); this.venue=data;
+    },
+    copyLink(){navigator.clipboard.writeText(this.clientLink);this.msg='Ссылка скопирована';this.msgType='ok'},
 
-      subscribeRealtime() {
-        // Если Supabase поддерживает real-time — используем его вместо interval
-        if (db.channel) {
-          try {
-            this.realtimeChannel = db
-              .channel('orders-' + this.venue.id)
-              .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'orders', filter: `venue_id=eq.${this.venue.id}` },
-                () => this.loadOrders()
-              )
-              .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'products', filter: `venue_id=eq.${this.venue.id}` },
-                () => this.loadProducts()
-              )
-              .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'cooks', filter: `venue_id=eq.${this.venue.id}` },
-                () => this.loadCooks()
-              )
-              .subscribe();
-          } catch (e) {
-            // fallback
-            this.timer = setInterval(() => this.loadOrders(), 5000);
-          }
-        } else {
-          this.timer = setInterval(() => this.loadOrders(), 5000);
-        }
-      },
-
-      async loadProducts() {
-        const { data, error } = await db
-          .from('products')
-          .select('*')
-          .eq('venue_id', this.venue.id)
-          .order('created_at');
-        if (error) { console.error(error); return; }
-        this.products = data || [];
-      },
-      async loadOrders() {
-        const { data, error } = await db
-          .from('orders')
-          .select('*')
-          .eq('venue_id', this.venue.id)
-          .order('created_at', { ascending: false })
-          .limit(50);
-        if (error) { console.error(error); return; }
-        this.orders = data || [];
-      },
-      async loadCooks() {
-        const { data, error } = await db
-          .from('cooks')
-          .select('*')
-          .eq('venue_id', this.venue.id);
-        if (error) { console.error(error); return; }
-        this.cooks = data || [];
-      },
-
-      openAdd() {
-        this.editing = null;
-        this.pform = { name: '', description: '', price: 0, category: 'main', image_url: '' };
-        this.formError = '';
-        this.showModal = true;
-      },
-      openEdit(p) {
-        this.editing = p;
-        this.pform = {
-          name: p.name,
-          description: p.description || '',
-          price: Number(p.price) || 0,
-          category: p.category || 'main',
-          image_url: p.image_url || ''
-        };
-        this.formError = '';
-        this.showModal = true;
-      },
-      closeModal() {
-        if (this.busy || this.uploading) return;
-        this.showModal = false;
-        this.pform = {};
-        this.formError = '';
-      },
-
-      async saveProduct() {
-        this.formError = '';
-        if (!this.pform.name || !this.pform.name.trim()) {
-          this.formError = 'Введите название блюда';
-          return;
-        }
-        if (!Number.isFinite(this.pform.price) || this.pform.price < 0) {
-          this.formError = 'Некорректная цена';
-          return;
-        }
-
-        this.busy = true;
-        try {
-          const row = {
-            name: this.pform.name.trim(),
-            description: this.pform.description || null,
-            price: Number(this.pform.price) || 0,
-            category: this.pform.category,
-            image_url: this.pform.image_url || null
-          };
-          if (this.editing) {
-            const { error } = await db.from('products').update(row).eq('id', this.editing.id);
-            if (error) throw error;
-          } else {
-            row.venue_id = this.venue.id;
-            row.is_available = true;
-            const { error } = await db.from('products').insert(row);
-            if (error) throw error;
-          }
-          this.showModal = false;
-          this.pform = {};
-          await this.loadProducts();
-          this.showToast('Блюдо сохранено');
-        } catch (e) {
-          this.formError = 'Ошибка: ' + e.message;
-        } finally {
-          this.busy = false;
-        }
-      },
-
-      async uploadImage(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        // Проверяем размер: до 10 МБ
-        if (file.size > 10 * 1024 * 1024) {
-          this.showToast('Файл слишком большой (макс. 10 МБ)', 'error');
-          event.target.value = '';
-          return;
-        }
-
-        this.uploading = true;
-        try {
-          const blob = await this.resizeImage(file, 900, 0.85);
-          const fileName = (this.venue ? this.venue.id : 'general') + '/' + Date.now() + '.jpg';
-          const { error } = await db.storage
-            .from('menu-images')
-            .upload(fileName, blob, {
-              cacheControl: '3600',
-              upsert: true,
-              contentType: 'image/jpeg'
-            });
-          if (error) throw error;
-          const { data } = db.storage.from('menu-images').getPublicUrl(fileName);
-          this.pform.image_url = data.publicUrl;
-        } catch (e) {
-          this.showToast('Ошибка загрузки: ' + e.message, 'error');
-        } finally {
-          this.uploading = false;
-          event.target.value = '';
-        }
-      },
-
-      resizeImage(file, maxWidth, quality) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              let w = img.width, h = img.height;
-              if (w > maxWidth) {
-                h = Math.round(h * maxWidth / w);
-                w = maxWidth;
-              }
-              canvas.width = w;
-              canvas.height = h;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, w, h);
-              canvas.toBlob(
-                b => (b ? resolve(b) : reject(new Error('Не удалось обработать фото'))),
-                'image/jpeg',
-                quality
-              );
-            };
-            img.onerror = () => reject(new Error('Не удалось загрузить фото'));
-            img.src = e.target.result;
-          };
-          reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
-          reader.readAsDataURL(file);
+    // ===== ЗАГРУЗКА ФОТО В SUPABASE STORAGE =====
+    async uploadImage(event, target){
+      const file = event.target.files[0];
+      if(!file) return;
+      this.uploading = true;
+      try{
+        const blob = await this.resizeImage(file, 900, 0.85);
+        const dir = this.venue ? this.venue.id : 'general';
+        const fileName = dir + '/' + Date.now() + '.jpg';
+        const { error } = await db.storage.from('menu-images').upload(fileName, blob, {
+          cacheControl:'3600', upsert:true, contentType:'image/jpeg'
         });
-      },
-
-      async delProduct(p) {
-        this.confirmDialog = {
-          show: true,
-          title: 'Удалить блюдо?',
-          text: `«${p.name}» будет удалено из меню. Это действие необратимо.`,
-          onConfirm: async () => {
-            this.busy = true;
-            try {
-              const { error } = await db.from('products').delete().eq('id', p.id);
-              if (error) throw error;
-              await this.loadProducts();
-              this.showToast('Блюдо удалено');
-            } catch (e) {
-              this.showToast('Ошибка: ' + e.message, 'error');
-            } finally {
-              this.busy = false;
-            }
-          }
-        };
-      },
-
-      async toggleAvail(p) {
-        this.busy = true;
-        try {
-          const { error } = await db
-            .from('products')
-            .update({ is_available: !p.is_available })
-            .eq('id', p.id);
-          if (error) throw error;
-          await this.loadProducts();
-        } catch (e) {
-          this.showToast('Ошибка: ' + e.message, 'error');
-        } finally {
-          this.busy = false;
-        }
-      },
-
-      async addCook() {
-        const name = (this.cookName || '').trim();
-        if (!name) return;
-
-        this.busy = true;
-        try {
-          // Генерируем уникальный PIN
-          let pin, attempts = 0;
-          do {
-            pin = String(Math.floor(1000 + Math.random() * 9000));
-            attempts++;
-          } while (this.cooks.some(c => c.pin === pin) && attempts < 10);
-
-          const { error } = await db.from('cooks').insert({
-            venue_id: this.venue.id,
-            name,
-            pin
-          });
-          if (error) throw error;
-          this.cookName = '';
-          await this.loadCooks();
-          this.showToast('Повар добавлен');
-        } catch (e) {
-          this.showToast('Ошибка: ' + e.message, 'error');
-        } finally {
-          this.busy = false;
-        }
-      },
-
-      delCook(c) {
-        this.confirmDialog = {
-          show: true,
-          title: 'Удалить повара?',
-          text: `Повар «${c.name}» и его PIN будут удалены.`,
-          onConfirm: async () => {
-            this.busy = true;
-            try {
-              const { error } = await db.from('cooks').delete().eq('id', c.id);
-              if (error) throw error;
-              await this.loadCooks();
-              this.showToast('Повар удалён');
-            } catch (e) {
-              this.showToast('Ошибка: ' + e.message, 'error');
-            } finally {
-              this.busy = false;
-            }
-          }
-        };
-      },
-
-      async setStatus(id, status) {
-        this.busy = true;
-        try {
-          const { error } = await db.from('orders').update({ status }).eq('id', id);
-          if (error) throw error;
-          await this.loadOrders();
-          this.showToast('Статус обновлён');
-        } catch (e) {
-          this.showToast('Ошибка: ' + e.message, 'error');
-        } finally {
-          this.busy = false;
-        }
-      },
-
-      async saveVenue() {
-        this.saving = true;
-        this.msg = '';
-        try {
-          const { error } = await db
-            .from('venues')
-            .update({
-              name: this.vform.name,
-              description: this.vform.description,
-              logo_url: this.vform.logo_url,
-              brand_color: this.vform.brand_color
-            })
-            .eq('id', this.venue.id);
-          if (error) throw error;
-          const { data, error: fetchErr } = await db
-            .from('venues')
-            .select('*')
-            .eq('id', this.venue.id)
-            .maybeSingle();
-          if (fetchErr) throw fetchErr;
-          this.venue = data;
-          this.msg = '✓ Сохранено';
-          this.msgType = 'ok';
-          this.showToast('Настройки сохранены');
-          setTimeout(() => { this.msg = ''; }, 3000);
-        } catch (e) {
-          this.msg = 'Ошибка: ' + e.message;
-          this.msgType = 'error';
-        } finally {
-          this.saving = false;
-        }
-      },
-
-      async copyLink() {
-        try {
-          await navigator.clipboard.writeText(this.clientLink);
-          this.showToast('Ссылка скопирована');
-        } catch (e) {
-          this.showToast('Не удалось скопировать', 'error');
-        }
-      },
-
-      async logout() {
-        try {
-          if (typeof window.logout === 'function') await window.logout();
-        } catch (e) {
-          console.error(e);
-        } finally {
-          this.cleanup();
-          if (typeof window.location !== 'undefined') {
-            window.location.href = '/login.html';
-          }
-        }
-      },
-
-      cleanup() {
-        if (this.timer) { clearInterval(this.timer); this.timer = null; }
-        if (this.realtimeChannel && this.realtimeChannel.unsubscribe) {
-          try { this.realtimeChannel.unsubscribe(); } catch (e) {}
-        }
+        if(error) throw error;
+        const { data } = db.storage.from('menu-images').getPublicUrl(fileName);
+        if(target==='logo') this.vform.logo_url = data.publicUrl;
+        else this.pform.image_url = data.publicUrl;
+      }catch(e){
+        alert('Ошибка загрузки: ' + e.message);
+      }finally{
+        this.uploading = false;
+        event.target.value = '';
       }
     },
-
-    mounted() {
-      this.init();
-      // Обработка Esc для закрытия модалки
-      this._escHandler = (e) => {
-        if (e.key === 'Escape' && this.showModal && !this.busy) this.closeModal();
-      };
-      window.addEventListener('keydown', this._escHandler);
-    },
-
-    beforeUnmount() {
-      this.cleanup();
-      if (this._escHandler) window.removeEventListener('keydown', this._escHandler);
+    resizeImage(file, maxWidth, quality){
+      return new Promise((resolve, reject)=>{
+        const reader = new FileReader();
+        reader.onload = (e)=>{
+          const img = new Image();
+          img.onload = ()=>{
+            const canvas = document.createElement('canvas');
+            let w=img.width, h=img.height;
+            if(w>maxWidth){ h=Math.round(h*maxWidth/w); w=maxWidth; }
+            canvas.width=w; canvas.height=h;
+            const ctx=canvas.getContext('2d');
+            ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+            ctx.drawImage(img,0,0,w,h);
+            canvas.toBlob(b=>b?resolve(b):reject(new Error('Не удалось обработать фото')),'image/jpeg',quality);
+          };
+          img.onerror=()=>reject(new Error('Не удалось загрузить фото'));
+          img.src=e.target.result;
+        };
+        reader.onerror=()=>reject(new Error('Не удалось прочитать файл'));
+        reader.readAsDataURL(file);
+      });
     }
-  }).mount('#app');
-  </script>
+  },
+  mounted(){this.init()},
+  beforeUnmount(){if(this.timer) clearInterval(this.timer)}
+}).mount('#app');
+</script>
 </body>
 </html>
