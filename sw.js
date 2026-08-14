@@ -1,12 +1,16 @@
-var CACHE = 'kitchen-v1';
-var CORE = ['/cook.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
+var CACHE = 'qr-platform-v2';
+var CORE = ['/cook.html', '/manager.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/manifest-manager.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png'];
 
 self.addEventListener('install', function(e) {
-  e.waitUntil(caches.open(CACHE).then(function(c) { return c.addAll(CORE); }).then(function() { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(CACHE).then(function(c) {
+    return Promise.all(CORE.map(function(u) { return c.add(u).catch(function() {}); }));
+  }).then(function() { return self.skipWaiting(); }));
 });
 
 self.addEventListener('activate', function(e) {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(caches.keys().then(function(keys) {
+    return Promise.all(keys.filter(function(k) { return k !== CACHE; }).map(function(k) { return caches.delete(k); }));
+  }).then(function() { return self.clients.claim(); }));
 });
 
 self.addEventListener('fetch', function(e) {
@@ -19,7 +23,7 @@ self.addEventListener('fetch', function(e) {
       caches.open(CACHE).then(function(c) { c.put(e.request, copy); });
       return r;
     }).catch(function() {
-      return caches.match(e.request).then(function(m) { return m || caches.match('/cook.html'); });
+      return caches.match(e.request).then(function(m) { return m || caches.match('/manager.html'); });
     })
   );
 });
