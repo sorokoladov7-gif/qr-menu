@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="/favicon.svg"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Кабинет управляющего</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -21,7 +22,8 @@
 .sbp-box{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);border-radius:14px;padding:16px;margin:16px 0}
 .tbl{width:100%;border-collapse:collapse;font-size:13px}.tbl th,.tbl td{padding:8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:left}
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-cancelled{background:rgba(248,113,113,.15);color:#fca5a5}
-.b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
+.b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}.b-new{background:rgba(96,165,250,.15);color:#93c5fd}
+.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
 </style>
 </head>
 <body>
@@ -41,20 +43,13 @@
 </div>
 <div class="wrap">
   <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
-
-  <!-- НОВОЕ: понятная ошибка вместо вечного спиннера -->
   <div v-else-if="loadError" class="glass card" style="text-align:center;padding:40px">
-    <div style="font-size:40px">⚠️</div>
-    <h3 style="margin:10px 0">Не удалось загрузить кабинет</h3>
+    <div style="font-size:40px">⚠️</div><h3 style="margin:10px 0">Не удалось загрузить кабинет</h3>
     <p class="muted" style="margin:0 0 16px">{{ loadError }}</p>
     <div class="row" style="justify-content:center">
       <button class="btn btn-primary" @click="init">🔄 Повторить</button>
-      <a class="btn btn-ghost" href="index.html">Войти заново</a>
-    </div>
-    <p class="muted" style="font-size:11px;margin-top:14px">Если ошибка повторяется — нажмите F12 → Console и пришлите текст ошибки.</p>
+      <a class="btn btn-ghost" href="index.html">Войти заново</a></div>
   </div>
-
-  <!-- СПИСОК ЗАВЕДЕНИЙ -->
   <div v-else-if="!venue">
     <div class="spread" style="margin-bottom:20px"><h2 style="margin:0">Ваши заведения</h2>
       <button class="btn btn-primary" @click="showCreateVenue=true" :disabled="!canCreateVenue">+ Создать заведение</button></div>
@@ -68,8 +63,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ЗАВЕДЕНИЕ -->
   <template v-else>
     <div v-if="daysLeft<=3&&daysLeft>0" class="msg" style="background:rgba(251,191,36,.15);color:#fcd34d;margin-bottom:16px">
       ⚠️ Подписка истекает через {{ daysLeft }} дн. <a href="#" @click.prevent="tab='billing'" style="color:#fcd34d">Продлить по СБП</a></div>
@@ -87,7 +80,6 @@
       <button :class="{on:tab==='billing'}" @click="tab='billing';loadPayments()">💳 Тарифы</button>
       <button :class="{on:tab==='settings'}" @click="tab='settings'">⚙️ Настройки</button>
     </div>
-
     <div v-if="tab==='menu'">
       <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Позиции меню</h3>
         <button class="btn btn-primary btn-sm" @click="openAdd" :disabled="busy">+ Добавить блюдо</button></div>
@@ -103,7 +95,6 @@
       </div>
       <p v-if="!products.length" class="muted">Меню пустое — добавьте первое блюдо.</p>
     </div>
-
     <div v-if="tab==='orders'">
       <div v-for="o in orders" :key="o.id" class="glass order-card" :style="{borderTopColor:statusColor(o.status)}">
         <div class="spread"><div><b>№{{ o.order_number }}</b> <span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span>
@@ -121,7 +112,6 @@
       </div>
       <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
     </div>
-
     <div v-if="tab==='analytics'">
       <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Аналитика</h3>
         <select v-model="analyticsPeriod" @change="loadAnalytics" style="width:auto">
@@ -132,7 +122,7 @@
         <div class="glass stat"><div class="num" style="color:#fbbf24">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Ср. чек</div></div>
         <div class="glass stat"><div class="num" style="color:#a78bfa">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. готовка</div></div>
       </div>
-      <div class="glass card" style="margin-bottom:14px"><h4 style="margin:0 0 10px">👨‍🍳 Статистика поваров (скорость)</h4>
+      <div class="glass card" style="margin-bottom:14px"><h4 style="margin:0 0 10px">👨‍ Статистика поваров (скорость)</h4>
         <table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время</th></tr>
           <tr v-for="c in analytics.cooks" :key="c.name"><td>👨‍ {{ c.name }}</td><td>{{ c.count }}</td>
             <td><b :style="{color:c.avg<=10?'#6ee7b7':c.avg<=20?'#fcd34d':'#fca5a5'}">{{ c.avg }} мин</b></td></tr>
@@ -141,7 +131,6 @@
         <ul class="top-list"><li v-for="i in analytics.topItems" :key="i.name"><span>{{ i.name }}</span><b style="color:#a5b4fc">{{ i.count }} шт.</b></li>
         <li v-if="!analytics.topItems.length" class="muted">Нет данных</li></ul></div>
     </div>
-
     <div v-if="tab==='staff'">
       <div class="glass card" style="margin-bottom:14px"><div class="row">
         <input v-model.trim="cookName" placeholder="Имя повара" style="flex:1" @keyup.enter="addCook" :disabled="busy">
@@ -152,7 +141,6 @@
           <div class="muted" style="font-size:12px">PIN: <b style="color:#a5b4fc">{{ c.pin }}</b> · cook.html (код: {{ venue.slug }})</div></div>
         <button class="btn btn-danger btn-sm" @click="delCook(c)" :disabled="busy">🗑</button></div>
     </div>
-
     <div v-if="tab==='billing'">
       <div class="glass card" style="margin-bottom:16px;text-align:center">
         <h3 style="margin:0 0 6px">Тариф: {{ currentPlan?currentPlan.name:'—' }}</h3>
@@ -188,7 +176,6 @@
               {{ pay.status==='confirmed'?'✅ Активна':pay.status==='rejected'?'❌ Отклонена':'🕒 На проверке' }}</span></td></tr></table>
       </div>
     </div>
-
     <div v-if="tab==='settings'" class="glass card" style="max-width:560px">
       <div class="field"><label>Название</label><input v-model="vform.name" :disabled="busy"></div>
       <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2" :disabled="busy"></textarea></div>
@@ -205,8 +192,6 @@
     </div>
   </template>
 </div>
-
-<!-- МОДАЛКИ -->
 <div v-if="showCreateVenue" class="modal" @click.self="showCreateVenue=false"><div class="glass box">
   <h3 style="margin-top:0">Новое заведение</h3>
   <div class="field"><label>Название *</label><input v-model.trim="newVenueForm.name"></div>
@@ -215,7 +200,6 @@
   <button class="btn btn-ghost" @click="showCreateVenue=false">Отмена</button></div>
   <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
-
 <div v-if="showModal" class="modal" @click.self="closeModal"><div class="glass box">
   <h3 style="margin-top:0">{{ editing?'Редактировать':'Новое блюдо' }}</h3>
   <div class="field"><label>Название *</label><input v-model.trim="pform.name" :disabled="busy"></div>
@@ -237,7 +221,6 @@
   <button class="btn btn-ghost" @click="closeModal">Отмена</button></div>
   <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
-
 <div v-if="confirmDialog.show" class="modal" @click.self="confirmDialog.show=false"><div class="glass box" style="max-width:400px">
   <h3 style="margin-top:0">{{ confirmDialog.title }}</h3><p>{{ confirmDialog.text }}</p>
   <div class="row"><button class="btn btn-danger" style="flex:1" @click="confirmDialog.onConfirm();confirmDialog.show=false">Удалить</button>
@@ -245,17 +228,16 @@
 </div></div>
 <div v-if="toast" class="toast" :class="toast.type">{{ toast.text }}</div>
 </div>
-<script src="js/config.js"></script><script src="js/auth.js"></script><script src="js/app.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
 <script>
-const SBP_PHONE='89053204350';
-const STATUS_COLORS={new:'#60a5fa',cooking:'#fbbf24',ready:'#34d399',delivery:'#a78bfa',done:'#64748b',cancelled:'#f87171',changed:'#fb923c'};
-const DEFAULT_IMG = 'data:image/svg+xml;utf8,...';
 Vue.createApp({
 data(){return{ready:false,busy:false,saving:false,uploading:false,loadError:'',profile:null,myVenues:[],venue:null,
 products:[],orders:[],cooks:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},cookName:'',vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
 analyticsPeriod:'7',analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],cooks:[]},
 subscriptionEnd:null,isBlocked:false,payPlan:null,myPayments:[],
+DEFAULT_IMG:window.DEFAULT_IMG,
 confirmDialog:{show:false,title:'',text:'',onConfirm:()=>{}}}},
 computed:{
   revenue(){return this.orders.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0)},
@@ -267,57 +249,52 @@ computed:{
   canCreateVenue(){const p=this.plans.find(x=>x.id===(this.myVenues[0]?this.myVenues[0].plan:'start'));return this.myVenues.length<(p?p.max_venues:1)}
 },
 methods:{
-  fmt(v){return Number(v||0).toLocaleString('ru-RU')},
+  fmt(v){return window.fmt(v)},
   fmtDate(d){return d?new Date(d).toLocaleDateString('ru-RU'):'—'},
-  statusName(s){return{new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',cancelled:'Отменён',changed:'Изменён'}[s]||s},
-  statusColor(s){return STATUS_COLORS[s]||'#64748b'},
-  categoryLabel(c){return{main:'Блюдо',drink:'Напиток',addon:'Доп'}[c]||'Блюдо'},
+  statusName(s){return window.statusName(s)},
+  statusColor(s){return window.statusColor(s)},
+  categoryLabel(c){return window.categoryLabel(c)},
   isExpired(v){return v.subscription_end&&new Date(v.subscription_end)<new Date()},
   showToast(t,type='ok'){this.toast={text:t,type};clearTimeout(this._t);this._t=setTimeout(()=>this.toast=null,2500)},
-
-  // ГЛАВНОЕ ИСПРАВЛЕНИЕ: try/catch + понятная ошибка на экране
   async init(){
     this.loadError='';this.ready=false;
     try{
-      if(typeof db==='undefined')throw new Error('Не подключён js/config.js (нет соединения с Supabase)');
-      if(typeof requireAuth!=='function')throw new Error('Не подключён js/auth.js');
+      if(typeof db==='undefined')throw new Error('Не подключён js/config.js');
       this.profile=await requireAuth(['manager','admin']);
       if(!this.profile){this.ready=true;return}
-      const{data:pl}=await db.from('plans').select('*').order('price');this.plans=pl||[];
+      const {data:pl}=await db.from('plans').select('*').order('price');this.plans=pl||[];
       await this.loadMyVenues();
     }catch(e){this.loadError=e.message||String(e)}
     finally{this.ready=true}
   },
-
   async loadMyVenues(){
     let ids=null;
     if(this.profile.role!=='admin'){
-      const{data:l,error}=await db.from('manager_venues').select('venue_id').eq('manager_id',this.profile.id);
+      const {data:l,error}=await db.from('manager_venues').select('venue_id').eq('manager_id',this.profile.id);
       if(!error)ids=(l||[]).map(x=>x.venue_id);
     }
     let q=db.from('venues').select('*');
     if(this.profile.role!=='admin'){
-      if(ids===null){ if(!this.profile.venue_id){this.myVenues=[];return} q=q.eq('id',this.profile.venue_id) }
+      if(ids===null){if(!this.profile.venue_id){this.myVenues=[];return}q=q.eq('id',this.profile.venue_id)}
       else if(!ids.length){this.myVenues=[];return}
       else q=q.in('id',ids);
     }
-    const{data}=await q.order('created_at',{ascending:false});
+    const {data}=await q.order('created_at',{ascending:false});
     this.myVenues=data||[];
   },
-
   backToList(){this.venue=null;if(this.timer){clearInterval(this.timer);this.timer=null}this.loadMyVenues()},
   async selectVenue(v){this.venue=v;this.tab='menu';this.subscriptionEnd=v.subscription_end;
     this.vform={name:v.name,description:v.description,brand_color:v.brand_color};
     if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else this.isBlocked=false;
     await Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadPayments()]);
     if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>this.loadOrders(),5000)},
-  async loadProducts(){const{data}=await db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at');this.products=data||[]},
-  async loadOrders(){const{data}=await db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50);this.orders=data||[]},
-  async loadCooks(){const{data}=await db.from('cooks').select('*').eq('venue_id',this.venue.id);this.cooks=data||[]},
-  async loadPayments(){const{data}=await db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false});this.myPayments=data||[]},
+  async loadProducts(){const {data}=await db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at');this.products=data||[]},
+  async loadOrders(){const {data}=await db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50);this.orders=data||[]},
+  async loadCooks(){const {data}=await db.from('cooks').select('*').eq('venue_id',this.venue.id);this.cooks=data||[]},
+  async loadPayments(){const {data}=await db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false});this.myPayments=data||[]},
   async loadAnalytics(){let q=db.from('orders').select('total_price,customer_phone,cooking_started_at,ready_at,cook_name,items').eq('venue_id',this.venue.id).eq('status','done');
     if(this.analyticsPeriod!=='all'){const d=new Date();d.setDate(d.getDate()-parseInt(this.analyticsPeriod));q=q.gte('created_at',d.toISOString())}
-    const{data}=await q;const os=data||[];let rev=0;const ph=new Set(),t=[],ic={},cm={};
+    const {data}=await q;const os=data||[];let rev=0;const ph=new Set(),t=[],ic={},cm={};
     os.forEach(o=>{rev+=Number(o.total_price||0);if(o.customer_phone)ph.add(o.customer_phone.replace(/\D/g,''));
       if(o.cooking_started_at&&o.ready_at){const m=(new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4;t.push(m);
         if(o.cook_name){if(!cm[o.cook_name])cm[o.cook_name]={name:o.cook_name,count:0,t:[]};cm[o.cook_name].count++;cm[o.cook_name].t.push(m)}}
@@ -331,15 +308,15 @@ methods:{
     await db.from('venues').update({plan:p.id,subscription_end:e.toISOString()}).eq('id',this.venue.id);
     await db.from('subscriptions').update({plan_id:p.id,status:'active',current_period_end:e.toISOString()}).eq('venue_id',this.venue.id);
     this.subscriptionEnd=e.toISOString();this.busy=false;this.showToast('Тариф изменён')},
-  async copySbp(){try{await navigator.clipboard.writeText(SBP_PHONE);this.showToast('Номер скопирован')}catch(e){prompt('Скопируйте номер:',SBP_PHONE)}},
+  async copySbp(){try{await navigator.clipboard.writeText(window.SBP_PHONE);this.showToast('Номер скопирован')}catch(e){prompt('Скопируйте номер:',window.SBP_PHONE)}},
   async markPaid(){this.busy=true;
-    const{error}=await db.from('payments').insert({venue_id:this.venue.id,manager_id:this.profile.id,plan_id:this.payPlan.id,amount:this.payPlan.price});
+    const {error}=await db.from('payments').insert({venue_id:this.venue.id,manager_id:this.profile.id,plan_id:this.payPlan.id,amount:this.payPlan.price});
     this.busy=false;if(error){this.showToast('Ошибка: '+error.message,'error');return}
     this.payPlan=null;await this.loadPayments();this.showToast('Заявка отправлена! Админ подтвердит оплату.')},
   async createVenue(){this.formError='';if(!this.newVenueForm.name||!this.newVenueForm.slug){this.formError='Заполните поля';return}
     if(!this.canCreateVenue){this.formError='Лимит заведений по тарифу';return}this.busy=true;
     try{const e=new Date();e.setDate(e.getDate()+14);
-      const{data:nv,error}=await db.from('venues').insert({name:this.newVenueForm.name,slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),status:'active',plan:'start',subscription_end:e.toISOString()}).select().single();
+      const {data:nv,error}=await db.from('venues').insert({name:this.newVenueForm.name,slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),status:'active',plan:'start',subscription_end:e.toISOString()}).select().single();
       if(error)throw error;
       await db.from('subscriptions').insert({venue_id:nv.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()});
       if(this.profile.role!=='admin')await db.from('manager_venues').insert({manager_id:this.profile.id,venue_id:nv.id});
@@ -351,13 +328,13 @@ methods:{
   closeModal(){this.showModal=false;this.pform={}},
   async saveProduct(){if(!this.pform.name){this.formError='Введите название';return}this.busy=true;
     const row={name:this.pform.name,description:this.pform.description||null,price:Number(this.pform.price)||0,category:this.pform.category,image_url:this.pform.image_url||null};
-    try{if(this.editing){const{error}=await db.from('products').update(row).eq('id',this.editing.id);if(error)throw error}
-      else{row.venue_id=this.venue.id;row.is_available=true;const{error}=await db.from('products').insert(row);if(error)throw error}
+    try{if(this.editing){const {error}=await db.from('products').update(row).eq('id',this.editing.id);if(error)throw error}
+      else{row.venue_id=this.venue.id;row.is_available=true;const {error}=await db.from('products').insert(row);if(error)throw error}
       this.showModal=false;await this.loadProducts();this.showToast('Сохранено')}
     catch(e){this.formError='Ошибка: '+e.message}finally{this.busy=false}},
   async uploadImage(ev){const f=ev.target.files[0];if(!f)return;this.uploading=true;
     try{const blob=await this.resizeImage(f,900,.85);const fn=this.venue.id+'/'+Date.now()+'.jpg';
-      const{error}=await db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'});
+      const {error}=await db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'});
       if(error)throw error;this.pform.image_url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl}
     catch(e){this.showToast('Ошибка загрузки: '+e.message,'error')}finally{this.uploading=false;ev.target.value=''}},
   resizeImage(file,mw,q){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>{const i=new Image();
@@ -372,14 +349,14 @@ methods:{
     await db.from('cooks').insert({venue_id:this.venue.id,name:this.cookName,pin});this.cookName='';await this.loadCooks();this.showToast('Повар добавлен')},
   delCook(c){this.confirmDialog={show:true,title:'Удалить повара?',text:c.name,onConfirm:async()=>{
     await db.from('cooks').delete().eq('id',c.id);await this.loadCooks();this.showToast('Удалено')}}},
-  async setStatus(id,status){let u={status};
+  async setStatus(id,status){const u={status};
     if(status==='cooking')u.cooking_started_at=new Date().toISOString();
     if(status==='ready')u.ready_at=new Date().toISOString();
     await db.from('orders').update(u).eq('id',id);await this.loadOrders()},
   async saveVenue(){this.saving=true;await db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color}).eq('id',this.venue.id);
-    const{data}=await db.from('venues').select('*').eq('id',this.venue.id).maybeSingle();this.venue=data;this.saving=false;this.showToast('Сохранено')},
+    const {data}=await db.from('venues').select('*').eq('id',this.venue.id).maybeSingle();this.venue=data;this.saving=false;this.showToast('Сохранено')},
   async copyLink(){try{await navigator.clipboard.writeText(this.clientLink);this.showToast('Скопировано')}catch(e){}},
-  async logout(){try{if(typeof window.logout==='function')await window.logout();else await db.auth.signOut()}catch(e){}
+  async logout(){try{await db.auth.signOut()}catch(e){}
     if(this.timer)clearInterval(this.timer);location.href='/index.html'}
 },
 mounted(){this.init()},
