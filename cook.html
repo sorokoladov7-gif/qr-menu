@@ -181,11 +181,14 @@ Vue.createApp({
     },
     startTimer(){ if(this.timer) clearInterval(this.timer); this.timer=setInterval(()=>this.load(),3000); },
 
-    async setStatus(id,status){
-      const {error}=await db.from('orders').update({status}).eq('id',id);
-      if(error){ alert('Ошибка: '+error.message); return; }
-      await this.load();
-    },
+   async setStatus(id,status){
+  let updateData = { status };
+  if(status==='cooking'){ updateData.cooking_started_at = new Date().toISOString(); updateData.cook_name = this.session.cookName; }
+  if(status==='ready'){ updateData.ready_at = new Date().toISOString(); }
+  const {error}=await db.from('orders').update(updateData).eq('id',id);
+  if(error){ alert('Ошибка: '+error.message); return; }
+  await this.load();
+}
 
     openEditOrder(o){
       const copy=JSON.parse(JSON.stringify(o));
