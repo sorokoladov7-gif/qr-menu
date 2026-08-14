@@ -11,9 +11,10 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
 [v-cloak]{display:none}
-.analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px}
+.analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .top-list{list-style:none;padding:0;margin:0}
 .top-list li{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:14px}
+.top-list li:last-child{border-bottom:none}
 .venue-card{cursor:pointer;transition:.2s}
 .venue-card:hover{transform:translateY(-2px);border-color:#6366f1}
 .paywall{position:fixed;inset:0;background:rgba(11,16,32,.95);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)}
@@ -150,23 +151,67 @@
 <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
 </div>
 
+<!-- АНАЛИТИКА: ЧТО ПОКУПАЮТ -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px">
-<h3>Аналитика</h3>
+<h3>Аналитика заведения</h3>
 <select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto">
 <option value="7">7 дней</option>
 <option value="30">30 дней</option>
 <option value="all">Всё время</option>
 </select>
 </div>
+
 <div class="analytics-grid">
 <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
 <div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.clients }}</div><div class="lbl">Клиентов</div></div>
 <div class="glass stat"><div class="num" style="color:#fbbf24">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Ср. чек</div></div>
 <div class="glass stat"><div class="num" style="color:#a78bfa">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. готовка</div></div>
 </div>
+
 <div class="glass card" style="margin-bottom:14px">
-<h4>Статистика поваров</h4>
+<h4 style="margin:0 0 10px">🛒 Что чаще всего покупают</h4>
+<table class="tbl">
+<tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th><th>В заказах</th></tr>
+<tr v-for="i in analytics.topItems" v-bind:key="i.name">
+<td><b>{{ i.name }}</b></td>
+<td>{{ i.count }} шт.</td>
+<td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td>
+<td>{{ i.percent }}%</td>
+</tr>
+<tr v-if="!analytics.topItems.length"><td colspan="4" class="muted">Нет данных за выбранный период</td></tr>
+</table>
+</div>
+
+<div class="glass card" style="margin-bottom:14px" v-if="analytics.topAddons.length">
+<h4 style="margin:0 0 10px">🧂 Популярные добавки</h4>
+<ul class="top-list">
+<li v-for="a in analytics.topAddons" v-bind:key="a.name">
+<span>{{ a.name }}</span>
+<b style="color:#a5b4fc">{{ a.count }} раз</b>
+</li>
+</ul>
+</div>
+
+<div class="analytics-grid">
+<div class="glass stat"><div class="num">{{ analytics.typeStats.pickup }}</div><div class="lbl">🏠 Самовывоз</div></div>
+<div class="glass stat"><div class="num">{{ analytics.typeStats.delivery }}</div><div class="lbl">🚗 Доставка</div></div>
+<div class="glass stat"><div class="num">{{ analytics.payStats.cash }}</div><div class="lbl">💵 Наличные</div></div>
+<div class="glass stat"><div class="num">{{ analytics.payStats.card }}</div><div class="lbl">💳 Карта</div></div>
+</div>
+
+<div class="glass card" style="margin-bottom:14px" v-if="analytics.topHours.length">
+<h4 style="margin:0 0 10px">🕒 Часы пик (когда заказывают)</h4>
+<ul class="top-list">
+<li v-for="h in analytics.topHours" v-bind:key="h.h">
+<span>{{ h.label }}</span>
+<b style="color:#fcd34d">{{ h.count }} заказов</b>
+</li>
+</ul>
+</div>
+
+<div class="glass card">
+<h4 style="margin:0 0 10px">👨‍ Статистика поваров (скорость)</h4>
 <table class="tbl">
 <tr><th>Повар</th><th>Заказов</th><th>Ср. время</th></tr>
 <tr v-for="c in analytics.cooks" v-bind:key="c.name">
@@ -176,16 +221,6 @@
 </tr>
 <tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr>
 </table>
-</div>
-<div class="glass card">
-<h4>Топ-5 блюд</h4>
-<ul class="top-list">
-<li v-for="i in analytics.topItems" v-bind:key="i.name">
-<span>{{ i.name }}</span>
-<b style="color:#a5b4fc">{{ i.count }} шт.</b>
-</li>
-<li v-if="!analytics.topItems.length" class="muted">Нет данных</li>
-</ul>
 </div>
 </div>
 
@@ -360,7 +395,8 @@ return {
 ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:null,myVenues:[],venue:null,
 products:[],orders:[],cooks:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},cookName:'',vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
-analyticsPeriod:'7',analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],cooks:[]},
+analyticsPeriod:'7',
+analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],cooks:[]},
 subscriptionEnd:null,isBlocked:false,payPlan:null,myPayments:[],
 DEFAULT_IMG:window.DEFAULT_IMG
 }},
@@ -475,25 +511,51 @@ loadPayments: function(){ var self=this; return db.from('payments').select('*').
 
 loadAnalytics: function(){
 var self=this;
-var q=db.from('orders').select('total_price,customer_phone,cooking_started_at,ready_at,cook_name,items').eq('venue_id',this.venue.id).eq('status','done');
+var q=db.from('orders').select('total_price,customer_phone,order_type,payment_method,status,created_at,cooking_started_at,ready_at,cook_name,items:order_items(*),addons:order_addons(*)')
+.eq('venue_id',this.venue.id).neq('status','cancelled');
 if(this.analyticsPeriod!=='all'){ var d=new Date(); d.setDate(d.getDate()-parseInt(this.analyticsPeriod)); q=q.gte('created_at',d.toISOString()); }
 q.then(function(r){
-var os=r.data||[]; var rev=0; var ph={}; var t=[]; var ic={}; var cm={};
-for(var i=0;i<os.length;i++){
-var o=os[i]; rev+=Number(o.total_price||0);
-if(o.customer_phone) ph[o.customer_phone.replace(/[^\d]/g,'')]=1;
-if(o.cooking_started_at && o.ready_at){ var m=(new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4; t.push(m);
-if(o.cook_name){ if(!cm[o.cook_name]) cm[o.cook_name]={name:o.cook_name,count:0,t:[]}; cm[o.cook_name].count++; cm[o.cook_name].t.push(m); }
-}
-var items=o.items||[]; for(var j=0;j<items.length;j++){ ic[items[j].name]=(ic[items[j].name]||0)+items[j].qty; }
-}
-var topItems=[]; for(var name in ic) topItems.push({name:name,count:ic[name]});
-topItems.sort(function(a,b){ return b.count-a.count; });
+var os=r.data||[];
+var done=os.filter(function(o){return o.status==='done'});
+var rev=0; done.forEach(function(o){ rev+=Number(o.total_price||0); });
+var ph={}; os.forEach(function(o){ if(o.customer_phone) ph[o.customer_phone.replace(/[^\d]/g,'')]=1; });
+var t=[]; var cm={};
+done.forEach(function(o){
+if(o.cooking_started_at&&o.ready_at){ var m=(new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4; t.push(m);
+if(o.cook_name){ if(!cm[o.cook_name]) cm[o.cook_name]={name:o.cook_name,count:0,t:[]}; cm[o.cook_name].count++; cm[o.cook_name].t.push(m); } }
+});
+var im={}; var am={}; var hours={}; var typePickup=0, typeDelivery=0, payCash=0, payCard=0;
+os.forEach(function(o){
+(o.items||[]).forEach(function(it){
+if(!im[it.name]) im[it.name]={name:it.name,count:0,revenue:0,orders:0};
+im[it.name].count+=it.qty;
+im[it.name].revenue+=it.qty*Number(it.price||0);
+im[it.name].orders+=1;
+});
+(o.addons||[]).forEach(function(a){
+if(!am[a.name]) am[a.name]={name:a.name,count:0};
+am[a.name].count+=1;
+});
+if(o.order_type==='delivery') typeDelivery++; else typePickup++;
+if(o.payment_method==='card') payCard++; else payCash++;
+if(o.created_at){ var h=new Date(o.created_at).getHours(); hours[h]=(hours[h]||0)+1; }
+});
+var totalOrders=os.length||1;
+var topItems=Object.keys(im).map(function(k){return im[k]}).sort(function(a,b){return b.count-a.count}).slice(0,10);
+topItems.forEach(function(i){ i.percent=Math.round(i.orders*100/totalOrders); });
+var topAddons=Object.keys(am).map(function(k){return am[k]}).sort(function(a,b){return b.count-a.count}).slice(0,5);
+var topHours=Object.keys(hours).map(function(h){return {h:parseInt(h),count:hours[h]}}).sort(function(a,b){return b.count-a.count}).slice(0,3);
+topHours.forEach(function(x){ var nx=x.h+1; x.label=(x.h<10?'0'+x.h:x.h)+':00–'+(nx<10?'0'+nx:nx)+':00'; });
 self.analytics={
-revenue:rev, clients:Object.keys(ph).length,
-avgCheck:os.length?Math.round(rev/os.length):0,
+revenue:rev,
+clients:Object.keys(ph).length,
+avgCheck:done.length?Math.round(rev/done.length):0,
 avgCookTime:t.length?Math.round(t.reduce(function(a,b){return a+b},0)/t.length):0,
-topItems:topItems.slice(0,5),
+topItems:topItems,
+topAddons:topAddons,
+typeStats:{pickup:typePickup,delivery:typeDelivery},
+payStats:{cash:payCash,card:payCard},
+topHours:topHours,
 cooks:Object.keys(cm).map(function(k){ var c=cm[k]; return {name:c.name,count:c.count,avg:Math.round(c.t.reduce(function(a,b){return a+b},0)/c.t.length)}; })
 };
 });
