@@ -14,14 +14,17 @@
     .top-list { list-style: none; padding: 0; margin: 0; }
     .top-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 14px; }
     .top-list li:last-child { border-bottom: none; }
+    .venue-card { cursor: pointer; transition: transform 0.2s; }
+    .venue-card:hover { transform: translateY(-2px); border-color: #6366f1; }
   </style>
 </head>
 <body>
   <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
   <div id="app" v-cloak>
     <div class="topbar">
-      <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'Кабинет' }}</span></div>
+      <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'Мои заведения' }}</span></div>
       <div class="row">
+        <button v-if="venue" class="btn btn-ghost btn-sm" @click="venue=null">← К списку</button>
         <span class="muted" style="font-size:13px">{{ profile ? profile.display_name : '' }}</span>
         <button class="btn btn-ghost btn-sm" @click="logout" :disabled="busy">Выйти</button>
       </div>
@@ -30,10 +33,30 @@
     <div class="wrap">
       <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
 
-      <div v-else-if="!venue" class="glass card" style="text-align:center;padding:50px">
-        ⏳ Ваш аккаунт ещё не привязан к заведению.<br>Администратор должен назначить вам заведение.
+      <!-- СПИСОК ЗАВЕДЕНИЙ (НОВОЕ) -->
+      <div v-else-if="!venue">
+        <div class="spread" style="margin-bottom:20px">
+          <h2 style="margin:0">Ваши заведения</h2>
+          <button class="btn btn-primary" @click="showCreateVenue=true">+ Создать заведение</button>
+        </div>
+        
+        <div v-if="myVenues.length === 0" class="glass card" style="text-align:center;padding:50px">
+          🏢 У вас пока нет заведений.<br>Нажмите кнопку выше, чтобы создать первое!
+        </div>
+
+        <div class="stats" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+          <div v-for="v in myVenues" :key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" @click="selectVenue(v)">
+            <div style="font-size:20px;font-weight:800;margin-bottom:8px">{{ v.name }}</div>
+            <div class="muted" style="font-size:13px;margin-bottom:12px">/{{ v.slug }}</div>
+            <div style="display:flex;gap:10px;margin-top:auto">
+              <span class="badge b-new">Меню</span>
+              <span class="badge b-ready">Заказы</span>
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- ИНТЕРФЕЙС КОНКРЕТНОГО ЗАВЕДЕНИЯ -->
       <template v-else>
         <div class="stats" style="margin-bottom:18px">
           <div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
@@ -103,7 +126,7 @@
           <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
         </div>
 
-        <!-- АНАЛИТИКА (НОВОЕ) -->
+        <!-- АНАЛИТИКА -->
         <div v-if="tab==='analytics'">
           <div class="spread" style="margin-bottom:14px">
             <h3 style="margin:0">Аналитика заведения</h3>
@@ -113,21 +136,16 @@
               <option value="all">За всё время</option>
             </select>
           </div>
-
           <div class="analytics-grid">
             <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
             <div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.clients }}</div><div class="lbl">Уникальных клиентов</div></div>
             <div class="glass stat"><div class="num" style="color:#fbbf24">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Средний чек</div></div>
             <div class="glass stat"><div class="num" style="color:#a78bfa">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. время готовки</div></div>
           </div>
-
-          <div class="glass card" style="margin-bottom:14px">
+          <div class="glass card">
             <h4 style="margin-top:0;margin-bottom:10px">🔥 Топ-5 популярных блюд</h4>
             <ul class="top-list">
-              <li v-for="item in analytics.topItems" :key="item.name">
-                <span>{{ item.name }}</span>
-                <b style="color:#a5b4fc">{{ item.count }} шт.</b>
-              </li>
+              <li v-for="item in analytics.topItems" :key="item.name"><span>{{ item.name }}</span><b style="color:#a5b4fc">{{ item.count }} шт.</b></li>
               <li v-if="!analytics.topItems.length" class="muted">Нет данных за выбранный период</li>
             </ul>
           </div>
@@ -173,6 +191,21 @@
           <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
         </div>
       </template>
+    </div>
+
+    <!-- Модалка создания заведения (НОВОЕ) -->
+    <div v-if="showCreateVenue" class="modal" @click.self="showCreateVenue=false">
+      <div class="glass box">
+        <h3 style="margin-top:0">Новое заведение</h3>
+        <div class="field"><label>Название *</label><input v-model.trim="newVenueForm.name" placeholder="Например: Шаурма на Ленина"></div>
+        <div class="field"><label>Код (slug) *</label><input v-model.trim="newVenueForm.slug" placeholder="shaurma-lenina (только латиница и дефисы)"></div>
+        <div class="field"><label>Описание</label><textarea v-model="newVenueForm.description" rows="2"></textarea></div>
+        <div class="row">
+          <button class="btn btn-primary" style="flex:1" @click="createVenue" :disabled="busy">{{ busy ? 'Создание...' : 'Создать' }}</button>
+          <button class="btn btn-ghost" @click="showCreateVenue=false" :disabled="busy">Отмена</button>
+        </div>
+        <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
+      </div>
     </div>
 
     <!-- Модалка блюда -->
@@ -234,10 +267,14 @@
   Vue.createApp({
     data() {
       return {
-        ready: false, busy: false, saving: false, profile: null, venue: null,
+        ready: false, busy: false, saving: false, profile: null, 
+        myVenues: [], // Список всех заведений управляющего
+        venue: null,  // Текущее выбранное заведение
         products: [], orders: [], cooks: [], tab: 'menu', showModal: false,
         editing: null, pform: {}, cookName: '', vform: {}, msg: '', msgType: '',
         toast: null, timer: null, uploading: false, formError: '',
+        showCreateVenue: false,
+        newVenueForm: { name: '', slug: '', description: '' },
         analyticsPeriod: '7',
         analytics: { revenue: 0, clients: 0, avgCheck: 0, avgCookTime: 0, topItems: [] },
         confirmDialog: { show: false, title: '', text: '', onConfirm: () => {} }
@@ -261,18 +298,67 @@
         try {
           this.profile = await requireAuth(['manager', 'admin']);
           if (!this.profile) { this.ready = true; return; }
-          if (this.profile.venue_id) {
-            const { data, error } = await db.from('venues').select('*').eq('id', this.profile.venue_id).maybeSingle();
-            if (error) throw error;
-            this.venue = data || null;
-            if (this.venue) {
-              this.vform = { name: this.venue.name, description: this.venue.description, logo_url: this.venue.logo_url, brand_color: this.venue.brand_color };
-              await Promise.all([this.loadProducts(), this.loadOrders(), this.loadCooks()]);
-              this.timer = setInterval(() => this.loadOrders(), 5000);
-            }
-          }
+          
+          // Загружаем список заведений управляющего
+          await this.loadMyVenues();
+          
         } catch (e) { this.showToast('Ошибка загрузки: ' + e.message, 'error', 4000); }
         finally { this.ready = true; }
+      },
+
+      async loadMyVenues() {
+        // Если админ - грузим все, если менеджер - только свои через manager_venues
+        let query = db.from('venues').select('*');
+        if (this.profile.role !== 'admin') {
+          const { data: links } = await db.from('manager_venues').select('venue_id').eq('manager_id', this.profile.id);
+          const ids = (links || []).map(l => l.venue_id);
+          if (ids.length === 0) { this.myVenues = []; return; }
+          query = query.in('id', ids);
+        }
+        const { data } = await query.order('created_at', { ascending: false });
+        this.myVenues = data || [];
+      },
+
+      async selectVenue(v) {
+        this.venue = v;
+        this.tab = 'menu';
+        this.vform = { name: v.name, description: v.description, logo_url: v.logo_url, brand_color: v.brand_color };
+        await Promise.all([this.loadProducts(), this.loadOrders(), this.loadCooks()]);
+        if (this.timer) clearInterval(this.timer);
+        this.timer = setInterval(() => this.loadOrders(), 5000);
+      },
+
+      async createVenue() {
+        this.formError = '';
+        if (!this.newVenueForm.name || !this.newVenueForm.slug) { this.formError = 'Заполните название и код'; return; }
+        this.busy = true;
+        try {
+          // 1. Создаем заведение
+          const { data: newV, error: vErr } = await db.from('venues').insert({
+            name: this.newVenueForm.name,
+            slug: this.newVenueForm.slug.toLowerCase().replace(/\s+/g, '-'),
+            description: this.newVenueForm.description,
+            status: 'active',
+            plan: 'start'
+          }).select().single();
+          if (vErr) throw vErr;
+
+          // 2. Привязываем к себе (если не админ)
+          if (this.profile.role !== 'admin') {
+            const { error: lErr } = await db.from('manager_venues').insert({
+              manager_id: this.profile.id,
+              venue_id: newV.id
+            });
+            if (lErr) throw lErr;
+          }
+
+          this.showCreateVenue = false;
+          this.newVenueForm = { name: '', slug: '', description: '' };
+          await this.loadMyVenues();
+          this.selectVenue(newV); // Сразу открываем созданное
+          this.showToast('Заведение создано!');
+        } catch (e) { this.formError = 'Ошибка: ' + e.message; }
+        finally { this.busy = false; }
       },
 
       async loadProducts() { const { data } = await db.from('products').select('*').eq('venue_id', this.venue.id).order('created_at'); this.products = data || []; },
@@ -292,24 +378,14 @@
         orders.forEach(o => {
           rev += Number(o.total_price || 0);
           if (o.customer_phone) phones.add(o.customer_phone.replace(/\D/g, ''));
-          if (o.cooking_started_at && o.ready_at) {
-            cookTimes.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 60000);
-          }
-          if (Array.isArray(o.items)) {
-            o.items.forEach(it => { itemCounts[it.name] = (itemCounts[it.name] || 0) + Number(it.qty || 1); });
-          }
+          if (o.cooking_started_at && o.ready_at) cookTimes.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 60000);
+          if (Array.isArray(o.items)) o.items.forEach(it => { itemCounts[it.name] = (itemCounts[it.name] || 0) + Number(it.qty || 1); });
         });
 
         const topItems = Object.entries(itemCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5);
         const avgCookTime = cookTimes.length ? Math.round(cookTimes.reduce((a, b) => a + b, 0) / cookTimes.length) : 0;
 
-        this.analytics = {
-          revenue: rev,
-          clients: phones.size,
-          avgCheck: orders.length ? Math.round(rev / orders.length) : 0,
-          avgCookTime: avgCookTime,
-          topItems: topItems
-        };
+        this.analytics = { revenue: rev, clients: phones.size, avgCheck: orders.length ? Math.round(rev / orders.length) : 0, avgCookTime, topItems };
       },
 
       openAdd() { this.editing = null; this.pform = { name: '', description: '', price: 0, category: 'main', image_url: '' }; this.formError = ''; this.showModal = true; },
@@ -386,10 +462,8 @@
         this.busy = true;
         try {
           let updateData = { status };
-          // Фиксируем время для аналитики скорости поваров
           if (status === 'cooking') updateData.cooking_started_at = new Date().toISOString();
           if (status === 'ready') updateData.ready_at = new Date().toISOString();
-          
           const { error } = await db.from('orders').update(updateData).eq('id', id);
           if (error) throw error;
           await this.loadOrders(); this.showToast('Статус обновлён');
