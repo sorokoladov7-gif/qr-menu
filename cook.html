@@ -1,228 +1,195 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Кухня</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
-  [v-cloak]{display:none}
-  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}
-  .col h4{margin:0 0 10px;font-size:14px}
-  .wcard{padding:12px;margin-bottom:10px}
-  .b-new{background:rgba(96,165,250,.15);color:#93c5fd}
-  .b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
-  .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
-  .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
-  .b-done{background:rgba(100,116,139,.2);color:#cbd5e1}
-  .b-changed{background:rgba(251,146,60,.15);color:#fdba74}
+[v-cloak]{display:none}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;align-items:start}
+.col h4{margin:0 0 10px;font-size:14px}
+.wcard{padding:12px;margin-bottom:10px}
+.b-new{background:rgba(96,165,250,.15);color:#93c5fd}.b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
+.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
+.b-changed{background:rgba(251,146,60,.15);color:#fdba74}
 </style>
 </head>
 <body>
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
-  <div class="topbar">
-    <div class="brand"><div class="logo">👨🍳</div><span>Кухня{{ session ? ' · '+session.venueName : '' }}</span></div>
-    <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div>
-  </div>
-
-  <div class="wrap">
-    <div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
-      <h3 style="margin-top:0">Вход для повара</h3>
-      <div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="например: my-cafe"></div>
-      <div class="field"><label>PIN</label><input v-model.trim="loginForm.pin" type="password" inputmode="numeric" placeholder="****" @keyup.enter="login"></div>
-      <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy ? 'Проверяем...' : 'Войти' }}</button>
-      <div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
-    </div>
-
-    <template v-else>
-      <div class="muted" style="font-size:12px;margin-bottom:12px">👨‍🍳 {{ session.cookName }} · обновление каждые 3 сек</div>
-      <div class="cols">
-        <div class="col">
-          <h4>🆕 Новые ({{ colNew.length }})</h4>
-          <div v-for="o in colNew" :key="o.id" class="glass wcard">
-            <div class="spread">
-              <b>№{{ o.order_number }}</b>
-              <span v-if="o.status==='changed'" class="badge b-changed">⏳ ждёт клиента</span>
-              <span v-else class="badge b-new">{{ o.order_type==='delivery'?'🚗':'' }}</span>
-            </div>
-            <div style="font-size:13px;margin-top:6px">
-              <div v-for="it in (o.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }}</div>
-              <div v-for="a in (o.addons||[])" :key="a.name" class="muted">+ {{ a.name }}</div>
-            </div>
-            <div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
-            <div class="row" style="margin-top:10px">
-              <button class="btn btn-ghost btn-sm" style="flex:1" @click="openEditOrder(o)">✏️ Изменить</button>
-              <button class="btn btn-primary btn-sm" style="flex:1" @click="setStatus(o.id,'cooking')">В работу 🔥</button>
-            </div>
-          </div>
-          <p v-if="!colNew.length" class="muted">Пусто</p>
-        </div>
-
-        <div class="col">
-          <h4>🔥 Готовятся ({{ colCooking.length }})</h4>
-          <div v-for="o in colCooking" :key="o.id" class="glass wcard">
-            <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ o.order_type==='delivery'?'🚗':'' }}</span></div>
-            <div style="font-size:13px;margin-top:6px">
-              <div v-for="it in (o.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }}</div>
-            </div>
-            <button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" @click="setStatus(o.id,'ready')">Готово ✓</button>
-          </div>
-          <p v-if="!colCooking.length" class="muted">Пусто</p>
-        </div>
-
-        <div class="col">
-          <h4>✅ Выдача ({{ colReady.length }})</h4>
-          <div v-for="o in colReady" :key="o.id" class="glass wcard">
-            <div class="spread"><b>№{{ o.order_number }}</b><span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span></div>
-            <div style="font-size:13px;margin-top:6px">
-              <div v-for="it in (o.items||[])" :key="it.name">{{ it.qty }}x {{ it.name }}</div>
-            </div>
-            <div class="row" style="margin-top:10px">
-              <button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" @click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
-              <button v-if="['ready','delivery'].includes(o.status)" class="btn btn-green btn-sm" style="flex:1" @click="setStatus(o.id,'done')">Выдан клиенту</button>
-            </div>
-          </div>
-          <p v-if="!colReady.length" class="muted">Пусто</p>
-        </div>
-      </div>
-    </template>
-  </div>
-
-  <!-- МОДАЛКА ИЗМЕНЕНИЯ ЗАКАЗА -->
-  <div v-if="showEditModal" class="modal" @click.self="showEditModal=false">
-    <div class="glass box">
-      <h3 style="margin-top:0">Изменение заказа №{{ editingOrder ? editingOrder.order_number : '' }}</h3>
-      <p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии. Клиент увидит изменения и подтвердит их.</p>
-      <div v-if="editingOrder">
-        <div v-for="(it,idx) in editingOrder.items" :key="idx" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px">
-          <div style="flex:1"><b>{{ it.name }}</b><br><span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span></div>
-          <button class="btn btn-ghost btn-sm" @click="it.qty>1?it.qty--:null">−</button>
-          <b style="width:20px;text-align:center">{{ it.qty }}</b>
-          <button class="btn btn-ghost btn-sm" @click="it.qty++">+</button>
-          <button class="btn btn-danger btn-sm" @click="editingOrder.items.splice(idx,1)">🗑</button>
-        </div>
-        <div v-if="editingOrder.addons && editingOrder.addons.length" style="margin-top:15px">
-          <div class="muted" style="font-size:12px;margin-bottom:8px">Дополнительно:</div>
-          <div v-for="(a,idx) in editingOrder.addons" :key="idx" class="row" style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.03);border-radius:10px">
-            <div style="flex:1;font-size:13px">{{ a.name }} ({{ a.price }} ₽)</div>
-            <button class="btn btn-danger btn-sm" @click="editingOrder.addons.splice(idx,1)">🗑</button>
-          </div>
-        </div>
-        <div class="spread" style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,.1)">
-          <span class="muted">Новая сумма:</span><b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b>
-        </div>
-      </div>
-      <div class="row" style="margin-top:20px">
-        <button class="btn btn-primary" style="flex:1" @click="saveEditedOrder" :disabled="busy || !editingOrder.items.length">
-          {{ busy ? 'Сохранение...' : '✅ Сохранить и уведомить клиента' }}
-        </button>
-        <button class="btn btn-ghost" @click="showEditModal=false" :disabled="busy">Отмена</button>
-      </div>
-      <div v-if="editError" class="msg error" style="margin-top:10px">{{ editError }}</div>
-    </div>
-  </div>
+<div class="topbar">
+  <div class="brand"><div class="logo">👨‍🍳</div><span>Кухня{{ session?' · '+session.venueName:'' }}</span></div>
+  <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div>
 </div>
-
+<div class="wrap">
+  <div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
+    <h3 style="margin-top:0">Вход для повара</h3>
+    <div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div>
+    <div class="field"><label>PIN</label><input v-model.trim="loginForm.pin" type="password" inputmode="numeric" @keyup.enter="login"></div>
+    <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
+    <div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
+  </div>
+  <template v-else>
+    <div class="muted" style="font-size:12px;margin-bottom:12px">👨‍🍳 {{ session.cookName }} · обновление каждые 3 сек</div>
+    <div class="cols">
+      <div class="col"><h4>🆕 Новые ({{ colNew.length }})</h4>
+        <div v-for="o in colNew" :key="o.id" class="glass wcard">
+          <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-new">{{ o.order_type==='delivery'?'🚗':'' }}</span></div>
+          <div style="font-size:13px;margin-top:6px">
+            <div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div>
+            <div v-for="a in o.addons" :key="a.id" class="muted">+ {{ a.name }}</div>
+          </div>
+          <div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn btn-ghost btn-sm" style="flex:1" @click="openEditOrder(o)">✏️ Изменить</button>
+            <button class="btn btn-primary btn-sm" style="flex:1" @click="setStatus(o.id,'cooking')">В работу 🔥</button>
+          </div>
+        </div>
+        <p v-if="!colNew.length" class="muted">Пусто</p>
+      </div>
+      <div class="col"><h4>🔥 Готовятся ({{ colCooking.length }})</h4>
+        <div v-for="o in colCooking" :key="o.id" class="glass wcard">
+          <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ o.order_type==='delivery'?'🚗':'' }}</span></div>
+          <div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
+          <button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" @click="setStatus(o.id,'ready')">Готово ✓</button>
+        </div>
+        <p v-if="!colCooking.length" class="muted">Пусто</p>
+      </div>
+      <div class="col"><h4>✅ Выдача ({{ colReady.length }})</h4>
+        <div v-for="o in colReady" :key="o.id" class="glass wcard">
+          <div class="spread"><b>№{{ o.order_number }}</b><span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span></div>
+          <div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
+          <div class="row" style="margin-top:10px">
+            <button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" @click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
+            <button v-if="['ready','delivery'].includes(o.status)" class="btn btn-green btn-sm" style="flex:1" @click="setStatus(o.id,'done')">Выдан клиенту</button>
+          </div>
+        </div>
+        <p v-if="!colReady.length" class="muted">Пусто</p>
+      </div>
+    </div>
+  </template>
+</div>
+<!-- РЕДАКТИРОВАНИЕ ЗАКАЗА -->
+<div v-if="showEditModal" class="modal" @click.self="showEditModal=false"><div class="glass box">
+  <h3 style="margin-top:0">Изменение заказа №{{ editingOrder?editingOrder.order_number:'' }}</h3>
+  <p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии. Клиент увидит изменения и подтвердит их.</p>
+  <div v-if="editingOrder">
+    <div v-for="it in editingOrder.items" :key="it.id" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px">
+      <div style="flex:1"><b>{{ it.name }}</b><br><span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span></div>
+      <button class="btn btn-ghost btn-sm" @click="changeQty(it,-1)">−</button><b style="width:20px;text-align:center">{{ it.qty }}</b>
+      <button class="btn btn-ghost btn-sm" @click="changeQty(it,1)">+</button>
+      <button class="btn btn-danger btn-sm" @click="removeItem(it.id)">🗑</button>
+    </div>
+    <div v-if="editingOrder.addons&&editingOrder.addons.length" style="margin-top:15px">
+      <div class="muted" style="font-size:12px;margin-bottom:8px">Дополнительно:</div>
+      <div v-for="a in editingOrder.addons" :key="a.id" class="row" style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.03);border-radius:10px">
+        <div style="flex:1;font-size:13px">{{ a.name }} ({{ a.price }} ₽)</div>
+        <button class="btn btn-danger btn-sm" @click="removeAddon(a.id)">🗑</button>
+      </div>
+    </div>
+    <div class="spread" style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,.1)">
+      <span class="muted">Новая сумма:</span><b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b></div>
+  </div>
+  <div class="row" style="margin-top:20px">
+    <button class="btn btn-primary" style="flex:1" @click="saveEditedOrder" :disabled="busy||!editingOrder||editingOrder.items.length===0">{{ busy?'Сохранение...':'✅ Сохранить и уведомить клиента' }}</button>
+    <button class="btn btn-ghost" @click="showEditModal=false" :disabled="busy">Отмена</button>
+  </div>
+  <div v-if="editError" class="msg error" style="margin-top:10px">{{ editError }}</div>
+</div></div>
+</div>
 <script src="js/config.js"></script>
+<script src="js/app.js"></script>
 <script>
-const DELIVERY_FEE = 150;
 Vue.createApp({
-  data(){return{
-    session:null, busy:false, err:'', loginForm:{slug:'',pin:''}, orders:[], timer:null,
-    showEditModal:false, editingOrder:null, editError:''
-  }},
-  computed:{
-    colNew(){ return this.orders.filter(o=>['new','changed'].includes(o.status)); },
-    colCooking(){ return this.orders.filter(o=>o.status==='cooking'); },
-    colReady(){ return this.orders.filter(o=>['ready','delivery'].includes(o.status)); },
-    newTotal(){
-      if(!this.editingOrder) return 0;
-      let sum=(this.editingOrder.items||[]).reduce((s,i)=>s+i.price*i.qty,0);
-      sum+=(this.editingOrder.addons||[]).reduce((s,a)=>s+Number(a.price||0),0);
-      if(this.editingOrder.order_type==='delivery') sum+=DELIVERY_FEE;
-      return sum;
-    }
+data(){return{session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,
+showEditModal:false,editingOrder:null,editError:''}},
+computed:{
+  colNew(){return this.orders.filter(o=>o.status==='new')},
+  colCooking(){return this.orders.filter(o=>o.status==='cooking')},
+  colReady(){return this.orders.filter(o=>['ready','delivery','changed'].includes(o.status))},
+  newTotal(){
+    if(!this.editingOrder)return 0;
+    let s=this.editingOrder.items.reduce((x,i)=>x+i.price*i.qty,0);
+    if(this.editingOrder.addons)s+=this.editingOrder.addons.reduce((x,a)=>x+a.price,0);
+    if(this.editingOrder.order_type==='delivery')s+=150;
+    return s;
+  }
+},
+methods:{
+  fmt(v){return window.fmt(v)},
+  statusName(s){return window.statusName(s)},
+  async login(){
+    this.err='';this.busy=true;
+    try{
+      const slug=(this.loginForm.slug||'').trim().toLowerCase(),pin=(this.loginForm.pin||'').trim();
+      if(!slug||!pin){this.err='Заполните оба поля';return}
+      const {data:v}=await db.from('venues').select('*').eq('slug',slug).maybeSingle();
+      if(!v){this.err='Заведение не найдено';return}
+      const {data:c}=await db.from('cooks').select('*').eq('venue_id',v.id).eq('pin',pin).maybeSingle();
+      if(!c){this.err='Неверный PIN';return}
+      this.session={venueId:v.id,venueName:v.name,cookId:c.id,cookName:c.name};
+      localStorage.setItem('cook_session',JSON.stringify(this.session));
+      await this.load();this.startTimer();
+    }finally{this.busy=false}
   },
-  methods:{
-    fmt(v){ return typeof window.fmt==='function' ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
-    statusName(s){ return {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',done:'Завершён',changed:'Изменён'}[s]||s; },
-
-    async login(){
-      this.err=''; this.busy=true;
-      try{
-        const slug=(this.loginForm.slug||'').trim().toLowerCase();
-        const pin=(this.loginForm.pin||'').trim();
-        if(!slug||!pin){ this.err='Заполните оба поля'; return; }
-        const {data:v}=await db.from('venues').select('*').eq('slug',slug).maybeSingle();
-        if(!v){ this.err='Заведение не найдено'; return; }
-        const {data:c}=await db.from('cooks').select('*').eq('venue_id',v.id).eq('pin',pin).maybeSingle();
-        if(!c){ this.err='Неверный PIN'; return; }
-        this.session={venueId:v.id,venueName:v.name,cookId:c.id,cookName:c.name};
-        localStorage.setItem('cook_session',JSON.stringify(this.session));
-        await this.load(); this.startTimer();
-      }finally{ this.busy=false; }
-    },
-    logout(){
-      localStorage.removeItem('cook_session');
-      if(this.timer){ clearInterval(this.timer); this.timer=null; }
-      this.session=null; this.orders=[]; this.loginForm={slug:'',pin:''};
-    },
-    async load(){
-      if(!this.session) return;
-      const {data,error}=await db.from('orders').select('*')
-        .eq('venue_id',this.session.venueId)
-        .neq('status','done').neq('status','cancelled')
-        .order('created_at',{ascending:false}).limit(30);
-      if(!error) this.orders=data||[];
-    },
-    startTimer(){ if(this.timer) clearInterval(this.timer); this.timer=setInterval(()=>this.load(),3000); },
-
-   async setStatus(id,status){
-  let updateData = { status };
-  if(status==='cooking'){ updateData.cooking_started_at = new Date().toISOString(); updateData.cook_name = this.session.cookName; }
-  if(status==='ready'){ updateData.ready_at = new Date().toISOString(); }
-  const {error}=await db.from('orders').update(updateData).eq('id',id);
-  if(error){ alert('Ошибка: '+error.message); return; }
-  await this.load();
-}
-
-    openEditOrder(o){
-      const copy=JSON.parse(JSON.stringify(o));
-      copy.items=copy.items||[];
-      copy.addons=copy.addons||[];
-      this.editingOrder=copy;
-      this.editError='';
-      this.showEditModal=true;
-    },
-
-    async saveEditedOrder(){
-      if(!this.editingOrder.items.length){ this.editError='В заказе должна остаться хотя бы одна позиция'; return; }
-      this.busy=true; this.editError='';
-      try{
-        // Один запрос: перезаписываем jsonb-массивы, сумму и статус
-        const {error}=await db.from('orders').update({
-          status:'changed',
-          total_price:this.newTotal,
-          items:this.editingOrder.items,
-          addons:this.editingOrder.addons
-        }).eq('id',this.editingOrder.id);
-        if(error) throw error;
-        this.showEditModal=false;
-        await this.load();
-      }catch(e){ this.editError='Ошибка сохранения: '+e.message; }
-      finally{ this.busy=false; }
-    }
+  logout(){
+    localStorage.removeItem('cook_session');
+    if(this.timer){clearInterval(this.timer);this.timer=null}
+    this.session=null;this.orders=[];this.loginForm={slug:'',pin:''};
   },
-  async mounted(){
-    const saved=localStorage.getItem('cook_session');
-    if(saved){ try{ this.session=JSON.parse(saved); await this.load(); this.startTimer(); }catch(e){ localStorage.removeItem('cook_session'); } }
+  async load(){
+    if(!this.session)return;
+    const {data,error}=await db.from('orders').select('*, items:order_items(*), addons:order_addons(*)')
+      .eq('venue_id',this.session.venueId).neq('status','done').neq('status','cancelled')
+      .order('created_at',{ascending:false}).limit(30);
+    if(!error)this.orders=data||[];
   },
-  beforeUnmount(){ if(this.timer) clearInterval(this.timer); }
+  startTimer(){if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>this.load(),3000)},
+  async setStatus(id,status){
+    const u={status};
+    if(status==='cooking'){u.cooking_started_at=new Date().toISOString();u.cook_name=this.session.cookName}
+    if(status==='ready'){u.ready_at=new Date().toISOString()}
+    const {error}=await db.from('orders').update(u).eq('id',id);
+    if(error){alert('Ошибка: '+error.message);return}
+    await this.load();
+  },
+  openEditOrder(o){this.editingOrder=JSON.parse(JSON.stringify(o));this.editError='';this.showEditModal=true},
+  changeQty(item,d){item.qty+=d;if(item.qty<1)item.qty=1},
+  removeItem(id){this.editingOrder.items=this.editingOrder.items.filter(i=>i.id!==id)},
+  removeAddon(id){this.editingOrder.addons=this.editingOrder.addons.filter(a=>a.id!==id)},
+  async saveEditedOrder(){
+    if(this.editingOrder.items.length===0){this.editError='Должна остаться хотя бы одна позиция';return}
+    this.busy=true;this.editError='';
+    try{
+      const orig=this.orders.find(o=>o.id===this.editingOrder.id);
+      const {error:oErr}=await db.from('orders').update({status:'changed',total_price:this.newTotal}).eq('id',this.editingOrder.id);
+      if(oErr)throw oErr;
+      const curIds=this.editingOrder.items.map(i=>i.id);
+      const delIds=(orig.items||[]).map(i=>i.id).filter(id=>!curIds.includes(id));
+      if(delIds.length){const {error}=await db.from('order_items').delete().in('id',delIds);if(error)throw error}
+      for(const it of this.editingOrder.items){
+        const o=(orig.items||[]).find(x=>x.id===it.id);
+        if(o&&o.qty!==it.qty){const {error}=await db.from('order_items').update({qty:it.qty}).eq('id',it.id);if(error)throw error}
+      }
+      if(this.editingOrder.addons!==undefined&&orig.addons){
+        const curA=this.editingOrder.addons.map(a=>a.id);
+        const delA=orig.addons.map(a=>a.id).filter(id=>!curA.includes(id));
+        if(delA.length)await db.from('order_addons').delete().in('id',delA);
+      }
+      this.showEditModal=false;await this.load();
+    }catch(e){this.editError='Ошибка сохранения: '+e.message}
+    finally{this.busy=false}
+  }
+},
+async mounted(){
+  const saved=localStorage.getItem('cook_session');
+  if(saved){try{this.session=JSON.parse(saved);await this.load();this.startTimer()}catch(e){localStorage.removeItem('cook_session')}}
+},
+beforeUnmount(){if(this.timer)clearInterval(this.timer)}
 }).mount('#app');
 </script>
 </body>
