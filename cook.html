@@ -2,9 +2,17 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Кухня</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- PWA: приложение на телефоне -->
+<meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Кухня">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -19,6 +27,7 @@
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
 .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
 .b-changed{background:rgba(251,146,60,.15);color:#fdba74}
+.install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#6366f1}
 </style>
 </head>
 <body>
@@ -29,6 +38,12 @@
 <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
 </div>
 <div class="wrap">
+
+<div v-if="session&&showInstallHint" class="glass card install-hint">
+📲 <b>Установите как приложение:</b> Android — меню браузера ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”». На экране появится иконка «Кухня», запуск — как обычное приложение.
+<button class="btn btn-ghost btn-sm" style="margin-left:8px" v-on:click="hideInstallHint">Понятно</button>
+</div>
+
 <div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
 <h3 style="margin-top:0">Вход для повара</h3>
 <div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div>
@@ -108,9 +123,15 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
+// Регистрация service worker (приложение + офлайн)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  });
+}
 Vue.createApp({
 data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,
-showEditModal:false,editingOrder:null,editError:'' }},
+showEditModal:false,editingOrder:null,editError:'',showInstallHint:false }},
 computed: {
 colNew: function(){ return this.orders.filter(function(o){return o.status==='new'||o.status==='changed'}); },
 colCooking: function(){ return this.orders.filter(function(o){return o.status==='cooking'}); },
@@ -127,8 +148,9 @@ methods: {
 fmt: function(v){ return window.fmt(v); },
 statusName: function(s){ return window.statusName(s); },
 orderBadge: function(s){ return 'b-'+s; },
-deliveryIcon: function(t){ return t==='delivery'?'🚗':'🏠'; },
+deliveryIcon: function(t){ return t==='delivery'?'🚗':''; },
 isReadyOrDelivery: function(s){ return s==='ready'||s==='delivery'; },
+hideInstallHint: function(){ this.showInstallHint=false; localStorage.setItem('kitchen_app_hint','1'); },
 login: function(){
 var self=this; self.err=''; self.busy=true;
 var slug=(self.loginForm.slug||'').trim().toLowerCase();
@@ -215,6 +237,9 @@ mounted: function(){
 var saved=localStorage.getItem('cook_session');
 var self=this;
 if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.startTimer(); }catch(e){ localStorage.removeItem('cook_session'); } }
+// Подсказка установки — только если открыто НЕ как приложение
+var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+if(!standalone && !localStorage.getItem('kitchen_app_hint')) self.showInstallHint = true;
 },
 beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
