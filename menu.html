@@ -1,0 +1,211 @@
+<!DOCTYPE html><html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QR-Меню</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>.prod{display:flex;gap:12px;padding:12px}.prod img{width:84px;height:84px;border-radius:14px;object-fit:cover}
+.qty{display:flex;align-items:center;gap:8px}.qty button{width:28px;height:28px;border-radius:8px;border:none;background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-weight:700}
+.cartbar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);width:calc(100% - 32px);max-width:520px;z-index:30}</style>
+</head><body>
+<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;right:-100px"></div>
+
+<div id="app" v-cloak>
+  <div class="topbar">
+    <div class="brand"><div class="logo">QR</div><span>{{ venue ? venue.name : 'QR-Меню' }}</span></div>
+    <a v-if="view!=='menu' && venue" href="#" @click.prevent="view='menu'" class="btn btn-ghost btn-sm">← В меню</a>
+  </div>
+
+  <div class="wrap" style="max-width:560px">
+
+    <!-- Выбор заведения если нет slug -->
+    <div v-if="picker">
+      <h2>Выберите заведение</h2>
+      <div v-for="v in venues" :key="v.id" class="glass card" style="margin-bottom:12px;cursor:pointer" @click="choose(v.slug)">
+        <div class="spread"><b>{{ v.name }}</b><span class="muted">→</span></div>
+        <div class="muted" style="font-size:13px">{{ v.description }}</div>
+      </div>
+      <p v-if="!venues.length" class="muted">Нет активных заведений.</p>
+    </div>
+
+    <div v-else-if="loading" class="muted" style="text-align:center;padding:40px">Загрузка…</div>
+    <div v-else-if="paused" class="glass card" style="text-align:center;padding:40px">⏸ Заведение временно не принимает заказы.</div>
+
+    <template v-else-if="venue">
+      <!-- МЕНЮ -->
+      <div v-if="view==='menu'">
+        <div style="margin:6px 0 16px">
+          <h2 style="margin:0">{{ venue.name }}</h2>
+          <div class="muted" style="font-size:13px">{{ venue.description }}</div>
+        </div>
+
+        <div v-if="myOrders.length" class="glass card" style="margin-bottom:16px">
+          <b style="font-size:13px">Мои заказы</b>
+          <div class="row" style="margin-top:8px">
+            <button v-for="id in myOrders" :key="id" class="btn btn-ghost btn-sm" @click="openTracking(id)">Отследить</button>
+          </div>
+        </div>
+
+        <div v-for="p in menuProducts" :key="p.id" class="glass prod" style="margin-bottom:10px">
+          <img :src="p.image_url || DEFAULT_IMG">
+          <div style="flex:1;min-width:0">
+            <b>{{ p.name }}</b>
+            <div class="muted" style="font-size:12px">{{ p.description }}</div>
+            <div class="spread" style="margin-top:6px">
+              <b style="color:#a5b4fc">{{ p.price }} ₽</b>
+              <button class="btn btn-primary btn-sm" @click="addToCart(p)">+ В корзину</button>
+            </div>
+          </div>
+        </div>
+        <p v-if="!menuProducts.length" class="muted" style="text-align:center;padding:30px">Меню пока пустое.</p>
+
+        <div v-if="cart.length" class="cartbar">
+          <button class="btn btn-primary" style="width:100%;padding:16px" @click="openCheckout">
+            Оформить заказ · {{ fmt(cartItemsTotal) }} ₽
+          </button>
+        </div>
+      </div>
+
+      <!-- ОФОРМЛЕНИЕ -->
+      <div v-if="view==='checkout'" class="glass card">
+        <h3 style="margin-top:0">Корзина</h3>
+        <div v-for="i in cart" :key="i.id" class="spread" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+          <div><b>{{ i.name }}</b><div class="muted" style="font-size:12px">{{ i.price }} ₽</div></div>
+          <div class="qty">
+            <button @click="changeQty(i.id,-1)">−</button><span>{{ i.qty }}</span><button @click="changeQty(i.id,1)">+</button>
+          </div>
+        </div>
+
+        <div v-if="addons.length" style="margin-top:14px">
+          <label>Дополнительно / соусы</label>
+          <div class="row">
+            <button v-for="a in addons" :key="a.id" class="chip" :class="{on:isAddon(a.id)}" @click="toggleAddon(a)">+ {{ a.name }} · {{ a.price }} ₽</button>
+          </div>
+        </div>
+
+        <div style="margin-top:16px">
+          <label>Как получить</label>
+          <div class="row">
+            <button class="chip" :class="{on:orderType==='pickup'}" @click="orderType='pickup'">🏠 Самовывоз</button>
+            <button class="chip" :class="{on:orderType==='delivery'}" @click="orderType='delivery'">🚗 Доставка (+{{ DELIVERY_FEE }} ₽)</button>
+          </div>
+        </div>
+
+        <div style="margin-top:14px"><label>Имя</label><input v-model="cname" placeholder="Ваше имя"></div>
+        <div style="margin-top:10px"><label>Телефон *</label><input v-model="cphone" type="tel" placeholder="+7..."></div>
+        <div v-if="orderType==='delivery'" style="margin-top:10px"><label>Адрес доставки *</label><input v-model="caddress" placeholder="Улица, дом, квартира"></div>
+        <div style="margin-top:10px"><label>Комментарий</label><textarea v-model="ccomment" rows="2" placeholder="Без лука, код домофона…"></textarea></div>
+
+        <div style="margin-top:14px">
+          <label>Оплата</label>
+          <div class="row">
+            <button class="chip" :class="{on:cpayment==='cash'}" @click="cpayment='cash'">💵 Наличными</button>
+            <button class="chip" :class="{on:cpayment==='card'}" @click="cpayment='card'">💳 Картой</button>
+          </div>
+        </div>
+
+        <div class="glass card" style="margin-top:16px;background:rgba(255,255,255,.02)">
+          <div class="spread"><span class="muted">Товары</span><span>{{ fmt(cartItemsTotal) }} ₽</span></div>
+          <div class="spread"><span class="muted">Допы</span><span>{{ fmt(addonsTotal) }} ₽</span></div>
+          <div class="spread"><span class="muted">Доставка</span><span>{{ deliveryFee }} ₽</span></div>
+          <div class="spread" style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08)"><b>Итого</b><b style="font-size:20px">{{ fmt(total) }} ₽</b></div>
+        </div>
+
+        <button class="btn btn-green" style="width:100%;margin-top:16px;padding:15px" :disabled="busy" @click="placeOrder">Подтвердить заказ</button>
+        <div v-if="msg" class="msg" :class="msgType">{{ msg }}</div>
+      </div>
+
+      <!-- ТРЕКИНГ -->
+      <div v-if="view==='tracking' && tracking" class="glass card" style="text-align:center;padding:32px">
+        <div style="font-size:44px" :class="{pulse:tracking.status==='cooking'}">{{ statusEmoji }}</div>
+        <h2 style="margin:10px 0 4px">Заказ №{{ tracking.order_number }}</h2>
+        <span class="badge" :class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span>
+        <div class="progress" style="margin:20px 0 8px"><div :style="{width: progress + '%'}"></div></div>
+        <div class="muted" style="font-size:13px">{{ statusHint }}</div>
+        <div v-if="tracking.status==='done' || tracking.status==='cancelled'" style="margin-top:18px">
+          <button class="btn btn-primary" @click="newOrder">Новый заказ</button>
+        </div>
+      </div>
+    </template>
+  </div>
+</div>
+
+<script src="js/config.js"></script><script src="js/auth.js"></script><script src="js/app.js"></script>
+<script>
+Vue.createApp({
+  data(){return{
+    picker:false,loading:true,paused:false,slug:null,venue:null,venues:[],
+    products:[],addons:[],cart:[],selectedAddons:[],
+    view:'menu',orderType:'pickup',cname:'',cphone:'',caddress:'',ccomment:'',cpayment:'cash',
+    trackingId:null,tracking:null,timer:null,myOrders:[],busy:false,msg:'',msgType:''
+  }},
+  computed:{
+    menuProducts(){return this.products.filter(p=>p.category!=='addon' && p.is_available)},
+    cartItemsTotal(){return this.cart.reduce((s,i)=>s+i.price*i.qty,0)},
+    addonsTotal(){return this.selectedAddons.reduce((s,a)=>s+a.price,0)},
+    deliveryFee(){return this.orderType==='delivery'?DELIVERY_FEE:0},
+    total(){return this.cartItemsTotal+this.addonsTotal+this.deliveryFee},
+    progress(){return this.tracking? (STATUS_PROGRESS[this.tracking.status]||0):0},
+    statusHint(){return this.tracking? (STATUS_HINT[this.tracking.status]||'') : ''},
+    statusEmoji(){const m={new:'🆕',cooking:'🔥',ready:'✅',delivery:'🚗',done:'🎉',cancelled:'⛔'};return this.tracking? (m[this.tracking.status]||'🆕'):'🆕'}
+  },
+  methods:{
+    fmt,statusName,
+    choose(slug){location.href='menu.html?venue='+slug},
+    async init(){
+      const p=new URLSearchParams(location.search);
+      this.slug=p.get('venue');
+      if(!this.slug){this.picker=true;this.loading=false;const {data}=await db.from('venues').select('*').eq('status','active');this.venues=data||[];return}
+      await this.loadVenue();
+    },
+    async loadVenue(){
+      const {data:v}=await db.from('venues').select('*').eq('slug',this.slug).maybeSingle();
+      this.loading=false;
+      if(!v){this.picker=true;const {data}=await db.from('venues').select('*').eq('status','active');this.venues=data||[];return}
+      this.venue=v;this.paused=v.status!=='active';
+      const {data:pr}=await db.from('products').select('*').eq('venue_id',v.id);
+      const all=pr||[];
+      this.products=all.filter(x=>x.category!=='addon');
+      this.addons=all.filter(x=>x.category==='addon' && x.is_available);
+      this.myOrders=JSON.parse(localStorage.getItem('myorders_'+v.id)||'[]');
+    },
+    addToCart(p){const e=this.cart.find(i=>i.id===p.id);if(e)e.qty++;else this.cart.push({id:p.id,name:p.name,price:p.price,qty:1})},
+    changeQty(id,d){const i=this.cart.find(x=>x.id===id);if(!i)return;i.qty+=d;if(i.qty<=0)this.cart=this.cart.filter(x=>x.id!==id)},
+    isAddon(id){return this.selectedAddons.some(a=>a.id===id)},
+    toggleAddon(a){const i=this.selectedAddons.findIndex(x=>x.id===a.id);if(i>-1)this.selectedAddons.splice(i,1);else this.selectedAddons.push(a)},
+    openCheckout(){this.msg='';this.view='checkout'},
+    async placeOrder(){
+      if(!this.cphone.trim()) return this.showErr('Укажите телефон');
+      if(this.orderType==='delivery' && !this.caddress.trim()) return this.showErr('Укажите адрес доставки');
+      this.busy=true;
+      const oid=uuid();
+      const items=this.cart.map(i=>({id:i.id,name:i.name,price:i.price,qty:i.qty}));
+      const addons=this.selectedAddons.map(a=>({id:a.id,name:a.name,price:a.price}));
+      const row={id:oid,venue_id:this.venue.id,status:'new',order_type:this.orderType,
+        customer_name:this.cname||null,customer_phone:this.cphone,
+        delivery_address:this.orderType==='delivery'?this.caddress:null,
+        comment:this.ccomment||null,payment_method:this.cpayment,
+        items,addons,total_price:this.total};
+      const {error}=await db.from('orders').insert(row);
+      this.busy=false;
+      if(error) return this.showErr('Ошибка: '+error.message);
+      this.myOrders.unshift(oid);localStorage.setItem('myorders_'+this.venue.id,JSON.stringify(this.myOrders.slice(0,5)));
+      this.cart=[];this.selectedAddons=[];this.cname='';this.cphone='';this.caddress='';this.ccomment='';
+      this.openTracking(oid);
+    },
+    showErr(t){this.msg=t;this.msgType='err'},
+    openTracking(id){this.trackingId=id;this.view='tracking';this.poll();if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>this.poll(),3000)},
+    async poll(){
+      if(!this.trackingId)return;
+      const {data,error}=await db.rpc('track_order',{oid:this.trackingId});
+      if(!error&&data&&data.length){this.tracking=data[0];
+        if(['done','cancelled'].includes(this.tracking.status)&&this.timer){clearInterval(this.timer);this.timer=null}}
+    },
+    newOrder(){if(this.timer){clearInterval(this.timer);this.timer=null}this.trackingId=null;this.tracking=null;this.view='menu'}
+  },
+  mounted(){this.init()},
+  beforeUnmount(){if(this.timer)clearInterval(this.timer)}
+}).mount('#app');
+</script>
+</body></html>

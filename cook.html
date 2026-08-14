@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="ru"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Кухня</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head><body>
+<div class="glow" style="width:40vw;height:40vw;background:rgba(251,191,36,.08);top:-100px;left:-100px"></div>
+<div id="app" v-cloak>
+  <div class="topbar">
+    <div class="brand"><div class="logo">👨‍🍳</div><span>Кухня {{ session? '· '+session.venueName : '' }}</span></div>
+    <button v-if="session" class="btn btn-ghost btn-sm" @click="logout">Выйти</button>
+  </div>
+
+  <div class="wrap">
+    <div v-if="!session" class="glass card" style="max-width:420px;margin:60px auto">
+      <h3 style="margin-top:0">Вход для повара</h3>
+      <div class="field"><label>Код заведения</label><input v-model="slug"></div>
+      <div class="field"><label>PIN</label><input v-model="pin"></div>
+      <button class="btn btn-primary" style="width:100%" @click="login">Войти</button>
+      <div v-if="err" class="msg err">{{ err }}</div>
+    </div>
+
+    <div v-else>
+      <div class="muted" style="margin-bottom:14px">Повар: <b>{{ session.cookName }}</b> · обновление каждые 3 сек</div>
+      <div class="kanban">
+        <div class="kcol">
+          <div class="head" style="color:#60a5fa"><span class="dot" style="background:#60a5fa"></span>Новые ({{ colNew.length }})</div>
+          <div v-for="o in colNew" :key="o.id" class="glass order-card" style="border-top-color:#60a5fa">
+            <div class="spread"><b>№{{ o.order_number }}</b><span class="muted" style="font-size:12px">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span></div>
+            <div style="font-size:13px;margin:6px 0"><div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div>
+              <div v-for="a in o.addons" :key="a.id" class="muted">+ {{ a.name }}</div></div>
+            <div v-if="o.comment" class="muted" style="font-size:12px">💬 {{ o.comment }}</div>
+            <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" @click="setStatus(o.id,'cooking')">В работу 🔥</button>
+          </div>
+          <p v-if="!colNew.length" class="muted" style="font-size:12px">Пусто</p>
+        </div>
+
+        <div class="kcol">
+          <div class="head" style="color:#fbbf24"><span class="dot pulse" style="background:#fbbf24"></span>Готовятся ({{ colCooking.length }})</div>
+          <div v-for="o in colCooking" :key="o.id" class="glass order-card" style="border-top-color:#fbbf24">
+            <div class="spread"><b>№{{ o.order_number }}</b><span class="muted" style="font-size:12px">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span></div>
+            <div style="font-size:13px;margin:6px 0"><div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
+            <button class="btn btn-green btn-sm" style="width:100%;margin-top:8px" @click="setStatus(o.id,'ready')">Готово ✓</button>
+          </div>
+          <p v-if="!colCooking.length" class="muted" style="font-size:12px">Пусто</p>
+        </div>
+
+        <div class="kcol">
+          <div class="head" style="color:#34d399"><span class="dot" style="background:#34d399"></span>Выдача ({{ colReady.length }})</div>
+          <div v-for="o in colReady" :key="o.id" class="glass order-card" :style="{borderTopColor: o.status==='delivery'?'#a78bfa':'#34d399'}">
+            <div class="spread"><b>№{{ o.order_number }}</b><span class="badge" :class="'b-'+o.status">{{ statusName(o.status) }}</span></div>
+            <div style="font-size:13px;margin:6px 0"><div v-for="it in o.items" :key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
+            <button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" @click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
+            <button v-else-if="o.status==='delivery'" class="btn btn-green btn-sm" style="width:100%;margin-top:8px" @click="setStatus(o.id,'done')">Доставлен ✓</button>
+            <button v-else class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px" @click="setStatus(o.id,'done')">Выдан клиенту</button>
+          </div>
+          <p v-if="!colReady.length" class="muted" style="font-size:12px">Пусто</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/config.js"></script><script src="js/auth.js"></script><script src="js/app.js"></script>
+<script>
+Vue.createApp({
+  data(){return{session:null,slug:'',pin:'',err:'',orders:[],timer:null}},
+  computed:{
+    colNew(){return this.orders.filter(o=>o.status==='new')},
+    colCooking(){return this.orders.filter(o=>o.status==='cooking')},
+    colReady(){return this.orders.filter(o=>['ready','delivery'].includes(o.status))}
+  },
+  methods:{
+    statusName,
+    async login(){
+      const {data,error}=await db.rpc('cook_login',{vslug:this.slug.trim().toLowerCase(),cpin:this.pin.trim()});
+      if(error){this.err=error.message;return}
+      if(!data||!data.length){this.err='Неверный код или PIN';return}
+      const c=data[0];
+      this.session={cookId:c.cook_id,cookName:c.cook_name,venueId:c.venue_id,venueName:c.venue_name,slug:this.slug};
+      sessionStorage.setItem('cook_session',JSON.stringify(this.session));
+      this.start();
+    },
+    start(){this.load();if(this.timer)clearInterval(this.timer);this.timer=setInterval(()=>this.load(),3000)},
+    async load(){if(!this.session)return;const {data}=await db.rpc('cook_orders',{vid:this.session.venueId});this.orders=data||[]},
+    async setStatus(id,status){await db.rpc('cook_set_status',{oid:id,new_status:status});await this.load()},
+    logout(){sessionStorage.removeItem('cook_session');location.reload()}
+  },
+  mounted(){const s=sessionStorage.getItem('cook_session');if(s){this.session=JSON.parse(s);this.start()}}
+}).mount('#app');
+</script>
+</body></html>
