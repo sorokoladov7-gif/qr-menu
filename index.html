@@ -23,9 +23,9 @@
 <div class="tabs" style="margin-bottom:16px">
 <button v-bind:class="{on:tab==='login'}" v-on:click="tab='login'">Вход</button>
 <button v-bind:class="{on:tab==='reg'}" v-on:click="tab='reg'">Регистрация</button>
-<button v-bind:class="{on:tab==='cook'}" v-on:click="tab='cook'">Повар (PIN)</button>
-<button v-bind:class="{on:tab==='courier'}" v-on:click="tab='courier'">🚗 Курьер (PIN)</button>
-<button v-bind:class="{on:tab==='waiter'}" v-on:click="tab='waiter'">🤵 Официант (PIN)</button>
+<button v-bind:class="{on:tab==='cook'}" v-on:click="tab='cook'">Повар</button>
+<button v-bind:class="{on:tab==='courier'}" v-on:click="tab='courier'">🚗 Курьер</button>
+<button v-bind:class="{on:tab==='waiter'}" v-on:click="tab='waiter'">🤵 Официант</button>
 </div>
 
 <template v-if="tab==='login'">
@@ -68,105 +68,74 @@
 <script src="js/app.js"></script>
 <script>
 Vue.createApp({
-data: function(){ return {
-tab:'login', busy:false, msg:'', msgType:'',
+data:function(){return{
+tab:'login',busy:false,msg:'',msgType:'',
 lform:{email:'',password:''},
 rform:{name:'',email:'',password:''},
 cform:{slug:'',pin:''},
 dform:{slug:'',pin:''},
 wform:{slug:'',pin:''}
 }},
-methods: {
-login: function(){
-var self=this; self.msg='';
-if(!self.lform.email||!self.lform.password){ self.msg='Заполните email и пароль'; self.msgType='error'; return; }
+methods:{
+login:function(){var self=this;self.msg='';
+if(!self.lform.email||!self.lform.password){self.msg='Заполните email и пароль';self.msgType='error';return}
 self.busy=true;
 db.auth.signInWithPassword({email:self.lform.email,password:self.lform.password}).then(function(r){
-if(r.error){ self.msg='Ошибка входа: '+r.error.message; self.msgType='error'; self.busy=false; return; }
+if(r.error){self.msg='Ошибка входа: '+r.error.message;self.msgType='error';self.busy=false;return}
 self.routeByRole(r.data.user.id);
-}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
-},
-register: function(){
-var self=this; self.msg='';
-if(!self.rform.email||!self.rform.password||!self.rform.name){ self.msg='Заполните все поля'; self.msgType='error'; return; }
-if(self.rform.password.length<6){ self.msg='Пароль минимум 6 символов'; self.msgType='error'; return; }
+}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
+register:function(){var self=this;self.msg='';
+if(!self.rform.email||!self.rform.password||!self.rform.name){self.msg='Заполните все поля';self.msgType='error';return}
+if(self.rform.password.length<6){self.msg='Пароль минимум 6 символов';self.msgType='error';return}
 self.busy=true;
 db.auth.signUp({email:self.rform.email,password:self.rform.password,options:{data:{display_name:self.rform.name,role:'manager'}}}).then(function(r){
-if(r.error){
-var m=String(r.error.message).toLowerCase();
-self.msg = m.indexOf('already registered')!==-1 ? 'Этот email уже зарегистрирован. Войдите.' : 'Ошибка: '+r.error.message;
-self.msgType='error'; self.busy=false; return;
-}
+if(r.error){var m=String(r.error.message).toLowerCase();
+self.msg=m.indexOf('already registered')!==-1?'Этот email уже зарегистрирован. Войдите.':'Ошибка: '+r.error.message;
+self.msgType='error';self.busy=false;return}
 self.busy=false;
-if(r.data.session){ self.routeByRole(r.data.user.id); }
-else { self.msg='✓ Аккаунт создан! Подтвердите email и войдите.'; self.msgType='ok'; self.tab='login'; }
-}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
-},
-cookLogin: function(){
-var self=this; self.msg='';
-var slug=(self.cform.slug||'').trim().toLowerCase();
-var pin=(self.cform.pin||'').trim();
-if(!slug||!pin){ self.msg='Заполните код и PIN'; self.msgType='error'; return; }
+if(r.data.session){self.routeByRole(r.data.user.id)}
+else{self.msg='✓ Аккаунт создан! Подтвердите email и войдите.';self.msgType='ok';self.tab='login'}
+}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
+cookLogin:function(){var self=this;self.msg='';
+var slug=(self.cform.slug||'').trim().toLowerCase();var pin=(self.cform.pin||'').trim();
+if(!slug||!pin){self.msg='Заполните код и PIN';self.msgType='error';return}
 self.busy=true;
 db.from('venues').select('id,name,slug').eq('slug',slug).maybeSingle().then(function(v){
-if(!v.data){ self.msg='Заведение не найдено'; self.msgType='error'; self.busy=false; return; }
+if(!v.data){self.msg='Заведение не найдено';self.msgType='error';self.busy=false;return}
 return db.from('cooks').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(c){
-if(!c.data){ self.msg='Неверный PIN'; self.msgType='error'; self.busy=false; return; }
+if(!c.data){self.msg='Неверный PIN';self.msgType='error';self.busy=false;return}
 db.from('cooks').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
 localStorage.setItem('cook_session',JSON.stringify({venueId:v.data.id,venueName:v.data.name,venueSlug:v.data.slug,cookId:c.data.id,cookName:c.data.name}));
-location.href='cook.html';
-});
-}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
-},
-courierLogin: function(){
-var self=this; self.msg='';
-var slug=(self.dform.slug||'').trim().toLowerCase();
-var pin=(self.dform.pin||'').trim();
-if(!slug||!pin){ self.msg='Заполните код и PIN'; self.msgType='error'; return; }
+location.href='cook.html'})}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
+courierLogin:function(){var self=this;self.msg='';
+var slug=(self.dform.slug||'').trim().toLowerCase();var pin=(self.dform.pin||'').trim();
+if(!slug||!pin){self.msg='Заполните код и PIN';self.msgType='error';return}
 self.busy=true;
 db.from('venues').select('id,name,slug').eq('slug',slug).maybeSingle().then(function(v){
-if(!v.data){ self.msg='Заведение не найдено'; self.msgType='error'; self.busy=false; return; }
+if(!v.data){self.msg='Заведение не найдено';self.msgType='error';self.busy=false;return}
 return db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(c){
-if(!c.data){ self.msg='Неверный PIN'; self.msgType='error'; self.busy=false; return; }
+if(!c.data){self.msg='Неверный PIN';self.msgType='error';self.busy=false;return}
 db.from('couriers').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
 localStorage.setItem('courier_session',JSON.stringify({venueId:v.data.id,venueName:v.data.name,venueSlug:v.data.slug,courierId:c.data.id,courierName:c.data.name}));
-location.href='courier.html';
-});
-}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
-},
-waiterLogin: function(){
-var self=this; self.msg='';
-var slug=(self.wform.slug||'').trim().toLowerCase();
-var pin=(self.wform.pin||'').trim();
-if(!slug||!pin){ self.msg='Заполните код и PIN'; self.msgType='error'; return; }
+location.href='courier.html'})}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
+waiterLogin:function(){var self=this;self.msg='';
+var slug=(self.wform.slug||'').trim().toLowerCase();var pin=(self.wform.pin||'').trim();
+if(!slug||!pin){self.msg='Заполните код и PIN';self.msgType='error';return}
 self.busy=true;
 db.from('venues').select('id,name,slug').eq('slug',slug).maybeSingle().then(function(v){
-if(!v.data){ self.msg='Заведение не найдено'; self.msgType='error'; self.busy=false; return; }
+if(!v.data){self.msg='Заведение не найдено';self.msgType='error';self.busy=false;return}
 return db.from('waiters').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(w){
-if(!w.data){ self.msg='Неверный PIN'; self.msgType='error'; self.busy=false; return; }
+if(!w.data){self.msg='Неверный PIN';self.msgType='error';self.busy=false;return}
 db.from('waiters').update({last_login_at:new Date().toISOString()}).eq('id',w.data.id).then(function(){});
 localStorage.setItem('waiter_session',JSON.stringify({venueId:v.data.id,venueName:v.data.name,venueSlug:v.data.slug,waiterId:w.data.id,waiterName:w.data.name}));
-location.href='waiter.html';
-});
-}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
-},
-routeByRole: function(userId){
-var self=this;
+location.href='waiter.html'})}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
+routeByRole:function(userId){var self=this;
 db.from('profiles').select('*').eq('id',userId).maybeSingle().then(function(r){
-if(!r.data){
-self.msg='⚠️ Аккаунт создан, но профиль не найден. Выполните SQL из инструкции и нажмите «Войти».';
-self.msgType='error'; self.busy=false; return;
-}
-location.href = (r.data.role==='admin') ? 'admin.html' : 'manager.html';
-});
-}
+if(!r.data){self.msg='⚠️ Аккаунт создан, но профиль не найден. Выполните SQL и нажмите «Войти».';self.msgType='error';self.busy=false;return}
+location.href=(r.data.role==='admin')?'admin.html':'manager.html'})}
 },
-mounted: function(){
-var self=this;
-db.auth.getSession().then(function(r){
-if(r.data&&r.data.session){ self.routeByRole(r.data.session.user.id); }
-});
-}
+mounted:function(){var self=this;
+db.auth.getSession().then(function(r){if(r.data&&r.data.session){self.routeByRole(r.data.session.user.id)}})}
 }).mount('#app');
 </script>
 </body>
