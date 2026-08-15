@@ -2,8 +2,9 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Кабинет управляющего</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#0b1020">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -11,7 +12,6 @@
 <meta name="apple-mobile-web-app-title" content="Кабинет">
 <link rel="manifest" href="/manifest-manager.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon-manager.png">
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -113,6 +113,7 @@
 <button v-bind:class="{on:tab==='orders'}" v-on:click="tab='orders'">Заказы</button>
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
 <button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">Повара</button>
+<button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
 </div>
@@ -145,12 +146,14 @@
 </div>
 <div class="muted" style="font-size:13px;margin-top:6px">{{ o.customer_phone }} {{ o.customer_name }}</div>
 <div class="muted" style="font-size:12px;margin-top:4px">👨‍ Готовит: <b style="color:#a5b4fc">{{ o.cook_name||'ещё не назначен' }}</b></div>
+<div class="muted" style="font-size:12px;margin-top:4px" v-if="o.courier_name">🚗 Курьер: <b style="color:#c4b5fd">{{ o.courier_name }}</b></div>
 <div style="margin-top:6px;font-size:13px">
 <div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div>
 </div>
 <div class="row" style="margin-top:10px">
 <button v-if="o.status==='new'" class="btn btn-primary btn-sm" v-on:click="setStatus(o.id,'cooking')">В работу</button>
 <button v-if="o.status==='cooking'" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'ready')">Готово</button>
+<button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" v-on:click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
 <button v-if="isReadyOrDelivery(o.status)" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'done')">Выдан</button>
 <button v-if="isNewOrCooking(o.status)" class="btn btn-danger btn-sm" v-on:click="setStatus(o.id,'cancelled')">Отменить</button>
 </div>
@@ -158,7 +161,6 @@
 <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
 </div>
 
-<!-- АНАЛИТИКА: ЧТО ПОКУПАЮТ -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px">
 <h3>Аналитика заведения</h3>
@@ -168,64 +170,46 @@
 <option value="all">Всё время</option>
 </select>
 </div>
-
 <div class="analytics-grid">
 <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
 <div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.clients }}</div><div class="lbl">Клиентов</div></div>
 <div class="glass stat"><div class="num" style="color:#fbbf24">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Ср. чек</div></div>
 <div class="glass stat"><div class="num" style="color:#a78bfa">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. готовка</div></div>
 </div>
-
 <div class="glass card" style="margin-bottom:14px">
 <h4 style="margin:0 0 10px">🛒 Что чаще всего покупают</h4>
 <table class="tbl">
 <tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th><th>В заказах</th></tr>
 <tr v-for="i in analytics.topItems" v-bind:key="i.name">
-<td><b>{{ i.name }}</b></td>
-<td>{{ i.count }} шт.</td>
-<td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td>
-<td>{{ i.percent }}%</td>
+<td><b>{{ i.name }}</b></td><td>{{ i.count }} шт.</td>
+<td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td><td>{{ i.percent }}%</td>
 </tr>
 <tr v-if="!analytics.topItems.length"><td colspan="4" class="muted">Нет данных за выбранный период</td></tr>
 </table>
 </div>
-
 <div class="glass card" style="margin-bottom:14px" v-if="analytics.topAddons.length">
 <h4 style="margin:0 0 10px">🧂 Популярные добавки</h4>
 <ul class="top-list">
-<li v-for="a in analytics.topAddons" v-bind:key="a.name">
-<span>{{ a.name }}</span>
-<b style="color:#a5b4fc">{{ a.count }} раз</b>
-</li>
+<li v-for="a in analytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }} раз</b></li>
 </ul>
 </div>
-
 <div class="analytics-grid">
 <div class="glass stat"><div class="num">{{ analytics.typeStats.pickup }}</div><div class="lbl">🏠 Самовывоз</div></div>
 <div class="glass stat"><div class="num">{{ analytics.typeStats.delivery }}</div><div class="lbl">🚗 Доставка</div></div>
 <div class="glass stat"><div class="num">{{ analytics.payStats.cash }}</div><div class="lbl">💵 Наличные</div></div>
 <div class="glass stat"><div class="num">{{ analytics.payStats.card }}</div><div class="lbl">💳 Карта</div></div>
 </div>
-
 <div class="glass card" style="margin-bottom:14px" v-if="analytics.topHours.length">
-<h4 style="margin:0 0 10px">🕒 Часы пик (когда заказывают)</h4>
+<h4 style="margin:0 0 10px">🕒 Часы пик</h4>
 <ul class="top-list">
-<li v-for="h in analytics.topHours" v-bind:key="h.h">
-<span>{{ h.label }}</span>
-<b style="color:#fcd34d">{{ h.count }} заказов</b>
-</li>
+<li v-for="h in analytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }} заказов</b></li>
 </ul>
 </div>
-
 <div class="glass card">
 <h4 style="margin:0 0 10px">👨‍ Статистика поваров (скорость)</h4>
 <table class="tbl">
 <tr><th>Повар</th><th>Заказов</th><th>Ср. время</th></tr>
-<tr v-for="c in analytics.cooks" v-bind:key="c.name">
-<td>{{ c.name }}</td>
-<td>{{ c.count }}</td>
-<td><b>{{ c.avg }} мин</b></td>
-</tr>
+<tr v-for="c in analytics.cooks" v-bind:key="c.name"><td>{{ c.name }}</td><td>{{ c.count }}</td><td><b>{{ c.avg }} мин</b></td></tr>
 <tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr>
 </table>
 </div>
@@ -239,7 +223,6 @@
 </div>
 <p class="muted" style="font-size:11px;margin:8px 0 0">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</p>
 </div>
-
 <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
 <label>🔑 Данные для входа поваров на кухню</label>
 <div class="row" style="margin-top:8px">
@@ -248,7 +231,6 @@
 </div>
 <p class="muted" style="font-size:11px;margin:8px 0 0">Повар открывает cook.html и вводит: код заведения + свой PIN.</p>
 </div>
-
 <div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px;align-items:flex-start">
 <div style="flex:1;min-width:0">
 <b>👨‍ {{ c.name }}</b>
@@ -260,6 +242,37 @@
 <button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button>
 </div>
 <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
+</div>
+
+<!-- КУРЬЕРЫ -->
+<div v-if="tab==='couriers'">
+<div class="glass card" style="margin-bottom:14px">
+<div class="row">
+<input v-model.trim="courierName" placeholder="Имя курьера" style="flex:1" v-on:keyup.enter="addCourier">
+<input v-model.trim="courierPhone" placeholder="Телефон" style="flex:1">
+<button class="btn btn-green btn-sm" v-on:click="addCourier" v-bind:disabled="!courierName">+ Добавить</button>
+</div>
+<p class="muted" style="font-size:11px;margin:8px 0 0">Лимит: {{ maxCouriers }} ({{ couriers.length }} занято)</p>
+</div>
+<div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
+<label>🔑 Данные для входа курьеров</label>
+<div class="row" style="margin-top:8px">
+<b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
+<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button>
+</div>
+<p class="muted" style="font-size:11px;margin:8px 0 0">Курьер открывает courier.html и вводит: код заведения + свой PIN.</p>
+</div>
+<div v-for="c in couriers" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px;align-items:flex-start">
+<div style="flex:1;min-width:0">
+<b>🚗 {{ c.name }}</b>
+<span class="badge" v-bind:class="c.last_login_at?'b-ready':'b-cooking'">{{ c.last_login_at?'На связи':'Не выходил' }}</span>
+<div class="muted" style="font-size:12px;margin-top:6px">📞 {{ c.phone||'не указан' }} · 🕒 Вход: {{ fmtDateTime(c.last_login_at) }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">🔑 Вход: код <b style="color:#a5b4fc">{{ venue.slug }}</b> + PIN <b style="color:#a5b4fc">{{ c.pin }}</b></div>
+</div>
+<button class="btn btn-ghost btn-sm" v-on:click="copyCourierLogin(c)">📋 Копировать доступ</button>
+<button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button>
+</div>
+<p v-if="!couriers.length" class="muted">Добавьте курьеров — они будут видеть заказы на доставку в courier.html.</p>
 </div>
 
 <div v-if="tab==='billing'">
@@ -274,6 +287,7 @@
 <ul style="list-style:none;padding:0;margin:0 0 16px;font-size:12px;color:#d1d5db;text-align:left">
 <li style="margin-bottom:6px">Заведений: {{ p.max_venues }}</li>
 <li style="margin-bottom:6px">Поваров: {{ p.max_cooks }}</li>
+<li style="margin-bottom:6px">Курьеров: {{ p.max_couriers||10 }}</li>
 <li style="margin-bottom:6px">Позиций: {{ p.max_products }}</li>
 </ul>
 <button class="btn" v-bind:class="planBtnClass(p)" style="width:100%" v-bind:disabled="isCurrentPlan(p)" v-on:click="choosePlan(p)">
@@ -281,7 +295,6 @@
 </button>
 </div>
 </div>
-
 <div v-if="payPlan" class="sbp-box">
 <b style="color:#6ee7b7">Оплата по СБП</b>
 <p style="margin:10px 0">Переведите <b style="font-size:18px">{{ fmt(payPlan.price) }} ₽</b> на номер:</p>
@@ -292,7 +305,6 @@
 <p class="muted" style="font-size:12px;margin:10px 0">В комментарии: <b>{{ venue.slug }}</b></p>
 <button class="btn btn-green" style="width:100%" v-on:click="markPaid">Я оплатил</button>
 </div>
-
 <div v-if="myPayments.length" class="glass card" style="margin-top:16px">
 <h4>Мои оплаты</h4>
 <table class="tbl">
@@ -396,11 +408,17 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  });
+}
 Vue.createApp({
 data: function() {
 return {
 ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:null,myVenues:[],venue:null,
-products:[],orders:[],cooks:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},cookName:'',vform:{},
+products:[],orders:[],cooks:[],couriers:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},
+cookName:'',courierName:'',courierPhone:'',vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
 analyticsPeriod:'7',
 analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],cooks:[]},
@@ -413,6 +431,7 @@ profileName: function() { return this.profile ? this.profile.display_name : ''; 
 modalTitle: function() { return this.editing ? 'Редактировать' : 'Новое блюдо'; },
 currentPlanName: function() { return this.currentPlan ? this.currentPlan.name : '-'; },
 maxCooks: function() { return this.currentPlan ? this.currentPlan.max_cooks : 999; },
+maxCouriers: function() { return this.currentPlan && this.currentPlan.max_couriers ? this.currentPlan.max_couriers : 999; },
 maxProducts: function() { return this.currentPlan ? this.currentPlan.max_products : '∞'; },
 revenue: function() { return this.orders.filter(function(o){return o.status==='done'}).reduce(function(s,o){return s+Number(o.total_price||0)},0); },
 activeCount: function() { return this.orders.filter(function(o){return ['new','cooking','delivery'].indexOf(o.status)!==-1}).length; },
@@ -456,6 +475,10 @@ showToast: function(t,type){ type=type||'ok'; this.toast={text:t,type:type}; var
 copyText: function(t){ var self=this; try{ navigator.clipboard.writeText(t); self.showToast('Скопировано'); }catch(e){ prompt('Скопируйте:',t); } },
 copyCookLogin: function(c){
 var txt='Вход для повара '+c.name+':\nСайт: '+location.origin+'/cook.html\nКод заведения: '+this.venue.slug+'\nPIN: '+c.pin;
+this.copyText(txt);
+},
+copyCourierLogin: function(c){
+var txt='Вход для курьера '+c.name+':\nСайт: '+location.origin+'/courier.html\nКод заведения: '+this.venue.slug+'\nPIN: '+c.pin;
 this.copyText(txt);
 },
 
@@ -506,7 +529,7 @@ var self = this;
 this.venue=v; this.tab='menu'; this.subscriptionEnd=v.subscription_end;
 this.vform={name:v.name,description:v.description,brand_color:v.brand_color,logo_url:v.logo_url||''};
 if(this.isExpired(v)){ this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
-Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadPayments()]).then(function(){
+Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadPayments()]).then(function(){
 if(self.timer) clearInterval(self.timer);
 self.timer = setInterval(function(){ self.loadOrders(); }, 5000);
 });
@@ -514,6 +537,7 @@ self.timer = setInterval(function(){ self.loadOrders(); }, 5000);
 loadProducts: function(){ var self=this; return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ self.products=r.data||[]; }); },
 loadOrders: function(){ var self=this; return db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50).then(function(r){ self.orders=r.data||[]; }); },
 loadCooks: function(){ var self=this; return db.from('cooks').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ if(r.error){ self.showToast('Ошибка загрузки поваров: '+r.error.message,'error'); } self.cooks=r.data||[]; }); },
+loadCouriers: function(){ var self=this; return db.from('couriers').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ if(r.error){ self.showToast('Ошибка загрузки курьеров: '+r.error.message,'error'); } self.couriers=r.data||[]; }); },
 loadPayments: function(){ var self=this; return db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false}).then(function(r){ self.myPayments=r.data||[]; }); },
 
 loadAnalytics: function(){
@@ -691,6 +715,17 @@ self.cookName=''; self.loadCooks(); self.showToast('Повар добавлен!
 },
 delCook: function(c){ if(!confirm('Удалить повара '+c.name+'?')) return; var self=this; db.from('cooks').delete().eq('id',c.id).then(function(){ self.loadCooks(); self.showToast('Удалено'); }); },
 
+addCourier: function(){
+var self=this;
+if(this.couriers.length>=this.maxCouriers){ this.showToast('Лимит курьеров по тарифу','error'); return; }
+var pin,a=0; do{ pin=String(Math.floor(1000+Math.random()*9000)); a++; }while(this.couriers.some(function(c){return c.pin===pin}) && a<10);
+db.from('couriers').insert({venue_id:this.venue.id,name:this.courierName,phone:self.courierPhone||null,pin:pin}).then(function(r){
+if(r.error){ self.showToast('Ошибка: '+r.error.message,'error'); return; }
+self.courierName=''; self.courierPhone=''; self.loadCouriers(); self.showToast('Курьер добавлен! PIN: '+pin);
+});
+},
+delCourier: function(c){ if(!confirm('Удалить курьера '+c.name+'?')) return; var self=this; db.from('couriers').delete().eq('id',c.id).then(function(){ self.loadCouriers(); self.showToast('Удалено'); }); },
+
 setStatus: function(id,status){
 var self=this; var u={status:status};
 if(status==='cooking') u.cooking_started_at=new Date().toISOString();
@@ -711,13 +746,6 @@ logout: function(){ try{ db.auth.signOut(); }catch(e){} if(this.timer) clearInte
 mounted: function(){ this.init(); },
 beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js').catch(function() {});
-  });
-}
 </script>
 </body>
 </html>
