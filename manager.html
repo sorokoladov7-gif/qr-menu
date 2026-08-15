@@ -10,6 +10,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
+.bar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:4px 0}
+.bar-fill{height:8px;border-radius:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6)}
 [v-cloak]{display:none}
 .analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px}
 .top-list{list-style:none;padding:0;margin:0}
@@ -138,26 +140,103 @@
 </div>
 
 <div v-if="tab==='analytics'">
-<div class="spread" style="margin-bottom:14px"><h3>Аналитика заведения</h3>
+<div class="spread" style="margin-bottom:14px">
+<h3>Аналитика заведения</h3>
 <select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto">
-<option value="7">7 дней</option><option value="30">30 дней</option><option value="all">Всё время</option></select></div>
+<option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="all">Всё время</option></select>
+</div>
+
+<!-- ОСНОВНЫЕ МЕТРИКИ -->
 <div class="analytics-grid">
 <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
-<div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.clients }}</div><div class="lbl">Клиентов</div></div>
-<div class="glass stat"><div class="num" style="color:#fbbf24">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Ср. чек</div></div>
-<div class="glass stat"><div class="num" style="color:#a78bfa">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. готовка</div></div>
+<div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.orders }}</div><div class="lbl">Заказов</div></div>
+<div class="glass stat"><div class="num" style="color:#fbbf24">{{ analytics.clients }}</div><div class="lbl">Клиентов</div></div>
+<div class="glass stat"><div class="num" style="color:#a78bfa">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Средний чек</div></div>
+<div class="glass stat"><div class="num" style="color:#f472b6">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. время готовки</div></div>
+<div class="glass stat"><div class="num" style="color:#6ee7b7">{{ analytics.repeatClients }}</div><div class="lbl">Повторных клиентов</div></div>
 </div>
+
+<!-- ДИНАМИКА ПО ДНЯМ -->
 <div class="glass card" style="margin-bottom:14px">
-<h4 style="margin:0 0 10px">🛒 Что чаще всего покупают</h4>
-<table class="tbl"><tr><th>Позиция</th><th>Кол-во</th><th>Выручка</th></tr>
+<h4 style="margin:0 0 14px">📅 Динамика заказов по дням</h4>
+<div v-if="analytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:120px;overflow-x:auto">
+<div v-for="d in analytics.daily" v-bind:key="d.date" style="display:flex;flex-direction:column;align-items:center;min-width:34px">
+<div style="background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:22px" v-bind:style="{height:(d.count/maxDaily*100)+'px'}"></div>
+<div class="muted" style="font-size:10px;margin-top:4px">{{ d.label }}</div>
+<div style="font-size:11px;color:#a5b4fc">{{ d.count }}</div>
+</div>
+</div>
+<p v-else class="muted">Нет данных за период.</p>
+</div>
+
+<!-- ТОП БЛЮД И ДОБАВКИ -->
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:2;min-width:280px">
+<h4 style="margin:0 0 10px">🍔 Топ-10 блюд</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th></tr>
 <tr v-for="i in analytics.topItems" v-bind:key="i.name"><td><b>{{ i.name }}</b></td><td>{{ i.count }} шт.</td><td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td></tr>
 <tr v-if="!analytics.topItems.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
 </div>
-<div class="glass card">
-<h4 style="margin:0 0 10px">👨‍ Статистика поваров (скорость)</h4>
-<table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время</th></tr>
-<tr v-for="c in analytics.cooks" v-bind:key="c.name"><td>{{ c.name }}</td><td>{{ c.count }}</td><td><b>{{ c.avg }} мин</b></td></tr>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🧂 Топ добавок</h4>
+<ul class="top-list">
+<li v-for="a in analytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }}</b></li>
+<li v-if="!analytics.topAddons.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+
+<!-- ТИПЫ И ОПЛАТА -->
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🏠 Тип получения</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Самовывоз</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:typePercent('pickup')+'%'}"></div></div>
+<b>{{ analytics.typeStats.pickup }}</b></div>
+<div><span class="muted" style="font-size:12px">Доставка</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#f59e0b,#ef4444)" v-bind:style="{width:typePercent('delivery')+'%'}"></div></div>
+<b>{{ analytics.typeStats.delivery }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">💳 Способ оплаты</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Наличные</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#34d399,#10b981)" v-bind:style="{width:payPercent('cash')+'%'}"></div></div>
+<b>{{ analytics.payStats.cash }}</b></div>
+<div><span class="muted" style="font-size:12px">Карта</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:payPercent('card')+'%'}"></div></div>
+<b>{{ analytics.payStats.card }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🕒 Часы пик</h4>
+<ul class="top-list">
+<li v-for="h in analytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }}</b></li>
+<li v-if="!analytics.topHours.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+
+<!-- ПЕРСОНАЛ -->
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 10px">👨‍🍳 Повара (скорость и нагрузка)</h4>
+<table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время готовки</th></tr>
+<tr v-for="c in analytics.cooks" v-bind:key="c.name"><td>👨‍🍳 {{ c.name }}</td><td>{{ c.count }}</td>
+<td><b v-bind:style="{color:c.avg<=10?'#6ee7b7':c.avg<=20?'#fcd34d':'#fca5a5'}">{{ c.avg }} мин</b></td></tr>
 <tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr></table>
+</div>
+
+<div class="row" style="align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:260px">
+<h4 style="margin:0 0 10px">🚗 Курьеры (доставки)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Курьер</th><th>Доставлено</th></tr>
+<tr v-for="c in analytics.couriers" v-bind:key="c.name"><td>🚗 {{ c.name }}</td><td>{{ c.count }}</td></tr>
+<tr v-if="!analytics.couriers.length"><td colspan="2" class="muted">Нет доставок</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:260px">
+<h4 style="margin:0 0 10px">🤵 Официанты (выдачи)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Официант</th><th>Выдано</th></tr>
+<tr v-for="w in analytics.waiters" v-bind:key="w.name"><td>🤵 {{ w.name }}</td><td>{{ w.count }}</td></tr>
+<tr v-if="!analytics.waiters.length"><td colspan="2" class="muted">Нет выдач</td></tr></table>
+</div>
 </div>
 </div>
 
@@ -320,7 +399,7 @@ ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:
 products:[],orders:[],cooks:[],couriers:[],waiters:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},
 cookName:'',courierForm:{name:'',phone:''},waiterForm:{name:'',phone:''},vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
-analyticsPeriod:'7',analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],cooks:[]},
+analyticsPeriod:'7',analytics:{revenue:0,orders:0,clients:0,avgCheck:0,avgCookTime:0,newClients:0,repeatClients:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],daily:[],cooks:[],couriers:[],waiters:[]},
 subscriptionEnd:null,isBlocked:false,payPlan:null,myPayments:[],DEFAULT_IMG:window.DEFAULT_IMG
 }},
 computed:{
@@ -333,7 +412,7 @@ maxCouriers:function(){return this.currentPlan&&this.currentPlan.max_couriers?th
 maxWaiters:function(){return this.currentPlan&&this.currentPlan.max_waiters?this.currentPlan.max_waiters:999},
 maxProducts:function(){return this.currentPlan?this.currentPlan.max_products:'∞'},
 revenue:function(){return this.orders.filter(function(o){return o.status==='done'}).reduce(function(s,o){return s+Number(o.total_price||0)},0)},
-activeCount:function(){return this.orders.filter(function(o){return['new','cooking','delivery'].indexOf(o.status)!==-1}).length},
+activeCount:maxDaily:function(){var mx=1;this.analytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},function(){return this.orders.filter(function(o){return['new','cooking','delivery'].indexOf(o.status)!==-1}).length},
 clientLink:function(){return this.venue?location.origin+'/menu.html?venue='+encodeURIComponent(this.venue.slug):''},
 qrUrl:function(){return this.clientLink?'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink):''},
 daysLeft:function(){return this.subscriptionEnd?Math.ceil((new Date(this.subscriptionEnd)-new Date())/864e5):0},
@@ -407,25 +486,46 @@ loadWaiters:function(){var self=this;return db.from('waiters').select('*').eq('v
 loadPayments:function(){var self=this;return db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false}).then(function(r){self.myPayments=r.data||[]})},
 
 loadAnalytics:function(){var self=this;
-var q=db.from('orders').select('total_price,customer_phone,status,cooking_started_at,ready_at,cook_name,items:order_items(*),addons:order_addons(*)')
+var q=db.from('orders').select('total_price,customer_phone,status,created_at,order_type,payment_method,cooking_started_at,ready_at,cook_name,courier_name,waiter_name,items:order_items(*),addons:order_addons(*)')
 .eq('venue_id',this.venue.id).neq('status','cancelled');
 if(this.analyticsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(this.analyticsPeriod));q=q.gte('created_at',d.toISOString())}
 q.then(function(r){var os=r.data||[];
 var done=os.filter(function(o){return o.status==='done'});
 var rev=0;done.forEach(function(o){rev+=Number(o.total_price||0)});
-var ph={};os.forEach(function(o){if(o.customer_phone)ph[o.customer_phone.replace(/[^\d]/g,'')]=1});
-var t=[];var cm={};var im={};
-done.forEach(function(o){
+var phoneCount={};os.forEach(function(o){if(o.customer_phone){var p=o.customer_phone.replace(/[^\d]/g,'');phoneCount[p]=(phoneCount[p]||0)+1}});
+var clients=Object.keys(phoneCount).length;var repeat=0;Object.keys(phoneCount).forEach(function(p){if(phoneCount[p]>1)repeat++});
+var t=[];var cm={};var im={};var am={};var hours={};var dailyMap={};
+var pickup=0,delivery=0,cash=0,card=0;var courierMap={};var waiterMap={};
+os.forEach(function(o){
+if(o.order_type==='delivery')delivery++;else pickup++;
+if(o.payment_method==='card')card++;else cash++;
 if(o.cooking_started_at&&o.ready_at){var m=(new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4;t.push(m);
 if(o.cook_name){if(!cm[o.cook_name])cm[o.cook_name]={name:o.cook_name,count:0,t:[]};cm[o.cook_name].count++;cm[o.cook_name].t.push(m)}}
 (o.items||[]).forEach(function(it){if(!im[it.name])im[it.name]={name:it.name,count:0,revenue:0};im[it.name].count+=it.qty;im[it.name].revenue+=it.qty*Number(it.price||0)});
-(o.addons||[]).forEach(function(a){if(!im[a.name])im[a.name]={name:a.name,count:0,revenue:0};im[a.name].count+=1;im[a.name].revenue+=Number(a.price||0)});
+(o.addons||[]).forEach(function(a){if(!am[a.name])am[a.name]={name:a.name,count:0};am[a.name].count++});
+if(o.created_at){var dt=new Date(o.created_at);var hr=dt.getHours();hours[hr]=(hours[hr]||0)+1;
+var key=dt.toISOString().slice(0,10);if(!dailyMap[key])dailyMap[key]=0;dailyMap[key]++}
+if(o.status==='done'&&o.courier_name){courierMap[o.courier_name]=(courierMap[o.courier_name]||0)+1}
+if(o.status==='done'&&o.waiter_name){waiterMap[o.waiter_name]=(waiterMap[o.waiter_name]||0)+1}
 });
-self.analytics={revenue:rev,clients:Object.keys(ph).length,
+var topHours=Object.keys(hours).map(function(h){var nx=(parseInt(h)+1);return{h:parseInt(h),label:(h<10?'0'+h:h)+':00–'+(nx<10?'0'+nx:nx)+':00',count:hours[h]}}).sort(function(a,b){return b.count-a.count}).slice(0,5);
+var daily=Object.keys(dailyMap).sort().map(function(k){var dt=new Date(k);return{date:k,label:(dt.getDate()<10?'0':'')+dt.getDate()+'.'+(dt.getMonth()+1<10?'0':'')+(dt.getMonth()+1),count:dailyMap[k]}});
+self.analytics={revenue:rev,orders:os.length,clients:clients,
 avgCheck:done.length?Math.round(rev/done.length):0,
 avgCookTime:t.length?Math.round(t.reduce(function(a,b){return a+b},0)/t.length):0,
+newClients:clients-repeat,repeatClients:repeat,
 topItems:Object.keys(im).map(function(k){return im[k]}).sort(function(a,b){return b.count-a.count}).slice(0,10),
-cooks:Object.keys(cm).map(function(k){var c=cm[k];return{name:c.name,count:c.count,avg:Math.round(c.t.reduce(function(a,b){return a+b},0)/c.t.length)}})};
+topAddons:Object.keys(am).map(function(k){return am[k]}).sort(function(a,b){return b.count-a.count}).slice(0,5),
+typeStats:{pickup:pickup,delivery:delivery},
+payStats:{cash:cash,card:card},
+topHours:topHours,daily:daily,
+cooks:Object.keys(cm).map(function(k){var c=cm[k];return{name:c.name,count:c.count,avg:Math.round(c.t.reduce(function(a,b){return a+b},0)/c.t.length)}}).sort(function(a,b){return b.count-a.count}),
+couriers:Object.keys(courierMap).map(function(k){return{name:k,count:courierMap[k]}}).sort(function(a,b){return b.count-a.count}),
+waiters:Object.keys(waiterMap).map(function(k){return{name:k,count:waiterMap[k]}}).sort(function(a,b){return b.count-a.count})};
+})},
+maxDailyCalc:function(){var mx=1;this.analytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},
+typePercent:function(t){var s=this.analytics.typeStats;var tot=s.pickup+s.delivery;return tot?Math.round(s[t]*100/tot):0},
+payPercent:function(p){var s=this.analytics.payStats;var tot=s.cash+s.card;return tot?Math.round(s[p]*100/tot):0},
 })},
 
 choosePlan:function(p){if(p.price===0)this.subscribeFree(p);else this.payPlan=p},
