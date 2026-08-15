@@ -156,7 +156,19 @@ toCourier:function(id){var self=this;
 db.from('orders').update({status:'delivery',waiter_name:self.session.waiterName}).eq('id',id).then(function(){self.load();self.loadHistory()})}
 },
 mounted:function(){var saved=localStorage.getItem('waiter_session');var self=this;
-if(saved){try{self.session=JSON.parse(saved);self.load();self.loadHistory();self.startTimer();self.startStatsTimer()}catch(e){localStorage.removeItem('waiter_session')}}},
+if(saved){try{self.session=JSON.parse(saved);self.load();self.loadHistory();self.startTimer();self.startStatsTimer()}catch(e){localStorage.removeItem('waiter_session')}}
+var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+if(!standalone && !localStorage.getItem('waiter_app_hint')) self.showInstallHint = true;
+
+// ===== ДОБАВЛЕННЫЙ ОБРАБОТЧИК ВОЗВРАТА В ПРИЛОЖЕНИЕ =====
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible' && self.session) {
+    console.log('Вернулись в приложение, обновляем данные...');
+    self.load();
+    self.loadHistory();
+  }
+});
+},
 beforeUnmount:function(){if(this.timer)clearInterval(this.timer);if(this.statsTimer)clearInterval(this.statsTimer)}
 }).mount('#app');
 </script>
