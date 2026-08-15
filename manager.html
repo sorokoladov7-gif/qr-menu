@@ -369,8 +369,18 @@
 <div class="field" style="flex:1"><label>Цена ₽</label><input v-model.number="pform.price" type="number" min="0" v-bind:disabled="!perms.prices"></div>
 <div class="field" style="flex:1"><label>Категория</label>
 <select v-model="pform.category">
-<option value="main">Блюдо</option><option value="drink">Напиток</option>
-<option value="addon" v-if="perms.addons">Доп/соус</option></select></div>
+  <option value="main">🍽 Блюдо</option>
+  <option value="drink">🥤 Напиток</option>
+  <option value="addon">🧂 Доп</option>
+  <option value="breakfast">🍳 Завтрак</option>
+  <option value="salad">🥗 Салат</option>
+  <option value="soup">🍲 Суп</option>
+  <option value="dessert">🍰 Десерт</option>
+  <option value="sauce">🌶 Соус</option>
+  <option value="snack">🥨 Закуска</option>
+  <option value="hot">🔥 Горячее</option>
+  <option value="bbq">🥩 Гриль</option>
+</select></div>
 </div>
 <div class="field" v-if="pform.category==='addon'"><label>Подходит к</label>
 <select v-model="pform.applies_to">
