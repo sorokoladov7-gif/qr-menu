@@ -477,47 +477,56 @@
 <!-- МЕНЮ ЗАВЕДЕНИЯ -->
 <div v-if="prodModal.show" class="modal" v-on:click.self="prodModal.show=false"><div class="glass box" style="max-width:700px">
 <h3 style="margin-top:0">🍔 Меню: {{ prodModal.venueName }}</h3>
-<p class="muted" style="font-size:12px;margin-bottom:12px">Нажмите на квадрат с фото, чтобы загрузить/заменить картинку блюда.</p>
-<div v-for="p in prodModal.list" v-bind:key="p.id" class="row" style="margin-bottom:8px">
-<label class="thumb-sm" style="flex-shrink:0;display:flex;align-items:center;justify-content:center">
-<img v-if="p.image_url" v-bind:src="p.image_url" style="width:100%;height:100%;object-fit:cover;position:absolute" alt="">
-<span v-else style="font-size:16px">📸</span>
-<input type="file" accept="image/*" v-on:change="uploadProdPhoto($event,p)" style="display:none"></label>
-<input v-model="p.name" style="flex:2" v-on:change="saveProductRow(p)">
-<input v-model.number="p.price" type="number" min="0" style="flex:1" v-on:change="saveProductRow(p)">
-<select v-model="p.category" style="flex:1" v-on:change="saveProductRow(p)">
-  <option value="main">🍽 Блюдо</option>
-  <option value="drink">🥤 Напиток</option>
-  <option value="addon">🧂 Доп</option>
-  <option value="breakfast">🍳 Завтрак</option>
-  <option value="salad">🥗 Салат</option>
-  <option value="soup">🍲 Суп</option>
-  <option value="dessert">🍰 Десерт</option>
-  <option value="sauce">🌶 Соус</option>
-  <option value="snack">🥨 Закуска</option>
-  <option value="hot">🔥 Горячее</option>
-  <option value="bbq">🥩 Гриль</option>
-</select>
-<button class="btn btn-ghost btn-sm" v-on:click="toggleAvailRow(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
-<button class="btn btn-danger btn-sm" v-on:click="delProductRow(p)">🗑</button>
+
+<!-- ===== ОБНОВЛЕННЫЙ СПИСОК ТОВАРОВ С КНОПКАМИ ФОТО ===== -->
+<div v-for="p in prodModal.list" v-bind:key="p.id" class="row" style="margin-bottom:10px;align-items:stretch">
+  <!-- Кнопка-превью фото (вместо скрытого поля) -->
+  <label class="btn btn-ghost btn-sm" style="flex-shrink:0;cursor:pointer;width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:10px;overflow:hidden;position:relative;padding:0;background:rgba(255,255,255,.05)">
+    <img v-if="p.image_url" v-bind:src="p.image_url" style="width:100%;height:100%;object-fit:cover;position:absolute" alt="">
+    <span v-else style="font-size:18px">📸</span>
+    <input type="file" accept="image/*" v-on:change="uploadProdPhoto($event,p)" style="display:none">
+  </label>
+
+  <input v-model="p.name" style="flex:2" v-on:change="saveProductRow(p)">
+  <input v-model.number="p.price" type="number" min="0" style="flex:1" v-on:change="saveProductRow(p)">
+  
+  <!-- Выпадающий список с новыми категориями -->
+  <select v-model="p.category" style="flex:1" v-on:change="saveProductRow(p)">
+    <option value="main">🍽 Блюдо</option>
+    <option value="drink">🥤 Напиток</option>
+    <option value="addon">🧂 Доп</option>
+    <option value="breakfast">🍳 Завтрак</option>
+    <option value="salad">🥗 Салат</option>
+    <option value="soup">🍲 Суп</option>
+    <option value="dessert">🍰 Десерт</option>
+    <option value="sauce">🌶 Соус</option>
+    <option value="snack">🥨 Закуска</option>
+    <option value="hot">🔥 Горячее</option>
+    <option value="bbq">🥩 Гриль</option>
+  </select>
+  
+  <button class="btn btn-ghost btn-sm" v-on:click="toggleAvailRow(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
+  <button class="btn btn-danger btn-sm" v-on:click="delProductRow(p)">🗑</button>
 </div>
 <p v-if="!prodModal.list.length" class="muted">Меню пустое.</p>
+
+<!-- Форма добавления нового блюда -->
 <div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">
-<input v-model="prodModal.form.name" placeholder="Название" style="flex:2">
-<input v-model.number="prodModal.form.price" type="number" placeholder="Цена" style="flex:1">
-<select v-model="prodModal.form.category" style="flex:1">
-  <option value="main">🍽 Блюдо</option>
-  <option value="drink">🥤 Напиток</option>
-  <option value="addon">🧂 Доп</option>
-  <option value="breakfast">🍳 Завтрак</option>
-  <option value="salad">🥗 Салат</option>
-  <option value="soup">🍲 Суп</option>
-  <option value="dessert">🍰 Десерт</option>
-  <option value="sauce">🌶 Соус</option>
-  <option value="snack">🥨 Закуска</option>
-  <option value="hot">🔥 Горячее</option>
-  <option value="bbq">🥩 Гриль</option>
-</select>
+  <input v-model="prodModal.form.name" placeholder="Название" style="flex:2">
+  <input v-model.number="prodModal.form.price" type="number" placeholder="Цена" style="flex:1">
+  <select v-model="prodModal.form.category" style="flex:1">
+    <option value="main">🍽 Блюдо</option>
+    <option value="drink">🥤 Напиток</option>
+    <option value="addon">🧂 Доп</option>
+    <option value="breakfast">🍳 Завтрак</option>
+    <option value="salad">🥗 Салат</option>
+    <option value="soup">🍲 Суп</option>
+    <option value="dessert">🍰 Десерт</option>
+    <option value="sauce">🌶 Соус</option>
+    <option value="snack">🥨 Закуска</option>
+    <option value="hot">🔥 Горячее</option>
+    <option value="bbq">🥩 Гриль</option>
+  </select>
 </div>
 <button class="btn btn-green btn-sm" style="margin-top:8px" v-on:click="addProductRow">+ Добавить позицию</button>
 <button class="btn btn-ghost" style="margin-top:8px" v-on:click="prodModal.show=false">Закрыть</button>
