@@ -18,7 +18,6 @@
 <div class="brand"><div class="logo">QR</div><span>QR-Меню для Бизнеса</span></div>
 <a class="btn btn-ghost btn-sm" href="menu.html">📱 Я клиент</a>
 </div>
-
 <div class="wrap">
 <div class="glass card" style="max-width:420px;margin:30px auto">
 <div class="tabs" style="margin-bottom:16px">
@@ -26,16 +25,15 @@
 <button v-bind:class="{on:tab==='reg'}" v-on:click="tab='reg'">Регистрация</button>
 <button v-bind:class="{on:tab==='cook'}" v-on:click="tab='cook'">Повар (PIN)</button>
 <button v-bind:class="{on:tab==='courier'}" v-on:click="tab='courier'">🚗 Курьер (PIN)</button>
+<button v-bind:class="{on:tab==='waiter'}" v-on:click="tab='waiter'">🤵 Официант (PIN)</button>
 </div>
 
-<!-- ВХОД -->
 <template v-if="tab==='login'">
 <div class="field"><label>Email</label><input v-model.trim="lform.email" type="email" v-on:keyup.enter="login"></div>
 <div class="field"><label>Пароль</label><input v-model="lform.password" type="password" v-on:keyup.enter="login"></div>
 <button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Входим...':'Войти' }}</button>
 </template>
 
-<!-- РЕГИСТРАЦИЯ -->
 <template v-else-if="tab==='reg'">
 <div class="field"><label>Ваше имя</label><input v-model.trim="rform.name"></div>
 <div class="field"><label>Email</label><input v-model.trim="rform.email" type="email"></div>
@@ -43,26 +41,29 @@
 <button class="btn btn-primary" style="width:100%" v-on:click="register" v-bind:disabled="busy">{{ busy?'Создаём...':'Создать аккаунт управляющего' }}</button>
 </template>
 
-<!-- ПОВАР -->
 <template v-else-if="tab==='cook'">
 <div class="field"><label>Код заведения (slug)</label><input v-model.trim="cform.slug" placeholder="my-cafe"></div>
 <div class="field"><label>PIN-код</label><input v-model.trim="cform.pin" type="password" inputmode="numeric" v-on:keyup.enter="cookLogin"></div>
 <button class="btn btn-primary" style="width:100%" v-on:click="cookLogin" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти на кухню' }}</button>
 </template>
 
-<!-- КУРЬЕР -->
-<template v-else>
+<template v-else-if="tab==='courier'">
 <div class="field"><label>Код заведения (slug)</label><input v-model.trim="dform.slug" placeholder="my-cafe"></div>
 <div class="field"><label>PIN-код</label><input v-model.trim="dform.pin" type="password" inputmode="numeric" v-on:keyup.enter="courierLogin"></div>
 <button class="btn btn-primary" style="width:100%" v-on:click="courierLogin" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти как курьер' }}</button>
 </template>
 
-<div v-if="msg" class="msg" v-bind:class="msgType" style="margin-top:12px">{{ msg }}</div>
-<p class="muted" style="font-size:12px;margin-top:14px">Регистрируются управляющие. Повара и курьеры входят по PIN — их добавляет управляющий или админ.</p>
-</div>
-</div>
-</div>
+<template v-else>
+<div class="field"><label>Код заведения (slug)</label><input v-model.trim="wform.slug" placeholder="my-cafe"></div>
+<div class="field"><label>PIN-код</label><input v-model.trim="wform.pin" type="password" inputmode="numeric" v-on:keyup.enter="waiterLogin"></div>
+<button class="btn btn-primary" style="width:100%" v-on:click="waiterLogin" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти как официант' }}</button>
+</template>
 
+<div v-if="msg" class="msg" v-bind:class="msgType" style="margin-top:12px">{{ msg }}</div>
+<p class="muted" style="font-size:12px;margin-top:14px">Регистрируются управляющие. Повара, курьеры и официанты входят по PIN — их добавляет управляющий или админ.</p>
+</div>
+</div>
+</div>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
@@ -72,7 +73,8 @@ tab:'login', busy:false, msg:'', msgType:'',
 lform:{email:'',password:''},
 rform:{name:'',email:'',password:''},
 cform:{slug:'',pin:''},
-dform:{slug:'',pin:''}
+dform:{slug:'',pin:''},
+wform:{slug:'',pin:''}
 }},
 methods: {
 login: function(){
@@ -84,7 +86,6 @@ if(r.error){ self.msg='Ошибка входа: '+r.error.message; self.msgType=
 self.routeByRole(r.data.user.id);
 }).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
 },
-
 register: function(){
 var self=this; self.msg='';
 if(!self.rform.email||!self.rform.password||!self.rform.name){ self.msg='Заполните все поля'; self.msgType='error'; return; }
@@ -96,20 +97,11 @@ var m=String(r.error.message).toLowerCase();
 self.msg = m.indexOf('already registered')!==-1 ? 'Этот email уже зарегистрирован. Войдите.' : 'Ошибка: '+r.error.message;
 self.msgType='error'; self.busy=false; return;
 }
-if(r.data.user){
-db.from('profiles').upsert({id:r.data.user.id,email:self.rform.email,display_name:self.rform.name,role:'manager'}).then(function(){
-self.afterReg(r);
-});
-} else { self.afterReg(r); }
-}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
-},
-afterReg: function(r){
-var self=this;
 self.busy=false;
 if(r.data.session){ self.routeByRole(r.data.user.id); }
 else { self.msg='✓ Аккаунт создан! Подтвердите email и войдите.'; self.msgType='ok'; self.tab='login'; }
+}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
 },
-
 cookLogin: function(){
 var self=this; self.msg='';
 var slug=(self.cform.slug||'').trim().toLowerCase();
@@ -126,7 +118,6 @@ location.href='cook.html';
 });
 }).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
 },
-
 courierLogin: function(){
 var self=this; self.msg='';
 var slug=(self.dform.slug||'').trim().toLowerCase();
@@ -143,7 +134,22 @@ location.href='courier.html';
 });
 }).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
 },
-
+waiterLogin: function(){
+var self=this; self.msg='';
+var slug=(self.wform.slug||'').trim().toLowerCase();
+var pin=(self.wform.pin||'').trim();
+if(!slug||!pin){ self.msg='Заполните код и PIN'; self.msgType='error'; return; }
+self.busy=true;
+db.from('venues').select('id,name,slug').eq('slug',slug).maybeSingle().then(function(v){
+if(!v.data){ self.msg='Заведение не найдено'; self.msgType='error'; self.busy=false; return; }
+return db.from('waiters').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(w){
+if(!w.data){ self.msg='Неверный PIN'; self.msgType='error'; self.busy=false; return; }
+db.from('waiters').update({last_login_at:new Date().toISOString()}).eq('id',w.data.id).then(function(){});
+localStorage.setItem('waiter_session',JSON.stringify({venueId:v.data.id,venueName:v.data.name,venueSlug:v.data.slug,waiterId:w.data.id,waiterName:w.data.name}));
+location.href='waiter.html';
+});
+}).catch(function(e){ self.msg='Ошибка: '+e.message; self.msgType='error'; self.busy=false; });
+},
 routeByRole: function(userId){
 var self=this;
 db.from('profiles').select('*').eq('id',userId).maybeSingle().then(function(r){
@@ -151,7 +157,6 @@ if(!r.data){
 self.msg='⚠️ Аккаунт создан, но профиль не найден. Выполните SQL из инструкции и нажмите «Войти».';
 self.msgType='error'; self.busy=false; return;
 }
-sessionStorage.removeItem('last_redirect');
 location.href = (r.data.role==='admin') ? 'admin.html' : 'manager.html';
 });
 }
