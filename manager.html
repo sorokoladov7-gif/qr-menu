@@ -671,50 +671,210 @@ if(!this.newVenueForm.slug){
 this.newVenueForm.slug=id;
 }
 },
-createVenue:function(){var self=this;self.formError='';
-if(!this.newVenueForm.name||!this.newVenueForm.slug){this.formError='Заполните название и код заведения';return}
-if(!this.canCreateVenue){this.formError='Лимит заведений';return}
-var template=this.selectedVenueTemplate;
-if(!template){this.formError='Выберите шаблон ниши';return}
-if(this.currentPlan&&this.currentPlan.max_products&&template.products.length>this.currentPlan.max_products){
-this.formError='В выбранном тарифе недостаточно места для шаблона ('+template.products.length+' позиций).';return
-}
-self.busy=true;var e=new Date();e.setDate(e.getDate()+3);
-var slug=this.newVenueForm.slug.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9а-яё_-]/gi,'').replace(/[а-яё]/gi,function(c){
-var m={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};return m[c.toLowerCase()]||'';});
-if(!slug){self.formError='Некорректный slug';self.busy=false;return}
-db.from('venues').insert({
-    name:this.newVenueForm.name.trim(),
-    slug:slug,
-    status:'active',
-    plan:'start',
-    subscription_end:e.toISOString(),
-    manager_id:self.profile.id
-}).select().single()
-if(r.error)throw r.error;
-var venue=r.data;
-return db.from('subscriptions').insert({venue_id:venue.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()}).then(function(r2){
-if(r2.error)throw r2.error;
-return venue;
-});
-}).then(function(venue){
-if(self.profile.role!=='admin')return db.from('manager_venues').insert({manager_id:self.profile.id,venue_id:venue.id}).then(function(r){if(r.error)throw r.error;return venue});
-return venue;
-}).then(function(venue){
-var rows=template.products.map(function(item){
-return {venue_id:venue.id,name:item.name,description:item.description||null,price:Number(item.price)||0,category:item.category||'main',image_url:item.image_url||null,applies_to:item.applies_to||'all',is_available:true};
-});
-return db.from('products').insert(rows).then(function(r){
-if(r.error)throw r.error;
-return venue;
-});
-}).then(function(venue){
-self.showCreateVenue=false;
-self.newVenueForm={name:'',slug:'',template:'coffee'};
-return self.loadMyVenues().then(function(){self.selectVenue(venue);self.showToast('Заведение создано: '+template.name+' · '+template.products.length+' позиций добавлено')});
-}).catch(function(err){
-self.formError='Ошибка: '+(err.message||String(err));
-}).finally(function(){self.busy=false});
+createVenue:function(){
+    var self=this;
+    self.formError='';
+
+    if(!this.newVenueForm.name||!this.newVenueForm.slug){
+        this.formError='Заполните название и код заведения';
+        return;
+    }
+
+    if(!this.canCreateVenue){
+        this.formError='Лимит заведений';
+        return;
+    }
+
+    var template=this.selectedVenueTemplate;
+
+    if(!template){
+        this.formError='Выберите шаблон ниши';
+        return;
+    }
+
+    if(
+        this.currentPlan &&
+        this.currentPlan.max_products &&
+        template.products.length>this.currentPlan.max_products
+    ){
+        this.formError=
+            'В выбранном тарифе недостаточно места для шаблона ('+
+            template.products.length+
+            ' позиций).';
+        return;
+    }
+
+    self.busy=true;
+
+    var e=new Date();
+    e.setDate(e.getDate()+3);
+
+    var slug=this.newVenueForm.slug
+        .toLowerCase()
+        .trim()
+        .replace(/\s+/g,'-')
+        .replace(/[^a-z0-9а-яё_-]/gi,'')
+        .replace(/[а-яё]/gi,function(c){
+            var m={
+                'а':'a','б':'b','в':'v','г':'g','д':'d',
+                'е':'e','ё':'e','ж':'zh','з':'z','и':'i',
+                'й':'y','к':'k','л':'l','м':'m','н':'n',
+                'о':'o','п':'p','р':'r','с':'s','т':'t',
+                'у':'u','ф':'f','х':'h','ц':'c','ч':'ch',
+                'ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'',
+                'э':'e','ю':'yu','я':'ya'
+            };
+
+            return m[c.toLowerCase()]||'';
+        });
+
+    if(!slug){
+        self.formError='Некорректный slug';
+        self.busy=false;
+        return;
+    }
+
+    /*
+     * 1. СОЗДАЁМ ЗАВЕДЕНИЕ
+     */
+    db.from('venues')
+        .insert({
+            name:this.newVenueForm.name.trim(),
+            slug:slug,
+            status:'active',
+            plan:'start',
+            subscription_end:e.toISOString(),
+            manager_id:self.profile.id
+        })
+        .select()
+        .single()
+
+        .then(function(r){
+
+            if(r.error) throw r.error;
+
+            var venue=r.data;
+
+            /*
+             * 2. СНАЧАЛА СОЗДАЁМ СВЯЗЬ
+             * manager -> venue
+             *
+             * Это обязательно сделать ДО subscriptions,
+             * потому что RLS subscriptions проверяет
+             * наличие записи в manager_venues.
+             */
+            if(self.profile.role!=='admin'){
+
+                return db.from('manager_venues')
+                    .insert({
+                        manager_id:self.profile.id,
+                        venue_id:venue.id
+                    })
+                    .then(function(r2){
+
+                        if(r2.error) throw r2.error;
+
+                        return venue;
+                    });
+            }
+
+            return venue;
+        })
+
+        .then(function(venue){
+
+            /*
+             * 3. СОЗДАЁМ ПОДПИСКУ
+             */
+            return db.from('subscriptions')
+                .insert({
+                    venue_id:venue.id,
+                    plan_id:'start',
+                    status:'trialing',
+                    current_period_end:e.toISOString()
+                })
+                .then(function(r){
+
+                    if(r.error) throw r.error;
+
+                    return venue;
+                });
+        })
+
+        .then(function(venue){
+
+            /*
+             * 4. ДОБАВЛЯЕМ ТОВАРЫ ИЗ ШАБЛОНА
+             */
+            var rows=template.products.map(function(item){
+
+                return {
+                    venue_id:venue.id,
+                    name:item.name,
+                    description:item.description||null,
+                    price:Number(item.price)||0,
+                    category:item.category||'main',
+                    image_url:item.image_url||null,
+                    applies_to:item.applies_to||'all',
+                    is_available:true
+                };
+
+            });
+
+            return db.from('products')
+                .insert(rows)
+                .then(function(r){
+
+                    if(r.error) throw r.error;
+
+                    return venue;
+                });
+        })
+
+        .then(function(venue){
+
+            /*
+             * 5. ОБНОВЛЯЕМ ИНТЕРФЕЙС
+             */
+            self.showCreateVenue=false;
+
+            self.newVenueForm={
+                name:'',
+                slug:'',
+                template:'coffee'
+            };
+
+            return self.loadMyVenues()
+                .then(function(){
+
+                    self.selectVenue(venue);
+
+                    self.showToast(
+                        'Заведение создано: '+
+                        template.name+
+                        ' · '+
+                        template.products.length+
+                        ' позиций добавлено'
+                    );
+
+                });
+        })
+
+        .catch(function(err){
+
+            console.error('createVenue error:',err);
+
+            self.formError=
+                'Ошибка: '+
+                (err.message||String(err));
+
+        })
+
+        .finally(function(){
+
+            self.busy=false;
+
+        });
 },
 
 openAdd:function(){
