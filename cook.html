@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Кухня</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<!-- PWA: приложение на телефоне -->
 <meta name="theme-color" content="#0b1020">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,6 +27,10 @@
 .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
 .b-changed{background:rgba(251,146,60,.15);color:#fdba74}
 .install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#6366f1}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
+.stat-box .num{font-size:22px;font-weight:800}
+.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}
 </style>
 </head>
 <body>
@@ -40,7 +43,7 @@
 <div class="wrap">
 
 <div v-if="session&&showInstallHint" class="glass card install-hint">
-📲 <b>Установите как приложение:</b> Android — меню браузера ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”». На экране появится иконка «Кухня», запуск — как обычное приложение.
+📲 <b>Установите как приложение:</b> Android — меню браузера ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”».
 <button class="btn btn-ghost btn-sm" style="margin-left:8px" v-on:click="hideInstallHint">Понятно</button>
 </div>
 
@@ -51,8 +54,18 @@
 <button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
 <div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
 </div>
+
 <template v-else>
-<div class="muted" style="font-size:12px;margin-bottom:12px">👨‍ {{ session.cookName }} · заказы приходят автоматически, выбирайте любой</div>
+<div class="muted" style="font-size:12px;margin-bottom:12px">👨‍ {{ session.cookName }} · заказы обновляются автоматически</div>
+
+<!-- ЛИЧНАЯ СТАТИСТИКА ПОВАРА -->
+<div class="stats-grid">
+  <div class="stat-box" style="border-color:#60a5fa"><div class="num">{{ cookStats.total }}</div><div class="lbl">Всего взял заказов</div></div>
+  <div class="stat-box" style="border-color:#34d399"><div class="num">{{ cookStats.done }}</div><div class="lbl">Выполнено (готово)</div></div>
+  <div class="stat-box" style="border-color:#fbbf24"><div class="num">{{ cookStats.avgTime }} мин</div><div class="lbl">Среднее время готовки</div></div>
+  <div class="stat-box" style="border-color:#a78bfa"><div class="num">{{ fmt(cookStats.revenue) }} ₽</div><div class="lbl">Выручка (заказы)</div></div>
+</div>
+
 <div class="cols">
 <div class="col"><h4>🆕 Новые ({{ colNew.length }})</h4>
 <div v-for="o in colNew" v-bind:key="o.id" class="glass wcard">
@@ -67,8 +80,9 @@
 <button class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'cooking')">✋ Взять заказ</button>
 </div>
 </div>
-<p v-if="!colNew.length" class="muted">Пусто — новые заказы появятся сами</p>
+<p v-if="!colNew.length" class="muted">Пусто</p>
 </div>
+
 <div class="col"><h4>🔥 Готовятся ({{ colCooking.length }})</h4>
 <div v-for="o in colCooking" v-bind:key="o.id" class="glass wcard">
 <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ deliveryIcon(o.order_type) }}</span></div>
@@ -78,6 +92,7 @@
 </div>
 <p v-if="!colCooking.length" class="muted">Пусто</p>
 </div>
+
 <div class="col"><h4>✅ Выдача ({{ colReady.length }})</h4>
 <div v-for="o in colReady" v-bind:key="o.id" class="glass wcard">
 <div class="spread"><b>№{{ o.order_number }}</b><span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span></div>
@@ -91,11 +106,24 @@
 <p v-if="!colReady.length" class="muted">Пусто</p>
 </div>
 </div>
+
+<!-- ИСТОРИЯ ВЫПОЛНЕННЫХ ЗАКАЗОВ -->
+<div class="glass card" style="margin-top:18px">
+<h4 style="margin:0 0 12px">📜 Моя история (последние выполненные)</h4>
+<div v-for="o in cookHistory" v-bind:key="o.id" class="row" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+<div style="flex:1;font-size:13px"><b>№{{ o.order_number }}</b> — {{ o.customer_name||'Клиент' }}</div>
+<div class="muted" style="font-size:12px">{{ fmtDate(o.created_at) }}</div>
+<div style="color:#34d399;font-weight:700">{{ fmt(o.total_price) }} ₽</div>
+</div>
+<p v-if="!cookHistory.length" class="muted" style="padding:8px 0">У вас пока нет завершённых заказов.</p>
+</div>
+
 </template>
 </div>
+
 <div v-if="showEditModal" class="modal" v-on:click.self="showEditModal=false"><div class="glass box">
 <h3 style="margin-top:0">Изменение заказа №{{ editingOrder?editingOrder.order_number:'' }}</h3>
-<p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии. Клиент увидит изменения и подтвердит их.</p>
+<p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии.</p>
 <div v-if="editingOrder">
 <div v-for="it in editingOrder.items" v-bind:key="it.id" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px">
 <div style="flex:1"><b>{{ it.name }}</b><br><span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span></div>
@@ -114,7 +142,7 @@
 <span class="muted">Новая сумма:</span><b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b></div>
 </div>
 <div class="row" style="margin-top:20px">
-<button class="btn btn-primary" style="flex:1" v-on:click="saveEditedOrder" v-bind:disabled="busy||!editingOrder||editingOrder.items.length===0">{{ busy?'Сохранение...':'✅ Сохранить и уведомить клиента' }}</button>
+<button class="btn btn-primary" style="flex:1" v-on:click="saveEditedOrder" v-bind:disabled="busy||!editingOrder||editingOrder.items.length===0">{{ busy?'Сохранение...':'✅ Сохранить' }}</button>
 <button class="btn btn-ghost" v-on:click="showEditModal=false" v-bind:disabled="busy">Отмена</button>
 </div>
 <div v-if="editError" class="msg error" style="margin-top:10px">{{ editError }}</div>
@@ -123,29 +151,42 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
-// Регистрация service worker (приложение + офлайн)
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js').catch(function() {});
-  });
+  window.addEventListener('load', function() { navigator.serviceWorker.register('/sw.js').catch(function() {}); });
 }
 Vue.createApp({
-data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,
-showEditModal:false,editingOrder:null,editError:'',showInstallHint:false }},
+data: function(){ return { 
+session:null,busy:false,err:'',loginForm:{slug:'',pin:''},
+orders:[],timer:null,history:[],statsTimer:null,
+showEditModal:false,editingOrder:null,editError:'',showInstallHint:false 
+}},
 computed: {
-colNew: function(){ return this.orders.filter(function(o){return o.status==='new'||o.status==='changed'}); },
-colCooking: function(){ return this.orders.filter(function(o){return o.status==='cooking'}); },
+colNew: function(){ return this.orders.filter(function(o){return o.status==='new'||o.status==='changed';}); },
+colCooking: function(){ return this.orders.filter(function(o){return o.status==='cooking';}); },
 colReady: function(){ return this.orders.filter(function(o){return ['ready','delivery'].indexOf(o.status)!==-1}); },
+cookStats: function(){
+var self=this;
+var total=0,done=0,rev=0,times=[];
+self.history.forEach(function(o){
+total++;
+if(o.status==='done'){ done++; rev+=Number(o.total_price||0); }
+if(o.cooking_started_at&&o.ready_at){ times.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4); }
+});
+var avg=times.length?Math.round(times.reduce(function(a,b){return a+b},0)/times.length):0;
+return {total:total,done:done,avgTime:avg,revenue:rev};
+},
 newTotal: function(){
 if(!this.editingOrder) return 0;
 var s=this.editingOrder.items.reduce(function(x,i){return x+i.price*i.qty},0);
 if(this.editingOrder.addons) s+=this.editingOrder.addons.reduce(function(x,a){return x+a.price},0);
 if(this.editingOrder.order_type==='delivery') s+=150;
 return s;
-}
+},
+cookHistory: function(){ return this.history.slice(0,20); }
 },
 methods: {
 fmt: function(v){ return window.fmt(v); },
+fmtDate: function(d){ return d?new Date(d).toLocaleDateString('ru-RU'):'-'; },
 statusName: function(s){ return window.statusName(s); },
 orderBadge: function(s){ return 'b-'+s; },
 deliveryIcon: function(t){ return t==='delivery'?'🚗':''; },
@@ -164,14 +205,15 @@ db.from('cooks').update({last_login_at:new Date().toISOString()}).eq('id',c.data
 self.session={venueId:v.data.id,venueName:v.data.name,cookId:c.data.id,cookName:c.data.name};
 localStorage.setItem('cook_session',JSON.stringify(self.session));
 self.busy=false;
-self.load(); self.startTimer();
+self.load(); self.loadHistory(); self.startTimer(); self.startStatsTimer();
 });
 }).catch(function(e){ self.err='Ошибка: '+e.message; self.busy=false; });
 },
 logout: function(){
 localStorage.removeItem('cook_session');
 if(this.timer){ clearInterval(this.timer); this.timer=null; }
-this.session=null; this.orders=[]; this.loginForm={slug:'',pin:''};
+if(this.statsTimer){ clearInterval(this.statsTimer); this.statsTimer=null; }
+this.session=null; this.orders=[]; this.history=[]; this.loginForm={slug:'',pin:''};
 },
 load: function(){
 var self=this; if(!self.session) return;
@@ -184,14 +226,23 @@ var ids=self.orders.map(function(o){return o.id});
 if(ids.length){
 db.from('order_addons').select('*').in('order_id',ids).then(function(a){
 if(a.error) return;
-var map={};
-(a.data||[]).forEach(function(x){ (map[x.order_id]=map[x.order_id]||[]).push(x); });
+var map={}; (a.data||[]).forEach(function(x){ (map[x.order_id]=map[x.order_id]||[]).push(x); });
 self.orders.forEach(function(o){ o.addons=map[o.id]||[]; });
 });
 }
 });
 },
+loadHistory: function(){
+var self=this; if(!self.session) return;
+db.from('orders').select('*, items:order_items(*)')
+.eq('venue_id',self.session.venueId).eq('cook_name',self.session.cookName)
+.in('status',['done','ready'])
+.order('created_at',{ascending:false}).limit(100).then(function(r){
+if(!r.error) self.history=r.data||[];
+});
+},
 startTimer: function(){ if(this.timer) clearInterval(this.timer); var self=this; this.timer=setInterval(function(){ self.load(); },3000); },
+startStatsTimer: function(){ if(this.statsTimer) clearInterval(this.statsTimer); var self=this; this.statsTimer=setInterval(function(){ self.loadHistory(); },10000); },
 setStatus: function(id,status){
 var self=this; var u={status:status};
 if(status==='cooking'){ u.cooking_started_at=new Date().toISOString(); u.cook_name=self.session.cookName; }
@@ -236,12 +287,11 @@ self.showEditModal=false; self.load();
 mounted: function(){
 var saved=localStorage.getItem('cook_session');
 var self=this;
-if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.startTimer(); }catch(e){ localStorage.removeItem('cook_session'); } }
-// Подсказка установки — только если открыто НЕ как приложение
+if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.loadHistory(); self.startTimer(); self.startStatsTimer(); }catch(e){ localStorage.removeItem('cook_session'); } }
 var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
 if(!standalone && !localStorage.getItem('kitchen_app_hint')) self.showInstallHint = true;
 },
-beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
+beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); if(this.statsTimer) clearInterval(this.statsTimer); }
 }).mount('#app');
 </script>
 </body>
