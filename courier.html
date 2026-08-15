@@ -5,7 +5,14 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Курьер</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<!-- PWA: приложение на телефоне -->
 <meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Курьер">
+<link rel="manifest" href="/manifest-courier.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon-courier.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -17,16 +24,23 @@
 .wcard{padding:12px;margin-bottom:10px}
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
 .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
+.install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#f59e0b}
 </style>
 </head>
 <body>
-<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
+<div class="glow" style="width:40vw;height:40vw;background:rgba(245,158,11,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
 <div class="topbar">
 <div class="brand"><div class="logo">🚗</div><span>Курьер{{ session?' · '+session.venueName:'' }}</span></div>
 <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
 </div>
 <div class="wrap">
+
+<div v-if="session&&showInstallHint" class="glass card install-hint">
+📲 <b>Установите как приложение:</b> Android — меню ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”». Появится иконка «Курьер», запуск — как обычное приложение.
+<button class="btn btn-ghost btn-sm" style="margin-left:8px" v-on:click="hideInstallHint">Понятно</button>
+</div>
+
 <div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
 <h3 style="margin-top:0">Вход для курьера</h3>
 <div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div>
@@ -65,14 +79,21 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
+// Регистрация service worker (приложение + офлайн)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').catch(function() {});
+  });
+}
 Vue.createApp({
-data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null }},
+data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,showInstallHint:false }},
 computed: {
 colPickup: function(){ return this.orders.filter(function(o){return o.status==='ready'}); },
 colDelivery: function(){ return this.orders.filter(function(o){return o.status==='delivery'}); }
 },
 methods: {
 fmt: function(v){ return window.fmt(v); },
+hideInstallHint: function(){ this.showInstallHint=false; localStorage.setItem('courier_app_hint','1'); },
 login: function(){
 var self=this; self.err=''; self.busy=true;
 var slug=(self.loginForm.slug||'').trim().toLowerCase();
@@ -116,6 +137,9 @@ mounted: function(){
 var saved=localStorage.getItem('courier_session');
 var self=this;
 if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.startTimer(); }catch(e){ localStorage.removeItem('courier_session'); } }
+// Подсказка установки — только если открыто НЕ как приложение
+var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+if(!standalone && !localStorage.getItem('courier_app_hint')) self.showInstallHint = true;
 },
 beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
