@@ -486,7 +486,18 @@
 <input v-model="p.name" style="flex:2" v-on:change="saveProductRow(p)">
 <input v-model.number="p.price" type="number" min="0" style="flex:1" v-on:change="saveProductRow(p)">
 <select v-model="p.category" style="flex:1" v-on:change="saveProductRow(p)">
-<option value="main">Блюдо</option><option value="drink">Напиток</option><option value="addon">Доп</option></select>
+  <option value="main">🍽 Блюдо</option>
+  <option value="drink">🥤 Напиток</option>
+  <option value="addon">🧂 Доп</option>
+  <option value="breakfast">🍳 Завтрак</option>
+  <option value="salad">🥗 Салат</option>
+  <option value="soup">🍲 Суп</option>
+  <option value="dessert">🍰 Десерт</option>
+  <option value="sauce">🌶 Соус</option>
+  <option value="snack">🥨 Закуска</option>
+  <option value="hot">🔥 Горячее</option>
+  <option value="bbq">🥩 Гриль</option>
+</select>
 <button class="btn btn-ghost btn-sm" v-on:click="toggleAvailRow(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
 <button class="btn btn-danger btn-sm" v-on:click="delProductRow(p)">🗑</button>
 </div>
@@ -495,7 +506,18 @@
 <input v-model="prodModal.form.name" placeholder="Название" style="flex:2">
 <input v-model.number="prodModal.form.price" type="number" placeholder="Цена" style="flex:1">
 <select v-model="prodModal.form.category" style="flex:1">
-<option value="main">Блюдо</option><option value="drink">Напиток</option><option value="addon">Доп</option></select>
+  <option value="main">🍽 Блюдо</option>
+  <option value="drink">🥤 Напиток</option>
+  <option value="addon">🧂 Доп</option>
+  <option value="breakfast">🍳 Завтрак</option>
+  <option value="salad">🥗 Салат</option>
+  <option value="soup">🍲 Суп</option>
+  <option value="dessert">🍰 Десерт</option>
+  <option value="sauce">🌶 Соус</option>
+  <option value="snack">🥨 Закуска</option>
+  <option value="hot">🔥 Горячее</option>
+  <option value="bbq">🥩 Гриль</option>
+</select>
 </div>
 <button class="btn btn-green btn-sm" style="margin-top:8px" v-on:click="addProductRow">+ Добавить позицию</button>
 <button class="btn btn-ghost" style="margin-top:8px" v-on:click="prodModal.show=false">Закрыть</button>
