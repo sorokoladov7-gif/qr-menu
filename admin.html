@@ -45,6 +45,7 @@
 <div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ managers.length }}</div><div class="lbl">Управляющих</div></div>
 <div class="glass stat" style="border-color:#a78bfa"><div class="num">{{ cooksAll.length }}</div><div class="lbl">Поваров</div></div>
 <div class="glass stat" style="border-color:#c4b5fd"><div class="num">{{ couriersAll.length }}</div><div class="lbl">Курьеров</div></div>
+<div class="glass stat" style="border-color:#67e8f9"><div class="num">{{ waitersAll.length }}</div><div class="lbl">Официантов</div></div>
 </div>
 <div class="tabs" style="margin-bottom:18px">
 <button v-bind:class="{on:tab==='stats'}" v-on:click="tab='stats';loadGlobalStats()">📊 Статистика</button>
@@ -53,10 +54,10 @@
 <button v-bind:class="{on:tab==='managers'}" v-on:click="tab='managers'">👤 Управляющие</button>
 <button v-bind:class="{on:tab==='cooks'}" v-on:click="tab='cooks'">👨‍ Повара</button>
 <button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
+<button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='plans'}" v-on:click="tab='plans'">💳 Тарифы и оплаты</button>
 </div>
 
-<!-- СТАТИСТИКА -->
 <div v-if="tab==='stats'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Статистика сети</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
@@ -75,7 +76,6 @@
 <tr v-if="!globalStats.venueStats.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
 </div>
 
-<!-- АНАЛИТИКА ПОДПИСОК -->
 <div v-if="tab==='analytics'">
 <div class="analytics-grid">
 <div class="glass stat"><div class="num" style="color:#34d399">{{ subCounts.active }}</div><div class="lbl">Активных подписок</div></div>
@@ -100,11 +100,9 @@
 <span>{{ idx+1 }}. {{ r.name }}</span>
 <b v-bind:style="{color:r.count?'#6ee7b7':'#fca5a5'}">{{ r.count?'🔥 '+r.count+' зав.':'❄️ не используется' }}</b></li>
 </ul>
-<p class="muted" style="font-size:11px;margin-top:10px">💡 Непопулярные тарифы можно удалить или перенастроить под клиентов в «💳 Тарифы и оплаты».</p>
 </div>
 </div>
 
-<!-- ЗАВЕДЕНИЯ -->
 <div v-if="tab==='venues'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Заведения</h3>
 <div class="row">
@@ -134,7 +132,6 @@
 <p v-if="!venues.length" class="muted" style="padding:14px">Заведений нет.</p></div>
 </div>
 
-<!-- УПРАВЛЯЮЩИЕ -->
 <div v-if="tab==='managers'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Управляющие</h3>
 <div class="row">
@@ -156,7 +153,6 @@
 <p v-if="!filteredManagers.length" class="muted" style="padding:14px">Не найдено.</p></div>
 </div>
 
-<!-- ПОВАРА -->
 <div v-if="tab==='cooks'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <select v-model="cookForm.venue_id" style="flex:1">
@@ -174,7 +170,6 @@
 <p v-if="!cooksAll.length" class="muted" style="padding:14px">Нет поваров.</p></div>
 </div>
 
-<!-- КУРЬЕРЫ -->
 <div v-if="tab==='couriers'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <select v-model="courierForm.venue_id" style="flex:1">
@@ -194,11 +189,29 @@
 <p v-if="!couriersAll.length" class="muted" style="padding:14px">Нет курьеров.</p></div>
 </div>
 
-<!-- ТАРИФЫ И ОПЛАТЫ -->
+<div v-if="tab==='waiters'">
+<div class="glass card" style="margin-bottom:14px"><div class="row">
+<select v-model="waiterForm.venue_id" style="flex:1">
+<option value="">— Выберите заведение —</option>
+<option v-for="v in venues" v-bind:key="v.id" v-bind:value="v.id">{{ v.name }}</option></select>
+<input v-model.trim="waiterForm.name" placeholder="Имя официанта" style="flex:1">
+<input v-model.trim="waiterForm.phone" placeholder="Телефон" style="flex:1">
+<button class="btn btn-green btn-sm" v-on:click="addWaiterAdmin" v-bind:disabled="!waiterForm.name||!waiterForm.venue_id">+ Добавить официанта</button>
+</div></div>
+<div class="glass card tblwrap"><table class="tbl">
+<tr><th>Официант</th><th>Заведение</th><th>Телефон</th><th>PIN</th><th>Последний вход</th><th></th></tr>
+<tr v-for="w in waitersAll" v-bind:key="w.id"><td>🤵 {{ w.name }}</td>
+<td>{{ w.venues?w.venues.name:'—' }}</td><td class="muted">{{ w.phone||'—' }}</td>
+<td><b style="color:#a5b4fc">{{ w.pin }}</b></td>
+<td class="muted" style="font-size:12px">{{ fmtDateTime(w.last_login_at) }}</td>
+<td><button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button></td></tr></table>
+<p v-if="!waitersAll.length" class="muted" style="padding:14px">Нет официантов.</p></div>
+</div>
+
 <div v-if="tab==='plans'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">⚙️ Конструктор тарифов</h3>
 <button class="btn btn-primary btn-sm" v-on:click="createPlan">+ Создать тариф</button></div>
-<p class="muted" style="font-size:12px;margin-bottom:14px">Персональные тарифы назначаются в «🏢 Заведения» → «Тариф». Изменения применяются сразу ко всем заведениям на тарифе.</p>
+<p class="muted" style="font-size:12px;margin-bottom:14px">Персональные тарифы назначаются в «🏢 Заведения» → «Тариф». Изменения применяются сразу.</p>
 <div class="plans-grid" style="margin-bottom:24px">
 <div v-for="p in plans" v-bind:key="p.id" class="glass card">
 <div class="spread" style="margin-bottom:8px"><b>{{ p.id }}</b>
@@ -211,7 +224,9 @@
 <div class="row" style="margin-bottom:10px">
 <div class="field" style="flex:1"><label>Поваров</label><input class="num-in" v-model.number="p.max_cooks" type="number" min="1"></div>
 <div class="field" style="flex:1"><label>Курьеров</label><input class="num-in" v-model.number="p.max_couriers" type="number" min="1"></div></div>
-<div class="field"><label>Позиций меню</label><input class="num-in" v-model.number="p.max_products" type="number" min="1"></div>
+<div class="row" style="margin-bottom:10px">
+<div class="field" style="flex:1"><label>Официантов</label><input class="num-in" v-model.number="p.max_waiters" type="number" min="1"></div>
+<div class="field" style="flex:1"><label>Позиций меню</label><input class="num-in" v-model.number="p.max_products" type="number" min="1"></div></div>
 <button class="btn btn-primary btn-sm" style="width:100%" v-on:click="savePlan(p)">💾 Сохранить тариф</button>
 </div></div>
 <h3 style="margin:0 0 14px">🕒 Заявки на оплату (СБП)</h3>
@@ -235,7 +250,6 @@
 </template>
 </div>
 
-<!-- МОДАЛКА: НОВОЕ ЗАВЕДЕНИЕ -->
 <div v-if="showModal" class="modal" v-on:click.self="showModal=false"><div class="glass box">
 <h3 style="margin-top:0">Новое заведение</h3>
 <div class="field"><label>Название</label><input v-model.trim="nform.name"></div>
@@ -246,7 +260,6 @@
 <div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
 </div></div>
 
-<!-- МОДАЛКА: НАСТРОЙКИ ЗАВЕДЕНИЯ -->
 <div v-if="venueModal.show" class="modal" v-on:click.self="venueModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">⚙️ Заведение: {{ venueModal.name }}</h3>
 <div class="field"><label>Логотип</label>
@@ -262,7 +275,6 @@
 <button class="btn btn-ghost" v-on:click="venueModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- МОДАЛКА: МЕНЮ ЗАВЕДЕНИЯ -->
 <div v-if="prodModal.show" class="modal" v-on:click.self="prodModal.show=false"><div class="glass box" style="max-width:680px">
 <h3 style="margin-top:0">🍔 Меню: {{ prodModal.venueName }}</h3>
 <div v-for="p in prodModal.list" v-bind:key="p.id" class="row" style="margin-bottom:8px">
@@ -283,11 +295,9 @@
 <option value="main">Блюдо</option><option value="drink">Напиток</option><option value="addon">Доп</option></select>
 <button class="btn btn-green btn-sm" v-on:click="addProductRow">+ Добавить</button>
 </div>
-<p class="muted" style="font-size:11px;margin-top:10px">📸 Нажмите на квадрат с фото, чтобы загрузить или заменить картинку блюда.</p>
-<button class="btn btn-ghost" style="margin-top:8px" v-on:click="prodModal.show=false">Закрыть</button>
+<button class="btn btn-ghost" style="margin-top:14px" v-on:click="prodModal.show=false">Закрыть</button>
 </div></div>
 
-<!-- МОДАЛКА: ДОБАВИТЬ УПРАВЛЯЮЩЕГО -->
 <div v-if="addMgrModal.show" class="modal" v-on:click.self="addMgrModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Новый управляющий</h3>
 <div class="field"><label>Имя</label><input v-model.trim="addMgrModal.name"></div>
@@ -300,7 +310,6 @@
 <div v-if="addMgrModal.err" class="msg error" style="margin-top:10px">{{ addMgrModal.err }}</div>
 </div></div>
 
-<!-- МОДАЛКА: РЕДАКТИРОВАТЬ УПРАВЛЯЮЩЕГО -->
 <div v-if="mgrModal.show" class="modal" v-on:click.self="mgrModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Редактировать: {{ mgrModal.name }}</h3>
 <div class="field"><label>Имя</label><input v-model.trim="mgrModal.name"></div>
@@ -322,10 +331,10 @@
 Vue.createApp({
 data:function(){return{
 ready:false,busy:false,profile:null,tab:'stats',
-venues:[],managers:[],cooksAll:[],couriersAll:[],links:[],plans:[],payments:[],ordersAll:[],subscriptions:[],
+venues:[],managers:[],cooksAll:[],couriersAll:[],waitersAll:[],links:[],plans:[],payments:[],ordersAll:[],subscriptions:[],
 showModal:false,nform:{name:'',slug:'',plan:'start'},msg:'',statsPeriod:'7',
 globalStats:{revenue:0,orders:0,clients:0,avgCheck:0,venueStats:[]},
-cookForm:{venue_id:'',name:''},courierForm:{venue_id:'',name:'',phone:''},searchMgr:'',
+cookForm:{venue_id:'',name:''},courierForm:{venue_id:'',name:'',phone:''},waiterForm:{venue_id:'',name:'',phone:''},searchMgr:'',
 extendMonths:1,payMonths:{},
 prodModal:{show:false,venueId:null,venueName:'',list:[],form:{name:'',price:0,category:'main'}},
 venueModal:{show:false,id:null,name:'',description:'',brand_color:'#6366f1',logo_url:''},
@@ -355,7 +364,7 @@ return rows}
 methods:{
 fmt:function(v){return window.fmt(v)},
 fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'—'},
-fmtDateTime:function(d){if(!d)return'ещё не выходил';var dt=new Date(d);return dt.toLocaleDateString('ru-RU')+' '+dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})},
+fmtDateTime:function(d){if(!d)return'ещё не выходил';var dt=new Date(d);return dt.toLocaleDateString('ru-RU')+' '+dt.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit})},
 subClass:function(v){if(!v.subscription_end)return'b-off';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'b-off':d<=3?'b-trial':'b-on'},
 subLabel:function(v){if(!v.subscription_end)return'Нет';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'Истекла':d<=3?'Осталось '+Math.ceil(d)+' дн':'Активна'},
 mgrStats:function(id){var self=this;
@@ -376,6 +385,7 @@ db.from('venues').select('*').order('created_at'),
 db.from('profiles').select('*').order('email'),
 db.from('cooks').select('*,venues(name)'),
 db.from('couriers').select('*,venues(name)'),
+db.from('waiters').select('*,venues(name)'),
 db.from('manager_venues').select('*'),
 db.from('plans').select('*').order('price'),
 db.from('payments').select('*,venues(name),profiles(display_name)').order('created_at',{ascending:false}),
@@ -383,8 +393,8 @@ db.from('orders').select('venue_id,total_price,status').limit(2000),
 db.from('subscriptions').select('*')
 ]).then(function(r){
 self.venues=r[0].data||[];self.managers=r[1].data||[];self.cooksAll=r[2].data||[];
-self.couriersAll=r[3].data||[];self.links=r[4].data||[];self.plans=r[5].data||[];
-self.payments=r[6].data||[];self.ordersAll=r[7].data||[];self.subscriptions=r[8].data||[];
+self.couriersAll=r[3].data||[];self.waitersAll=r[4].data||[];self.links=r[5].data||[];
+self.plans=r[6].data||[];self.payments=r[7].data||[];self.ordersAll=r[8].data||[];self.subscriptions=r[9].data||[];
 self.payments.forEach(function(p){if(!self.payMonths[p.id])self.payMonths[p.id]=1});
 })},
 loadGlobalStats:function(){var self=this;var q=db.from('orders').select('venue_id,total_price,customer_phone,cooking_started_at,ready_at,venues(name)').eq('status','done');
@@ -503,15 +513,23 @@ self.courierForm={venue_id:'',name:'',phone:''};self.loadAll()})},
 delCourier:function(c){var self=this;if(!confirm('Удалить курьера '+c.name+'?'))return;
 db.from('couriers').delete().eq('id',c.id).then(function(){self.loadAll()})},
 
+addWaiterAdmin:function(){var self=this;
+var pin,a=0;do{pin=String(Math.floor(1000+Math.random()*9000));a++}while(self.waitersAll.some(function(w){return w.pin===pin})&&a<10);
+db.from('waiters').insert({venue_id:self.waiterForm.venue_id,name:self.waiterForm.name,phone:self.waiterForm.phone||null,pin:pin}).then(function(){
+alert('Официант добавлен! PIN: '+pin);
+self.waiterForm={venue_id:'',name:'',phone:''};self.loadAll()})},
+delWaiter:function(w){var self=this;if(!confirm('Удалить официанта '+w.name+'?'))return;
+db.from('waiters').delete().eq('id',w.id).then(function(){self.loadAll()})},
+
 createPlan:function(){var self=this;
-db.from('plans').insert({id:'custom_'+Date.now(),name:'Персональный тариф',price:0,max_venues:1,max_managers:1,max_cooks:5,max_couriers:10,max_products:50}).then(function(){self.loadAll()})},
+db.from('plans').insert({id:'custom_'+Date.now(),name:'Персональный тариф',price:0,max_venues:1,max_managers:1,max_cooks:5,max_couriers:10,max_waiters:10,max_products:50}).then(function(){self.loadAll()})},
 delPlan:function(p){var self=this;
 var used=self.venues.some(function(v){return v.plan===p.id});
 if(used){alert('Тариф назначен заведениям — сначала переведите их на другой.');return}
 if(!confirm('Удалить тариф «'+p.name+'»?'))return;
 db.from('plans').delete().eq('id',p.id).then(function(){self.loadAll()})},
 savePlan:function(p){var self=this;
-db.from('plans').update({name:p.name,price:Number(p.price)||0,max_venues:+p.max_venues,max_managers:+p.max_managers,max_cooks:+p.max_cooks,max_couriers:+p.max_couriers||0,max_products:+p.max_products}).eq('id',p.id).then(function(){
+db.from('plans').update({name:p.name,price:Number(p.price)||0,max_venues:+p.max_venues,max_managers:+p.max_managers,max_cooks:+p.max_cooks,max_couriers:+p.max_couriers||0,max_waiters:+p.max_waiters||0,max_products:+p.max_products}).eq('id',p.id).then(function(){
 alert('Тариф «'+p.name+'» сохранён')})},
 confirmPayment:function(pay){var self=this;
 var months=self.payMonths[pay.id]||1;
