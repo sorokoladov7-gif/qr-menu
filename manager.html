@@ -673,21 +673,30 @@ downloadQr: function() {
   var self = this;
   var big = 'https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data=' + encodeURIComponent(self.clientLink);
   
-  fetch(big).then(function(r) {
-    if (!r.ok) throw new Error('fetch');
-    return r.blob();
-  }).then(function(b) {
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(b);
-    a.download = 'qr-' + (self.venue ? self.venue.slug : 'menu') + '.png';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    self.showToast('QR скачан');
-  }).catch(function(e) {
-    window.open(big, '_blank');
-  });
-}, // <-- Запятая обязательна!
+  // Пытаемся скачать через fetch
+  fetch(big)
+    .then(function(r) {
+      if (!r.ok) throw new Error('Ошибка загрузки QR');
+      return r.blob();
+    })
+    .then(function(b) {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(b);
+      a.download = 'qr-' + (self.venue ? self.venue.slug : 'menu') + '.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      // Освобождаем память
+      setTimeout(function() { URL.revokeObjectURL(a.href); }, 100);
+      self.showToast('✅ QR скачан!');
+    })
+    .catch(function(e) {
+      // Если fetch заблокирован — просто открываем в новом окне
+      console.warn('QR: fetch не сработал, открываем вкладку');
+      window.open(big, '_blank');
+      self.showToast('QR открыт в новой вкладке — сохраните вручную');
+    });
+}
 resizeImage:function(file,mw,q){return new Promise(function(res,rej){
 var r=new FileReader();
 r.onload=function(e){var i=new Image();
