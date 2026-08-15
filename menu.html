@@ -67,12 +67,8 @@
 <div class="hero" v-bind:style="{'--brand':venue.brand_color||'#6366f1'}">
 <h2>{{ venue.name }}</h2><p>{{ venue.description||'Свежее, вкусное, с огоньком 🔥' }}</p>
 </div>
-
-<!-- ===== НОВЫЙ БЛОК ФИЛЬТРОВ С КРАСИВЫМИ НАЗВАНИЯМИ ===== -->
 <div class="chips">
   <button class="chip" v-bind:class="{on:cat==='all'}" v-on:click="cat='all'">✨ Всё меню</button>
-  
-  <!-- Группа: Основные блюда -->
   <button class="chip" v-bind:class="{on:cat==='main'}" v-on:click="cat='main'">🍽 Блюда</button>
   <button class="chip" v-bind:class="{on:cat==='breakfast'}" v-on:click="cat='breakfast'">🍳 Завтраки</button>
   <button class="chip" v-bind:class="{on:cat==='salad'}" v-on:click="cat='salad'">🥗 Салаты</button>
@@ -81,16 +77,10 @@
   <button class="chip" v-bind:class="{on:cat==='bbq'}" v-on:click="cat='bbq'">🥩 Гриль</button>
   <button class="chip" v-bind:class="{on:cat==='snack'}" v-on:click="cat='snack'">🥨 Закуски</button>
   <button class="chip" v-bind:class="{on:cat==='dessert'}" v-on:click="cat='dessert'">🍰 Десерты</button>
-  
-  <!-- Группа: Напитки и Соусы -->
   <button class="chip" v-bind:class="{on:cat==='drink'}" v-on:click="cat='drink'">🥤 Напитки</button>
   <button class="chip" v-bind:class="{on:cat==='sauce'}" v-on:click="cat='sauce'">🌶 Соусы</button>
-  
-  <!-- Дополнения (если есть) -->
   <button class="chip" v-bind:class="{on:cat==='addon'}" v-on:click="cat='addon'" v-if="hasAddons">🧂 Дополнительно</button>
 </div>
-<!-- ====================================================== -->
-
 <div class="grid">
 <div v-for="p in filtered" v-bind:key="p.id" class="glass dish">
 <img v-bind:src="p.image_url||DEFAULT_IMG" alt="">
@@ -199,7 +189,8 @@ ready:false,venue:null,venues:[],products:[],view:'menu',cat:'all',cart:[],showC
 dishModal:{show:false,product:null,addons:[]},
 form:{name:'',phone:'',type:'pickup',address:'',comment:'',pay:'cash'},
 msg:'',busy:false,trackPhone:'',tracking:null,trackSearched:false,
-DELIVERY_FEE:DELIVERY_FEE,DEFAULT_IMG:window.DEFAULT_IMG
+DELIVERY_FEE:DELIVERY_FEE,DEFAULT_IMG:window.DEFAULT_IMG,
+trackTimer:null // ДОБАВИЛИ ТАЙМЕР
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -215,11 +206,26 @@ statusName:function(s){return window.statusName(s)},
 statusColor:function(s){return window.statusColor(s)},
 statusEmoji:function(s){return{new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
 statusHint:function(s){return{new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''},
-goToTracking:function(){var last=localStorage.getItem('last_phone')||'';this.view='tracking';if(last){this.trackPhone=last;this.trackOrder()}},
-init:function(){var self=this;var slug=new URLSearchParams(location.search).get('venue');
+goToTracking:function(){
+var last=localStorage.getItem('last_phone')||'';
+this.view='tracking';
+if(last){this.trackPhone=last;this.trackOrder()}
+// ЗАПУСКАЕМ ТАЙМЕР ОБНОВЛЕНИЯ
+this.startTrackingTimer();
+},
+init:function(){
+var self=this;
+var slug=new URLSearchParams(location.search).get('venue');
 var p=slug?db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){self.venue=r.data})
 :db.from('venues').select('*').eq('status','active').then(function(r){self.venues=r.data||[]});
-p.then(function(){if(self.venue)return self.loadProducts()}).finally(function(){self.ready=true})},
+p.then(function(){if(self.venue)return self.loadProducts()}).finally(function(){self.ready=true});
+// При загрузке страницы смотрим, есть ли сохраненный телефон
+var last=localStorage.getItem('last_phone');
+if(last && self.venue){
+   self.trackPhone = last;
+   self.goToTracking();
+}
+},
 selectVenue:function(v){this.venue=v;this.loadProducts()},
 loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){self.products=r.data||[]})},
 addonsFor:function(p){return this.products.filter(function(a){if(a.category!=='addon')return false;var at=a.applies_to||'all';return at==='all'||at.indexOf(p.category)!==-1})},
@@ -253,8 +259,21 @@ return addonRows.length?db.from('order_addons').insert(addonRows).then(function(
 }).then(function(){
 localStorage.setItem('last_phone',phone);
 self.cart=[];self.showCart=false;self.view='tracking';self.trackPhone=phone;
+self.startTrackingTimer(); // ЗАПУСКАЕМ ТАЙМЕР ПОСЛЕ ОФОРМЛЕНИЯ
 return self.trackOrder();
 })}).catch(function(e){self.msg='Ошибка: '+e.message}).finally(function(){self.busy=false})},
+
+// НОВЫЙ МЕТОД ДЛЯ АВТОМАТИЧЕСКОГО ОБНОВЛЕНИЯ
+startTrackingTimer: function(){
+if(this.trackTimer) clearInterval(this.trackTimer);
+var self=this;
+this.trackTimer = setInterval(function(){
+if(self.view === 'tracking' && self.trackPhone){
+  self.trackOrder();
+}
+}, 5000); // Обновление каждые 5 секунд
+},
+
 trackOrder:function(){var self=this;var phone=self.norm(self.trackPhone);if(!phone)return Promise.resolve();
 self.trackSearched=true;
 return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
@@ -263,7 +282,16 @@ return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
 confirmChanged:function(){var self=this;db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){self.trackOrder()})},
 revertOrder:function(){var self=this;db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){self.trackOrder();self.view='menu'})}
 },
-mounted:function(){this.init()}
+watch: {
+'view': function(newVal) {
+if(newVal !== 'tracking' && this.trackTimer) {
+  clearInterval(this.trackTimer);
+  this.trackTimer = null;
+}
+}
+},
+mounted:function(){this.init()},
+beforeUnmount:function(){if(this.trackTimer)clearInterval(this.trackTimer)}
 }).mount('#app');
 </script>
 </body>
