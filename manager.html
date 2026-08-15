@@ -683,7 +683,14 @@ self.busy=true;var e=new Date();e.setDate(e.getDate()+3);
 var slug=this.newVenueForm.slug.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9а-яё_-]/gi,'').replace(/[а-яё]/gi,function(c){
 var m={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};return m[c.toLowerCase()]||'';});
 if(!slug){self.formError='Некорректный slug';self.busy=false;return}
-db.from('venues').insert({name:this.newVenueForm.name.trim(),slug:slug,status:'active',plan:'start',subscription_end:e.toISOString()}).select().single().then(function(r){
+db.from('venues').insert({
+    name:this.newVenueForm.name.trim(),
+    slug:slug,
+    status:'active',
+    plan:'start',
+    subscription_end:e.toISOString(),
+    manager_id:self.profile.id
+}).select().single()
 if(r.error)throw r.error;
 var venue=r.data;
 return db.from('subscriptions').insert({venue_id:venue.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()}).then(function(r2){
