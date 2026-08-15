@@ -22,6 +22,11 @@
 .checkbox-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .checkbox-label{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.05);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer}
 .num-in{width:80px!important}
+.bar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:4px 0}
+.bar-fill{height:8px;border-radius:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6)}
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.kpi{padding:14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.kpi .n{font-size:22px;font-weight:800}.kpi .l{font-size:12px;color:#9ca3af;margin-top:4px}
 .thumb-sm{width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,.15);position:relative;overflow:hidden;cursor:pointer;background:rgba(255,255,255,.05)}
 </style>
 </head>
@@ -102,6 +107,154 @@
 <tr v-if="!venueSubs.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет заведений</td></tr></table></div>
 </div>
 
+<!-- АНАЛИТИКА -->
+<div v-if="tab==='analytics'">
+<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">📈 Полная аналитика платформы</h3>
+<select v-model="adminAnalyticsPeriod" v-on:change="loadAdminAnalytics" style="width:auto">
+<option value="7">За 7 дней</option><option value="30">За 30 дней</option>
+<option value="90">За 90 дней</option><option value="all">За всё время</option></select></div>
+
+<!-- ФИНАНСЫ И МЕТРИКИ -->
+<div class="kpi-grid">
+<div class="kpi"><div class="n" style="color:#34d399">{{ fmt(adminAnalytics.revenue) }} ₽</div><div class="l">Выручка сети</div></div>
+<div class="kpi"><div class="n" style="color:#60a5fa">{{ fmt(adminAnalytics.mrr) }} ₽</div><div class="l">MRR (подписки)</div></div>
+<div class="kpi"><div class="n" style="color:#fbbf24">{{ fmt(adminAnalytics.arpu) }} ₽</div><div class="l">ARPU</div></div>
+<div class="kpi"><div class="n" style="color:#a78bfa">{{ adminAnalytics.orders }}</div><div class="l">Заказов</div></div>
+<div class="kpi"><div class="n" style="color:#f472b6">{{ adminAnalytics.clients }}</div><div class="l">Клиентов</div></div>
+<div class="kpi"><div class="n" style="color:#6ee7b7">{{ adminAnalytics.repeatClients }}</div><div class="l">Повторных</div></div>
+<div class="kpi"><div class="n" style="color:#fb923c">{{ fmt(adminAnalytics.avgCheck) }} ₽</div><div class="l">Средний чек</div></div>
+<div class="kpi"><div class="n" style="color:#f87171">{{ adminAnalytics.churnRate }}%</div><div class="l">Отток подписок</div></div>
+</div>
+
+<!-- ПОДПИСКИ -->
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 14px">💳 Подписки и тарифы</h4>
+<div class="analytics-grid" style="margin-bottom:14px">
+<div class="glass stat"><div class="num" style="color:#34d399">{{ subStats.active }}</div><div class="lbl">Активных</div></div>
+<div class="glass stat"><div class="num" style="color:#60a5fa">{{ subStats.trial }}</div><div class="lbl">На триале</div></div>
+<div class="glass stat"><div class="num" style="color:#f87171">{{ subStats.expired }}</div><div class="lbl">Истёкших</div></div>
+<div class="glass stat"><div class="num" style="color:#fbbf24">{{ subStats.expiringSoon }}</div><div class="lbl">Истекают скоро</div></div>
+</div>
+<h4 style="margin:0 0 10px;font-size:14px">Распределение по тарифам</h4>
+<div v-for="p in adminAnalytics.planDist" v-bind:key="p.id" style="margin-bottom:10px">
+<div class="spread"><b>{{ p.name }}</b><span class="muted">{{ p.count }} зав. · {{ fmt(p.mrr) }} ₽/мес</span></div>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:p.percent+'%'}"></div></div>
+</div>
+<p v-if="!adminAnalytics.planDist.length" class="muted">Нет тарифов</p>
+</div>
+
+<!-- ДИНАМИКА ПО ДНЯМ -->
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 14px">📅 Динамика заказов по дням (вся сеть)</h4>
+<div v-if="adminAnalytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:140px;overflow-x:auto;padding-bottom:8px">
+<div v-for="d in adminAnalytics.daily" v-bind:key="d.date" style="display:flex;flex-direction:column;align-items:center;min-width:32px">
+<div style="background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:20px" v-bind:style="{height:(d.count/adminMaxDaily*100)+'px'}"></div>
+<div class="muted" style="font-size:10px;margin-top:4px">{{ d.label }}</div>
+<div style="font-size:11px;color:#a5b4fc">{{ d.count }}</div>
+</div>
+</div>
+<p v-else class="muted">Нет данных за период.</p>
+</div>
+
+<!-- ТОП ПО СЕТИ -->
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:2;min-width:280px">
+<h4 style="margin:0 0 10px">🔥 Топ-15 блюд по всей сети</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Блюдо</th><th>Продано</th><th>Выручка</th></tr>
+<tr v-for="i in adminAnalytics.topItems" v-bind:key="i.name"><td><b>{{ i.name }}</b></td>
+<td>{{ i.count }} шт.</td><td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td></tr>
+<tr v-if="!adminAnalytics.topItems.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🧂 Топ добавок по сети</h4>
+<ul class="top-list">
+<li v-for="a in adminAnalytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }}</b></li>
+<li v-if="!adminAnalytics.topAddons.length" class="muted">Нет данных</li>
+</ul>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🕒 Часы пик (сеть)</h4>
+<ul class="top-list">
+<li v-for="h in adminAnalytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }}</b></li>
+<li v-if="!adminAnalytics.topHours.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+
+<!-- ТИПЫ ЗАКАЗОВ И ОПЛАТА -->
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🏠 Тип получения</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Самовывоз</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:adminTypePercent('pickup')+'%'}"></div></div>
+<b>{{ adminAnalytics.pickup }}</b></div>
+<div><span class="muted" style="font-size:12px">Доставка</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#f59e0b,#ef4444)" v-bind:style="{width:adminTypePercent('delivery')+'%'}"></div></div>
+<b>{{ adminAnalytics.delivery }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">💳 Способ оплаты</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Наличные</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#34d399,#10b981)" v-bind:style="{width:adminPayPercent('cash')+'%'}"></div></div>
+<b>{{ adminAnalytics.cash }}</b></div>
+<div><span class="muted" style="font-size:12px">Карта</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:adminPayPercent('card')+'%'}"></div></div>
+<b>{{ adminAnalytics.card }}</b></div>
+</div>
+</div>
+
+<!-- АКТИВНОСТЬ ПЕРСОНАЛА -->
+<h3 style="margin:0 0 14px">👥 Активность персонала</h3>
+
+<div class="glass card tblwrap" style="margin-bottom:14px">
+<h4 style="margin:0 0 10px">🏢 Активность заведений</h4>
+<table class="tbl"><tr><th>Заведение</th><th>Заказов</th><th>Выручка</th><th>Последний заказ</th><th>Статус</th></tr>
+<tr v-for="v in adminAnalytics.venueActivity" v-bind:key="v.id"><td><b>{{ v.name }}</b></td>
+<td>{{ v.orders }}</td><td style="color:#34d399">{{ fmt(v.revenue) }} ₽</td>
+<td class="muted" style="font-size:12px">{{ v.lastOrder }}</td>
+<td><span class="badge" v-bind:class="subClass(v)">{{ subLabel(v) }}</span></td></tr>
+<tr v-if="!adminAnalytics.venueActivity.length"><td colspan="5" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table>
+</div>
+
+<div class="glass card tblwrap" style="margin-bottom:14px">
+<h4 style="margin:0 0 10px">👤 Активность управляющих</h4>
+<table class="tbl"><tr><th>Имя</th><th>Email</th><th>Заведений</th><th>Заказов</th><th>Выручка</th><th>Последний вход</th></tr>
+<tr v-for="m in adminAnalytics.managerActivity" v-bind:key="m.id"><td><b>{{ m.name }}</b></td>
+<td class="muted">{{ m.email }}</td><td>{{ m.venues }}</td><td>{{ m.orders }}</td>
+<td style="color:#34d399">{{ fmt(m.revenue) }} ₽</td>
+<td class="muted" style="font-size:12px">{{ m.lastLogin }}</td></tr>
+<tr v-if="!adminAnalytics.managerActivity.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table>
+</div>
+
+<div class="row" style="align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
+<div class="glass card tblwrap" style="flex:1;min-width:300px">
+<h4 style="margin:0 0 10px">👨‍🍳 Повара (скорость)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Повар</th><th>Заведение</th><th>Заказов</th><th>Ср. время</th></tr>
+<tr v-for="c in adminAnalytics.cookActivity" v-bind:key="c.id"><td>👨‍🍳 {{ c.name }}</td>
+<td class="muted">{{ c.venue }}</td><td>{{ c.orders }}</td>
+<td><b v-bind:style="{color:c.avgTime<=10?'#6ee7b7':c.avgTime<=20?'#fcd34d':'#fca5a5'}">{{ c.avgTime }} мин</b></td></tr>
+<tr v-if="!adminAnalytics.cookActivity.length"><td colspan="4" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card tblwrap" style="flex:1;min-width:300px">
+<h4 style="margin:0 0 10px">🚗 Курьеры (доставки)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Курьер</th><th>Заведение</th><th>Доставок</th><th>Последний вход</th></tr>
+<tr v-for="c in adminAnalytics.courierActivity" v-bind:key="c.id"><td>🚗 {{ c.name }}</td>
+<td class="muted">{{ c.venue }}</td><td>{{ c.delivered }}</td>
+<td class="muted" style="font-size:12px">{{ c.lastLogin }}</td></tr>
+<tr v-if="!adminAnalytics.courierActivity.length"><td colspan="4" class="muted">Нет данных</td></tr></table>
+</div>
+</div>
+
+<div class="glass card tblwrap">
+<h4 style="margin:0 0 10px">🤵 Официанты (выдачи)</h4>
+<table class="tbl"><tr><th>Официант</th><th>Заведение</th><th>Выдано заказов</th><th>Последний вход</th></tr>
+<tr v-for="w in adminAnalytics.waiterActivity" v-bind:key="w.id"><td>🤵 {{ w.name }}</td>
+<td class="muted">{{ w.venue }}</td><td>{{ w.served }}</td>
+<td class="muted" style="font-size:12px">{{ w.lastLogin }}</td></tr>
+<tr v-if="!adminAnalytics.waiterActivity.length"><td colspan="4" class="muted">Нет данных</td></tr></table>
+</div>
+</div>
+  
 <!-- ЗАВЕДЕНИЯ -->
 <div v-if="tab==='venues'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Заведения</h3>
@@ -395,6 +548,11 @@ ready:false,busy:false,profile:null,tab:'stats',
 venues:[],managers:[],cooksAll:[],couriersAll:[],waitersAll:[],links:[],plans:[],payments:[],ordersAll:[],subscriptions:[],
 showModal:false,nform:{name:'',slug:'',plan:'start'},msg:'',statsPeriod:'7',
 globalStats:{revenue:0,orders:0,clients:0,venueStats:[]},
+adminAnalyticsPeriod:'30',
+adminAnalytics:{revenue:0,orders:0,clients:0,repeatClients:0,newClients:0,avgCheck:0,avgCookTime:0,
+pickup:0,delivery:0,cash:0,card:0,topItems:[],topAddons:[],topHours:[],daily:[],
+mrr:0,churnRate:0,arpu:0,trialConversion:0,planDist:[],
+venueActivity:[],managerActivity:[],cookActivity:[],courierActivity:[],waiterActivity:[]},
 cookForm:{venue_id:'',name:'',phone:''},courierForm:{venue_id:'',name:'',phone:''},waiterForm:{venue_id:'',name:'',phone:''},
 venueEditModal:{show:false,id:null,name:'',description:'',brand_color:'#6366f1',logo_url:'',perms:{addons:true,products:true,prices:true}},
 prodModal:{show:false,venueId:null,venueName:'',list:[],form:{name:'',price:0,category:'main'}},
@@ -404,6 +562,18 @@ staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:'
 }},
 computed:{
 mrr:function(){var self=this;return this.venues.filter(function(v){return v.status==='active'}).reduce(function(s,v){var p=self.plans.find(function(x){return x.id===v.plan});return s+(p?Number(p.price):0)},0)},
+subStats:function(){var self=this;var now=new Date();var soon=new Date();soon.setDate(soon.getDate()+7);
+var act=0,trial=0,expired=0,expiring=0;
+this.venues.forEach(function(v){
+if(!v.subscription_end){expired++;return}
+var e=new Date(v.subscription_end);
+if(e<now)expired++;
+else{act++;if(e<soon)expiring++;
+var sub=self.subscriptions.find(function(s){return s.venue_id===v.id});
+if(sub&&sub.status==='trialing')trial++;}
+});
+return{active:act,trial:trial,expired:expired,expiringSoon:expiring}},
+adminMaxDaily:function(){var mx=1;this.adminAnalytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},
 pendingPayments:function(){return this.payments.filter(function(p){return p.status==='pending'})},
 subStats:function(){var self=this;var now=new Date();
 var total=this.venues.length,active=0,trial=0,expired=0;
@@ -522,13 +692,107 @@ db.from('waiters').select('*,venues(name)'),
 db.from('manager_venues').select('*'),
 db.from('plans').select('*').order('price'),
 db.from('payments').select('*,venues(name),profiles(display_name)').order('created_at',{ascending:false}),
-db.from('orders').select('venue_id,total_price,status,created_at,order_type,cook_name,courier_name,waiter_name,cooking_started_at,ready_at').limit(2000),
+db.from('orders').select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone').limit(5000),
 db.from('subscriptions').select('*')
 ]).then(function(r){
 self.venues=r[0].data||[];self.managers=r[1].data||[];self.cooksAll=r[2].data||[];
 self.couriersAll=r[3].data||[];self.waitersAll=r[4].data||[];self.links=r[5].data||[];
 self.plans=r[6].data||[];self.payments=r[7].data||[];
 self.ordersAll=r[8].data||[];self.subscriptions=r[9].data||[];
+})},
+adminTypePercent:function(t){var s=this.adminAnalytics;var tot=s.pickup+s.delivery;return tot?Math.round(s[t]*100/tot):0},
+adminPayPercent:function(p){var s=this.adminAnalytics;var tot=s.cash+s.card;return tot?Math.round(s[p]*100/tot):0},
+loadAdminAnalytics:function(){var self=this;
+var q=db.from('orders').select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone,items:order_items(*),addons:order_addons(*)').neq('status','cancelled');
+if(this.adminAnalyticsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(this.adminAnalyticsPeriod));q=q.gte('created_at',d.toISOString())}
+q.then(function(r){var os=r.data||[];
+var done=os.filter(function(o){return o.status==='done'});
+var rev=0;done.forEach(function(o){rev+=Number(o.total_price||0)});
+var phoneCount={};os.forEach(function(o){if(o.customer_phone){var p=o.customer_phone.replace(/[^\d]/g,'');phoneCount[p]=(phoneCount[p]||0)+1}});
+var clients=Object.keys(phoneCount).length;var repeat=0;Object.keys(phoneCount).forEach(function(p){if(phoneCount[p]>1)repeat++});
+var t=[];var im={};var am={};var hours={};var dailyMap={};
+var pickup=0,delivery=0,cash=0,card=0;
+os.forEach(function(o){
+if(o.order_type==='delivery')delivery++;else pickup++;
+if(o.payment_method==='card')card++;else cash++;
+if(o.cooking_started_at&&o.ready_at){t.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4)}
+(o.items||[]).forEach(function(it){if(!im[it.name])im[it.name]={name:it.name,count:0,revenue:0};im[it.name].count+=it.qty;im[it.name].revenue+=it.qty*Number(it.price||0)});
+(o.addons||[]).forEach(function(a){if(!am[a.name])am[a.name]={name:a.name,count:0};am[a.name].count++});
+if(o.created_at){var dt=new Date(o.created_at);var hr=dt.getHours();hours[hr]=(hours[hr]||0)+1;
+var key=dt.toISOString().slice(0,10);if(!dailyMap[key])dailyMap[key]=0;dailyMap[key]++}
+});
+var topHours=Object.keys(hours).map(function(h){var nx=parseInt(h)+1;return{h:parseInt(h),label:(h<10?'0'+h:h)+':00–'+(nx<10?'0'+nx:nx)+':00',count:hours[h]}}).sort(function(a,b){return b.count-a.count}).slice(0,5);
+var daily=Object.keys(dailyMap).sort().map(function(k){var dt=new Date(k);return{date:k,label:(dt.getDate()<10?'0':'')+dt.getDate()+'.'+(dt.getMonth()+1<10?'0':'')+(dt.getMonth()+1),count:dailyMap[k]}});
+
+// Подписки
+var totalVenues=self.venues.length;
+var planDist=self.plans.map(function(p){
+var vs=self.venues.filter(function(v){return v.plan===p.id});
+var now=new Date();
+var act=vs.filter(function(v){return v.subscription_end&&new Date(v.subscription_end)>now&&v.status==='active'}).length;
+return{id:p.id,name:p.name,count:vs.length,mrr:act*Number(p.price||0),percent:totalVenues?Math.round(vs.length*100/totalVenues):0};
+});
+var activeSubs=self.subStats.active;
+var expiredSubs=self.subStats.expired;
+var churnRate=activeSubs+expiredSubs?Math.round(expiredSubs*100/(activeSubs+expiredSubs)):0;
+var arpu=activeSubs?Math.round(self.mrr/activeSubs):0;
+
+// Активность заведений
+var venueActivity=self.venues.map(function(v){
+var vords=os.filter(function(o){return o.venue_id===v.id});
+var vdone=vords.filter(function(o){return o.status==='done'});
+var vrev=vdone.reduce(function(s,o){return s+Number(o.total_price||0)},0);
+var last=null;vords.forEach(function(o){if(o.created_at){var d=new Date(o.created_at);if(!last||d>last)last=d}});
+return{id:v.id,name:v.name,orders:vords.length,revenue:vrev,
+lastOrder:last?last.toLocaleDateString('ru-RU')+' '+last.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—',
+subscription_end:v.subscription_end,status:v.status,plan:v.plan};
+}).sort(function(a,b){return b.orders-a.orders});
+
+// Активность управляющих
+var managerActivity=self.managers.map(function(m){
+var vIds=self.links.filter(function(l){return l.manager_id===m.id}).map(function(l){return l.venue_id});
+var mords=os.filter(function(o){return vIds.indexOf(o.venue_id)!==-1});
+var mdone=mords.filter(function(o){return o.status==='done'});
+var mrev=mdone.reduce(function(s,o){return s+Number(o.total_price||0)},0);
+return{id:m.id,name:m.display_name,email:m.email,venues:vIds.length,orders:mords.length,revenue:mrev,
+lastLogin:m.last_login_at?new Date(m.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(m.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
+}).sort(function(a,b){return b.orders-a.orders});
+
+// Повара
+var cookActivity=self.cooksAll.map(function(c){
+var cords=os.filter(function(o){return o.venue_id===c.venue_id&&o.cook_name===c.name});
+var times=[];cords.forEach(function(o){if(o.cooking_started_at&&o.ready_at){times.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4)}});
+var avg=times.length?Math.round(times.reduce(function(a,b){return a+b},0)/times.length):0;
+return{id:c.id,name:c.name,venue:c.venues?c.venues.name:'—',orders:cords.length,avgTime:avg,
+lastLogin:c.last_login_at?new Date(c.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(c.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
+}).sort(function(a,b){return b.orders-a.orders});
+
+// Курьеры
+var courierActivity=self.couriersAll.map(function(c){
+var dords=os.filter(function(o){return o.venue_id===c.venue_id&&o.courier_name===c.name});
+var delivered=dords.filter(function(o){return o.status==='done'}).length;
+return{id:c.id,name:c.name,venue:c.venues?c.venues.name:'—',delivered:delivered,
+lastLogin:c.last_login_at?new Date(c.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(c.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
+}).sort(function(a,b){return b.delivered-a.delivered});
+
+// Официанты
+var waiterActivity=self.waitersAll.map(function(w){
+var words=os.filter(function(o){return o.venue_id===w.venue_id&&o.waiter_name===w.name});
+var served=words.filter(function(o){return o.status==='done'}).length;
+return{id:w.id,name:w.name,venue:w.venues?w.venues.name:'—',served:served,
+lastLogin:w.last_login_at?new Date(w.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(w.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
+}).sort(function(a,b){return b.served-a.served});
+
+self.adminAnalytics={revenue:rev,orders:os.length,clients:clients,repeatClients:repeat,newClients:clients-repeat,
+avgCheck:done.length?Math.round(rev/done.length):0,
+avgCookTime:t.length?Math.round(t.reduce(function(a,b){return a+b},0)/t.length):0,
+pickup:pickup,delivery:delivery,cash:cash,card:card,
+topItems:Object.keys(im).map(function(k){return im[k]}).sort(function(a,b){return b.count-a.count}).slice(0,15),
+topAddons:Object.keys(am).map(function(k){return am[k]}).sort(function(a,b){return b.count-a.count}).slice(0,10),
+topHours:topHours,daily:daily,
+mrr:self.mrr,arpu:arpu,churnRate:churnRate,trialConversion:0,planDist:planDist,
+venueActivity:venueActivity,managerActivity:managerActivity,
+cookActivity:cookActivity,courierActivity:courierActivity,waiterActivity:waiterActivity};
 })},
 loadGlobalStats:function(){var self=this;
 var q=db.from('orders').select('venue_id,total_price,customer_phone,cooking_started_at,ready_at,venues(name)').eq('status','done');
