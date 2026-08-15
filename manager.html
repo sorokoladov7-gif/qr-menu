@@ -567,8 +567,20 @@ requireAuth(['manager','admin']).then(function(profile){
 self.profile=profile;if(!profile){self.ready=true;return}
 db.from('profiles').update({last_login_at:new Date().toISOString()}).eq('id',profile.id).then(function(){});
 db.from('plans').select('*').order('price').then(function(pl){
-self.plans=pl.data||[];self.loadMyVenues().then(function(){self.ready=true})})});
+self.plans=pl.data||[];
+return self.loadVenueTemplates().then(function(){return self.loadMyVenues()})
+}).then(function(){self.ready=true})});
 }catch(e){self.loadError=e.message||String(e);self.ready=true}},
+
+loadVenueTemplates:function(){var self=this;
+return db.from('menu_templates').select('id,name,slug,emoji,description,is_active,sort_order,products').eq('is_active',true).order('sort_order').order('name').then(function(r){
+if(r.error){console.warn('menu_templates недоступна, используем встроенные шаблоны:',r.error.message);return}
+if(!r.data||!r.data.length)return;
+self.venueTemplates=r.data.map(function(t){
+var products=Array.isArray(t.products)?t.products:[];
+return {id:t.id,name:t.name,emoji:t.emoji||'🍽️',description:t.description||'',products:products};
+});
+}).catch(function(e){console.warn('Ошибка загрузки шаблонов:',e.message||e)})},
 
 loadMyVenues:function(){var self=this;return new Promise(function(resolve){
 var ids=null;var p=Promise.resolve();
