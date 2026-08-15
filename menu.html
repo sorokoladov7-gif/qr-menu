@@ -190,7 +190,8 @@ dishModal:{show:false,product:null,addons:[]},
 form:{name:'',phone:'',type:'pickup',address:'',comment:'',pay:'cash'},
 msg:'',busy:false,trackPhone:'',tracking:null,trackSearched:false,
 DELIVERY_FEE:DELIVERY_FEE,DEFAULT_IMG:window.DEFAULT_IMG,
-trackTimer:null // ДОБАВИЛИ ТАЙМЕР
+trackTimer:null,
+previousStatus:'' // ЗАПОМИНАЕМ ПРЕДЫДУЩИЙ СТАТУС
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -210,7 +211,6 @@ goToTracking:function(){
 var last=localStorage.getItem('last_phone')||'';
 this.view='tracking';
 if(last){this.trackPhone=last;this.trackOrder()}
-// ЗАПУСКАЕМ ТАЙМЕР ОБНОВЛЕНИЯ
 this.startTrackingTimer();
 },
 init:function(){
@@ -219,7 +219,6 @@ var slug=new URLSearchParams(location.search).get('venue');
 var p=slug?db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){self.venue=r.data})
 :db.from('venues').select('*').eq('status','active').then(function(r){self.venues=r.data||[]});
 p.then(function(){if(self.venue)return self.loadProducts()}).finally(function(){self.ready=true});
-// При загрузке страницы смотрим, есть ли сохраненный телефон
 var last=localStorage.getItem('last_phone');
 if(last && self.venue){
    self.trackPhone = last;
@@ -259,11 +258,10 @@ return addonRows.length?db.from('order_addons').insert(addonRows).then(function(
 }).then(function(){
 localStorage.setItem('last_phone',phone);
 self.cart=[];self.showCart=false;self.view='tracking';self.trackPhone=phone;
-self.startTrackingTimer(); // ЗАПУСКАЕМ ТАЙМЕР ПОСЛЕ ОФОРМЛЕНИЯ
+self.startTrackingTimer(); 
 return self.trackOrder();
 })}).catch(function(e){self.msg='Ошибка: '+e.message}).finally(function(){self.busy=false})},
 
-// НОВЫЙ МЕТОД ДЛЯ АВТОМАТИЧЕСКОГО ОБНОВЛЕНИЯ
 startTrackingTimer: function(){
 if(this.trackTimer) clearInterval(this.trackTimer);
 var self=this;
@@ -271,14 +269,40 @@ this.trackTimer = setInterval(function(){
 if(self.view === 'tracking' && self.trackPhone){
   self.trackOrder();
 }
-}, 5000); // Обновление каждые 5 секунд
+}, 5000); 
 },
 
-trackOrder:function(){var self=this;var phone=self.norm(self.trackPhone);if(!phone)return Promise.resolve();
+trackOrder:function(){
+var self=this;
+var phone=self.norm(self.trackPhone);
+if(!phone) return Promise.resolve();
 self.trackSearched=true;
 return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
 .eq('venue_id',self.venue.id).eq('customer_phone',phone)
-.order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){self.tracking=r.data||null})},
+.order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){
+var newData = r.data || null;
+if(newData){
+   // Если статус изменился, принудительно обновляем интерфейс
+   if(self.previousStatus !== newData.status){
+       self.previousStatus = newData.status;
+       // ВАЖНО: Используем Vue.nextTick, чтобы гарантировать перерисовку
+       self.$nextTick(function(){
+           self.tracking = JSON.parse(JSON.stringify(newData));
+           // Воспроизводим короткий звук, чтобы клиент понял, что статус изменился
+           try {
+               var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
+               audio.play();
+           } catch(e) {}
+       });
+   } else {
+       // Если статус не изменился, просто обновляем данные
+       self.tracking = newData;
+   }
+} else {
+   self.tracking = null;
+}
+});
+},
 confirmChanged:function(){var self=this;db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){self.trackOrder()})},
 revertOrder:function(){var self=this;db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){self.trackOrder();self.view='menu'})}
 },
@@ -287,6 +311,7 @@ watch: {
 if(newVal !== 'tracking' && this.trackTimer) {
   clearInterval(this.trackTimer);
   this.trackTimer = null;
+  this.previousStatus = ''; // Сбрасываем статус при выходе
 }
 }
 },
