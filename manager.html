@@ -375,6 +375,7 @@ init:function(){var self=this;self.loadError='';self.ready=false;
 try{if(typeof db==='undefined')throw new Error('Supabase не подключен');
 requireAuth(['manager','admin']).then(function(profile){
 self.profile=profile;if(!profile){self.ready=true;return}
+db.from('profiles').update({last_login_at:new Date().toISOString()}).eq('id',profile.id).then(function(){});
 db.from('plans').select('*').order('price').then(function(pl){
 self.plans=pl.data||[];self.loadMyVenues().then(function(){self.ready=true})})});
 }catch(e){self.loadError=e.message||String(e);self.ready=true}},
