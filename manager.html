@@ -361,6 +361,7 @@
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
+<!-- ===== ОБНОВЛЕННАЯ МОДАЛКА С КНОПКОЙ ФОТО ===== -->
 <div v-if="showModal" class="modal" v-on:click.self="closeModal"><div class="glass box">
 <h3>{{ modalTitle }}</h3>
 <div class="field"><label>Название *</label><input v-model.trim="pform.name"></div>
@@ -369,29 +370,36 @@
 <div class="field" style="flex:1"><label>Цена ₽</label><input v-model.number="pform.price" type="number" min="0" v-bind:disabled="!perms.prices"></div>
 <div class="field" style="flex:1"><label>Категория</label>
 <select v-model="pform.category">
-  <option value="main">🍽 Блюдо</option>
-  <option value="drink">🥤 Напиток</option>
-  <option value="addon">🧂 Доп</option>
-  <option value="breakfast">🍳 Завтрак</option>
-  <option value="salad">🥗 Салат</option>
-  <option value="soup">🍲 Суп</option>
-  <option value="dessert">🍰 Десерт</option>
-  <option value="sauce">🌶 Соус</option>
-  <option value="snack">🥨 Закуска</option>
-  <option value="hot">🔥 Горячее</option>
-  <option value="bbq">🥩 Гриль</option>
+<option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option>
+<option value="addon">🧂 Доп</option>
+<option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option>
+<option value="soup">🍲 Суп</option><option value="dessert">🍰 Десерт</option>
+<option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+<option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
 </select></div>
 </div>
 <div class="field" v-if="pform.category==='addon'"><label>Подходит к</label>
 <select v-model="pform.applies_to">
 <option value="all">Ко всему</option><option value="main">К блюдам</option>
 <option value="drink">К напиткам</option><option value="main,drink">К блюдам и напиткам</option></select></div>
-<div class="field"><label>Фото</label>
-<div v-if="pform.image_url" style="margin-bottom:10px"><img v-bind:src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt=""></div>
-<label class="btn btn-ghost btn-sm" style="cursor:pointer">
-<span v-if="!uploading">📸 Загрузить фото</span><span v-else>⏳ Загружаю...</span>
-<input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none"></label>
-<input v-model="pform.image_url" placeholder="или ссылка" style="margin-top:8px"></div>
+
+<!-- ===== НОВЫЙ БЛОК ФОТО ===== -->
+<div class="field">
+<label>Фото блюда</label>
+<div v-if="pform.image_url" style="margin-bottom:10px;display:inline-block;position:relative;">
+  <img v-bind:src="pform.image_url" style="width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.15)" alt="Фото">
+  <button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="pform.image_url=''">×</button>
+</div>
+<br>
+<label class="btn btn-primary btn-sm" style="cursor:pointer;display:inline-flex;gap:8px">
+  <span v-if="!uploading">📸 Загрузить фото</span>
+  <span v-else>⏳ Загружаю...</span>
+  <input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none">
+</label>
+<input v-model="pform.image_url" placeholder="Или вставьте ссылку на фото" style="margin-top:8px">
+</div>
+<!-- ============================== -->
+
 <div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveProduct" v-bind:disabled="uploading">Сохранить</button>
 <button class="btn btn-ghost" v-on:click="closeModal">Отмена</button></div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
