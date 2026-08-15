@@ -27,6 +27,13 @@
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-cancelled{background:rgba(248,113,113,.15);color:#fca5a5}
 .b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}.b-new{background:rgba(96,165,250,.15);color:#93c5fd}
 .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
+.niche-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin:14px 0}
+.niche-card{border:2px solid rgba(255,255,255,.1);border-radius:12px;padding:14px 10px;text-align:center;cursor:pointer;transition:.2s;background:rgba(255,255,255,.03)}
+.niche-card:hover{border-color:#6366f1;background:rgba(99,102,241,.08);transform:translateY(-2px)}
+.niche-card.selected{border-color:#6366f1;background:rgba(99,102,241,.15);box-shadow:0 0 0 3px rgba(99,102,241,.2)}
+.niche-icon{font-size:32px;margin-bottom:6px}
+.niche-name{font-size:13px;font-weight:700}
+.niche-count{font-size:10px;color:#9ca3af;margin-top:2px}
 </style>
 </head>
 <body>
@@ -407,11 +414,44 @@
 </template>
 </div>
 
-<div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false"><div class="glass box">
-<h3>Новое заведение</h3>
-<div class="field"><label>Название *</label><input v-model.trim="newVenueForm.name"></div>
+<div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false"><div class="glass box" style="max-width:600px;width:95%">
+<h3 style="margin-top:0">Новое заведение</h3>
+<div class="field"><label>Название *</label><input v-model.trim="newVenueForm.name" placeholder="Например: Шаурма на Ленина"></div>
 <div class="field"><label>Код (slug) *</label><input v-model.trim="newVenueForm.slug" placeholder="shaurma-lenina"></div>
-<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="createVenue">Создать</button>
+
+<div class="field">
+<label>🎯 Выберите нишу (шаблон меню)</label>
+<div class="niche-grid">
+<div v-for="n in niches" v-bind:key="n.id" 
+class="niche-card" 
+v-bind:class="{selected: newVenueForm.niche===n.id}"
+v-on:click="newVenueForm.niche=n.id">
+<div class="niche-icon">{{ n.icon }}</div>
+<div class="niche-name">{{ n.name }}</div>
+<div class="niche-count">{{ n.items.length }} товаров</div>
+</div>
+</div>
+</div>
+
+<div v-if="newVenueForm.niche" class="glass card" style="padding:12px;margin-bottom:14px;border-color:#6366f1">
+<div class="row" style="align-items:center">
+<div>
+<b>{{ selectedNiche.name }}</b>
+<div class="muted" style="font-size:11px">Будет добавлено {{ selectedNiche.items.length }} позиций в меню</div>
+</div>
+<button class="btn btn-ghost btn-sm" v-on:click="previewNiche=!previewNiche">
+{{ previewNiche?'Скрыть':'Показать' }}
+</button>
+</div>
+<div v-if="previewNiche" style="margin-top:10px;max-height:200px;overflow-y:auto;font-size:12px">
+<div v-for="item in selectedNiche.items" v-bind:key="item.name" style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+<span>{{ item.name }}</span>
+<span class="muted">{{ item.price }} ₽</span>
+</div>
+</div>
+</div>
+
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="createVenue" v-bind:disabled="busy">Создать</button>
 <button class="btn btn-ghost" v-on:click="showCreateVenue=false">Отмена</button></div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
@@ -460,6 +500,109 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
+var NICHES = {
+  coffee: {
+    id: 'coffee', name: 'Кофейня', icon: '☕',
+    items: [
+      {name:'Эспрессо',description:'Классический крепкий кофе, 30 мл',price:150,category:'drink'},
+      {name:'Американо',description:'Эспрессо с горячей водой, 200 мл',price:180,category:'drink'},
+      {name:'Капучино',description:'Эспрессо с молочной пеной, 250 мл',price:250,category:'drink'},
+      {name:'Латте',description:'Нежный кофе с большим количеством молока, 300 мл',price:280,category:'drink'},
+      {name:'Раф',description:'Сливочный кофе с ванильным сиропом, 300 мл',price:320,category:'drink'},
+      {name:'Какао',description:'Горячий шоколадный напиток с молоком',price:220,category:'drink'},
+      {name:'Круассан',description:'Свежая французская выпечка с маслом',price:180,category:'snack'},
+      {name:'Круассан с шоколадом',description:'Слоёное тесто с шоколадной начинкой',price:220,category:'snack'},
+      {name:'Сырник',description:'Нежная творожная запеканка',price:280,category:'dessert'},
+      {name:'Чизкейк Нью-Йорк',description:'Классический сливочный десерт',price:320,category:'dessert'},
+      {name:'Сэндвич с курицей',description:'На цельнозерновом хлебе с овощами',price:350,category:'snack'},
+      {name:'Сэндвич с лососем',description:'С сливочным сыром и зеленью',price:420,category:'snack'},
+      {name:'Овсянка с ягодами',description:'Тёплая каша с сезонными ягодами и мёдом',price:280,category:'breakfast'},
+      {name:'Яйца бенедикт',description:'С ветчиной и голландским соусом',price:380,category:'breakfast'},
+      {name:'Сироп ванильный',description:'Дополнительно к кофе',price:50,category:'addon',applies_to:'drink'}
+    ]
+  },
+  shaurma: {
+    id: 'shaurma', name: 'Шаурма', icon: '🌯',
+    items: [
+      {name:'Шаурма с курицей',description:'Классическая с курицей, овощами и соусом, 350 г',price:280,category:'main'},
+      {name:'Шаурма с говядиной',description:'С сочной говядиной и овощами, 380 г',price:320,category:'main'},
+      {name:'Шаурма острая',description:'С курицей и острым перцем чили, 350 г',price:290,category:'main'},
+      {name:'Шаурма XXL',description:'Двойная порция курицы и овощей, 500 г',price:420,category:'main'},
+      {name:'Фалафель-ролл',description:'Вегетарианская с фалафелем и хумусом, 320 г',price:260,category:'main'},
+      {name:'Шаурма с сыром',description:'С курицей и плавленым сыром, 370 г',price:310,category:'main'},
+      {name:'Лепёшка с сыром',description:'Горячая лепёшка с сулугуни, 180 г',price:180,category:'snack'},
+      {name:'Картофель фри',description:'Хрустящий золотистый картофель, 150 г',price:150,category:'snack'},
+      {name:'Картофель по-деревенски',description:'Запечённые дольки со специями, 180 г',price:180,category:'snack'},
+      {name:'Кола 0.5л',description:'Прохладный напиток',price:120,category:'drink'},
+      {name:'Спрайт 0.5л',description:'Лимонный газированный напиток',price:120,category:'drink'},
+      {name:'Айран 0.3л',description:'Кисломолочный напиток',price:100,category:'drink'},
+      {name:'Соус чесночный',description:'Дополнительно',price:40,category:'addon',applies_to:'all'},
+      {name:'Соус острый',description:'Дополнительно',price:40,category:'addon',applies_to:'all'},
+      {name:'Сыр сулугуни',description:'Дополнительная порция',price:80,category:'addon',applies_to:'all'}
+    ]
+  },
+  bakery: {
+    id: 'bakery', name: 'Пекарня', icon: '🥖',
+    items: [
+      {name:'Багет классический',description:'Свежий французский багет, 250 г',price:120,category:'snack'},
+      {name:'Хлеб ржаной',description:'На закваске, 400 г',price:150,category:'snack'},
+      {name:'Круассан с маслом',description:'Слоёный с сливочным маслом',price:180,category:'snack'},
+      {name:'Круассан с ветчиной и сыром',description:'Тёплый с начинкой',price:240,category:'snack'},
+      {name:'Пирожок с капустой',description:'Домашний печёный, 120 г',price:90,category:'snack'},
+      {name:'Пирожок с яйцом и луком',description:'Классический русский, 120 г',price:90,category:'snack'},
+      {name:'Пирожок с мясом',description:'С сочной начинкой, 130 г',price:110,category:'snack'},
+      {name:'Булочка с корицей',description:'Сладкая с глазурью, 150 г',price:160,category:'dessert'},
+      {name:'Слоёная с яблоком',description:'С яблочной начинкой и корицей',price:150,category:'dessert'},
+      {name:'Эклер',description:'С заварным кремом, 100 г',price:140,category:'dessert'},
+      {name:'Торт Наполеон (кусочек)',description:'Классический слоёный, 150 г',price:220,category:'dessert'},
+      {name:'Кофе американо',description:'Горячий, 200 мл',price:150,category:'drink'},
+      {name:'Чай чёрный',description:'Крупнолистовой, 300 мл',price:100,category:'drink'},
+      {name:'Какао с молоком',description:'Горячий шоколадный напиток',price:180,category:'drink'},
+      {name:'Мёд порционный',description:'Натуральный, 30 г',price:50,category:'addon',applies_to:'all'}
+    ]
+  },
+  cafe: {
+    id: 'cafe', name: 'Кафе', icon: '🍽️',
+    items: [
+      {name:'Борщ',description:'Классический украинский со сметаной, 350 мл',price:320,category:'soup'},
+      {name:'Суп-пюре грибной',description:'С шампиньонами и гренками, 300 мл',price:280,category:'soup'},
+      {name:'Салат Цезарь',description:'С курицей и пармезаном, 220 г',price:380,category:'salad'},
+      {name:'Салат Греческий',description:'С овощами и сыром фета, 250 г',price:350,category:'salad'},
+      {name:'Паста Карбонара',description:'Со сливочным соусом и беконом, 280 г',price:420,category:'main'},
+      {name:'Стейк из курицы',description:'С овощами гриль, 300 г',price:450,category:'main'},
+      {name:'Котлета по-киевски',description:'С картофельным пюре, 350 г',price:380,category:'main'},
+      {name:'Рыба на пару',description:'С рисом и овощами, 320 г',price:480,category:'main'},
+      {name:'Пицца Маргарита',description:'Томаты, моцарелла, базилик, 400 г',price:420,category:'main'},
+      {name:'Пицца Пепперони',description:'С острой колбасой, 420 г',price:460,category:'main'},
+      {name:'Тирамису',description:'Итальянский десерт с кофе, 150 г',price:320,category:'dessert'},
+      {name:'Чизкейк',description:'Нью-Йорк с ягодным соусом, 160 г',price:280,category:'dessert'},
+      {name:'Лимонад домашний',description:'Мятный с лимоном, 400 мл',price:220,category:'drink'},
+      {name:'Морс клюквенный',description:'Натуральный ягодный, 300 мл',price:180,category:'drink'},
+      {name:'Хлебная корзина',description:'Ассорти свежего хлеба',price:100,category:'addon',applies_to:'all'}
+    ]
+  },
+  streetfood: {
+    id: 'streetfood', name: 'Стритфуд', icon: '🌭',
+    items: [
+      {name:'Хот-дог классический',description:'С сосиской и горчицей, 250 г',price:220,category:'main'},
+      {name:'Хот-дог с сыром',description:'С плавленым сыром, 270 г',price:250,category:'main'},
+      {name:'Бургер с говядиной',description:'Классический с овощами, 280 г',price:350,category:'main'},
+      {name:'Чизбургер',description:'С двойным сыром чеддер, 300 г',price:380,category:'main'},
+      {name:'Бургер с курицей',description:'С хрустящей курицей, 290 г',price:340,category:'main'},
+      {name:'Наггетсы 6 шт',description:'Куриные с соусом на выбор',price:220,category:'snack'},
+      {name:'Наггетсы 9 шт',description:'Большая порция с соусом',price:290,category:'snack'},
+      {name:'Картофель фри',description:'Хрустящий с солью, 150 г',price:150,category:'snack'},
+      {name:'Картофель фри с сыром',description:'С расплавленным чеддером, 180 г',price:220,category:'snack'},
+      {name:'Луковые кольца',description:'Хрустящие в кляре, 120 г',price:180,category:'snack'},
+      {name:'Кола 0.5л',description:'Холодный напиток',price:120,category:'drink'},
+      {name:'Фанта 0.5л',description:'Апельсиновый напиток',price:120,category:'drink'},
+      {name:'Молочный коктейль',description:'Ванильный или шоколадный, 400 мл',price:250,category:'drink'},
+      {name:'Соус барбекю',description:'Дополнительно',price:40,category:'addon',applies_to:'all'},
+      {name:'Соус сырный',description:'Дополнительно',price:40,category:'addon',applies_to:'all'}
+    ]
+  }
+};
+
 Vue.createApp({
 data:function(){return{
 ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:null,myVenues:[],venue:null,
@@ -467,7 +610,9 @@ products:[],orders:[],cooks:[],couriers:[],waiters:[],plans:[],tab:'menu',showMo
 cookName:'',courierForm:{name:'',phone:''},waiterForm:{name:'',phone:''},vform:{},
 dform:{logo_url:'',brand_color:'#6366f1',font_family:'Plus+Jakarta+Sans',button_color:'#8b5cf6',header_color:'#ffffff'},
 designMsg:'',designMsgType:'',
-msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
+msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,
+newVenueForm:{name:'',slug:'',niche:''},previewNiche:false,
+niches:Object.values(NICHES),
 analyticsPeriod:'7',analytics:{revenue:0,orders:0,clients:0,avgCheck:0,avgCookTime:0,newClients:0,repeatClients:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],daily:[],cooks:[],couriers:[],waiters:[]},
 subscriptionEnd:null,isBlocked:false,payPlan:null,myPayments:[],DEFAULT_IMG:window.DEFAULT_IMG
 }},
@@ -488,6 +633,7 @@ qrUrl:function(){return this.clientLink?'https://api.qrserver.com/v1/create-qr-c
 daysLeft:function(){return this.subscriptionEnd?Math.ceil((new Date(this.subscriptionEnd)-new Date())/864e5):0},
 currentPlan:function(){if(!this.venue)return null;var planId=this.venue.plan;return this.plans.find(function(p){return p.id===planId})||null},
 canCreateVenue:function(){var p=this.plans.find(function(x){return x.id==='start'});return this.myVenues.length<(p?p.max_venues:1)},
+selectedNiche:function(){return NICHES[this.newVenueForm.niche]||null},
 perms:function(){
 if(this.venue&&this.venue.manager_permissions){var p=this.venue.manager_permissions;
 return{addons:p.addons!==false,products:p.products!==false,prices:p.prices!==false}}
@@ -616,14 +762,54 @@ self.busy=false;if(r.error){self.showToast('Ошибка: '+r.error.message,'err
 self.payPlan=null;self.loadPayments();self.showToast('Заявка отправлена!')})},
 
 createVenue:function(){var self=this;self.formError='';
-if(!this.newVenueForm.name||!this.newVenueForm.slug){this.formError='Заполните поля';return}
+if(!this.newVenueForm.name||!this.newVenueForm.slug){this.formError='Заполните название и код';return}
 if(!this.canCreateVenue){this.formError='Лимит заведений';return}
 self.busy=true;var e=new Date();e.setDate(e.getDate()+3);
-db.from('venues').insert({name:this.newVenueForm.name,slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),status:'active',plan:'start',subscription_end:e.toISOString()}).select().single().then(function(r){
+db.from('venues').insert({
+  name:this.newVenueForm.name,
+  slug:this.newVenueForm.slug.toLowerCase().replace(/\s+/g,'-'),
+  status:'active',
+  plan:'start',
+  subscription_end:e.toISOString(),
+  niche:this.newVenueForm.niche||null
+}).select().single().then(function(r){
 if(r.error)throw r.error;
-return db.from('subscriptions').insert({venue_id:r.data.id,plan_id:'start',status:'trialing',current_period_end:e.toISOString()}).then(function(){
-if(self.profile.role!=='admin')return db.from('manager_venues').insert({manager_id:self.profile.id,venue_id:r.data.id});
-}).then(function(){self.showCreateVenue=false;self.loadMyVenues().then(function(){self.selectVenue(r.data);self.showToast('Создано!')})});
+var venueId=r.data.id;
+
+// Добавляем товары из шаблона
+var nicheProducts=[];
+if(self.newVenueForm.niche&&NICHES[self.newVenueForm.niche]){
+  var items=NICHES[self.newVenueForm.niche].items;
+  items.forEach(function(item){
+    nicheProducts.push({
+      venue_id:venueId,
+      name:item.name,
+      description:item.description,
+      price:item.price,
+      category:item.category,
+      applies_to:item.applies_to||'all',
+      is_available:true
+    });
+  });
+}
+
+var insertProducts=Promise.resolve();
+if(nicheProducts.length>0){
+  insertProducts=db.from('products').insert(nicheProducts);
+}
+
+return db.from('subscriptions').insert({venue_id:venueId,plan_id:'start',status:'trialing',current_period_end:e.toISOString()}).then(function(){
+  if(self.profile.role!=='admin')return db.from('manager_venues').insert({manager_id:self.profile.id,venue_id:venueId});
+}).then(function(){
+  return insertProducts;
+}).then(function(){
+  self.showCreateVenue=false;
+  self.newVenueForm={name:'',slug:'',niche:''};
+  self.loadMyVenues().then(function(){
+    self.selectVenue(r.data);
+    self.showToast('Создано! Добавлено '+nicheProducts.length+' позиций');
+  });
+});
 }).catch(function(err){self.formError='Ошибка: '+err.message}).finally(function(){self.busy=false})},
 
 openAdd:function(){
@@ -693,7 +879,7 @@ downloadQr: function () {
             console.error('Ошибка загрузки QR:', error);
             window.open(big, '_blank');
         });
-}, // <--- ВАЖНАЯ ЗАПЯТАЯ ЗДЕСЬ
+},
 
 resizeImage:function(file,mw,q){return new Promise(function(res,rej){
 var r=new FileReader();
