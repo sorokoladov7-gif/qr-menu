@@ -100,7 +100,7 @@ db.from('orders').select('*, items:order_items(*)')
 if(!r.error)self.orders=r.data||[]})},
 startTimer:function(){if(this.timer)clearInterval(this.timer);var self=this;this.timer=setInterval(function(){self.load()},3000)},
 serve:function(id){var self=this;
-db.from('orders').update({status:'done'}).eq('id',id).then(function(){self.load()})},
+db.from('orders').update({status:'done',waiter_name:self.session.waiterName}).eq('id',id).then(function(){self.load()})},
 toCourier:function(id){var self=this;
 db.from('orders').update({status:'delivery'}).eq('id',id).then(function(){self.load()})}
 },
