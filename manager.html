@@ -669,14 +669,25 @@ if(r.error)throw r.error;
 self.dform.logo_url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
 self.showToast('Логотип загружен в дизайн');
 }).catch(function(e){self.showToast('Ошибка: '+e.message,'error')}).finally(function(){self.uploadingLogo=false;ev.target.value=''})},
-downloadQr:function(){var self=this;
-var big='https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data='+encodeURIComponent(self.clientLink);
-fetch(big).then(function(r){if(!r.ok)throw new Error('fetch');return r.blob()}).then(function(b){
-var a=document.createElement('a');a.href=URL.createObjectURL(b);
-a.download='qr-'+(self.venue?self.venue.slug:'menu')+'.png';
-document.body.appendChild(a);a.click();a.remove();
-self.showToast('QR скачан');
-}).catch(function(e){window.open(big,'_blank')})},
+downloadQr: function() {
+  var self = this;
+  var big = 'https://api.qrserver.com/v1/create-qr-code/?size=1024x1024&data=' + encodeURIComponent(self.clientLink);
+  
+  fetch(big).then(function(r) {
+    if (!r.ok) throw new Error('fetch');
+    return r.blob();
+  }).then(function(b) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = 'qr-' + (self.venue ? self.venue.slug : 'menu') + '.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    self.showToast('QR скачан');
+  }).catch(function(e) {
+    window.open(big, '_blank');
+  });
+}, // <-- Запятая обязательна!
 resizeImage:function(file,mw,q){return new Promise(function(res,rej){
 var r=new FileReader();
 r.onload=function(e){var i=new Image();
