@@ -412,7 +412,8 @@ maxCouriers:function(){return this.currentPlan&&this.currentPlan.max_couriers?th
 maxWaiters:function(){return this.currentPlan&&this.currentPlan.max_waiters?this.currentPlan.max_waiters:999},
 maxProducts:function(){return this.currentPlan?this.currentPlan.max_products:'∞'},
 revenue:function(){return this.orders.filter(function(o){return o.status==='done'}).reduce(function(s,o){return s+Number(o.total_price||0)},0)},
-activeCount:maxDaily:function(){var mx=1;this.analytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},function(){return this.orders.filter(function(o){return['new','cooking','delivery'].indexOf(o.status)!==-1}).length},
+activeCount:function(){return this.orders.filter(function(o){return['new','cooking','delivery'].indexOf(o.status)!==-1}).length},
+maxDaily:function(){var mx=1;this.analytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},
 clientLink:function(){return this.venue?location.origin+'/menu.html?venue='+encodeURIComponent(this.venue.slug):''},
 qrUrl:function(){return this.clientLink?'https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(this.clientLink):''},
 daysLeft:function(){return this.subscriptionEnd?Math.ceil((new Date(this.subscriptionEnd)-new Date())/864e5):0},
@@ -526,7 +527,6 @@ waiters:Object.keys(waiterMap).map(function(k){return{name:k,count:waiterMap[k]}
 maxDailyCalc:function(){var mx=1;this.analytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},
 typePercent:function(t){var s=this.analytics.typeStats;var tot=s.pickup+s.delivery;return tot?Math.round(s[t]*100/tot):0},
 payPercent:function(p){var s=this.analytics.payStats;var tot=s.cash+s.card;return tot?Math.round(s[p]*100/tot):0},
-})},
 
 choosePlan:function(p){if(p.price===0)this.subscribeFree(p);else this.payPlan=p},
 subscribeFree:function(p){var self=this;self.busy=true;var e=new Date();e.setMonth(e.getMonth()+1);
