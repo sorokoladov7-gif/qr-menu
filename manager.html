@@ -735,146 +735,94 @@ createVenue:function(){
     }
 
     /*
-     * 1. СОЗДАЁМ ЗАВЕДЕНИЕ
+     * 1. Создаём заведение через защищённую RPC-функцию.
+     * RPC сама создаёт:
+     * venues
+     * manager_venues
+     * subscriptions
      */
-    db.from('venues')
-        .insert({
-            name:this.newVenueForm.name.trim(),
-            slug:slug,
-            status:'active',
-            plan:'start',
-            subscription_end:e.toISOString(),
-            manager_id:self.profile.id
-        })
-        .select()
-        .single()
+    db.rpc('create_venue_for_manager',{
+        p_name:this.newVenueForm.name.trim(),
+        p_slug:slug,
+        p_plan:'start',
+        p_subscription_end:e.toISOString()
+    })
 
-        .then(function(r){
+    .then(function(r){
 
-            if(r.error) throw r.error;
+        if(r.error) throw r.error;
 
-            var venue=r.data;
+        var venue=r.data;
 
-            /*
-             * 2. СНАЧАЛА СОЗДАЁМ СВЯЗЬ
-             * manager -> venue
-             *
-             * Это обязательно сделать ДО subscriptions,
-             * потому что RLS subscriptions проверяет
-             * наличие записи в manager_venues.
-             */
-            if(self.profile.role!=='admin'){
+        /*
+         * 2. Добавляем товары выбранного шаблона
+         */
+        var rows=template.products.map(function(item){
 
-                return db.from('manager_venues')
-                    .insert({
-                        manager_id:self.profile.id,
-                        venue_id:venue.id
-                    })
-                    .then(function(r2){
-
-                        if(r2.error) throw r2.error;
-
-                        return venue;
-                    });
-            }
-
-            return venue;
-        })
-
-        .then(function(venue){
-
-            /*
-             * 3. СОЗДАЁМ ПОДПИСКУ
-             */
-            return db.from('subscriptions')
-                .insert({
-                    venue_id:venue.id,
-                    plan_id:'start',
-                    status:'trialing',
-                    current_period_end:e.toISOString()
-                })
-                .then(function(r){
-
-                    if(r.error) throw r.error;
-
-                    return venue;
-                });
-        })
-
-        .then(function(venue){
-
-            /*
-             * 4. ДОБАВЛЯЕМ ТОВАРЫ ИЗ ШАБЛОНА
-             */
-            var rows=template.products.map(function(item){
-
-                return {
-                    venue_id:venue.id,
-                    name:item.name,
-                    description:item.description||null,
-                    price:Number(item.price)||0,
-                    category:item.category||'main',
-                    image_url:item.image_url||null,
-                    applies_to:item.applies_to||'all',
-                    is_available:true
-                };
-
-            });
-
-            return db.from('products')
-                .insert(rows)
-                .then(function(r){
-
-                    if(r.error) throw r.error;
-
-                    return venue;
-                });
-        })
-
-        .then(function(venue){
-
-            /*
-             * 5. ОБНОВЛЯЕМ ИНТЕРФЕЙС
-             */
-            self.showCreateVenue=false;
-
-            self.newVenueForm={
-                name:'',
-                slug:'',
-                template:'coffee'
+            return {
+                venue_id:venue.id,
+                name:item.name,
+                description:item.description||null,
+                price:Number(item.price)||0,
+                category:item.category||'main',
+                image_url:item.image_url||null,
+                applies_to:item.applies_to||'all',
+                is_available:true
             };
 
-            return self.loadMyVenues()
-                .then(function(){
-
-                    self.selectVenue(venue);
-
-                    self.showToast(
-                        'Заведение создано: '+
-                        template.name+
-                        ' · '+
-                        template.products.length+
-                        ' позиций добавлено'
-                    );
-
-                });
-        })
-
-        .catch(function(err){
-
-            console.error('createVenue error:',err);
-
-            self.formError=
-                'Ошибка: '+
-                (err.message||String(err));
-
-        })
-
-        .finally(function(){
-
-            self.busy=false;
-
         });
+
+        return db.from('products')
+            .insert(rows)
+            .then(function(r2){
+
+                if(r2.error) throw r2.error;
+
+                return venue;
+            });
+    })
+
+    .then(function(venue){
+
+        self.showCreateVenue=false;
+
+        self.newVenueForm={
+            name:'',
+            slug:'',
+            template:'coffee'
+        };
+
+        return self.loadMyVenues()
+            .then(function(){
+
+                self.selectVenue(venue);
+
+                self.showToast(
+                    'Заведение создано: '+
+                    template.name+
+                    ' · '+
+                    template.products.length+
+                    ' позиций добавлено'
+                );
+
+            });
+    })
+
+    .catch(function(err){
+
+        console.error('createVenue error:',err);
+
+        self.formError=
+            'Ошибка: '+
+            (err.message||String(err));
+
+    })
+
+    .finally(function(){
+
+        self.busy=false;
+
+    });
 },
 
 openAdd:function(){
