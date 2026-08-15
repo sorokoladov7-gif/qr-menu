@@ -5,14 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Курьер</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<!-- PWA: приложение на телефоне -->
 <meta name="theme-color" content="#0b1020">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Курьер">
 <link rel="manifest" href="/manifest-courier.webmanifest">
-<link rel="apple-touch-icon" href="/apple-touch-icon-courier.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -24,7 +22,6 @@
 .wcard{padding:12px;margin-bottom:10px}
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
 .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
-.install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#f59e0b}
 </style>
 </head>
 <body>
@@ -35,12 +32,6 @@
 <div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
 </div>
 <div class="wrap">
-
-<div v-if="session&&showInstallHint" class="glass card install-hint">
-📲 <b>Установите как приложение:</b> Android — меню ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”». Появится иконка «Курьер», запуск — как обычное приложение.
-<button class="btn btn-ghost btn-sm" style="margin-left:8px" v-on:click="hideInstallHint">Понятно</button>
-</div>
-
 <div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
 <h3 style="margin-top:0">Вход для курьера</h3>
 <div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div>
@@ -51,8 +42,8 @@
 <template v-else>
 <div class="muted" style="font-size:12px;margin-bottom:12px">🚗 {{ session.courierName }} · заказы на доставку обновляются автоматически</div>
 <div class="cols">
-<div class="col"><h4>📦 Ждут выезда ({{ colPickup.length }})</h4>
-<div v-for="o in colPickup" v-bind:key="o.id" class="glass wcard">
+<div class="col"><h4>📦 Ждут выезда ({{ colReady.length }})</h4>
+<div v-for="o in colReady" v-bind:key="o.id" class="glass wcard">
 <div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-ready">готов к выезду</span></div>
 <div class="muted" style="font-size:12px;margin-top:6px">📍 {{ o.delivery_address }}</div>
 <div class="muted" style="font-size:12px;margin-top:4px">📞 {{ o.customer_phone }} {{ o.customer_name?'· '+o.customer_name:'' }}</div>
@@ -60,7 +51,7 @@
 <div class="muted" style="font-size:12px;margin-top:6px">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено картой' }}</div>
 <button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" v-on:click="take(o.id)">🚗 Взять на доставку</button>
 </div>
-<p v-if="!colPickup.length" class="muted">Пусто — ждите заказы</p>
+<p v-if="!colReady.length" class="muted">Пусто — ждите готовые заказы</p>
 </div>
 <div class="col"><h4>🚗 В доставке ({{ colDelivery.length }})</h4>
 <div v-for="o in colDelivery" v-bind:key="o.id" class="glass wcard">
@@ -79,69 +70,44 @@
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
-// Регистрация service worker (приложение + офлайн)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js').catch(function() {});
-  });
-}
 Vue.createApp({
-data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,showInstallHint:false }},
-computed: {
-colPickup: function(){ return this.orders.filter(function(o){return o.status==='ready'}); },
-colDelivery: function(){ return this.orders.filter(function(o){return o.status==='delivery'}); }
+data:function(){return{session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null}},
+computed:{
+colReady:function(){return this.orders.filter(function(o){return o.status==='ready'})},
+colDelivery:function(){return this.orders.filter(function(o){return o.status==='delivery'})}
 },
-methods: {
-fmt: function(v){ return window.fmt(v); },
-hideInstallHint: function(){ this.showInstallHint=false; localStorage.setItem('courier_app_hint','1'); },
-login: function(){
-var self=this; self.err=''; self.busy=true;
+methods:{
+fmt:function(v){return window.fmt(v)},
+login:function(){var self=this;self.err='';self.busy=true;
 var slug=(self.loginForm.slug||'').trim().toLowerCase();
 var pin=(self.loginForm.pin||'').trim();
-if(!slug||!pin){ self.err='Заполните оба поля'; self.busy=false; return; }
+if(!slug||!pin){self.err='Заполните оба поля';self.busy=false;return}
 db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(v){
-if(!v.data){ self.err='Заведение не найдено'; self.busy=false; return; }
+if(!v.data){self.err='Заведение не найдено';self.busy=false;return}
 return db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(c){
-if(!c.data){ self.err='Неверный PIN'; self.busy=false; return; }
+if(!c.data){self.err='Неверный PIN';self.busy=false;return}
 db.from('couriers').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
 self.session={venueId:v.data.id,venueName:v.data.name,courierId:c.data.id,courierName:c.data.name};
 localStorage.setItem('courier_session',JSON.stringify(self.session));
-self.busy=false; self.load(); self.startTimer();
-});
-}).catch(function(e){ self.err='Ошибка: '+e.message; self.busy=false; });
-},
-logout: function(){
-localStorage.removeItem('courier_session');
-if(this.timer){ clearInterval(this.timer); this.timer=null; }
-this.session=null; this.orders=[]; this.loginForm={slug:'',pin:''};
-},
-load: function(){
-var self=this; if(!self.session) return;
+self.busy=false;self.load();self.startTimer()});
+}).catch(function(e){self.err='Ошибка: '+e.message;self.busy=false})},
+logout:function(){localStorage.removeItem('courier_session');
+if(this.timer){clearInterval(this.timer);this.timer=null}
+this.session=null;this.orders=[];this.loginForm={slug:'',pin:''}},
+load:function(){var self=this;if(!self.session)return;
 db.from('orders').select('*, items:order_items(*)')
 .eq('venue_id',self.session.venueId).eq('order_type','delivery').in('status',['ready','delivery'])
 .order('created_at',{ascending:false}).limit(30).then(function(r){
-if(!r.error) self.orders=r.data||[];
-});
+if(!r.error)self.orders=r.data||[]})},
+startTimer:function(){if(this.timer)clearInterval(this.timer);var self=this;this.timer=setInterval(function(){self.load()},3000)},
+take:function(id){var self=this;
+db.from('orders').update({status:'delivery',courier_name:self.session.courierName}).eq('id',id).then(function(){self.load()})},
+done:function(id){var self=this;
+db.from('orders').update({status:'done'}).eq('id',id).then(function(){self.load()})}
 },
-startTimer: function(){ if(this.timer) clearInterval(this.timer); var self=this; this.timer=setInterval(function(){ self.load(); },3000); },
-take: function(id){
-var self=this;
-db.from('orders').update({status:'delivery',courier_name:self.session.courierName}).eq('id',id).then(function(){ self.load(); });
-},
-done: function(id){
-var self=this;
-db.from('orders').update({status:'done'}).eq('id',id).then(function(){ self.load(); });
-}
-},
-mounted: function(){
-var saved=localStorage.getItem('courier_session');
-var self=this;
-if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.startTimer(); }catch(e){ localStorage.removeItem('courier_session'); } }
-// Подсказка установки — только если открыто НЕ как приложение
-var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-if(!standalone && !localStorage.getItem('courier_app_hint')) self.showInstallHint = true;
-},
-beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
+mounted:function(){var saved=localStorage.getItem('courier_session');var self=this;
+if(saved){try{self.session=JSON.parse(saved);self.load();self.startTimer()}catch(e){localStorage.removeItem('courier_session')}}},
+beforeUnmount:function(){if(this.timer)clearInterval(this.timer)}
 }).mount('#app');
 </script>
 </body>
