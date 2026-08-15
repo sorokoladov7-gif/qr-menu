@@ -1,1 +1,40 @@
-
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Иконки «Курьер»</title>
+<style>body{font-family:sans-serif;background:#0b1020;color:#fff;display:flex;flex-direction:column;align-items:center;padding:40px;gap:16px}button{padding:12px 24px;border:none;border-radius:10px;background:#f59e0b;color:#fff;font-size:15px;font-weight:700;cursor:pointer}canvas{border-radius:24px;box-shadow:0 10px 40px rgba(245,158,11,.4)}</style>
+</head>
+<body>
+<h2>🚗 Иконки для приложения «Курьер»</h2>
+<canvas id="c" width="512" height="512" style="width:200px;height:200px"></canvas>
+<button onclick="dl(512,'icon-courier-512.png')">⬇️ Скачать icon-courier-512.png</button>
+<button onclick="dl(192,'icon-courier-192.png')">⬇️ Скачать icon-courier-192.png</button>
+<button onclick="dl(180,'apple-touch-icon-courier.png')">⬇️ Скачать apple-touch-icon-courier.png (iPhone)</button>
+<p style="max-width:500px;text-align:center;color:#9ca3af;font-size:13px">Скачайте все 3 файла и загрузите их в корень репозитория (GitHub → Add file → Upload files).</p>
+<script>
+function draw(size) {
+  var c = document.createElement('canvas'); c.width = size; c.height = size;
+  var x = c.getContext('2d');
+  var g = x.createLinearGradient(0, 0, size, size);
+  g.addColorStop(0, '#f59e0b'); g.addColorStop(1, '#ef4444');
+  x.fillStyle = g; x.fillRect(0, 0, size, size);
+  x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.font = Math.round(size * 0.55) + 'px serif';
+  x.fillText('🚗', size / 2, size / 2 + size * 0.04);
+  return c;
+}
+(function() {
+  document.getElementById('c').getContext('2d').drawImage(draw(512), 0, 0);
+})();
+function dl(size, name) {
+  draw(size).toBlob(function(b) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(b);
+    a.download = name;
+    a.click();
+  }, 'image/png');
+}
+</script>
+</body>
+</html>
