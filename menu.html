@@ -67,10 +67,30 @@
 <div class="hero" v-bind:style="{'--brand':venue.brand_color||'#6366f1'}">
 <h2>{{ venue.name }}</h2><p>{{ venue.description||'Свежее, вкусное, с огоньком 🔥' }}</p>
 </div>
+
+<!-- ===== НОВЫЙ БЛОК ФИЛЬТРОВ С КРАСИВЫМИ НАЗВАНИЯМИ ===== -->
 <div class="chips">
-<button class="chip" v-bind:class="{on:cat==='all'}" v-on:click="cat='all'">✨ Всё меню</button>
-<button v-for="c in categories" v-bind:key="c" class="chip" v-bind:class="{on:cat===c}" v-on:click="cat=c">{{ c }}</button>
+  <button class="chip" v-bind:class="{on:cat==='all'}" v-on:click="cat='all'">✨ Всё меню</button>
+  
+  <!-- Группа: Основные блюда -->
+  <button class="chip" v-bind:class="{on:cat==='main'}" v-on:click="cat='main'">🍽 Блюда</button>
+  <button class="chip" v-bind:class="{on:cat==='breakfast'}" v-on:click="cat='breakfast'">🍳 Завтраки</button>
+  <button class="chip" v-bind:class="{on:cat==='salad'}" v-on:click="cat='salad'">🥗 Салаты</button>
+  <button class="chip" v-bind:class="{on:cat==='soup'}" v-on:click="cat='soup'">🍲 Супы</button>
+  <button class="chip" v-bind:class="{on:cat==='hot'}" v-on:click="cat='hot'">🔥 Горячее</button>
+  <button class="chip" v-bind:class="{on:cat==='bbq'}" v-on:click="cat='bbq'">🥩 Гриль</button>
+  <button class="chip" v-bind:class="{on:cat==='snack'}" v-on:click="cat='snack'">🥨 Закуски</button>
+  <button class="chip" v-bind:class="{on:cat==='dessert'}" v-on:click="cat='dessert'">🍰 Десерты</button>
+  
+  <!-- Группа: Напитки и Соусы -->
+  <button class="chip" v-bind:class="{on:cat==='drink'}" v-on:click="cat='drink'">🥤 Напитки</button>
+  <button class="chip" v-bind:class="{on:cat==='sauce'}" v-on:click="cat='sauce'">🌶 Соусы</button>
+  
+  <!-- Дополнения (если есть) -->
+  <button class="chip" v-bind:class="{on:cat==='addon'}" v-on:click="cat='addon'" v-if="hasAddons">🧂 Дополнительно</button>
 </div>
+<!-- ====================================================== -->
+
 <div class="grid">
 <div v-for="p in filtered" v-bind:key="p.id" class="glass dish">
 <img v-bind:src="p.image_url||DEFAULT_IMG" alt="">
@@ -185,7 +205,8 @@ computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
 filtered:function(){var cat=this.cat;return this.products.filter(function(p){return p.category!=='addon'&&(cat==='all'||p.category===cat)})},
 cartTotal:function(){var s=0;this.cart.forEach(function(i){s+=i.price*i.qty;(i.addons||[]).forEach(function(a){s+=a.price*a.qty})});if(this.form.type==='delivery')s+=DELIVERY_FEE;return s},
-dishTotal:function(){if(!this.dishModal.product)return 0;var s=Number(this.dishModal.product.price)||0;this.dishModal.addons.forEach(function(a){s+=a.price*a.qty});return s}
+dishTotal:function(){if(!this.dishModal.product)return 0;var s=Number(this.dishModal.product.price)||0;this.dishModal.addons.forEach(function(a){s+=a.price*a.qty});return s},
+hasAddons:function(){return this.products.some(function(p){return p.category==='addon'})}
 },
 methods:{
 fmt:function(v){return window.fmt(v)},
