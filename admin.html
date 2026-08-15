@@ -48,6 +48,7 @@
 <div class="tabs" style="margin-bottom:18px">
 <button v-bind:class="{on:tab==='stats'}" v-on:click="tab='stats';loadGlobalStats()">📊 Статистика</button>
 <button v-bind:class="{on:tab==='subs'}" v-on:click="tab='subs'">📈 Подписки</button>
+<button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAdminAnalytics()">📈 Аналитика</button>
 <button v-bind:class="{on:tab==='venues'}" v-on:click="tab='venues'">🏢 Заведения</button>
 <button v-bind:class="{on:tab==='activity'}" v-on:click="tab='activity'">👥 Активность</button>
 <button v-bind:class="{on:tab==='managers'}" v-on:click="tab='managers'">👤 Управляющие</button>
