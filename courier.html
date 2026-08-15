@@ -1,1 +1,124 @@
-
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Курьер</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#0b1020">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+[v-cloak]{display:none}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}
+.col h4{margin:0 0 10px;font-size:14px}
+.wcard{padding:12px;margin-bottom:10px}
+.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
+.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
+</style>
+</head>
+<body>
+<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
+<div id="app" v-cloak>
+<div class="topbar">
+<div class="brand"><div class="logo">🚗</div><span>Курьер{{ session?' · '+session.venueName:'' }}</span></div>
+<div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
+</div>
+<div class="wrap">
+<div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
+<h3 style="margin-top:0">Вход для курьера</h3>
+<div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div>
+<div class="field"><label>PIN</label><input v-model.trim="loginForm.pin" type="password" inputmode="numeric" v-on:keyup.enter="login"></div>
+<button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
+<div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
+</div>
+<template v-else>
+<div class="muted" style="font-size:12px;margin-bottom:12px">🚗 {{ session.courierName }} · заказы на доставку обновляются автоматически</div>
+<div class="cols">
+<div class="col"><h4>📦 Ждут выезда ({{ colPickup.length }})</h4>
+<div v-for="o in colPickup" v-bind:key="o.id" class="glass wcard">
+<div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-ready">готов к выезду</span></div>
+<div class="muted" style="font-size:12px;margin-top:6px">📍 {{ o.delivery_address }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">📞 {{ o.customer_phone }} {{ o.customer_name?'· '+o.customer_name:'' }}</div>
+<div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
+<div class="muted" style="font-size:12px;margin-top:6px">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено картой' }}</div>
+<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" v-on:click="take(o.id)">🚗 Взять на доставку</button>
+</div>
+<p v-if="!colPickup.length" class="muted">Пусто — ждите заказы</p>
+</div>
+<div class="col"><h4>🚗 В доставке ({{ colDelivery.length }})</h4>
+<div v-for="o in colDelivery" v-bind:key="o.id" class="glass wcard">
+<div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-delivery">в пути</span></div>
+<div class="muted" style="font-size:12px;margin-top:6px">📍 {{ o.delivery_address }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">📞 {{ o.customer_phone }}</div>
+<div class="muted" style="font-size:12px;margin-top:6px">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено' }}</div>
+<button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" v-on:click="done(o.id)">✅ Доставлено</button>
+</div>
+<p v-if="!colDelivery.length" class="muted">Пусто</p>
+</div>
+</div>
+</template>
+</div>
+</div>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+<script>
+Vue.createApp({
+data: function(){ return { session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null }},
+computed: {
+colPickup: function(){ return this.orders.filter(function(o){return o.status==='ready'}); },
+colDelivery: function(){ return this.orders.filter(function(o){return o.status==='delivery'}); }
+},
+methods: {
+fmt: function(v){ return window.fmt(v); },
+login: function(){
+var self=this; self.err=''; self.busy=true;
+var slug=(self.loginForm.slug||'').trim().toLowerCase();
+var pin=(self.loginForm.pin||'').trim();
+if(!slug||!pin){ self.err='Заполните оба поля'; self.busy=false; return; }
+db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(v){
+if(!v.data){ self.err='Заведение не найдено'; self.busy=false; return; }
+return db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(c){
+if(!c.data){ self.err='Неверный PIN'; self.busy=false; return; }
+db.from('couriers').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
+self.session={venueId:v.data.id,venueName:v.data.name,courierId:c.data.id,courierName:c.data.name};
+localStorage.setItem('courier_session',JSON.stringify(self.session));
+self.busy=false; self.load(); self.startTimer();
+});
+}).catch(function(e){ self.err='Ошибка: '+e.message; self.busy=false; });
+},
+logout: function(){
+localStorage.removeItem('courier_session');
+if(this.timer){ clearInterval(this.timer); this.timer=null; }
+this.session=null; this.orders=[]; this.loginForm={slug:'',pin:''};
+},
+load: function(){
+var self=this; if(!self.session) return;
+db.from('orders').select('*, items:order_items(*)')
+.eq('venue_id',self.session.venueId).eq('order_type','delivery').in('status',['ready','delivery'])
+.order('created_at',{ascending:false}).limit(30).then(function(r){
+if(!r.error) self.orders=r.data||[];
+});
+},
+startTimer: function(){ if(this.timer) clearInterval(this.timer); var self=this; this.timer=setInterval(function(){ self.load(); },3000); },
+take: function(id){
+var self=this;
+db.from('orders').update({status:'delivery',courier_name:self.session.courierName}).eq('id',id).then(function(){ self.load(); });
+},
+done: function(id){
+var self=this;
+db.from('orders').update({status:'done'}).eq('id',id).then(function(){ self.load(); });
+}
+},
+mounted: function(){
+var saved=localStorage.getItem('courier_session');
+var self=this;
+if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.startTimer(); }catch(e){ localStorage.removeItem('courier_session'); } }
+},
+beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); }
+}).mount('#app');
+</script>
+</body>
+</html>
