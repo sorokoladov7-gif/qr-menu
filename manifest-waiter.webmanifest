@@ -1,1 +1,17 @@
-
+{
+  "id": "/waiter.html",
+  "name": "Официант — QR-Меню для Бизнеса",
+  "short_name": "Официант",
+  "description": "Рабочее место официанта: выдача готовых заказов",
+  "start_url": "/waiter.html",
+  "scope": "/waiter.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#0b1020",
+  "lang": "ru",
+  "icons": [
+    { "src": "/icon-waiter-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-waiter-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
