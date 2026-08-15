@@ -22,6 +22,10 @@
 .wcard{padding:12px;margin-bottom:10px}
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
 .b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
+.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
+.stat-box .num{font-size:22px;font-weight:800}
+.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}
 </style>
 </head>
 <body>
@@ -39,8 +43,18 @@
 <button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
 <div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
 </div>
+
 <template v-else>
-<div class="muted" style="font-size:12px;margin-bottom:12px">🚗 {{ session.courierName }} · заказы на доставку обновляются автоматически</div>
+<div class="muted" style="font-size:12px;margin-bottom:12px">🚗 {{ session.courierName }} · заказы обновляются автоматически</div>
+
+<!-- ЛИЧНАЯ СТАТИСТИКА КУРЬЕРА -->
+<div class="stats-grid">
+  <div class="stat-box" style="border-color:#34d399"><div class="num">{{ courierStats.done }}</div><div class="lbl">Доставлено</div></div>
+  <div class="stat-box" style="border-color:#fbbf24"><div class="num">{{ courierStats.inProgress }}</div><div class="lbl">Сейчас в пути</div></div>
+  <div class="stat-box" style="border-color:#60a5fa"><div class="num">{{ courierStats.total }}</div><div class="lbl">Всего взято</div></div>
+  <div class="stat-box" style="border-color:#a78bfa"><div class="num">{{ fmt(courierStats.revenue) }} ₽</div><div class="lbl">Выручка заказов</div></div>
+</div>
+
 <div class="cols">
 <div class="col"><h4>📦 Ждут выезда ({{ colReady.length }})</h4>
 <div v-for="o in colReady" v-bind:key="o.id" class="glass wcard">
@@ -64,20 +78,48 @@
 <p v-if="!colDelivery.length" class="muted">Пусто</p>
 </div>
 </div>
+
+<!-- ИСТОРИЯ ДОСТАВОК -->
+<div class="glass card" style="margin-top:18px">
+<h4 style="margin:0 0 12px">📜 Моя история (последние доставки)</h4>
+<div v-for="o in courierHistory" v-bind:key="o.id" class="row" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+<div style="flex:1;font-size:13px"><b>№{{ o.order_number }}</b> — {{ o.customer_name||'Клиент' }} <span class="muted" style="font-size:11px">📍 {{ o.delivery_address || '—' }}</span></div>
+<div class="muted" style="font-size:12px">{{ fmtDate(o.created_at) }}</div>
+<div style="color:#34d399;font-weight:700">{{ fmt(o.total_price) }} ₽</div>
+</div>
+<p v-if="!courierHistory.length" class="muted" style="padding:8px 0">У вас пока нет завершённых доставок.</p>
+</div>
+
 </template>
 </div>
 </div>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() { navigator.serviceWorker.register('/sw.js').catch(function() {}); });
+}
 Vue.createApp({
-data:function(){return{session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null}},
+data:function(){return{
+session:null,busy:false,err:'',loginForm:{slug:'',pin:''},
+orders:[],timer:null,statsTimer:null,history:[]
+}},
 computed:{
 colReady:function(){return this.orders.filter(function(o){return o.status==='ready'})},
-colDelivery:function(){return this.orders.filter(function(o){return o.status==='delivery'})}
+colDelivery:function(){return this.orders.filter(function(o){return o.status==='delivery'})},
+courierStats:function(){
+var done=0,inProgress=0,rev=0;
+this.history.forEach(function(o){
+if(o.status==='done'){ done++; rev+=Number(o.total_price||0); }
+if(o.status==='delivery') inProgress++;
+});
+return {done:done,inProgress:inProgress,total:done+inProgress,revenue:rev};
+},
+courierHistory:function(){ return this.history.slice(0,20); }
 },
 methods:{
 fmt:function(v){return window.fmt(v)},
+fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'-'},
 login:function(){var self=this;self.err='';self.busy=true;
 var slug=(self.loginForm.slug||'').trim().toLowerCase();
 var pin=(self.loginForm.pin||'').trim();
@@ -89,25 +131,31 @@ if(!c.data){self.err='Неверный PIN';self.busy=false;return}
 db.from('couriers').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
 self.session={venueId:v.data.id,venueName:v.data.name,courierId:c.data.id,courierName:c.data.name};
 localStorage.setItem('courier_session',JSON.stringify(self.session));
-self.busy=false;self.load();self.startTimer()});
+self.busy=false;self.load();self.loadHistory();self.startTimer();self.startStatsTimer()});
 }).catch(function(e){self.err='Ошибка: '+e.message;self.busy=false})},
 logout:function(){localStorage.removeItem('courier_session');
 if(this.timer){clearInterval(this.timer);this.timer=null}
-this.session=null;this.orders=[];this.loginForm={slug:'',pin:''}},
+if(this.statsTimer){clearInterval(this.statsTimer);this.statsTimer=null}
+this.session=null;this.orders=[];this.history=[];this.loginForm={slug:'',pin:''}},
 load:function(){var self=this;if(!self.session)return;
 db.from('orders').select('*, items:order_items(*)')
 .eq('venue_id',self.session.venueId).eq('order_type','delivery').in('status',['ready','delivery'])
 .order('created_at',{ascending:false}).limit(30).then(function(r){
 if(!r.error)self.orders=r.data||[]})},
+loadHistory:function(){var self=this;if(!self.session)return;
+db.from('orders').select('*').eq('venue_id',self.session.venueId).eq('courier_name',self.session.courierName)
+.in('status',['done','delivery']).order('created_at',{ascending:false}).limit(50).then(function(r){
+if(!r.error)self.history=r.data||[]})},
 startTimer:function(){if(this.timer)clearInterval(this.timer);var self=this;this.timer=setInterval(function(){self.load()},3000)},
+startStatsTimer:function(){if(this.statsTimer)clearInterval(this.statsTimer);var self=this;this.statsTimer=setInterval(function(){self.loadHistory()},10000)},
 take:function(id){var self=this;
 db.from('orders').update({status:'delivery',courier_name:self.session.courierName}).eq('id',id).then(function(){self.load()})},
 done:function(id){var self=this;
-db.from('orders').update({status:'done'}).eq('id',id).then(function(){self.load()})}
+db.from('orders').update({status:'done'}).eq('id',id).then(function(){self.load();self.loadHistory()})}
 },
 mounted:function(){var saved=localStorage.getItem('courier_session');var self=this;
-if(saved){try{self.session=JSON.parse(saved);self.load();self.startTimer()}catch(e){localStorage.removeItem('courier_session')}}},
-beforeUnmount:function(){if(this.timer)clearInterval(this.timer)}
+if(saved){try{self.session=JSON.parse(saved);self.load();self.loadHistory();self.startTimer();self.startStatsTimer()}catch(e){localStorage.removeItem('courier_session')}}},
+beforeUnmount:function(){if(this.timer)clearInterval(this.timer);if(this.statsTimer)clearInterval(this.statsTimer)}
 }).mount('#app');
 </script>
 </body>
