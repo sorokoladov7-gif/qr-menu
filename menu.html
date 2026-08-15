@@ -11,25 +11,22 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
 [v-cloak]{display:none}
-.hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;position:relative;overflow:hidden;
-background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
-.hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}
-.hero p{margin:0;opacity:.9}
+.hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
+.hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
 .chip{padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);cursor:pointer;font-size:13px;color:#e5e7eb}
-.chip.on{background:linear-gradient(90deg,#6366f1,#8b5cf6);border-color:transparent;color:#fff;font-weight:700}
+.chip.on{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;font-weight:700}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
-.dish{border-radius:18px;overflow:hidden;transition:.2s;animation:pop .3s ease}
+.dish{border-radius:18px;overflow:hidden;transition:.2s}
 .dish:hover{transform:translateY(-3px);border-color:#8b5cf6}
-@keyframes pop{from{opacity:0;transform:scale(.96)}to{opacity:1;transform:scale(1)}}
 .dish img{width:100%;height:130px;object-fit:cover;display:block}
 .dish .body{padding:12px}
 .price-pill{display:inline-block;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;padding:5px 12px;border-radius:999px;font-weight:800;font-size:13px;margin:8px 0}
 .add-btn{width:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border:none;color:#fff;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:14px}
-.cartbar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
-.cartbar button{width:100%;background:linear-gradient(90deg,#f59e0b,#ef4444);border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer}
-.reorder-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
-.reorder-bar button{width:100%;background:linear-gradient(90deg,#10b981,#059669);border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer}
+.cartbar,.reorder-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
+.cartbar button,.reorder-bar button{width:100%;border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer}
+.cartbar button{background:linear-gradient(90deg,#f59e0b,#ef4444)}
+.reorder-bar button{background:linear-gradient(90deg,#10b981,#059669)}
 .b-new{background:rgba(96,165,250,.15);color:#93c5fd}.b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
 .b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
 .b-done{background:rgba(100,116,139,.2);color:#cbd5e1}.b-changed{background:rgba(251,146,60,.15);color:#fdba74}
@@ -134,7 +131,6 @@ background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 </template>
 </div>
 
-<!-- МОДАЛКА БЛЮДА С ДОПОЛНЕНИЯМИ -->
 <div v-if="dishModal.show" class="modal" v-on:click.self="dishModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">{{ dishModal.product.name }}</h3>
 <div class="muted" style="font-size:13px">{{ dishModal.product.description }}</div>
@@ -147,7 +143,6 @@ background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 <button class="btn btn-primary" style="width:100%;margin-top:12px" v-on:click="addDishToCart">+ В корзину · {{ fmt(dishTotal) }} ₽</button>
 </div></div>
 
-<!-- КОРЗИНА -->
 <div v-if="showCart" class="modal" v-on:click.self="showCart=false"><div class="glass box">
 <h3 style="margin-top:0">🛒 Корзина</h3>
 <div v-for="i in cart" v-bind:key="i.id" style="margin-bottom:10px">
@@ -179,124 +174,75 @@ background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 <script>
 var DELIVERY_FEE=150;
 Vue.createApp({
-data: function(){ return {
+data:function(){return{
 ready:false,venue:null,venues:[],products:[],view:'menu',cat:'all',cart:[],showCart:false,
 dishModal:{show:false,product:null,addons:[]},
 form:{name:'',phone:'',type:'pickup',address:'',comment:'',pay:'cash'},
 msg:'',busy:false,trackPhone:'',tracking:null,trackSearched:false,
 DELIVERY_FEE:DELIVERY_FEE,DEFAULT_IMG:window.DEFAULT_IMG
 }},
-computed: {
-categories: function(){ var s={}; this.products.forEach(function(p){ if(p.category!=='addon') s[p.category]=1; }); return Object.keys(s); },
-filtered: function(){ var cat=this.cat; return this.products.filter(function(p){ return p.category!=='addon' && (cat==='all'||p.category===cat); }); },
-cartTotal: function(){
-var s=0;
-this.cart.forEach(function(i){
-s+=i.price*i.qty;
-(i.addons||[]).forEach(function(a){ s+=a.price*a.qty; });
-});
-if(this.form.type==='delivery') s+=DELIVERY_FEE;
-return s;
+computed:{
+categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
+filtered:function(){var cat=this.cat;return this.products.filter(function(p){return p.category!=='addon'&&(cat==='all'||p.category===cat)})},
+cartTotal:function(){var s=0;this.cart.forEach(function(i){s+=i.price*i.qty;(i.addons||[]).forEach(function(a){s+=a.price*a.qty})});if(this.form.type==='delivery')s+=DELIVERY_FEE;return s},
+dishTotal:function(){if(!this.dishModal.product)return 0;var s=Number(this.dishModal.product.price)||0;this.dishModal.addons.forEach(function(a){s+=a.price*a.qty});return s}
 },
-dishTotal: function(){
-if(!this.dishModal.product) return 0;
-var s=Number(this.dishModal.product.price)||0;
-this.dishModal.addons.forEach(function(a){ s+=a.price*a.qty; });
-return s;
-}
-},
-methods: {
-fmt: function(v){ return window.fmt(v); },
-norm: function(p){ return window.normPhone(p); },
-statusName: function(s){ return window.statusName(s); },
-statusColor: function(s){ return window.statusColor(s); },
-statusEmoji: function(s){ return {new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'; },
-statusHint: function(s){ return {new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''; },
-goToTracking: function(){
-var last=localStorage.getItem('last_phone')||'';
-this.view='tracking';
-if(last){ this.trackPhone=last; this.trackOrder(); }
-},
-init: function(){
-var self=this;
-var slug=new URLSearchParams(location.search).get('venue');
-var p = slug ? db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){ self.venue=r.data; })
- : db.from('venues').select('*').eq('status','active').then(function(r){ self.venues=r.data||[]; });
-p.then(function(){ if(self.venue) return self.loadProducts(); }).finally(function(){ self.ready=true; });
-},
-selectVenue: function(v){ this.venue=v; this.loadProducts(); },
-loadProducts: function(){
-var self=this;
-return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){ self.products=r.data||[]; });
-},
-addonsFor: function(p){
-return this.products.filter(function(a){
-if(a.category!=='addon') return false;
-var at=a.applies_to||'all';
-return at==='all'||at.indexOf(p.category)!==-1;
-});
-},
-openDish: function(p){
-var list=this.addonsFor(p);
-if(!list.length){ this.cart.push({id:p.id,name:p.name,price:Number(p.price)||0,qty:1,addons:[]}); return; }
-this.dishModal={show:true,product:p,addons:list.map(function(a){ return {id:a.id,name:a.name,price:Number(a.price)||0,qty:0}; })};
-},
-decDishAddon: function(a){ if(a.qty>0) a.qty--; },
-addDishToCart: function(){
-var m=this.dishModal;
-var adds=m.addons.filter(function(a){ return a.qty>0; }).map(function(a){ return {id:a.id,name:a.name,price:a.price,qty:a.qty}; });
-var f=this.cart.find(function(i){ return i.id===m.product.id; });
-if(f){ f.qty++; adds.forEach(function(a){ var ex=f.addons.find(function(x){ return x.id===a.id; }); if(ex){ ex.qty+=a.qty; } else f.addons.push(a); }); }
+methods:{
+fmt:function(v){return window.fmt(v)},
+norm:function(p){return window.normPhone(p)},
+statusName:function(s){return window.statusName(s)},
+statusColor:function(s){return window.statusColor(s)},
+statusEmoji:function(s){return{new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
+statusHint:function(s){return{new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''},
+goToTracking:function(){var last=localStorage.getItem('last_phone')||'';this.view='tracking';if(last){this.trackPhone=last;this.trackOrder()}},
+init:function(){var self=this;var slug=new URLSearchParams(location.search).get('venue');
+var p=slug?db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){self.venue=r.data})
+:db.from('venues').select('*').eq('status','active').then(function(r){self.venues=r.data||[]});
+p.then(function(){if(self.venue)return self.loadProducts()}).finally(function(){self.ready=true})},
+selectVenue:function(v){this.venue=v;this.loadProducts()},
+loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){self.products=r.data||[]})},
+addonsFor:function(p){return this.products.filter(function(a){if(a.category!=='addon')return false;var at=a.applies_to||'all';return at==='all'||at.indexOf(p.category)!==-1})},
+openDish:function(p){var list=this.addonsFor(p);
+if(!list.length){this.cart.push({id:p.id,name:p.name,price:Number(p.price)||0,qty:1,addons:[]});return}
+this.dishModal={show:true,product:p,addons:list.map(function(a){return{id:a.id,name:a.name,price:Number(a.price)||0,qty:0}})}},
+decDishAddon:function(a){if(a.qty>0)a.qty--},
+addDishToCart:function(){var m=this.dishModal;
+var adds=m.addons.filter(function(a){return a.qty>0}).map(function(a){return{id:a.id,name:a.name,price:a.price,qty:a.qty}});
+var f=this.cart.find(function(i){return i.id===m.product.id});
+if(f){f.qty++;adds.forEach(function(a){var ex=f.addons.find(function(x){return x.id===a.id});if(ex){ex.qty+=a.qty}else f.addons.push(a)})}
 else this.cart.push({id:m.product.id,name:m.product.name,price:Number(m.product.price)||0,qty:1,addons:adds});
-this.dishModal.show=false;
-},
-dec: function(i){ if(i.qty>1){ i.qty--; } else { this.cart.splice(this.cart.indexOf(i),1); } },
-
-checkout: function(){
-var self=this; self.msg='';
-var phone=self.norm(self.form.phone);
-if(!phone){ self.msg='Укажите телефон'; return; }
-if(self.form.type==='delivery'&&!self.form.address.trim()){ self.msg='Укажите адрес'; return; }
-if(!self.cart.length){ self.msg='Корзина пустая'; return; }
+this.dishModal.show=false},
+dec:function(i){if(i.qty>1){i.qty--}else{this.cart.splice(this.cart.indexOf(i),1)}},
+checkout:function(){var self=this;self.msg='';var phone=self.norm(self.form.phone);
+if(!phone){self.msg='Укажите телефон';return}
+if(self.form.type==='delivery'&&!self.form.address.trim()){self.msg='Укажите адрес';return}
+if(!self.cart.length){self.msg='Корзина пустая';return}
 self.busy=true;
-db.from('orders').insert({
-venue_id:self.venue.id, customer_name:self.form.name||null, customer_phone:phone,
-order_type:self.form.type, delivery_address:self.form.type==='delivery'?self.form.address:null,
-comment:self.form.comment||null, payment_method:self.form.pay, total_price:self.cartTotal, status:'new'
+db.from('orders').insert({venue_id:self.venue.id,customer_name:self.form.name||null,customer_phone:phone,
+order_type:self.form.type,delivery_address:self.form.type==='delivery'?self.form.address:null,
+comment:self.form.comment||null,payment_method:self.form.pay,total_price:self.cartTotal,status:'new'
 }).select().single().then(function(r){
-if(r.error) throw r.error;
-var orderId=r.data.id;
-var itemRows=[]; var addonRows=[];
-self.cart.forEach(function(i){
-itemRows.push({order_id:orderId,product_id:i.id,name:i.name,price:i.price,qty:i.qty});
-(i.addons||[]).forEach(function(a){
-for(var k=0;k<a.qty;k++) addonRows.push({order_id:orderId,name:a.name,price:a.price,item_name:i.name});
-});
-});
-var p1=db.from('order_items').insert(itemRows);
-return p1.then(function(ri){
-if(ri.error) throw ri.error;
-return addonRows.length ? db.from('order_addons').insert(addonRows).then(function(){}) : Promise.resolve();
+if(r.error)throw r.error;
+var orderId=r.data.id;var itemRows=[];var addonRows=[];
+self.cart.forEach(function(i){itemRows.push({order_id:orderId,product_id:i.id,name:i.name,price:i.price,qty:i.qty});
+(i.addons||[]).forEach(function(a){for(var k=0;k<a.qty;k++)addonRows.push({order_id:orderId,name:a.name,price:a.price,item_name:i.name})})});
+return db.from('order_items').insert(itemRows).then(function(ri){
+if(ri.error)throw ri.error;
+return addonRows.length?db.from('order_addons').insert(addonRows).then(function(){}):Promise.resolve();
 }).then(function(){
 localStorage.setItem('last_phone',phone);
-self.cart=[]; self.showCart=false; self.view='tracking'; self.trackPhone=phone;
+self.cart=[];self.showCart=false;self.view='tracking';self.trackPhone=phone;
 return self.trackOrder();
-});
-}).catch(function(e){ self.msg='Ошибка: '+e.message; }).finally(function(){ self.busy=false; });
-},
-
-trackOrder: function(){
-var self=this; var phone=self.norm(self.trackPhone);
-if(!phone) return Promise.resolve();
+})}).catch(function(e){self.msg='Ошибка: '+e.message}).finally(function(){self.busy=false})},
+trackOrder:function(){var self=this;var phone=self.norm(self.trackPhone);if(!phone)return Promise.resolve();
 self.trackSearched=true;
 return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
 .eq('venue_id',self.venue.id).eq('customer_phone',phone)
-.order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){ self.tracking=r.data||null; });
+.order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){self.tracking=r.data||null})},
+confirmChanged:function(){var self=this;db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){self.trackOrder()})},
+revertOrder:function(){var self=this;db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){self.trackOrder();self.view='menu'})}
 },
-confirmChanged: function(){ var self=this; db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){ self.trackOrder(); }); },
-revertOrder: function(){ var self=this; db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){ self.trackOrder(); self.view='menu'; }); }
-},
-mounted: function(){ this.init(); }
+mounted:function(){this.init()}
 }).mount('#app');
 </script>
 </body>
