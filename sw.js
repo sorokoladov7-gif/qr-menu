@@ -1,5 +1,5 @@
-var CACHE = 'qr-platform-v3';
-var CORE = ['/cook.html', '/manager.html', '/courier.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/manifest-manager.webmanifest', '/manifest-courier.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png', '/icon-courier-192.png', '/icon-courier-512.png'];
+var CACHE = 'qr-platform-v4';
+var CORE = ['/cook.html', '/manager.html', '/courier.html', '/waiter.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/manifest-manager.webmanifest', '/manifest-courier.webmanifest', '/manifest-waiter.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png', '/icon-courier-192.png', '/icon-courier-512.png', '/icon-waiter-192.png', '/icon-waiter-512.png'];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(caches.open(CACHE).then(function(c) {
@@ -23,7 +23,7 @@ self.addEventListener('fetch', function(e) {
       caches.open(CACHE).then(function(c) { c.put(e.request, copy); });
       return r;
     }).catch(function() {
-      return caches.match(e.request).then(function(m) { return m || caches.match('/courier.html'); });
+      return caches.match(e.request).then(function(m) { return m || caches.match('/waiter.html'); });
     })
   );
 });
