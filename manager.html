@@ -114,6 +114,7 @@
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
 <button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">Повара</button>
 <button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
+<button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
 </div>
@@ -244,7 +245,6 @@
 <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
 </div>
 
-<!-- КУРЬЕРЫ -->
 <div v-if="tab==='couriers'">
 <div class="glass card" style="margin-bottom:14px">
 <div class="row">
@@ -275,6 +275,36 @@
 <p v-if="!couriers.length" class="muted">Добавьте курьеров — они будут видеть заказы на доставку в courier.html.</p>
 </div>
 
+<div v-if="tab==='waiters'">
+<div class="glass card" style="margin-bottom:14px">
+<div class="row">
+<input v-model.trim="waiterName" placeholder="Имя официанта" style="flex:1" v-on:keyup.enter="addWaiter">
+<input v-model.trim="waiterPhone" placeholder="Телефон" style="flex:1">
+<button class="btn btn-green btn-sm" v-on:click="addWaiter" v-bind:disabled="!waiterName">+ Добавить</button>
+</div>
+<p class="muted" style="font-size:11px;margin:8px 0 0">Лимит: {{ maxWaiters }} ({{ waiters.length }} занято)</p>
+</div>
+<div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
+<label>🔑 Данные для входа официантов</label>
+<div class="row" style="margin-top:8px">
+<b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
+<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button>
+</div>
+<p class="muted" style="font-size:11px;margin:8px 0 0">Официант открывает waiter.html и вводит: код заведения + свой PIN.</p>
+</div>
+<div v-for="w in waiters" v-bind:key="w.id" class="glass menu-item" style="margin-bottom:10px;align-items:flex-start">
+<div style="flex:1;min-width:0">
+<b>🤵 {{ w.name }}</b>
+<span class="badge" v-bind:class="w.last_login_at?'b-ready':'b-cooking'">{{ w.last_login_at?'На связи':'Не выходил' }}</span>
+<div class="muted" style="font-size:12px;margin-top:6px">📞 {{ w.phone||'не указан' }} · 🕒 Вход: {{ fmtDateTime(w.last_login_at) }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">🔑 Вход: код <b style="color:#a5b4fc">{{ venue.slug }}</b> + PIN <b style="color:#a5b4fc">{{ w.pin }}</b></div>
+</div>
+<button class="btn btn-ghost btn-sm" v-on:click="copyWaiterLogin(w)">📋 Копировать доступ</button>
+<button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button>
+</div>
+<p v-if="!waiters.length" class="muted">Добавьте официантов — они будут выдавать готовые заказы в waiter.html.</p>
+</div>
+
 <div v-if="tab==='billing'">
 <div class="glass card" style="margin-bottom:16px;text-align:center">
 <h3>Тариф: {{ currentPlanName }}</h3>
@@ -288,6 +318,7 @@
 <li style="margin-bottom:6px">Заведений: {{ p.max_venues }}</li>
 <li style="margin-bottom:6px">Поваров: {{ p.max_cooks }}</li>
 <li style="margin-bottom:6px">Курьеров: {{ p.max_couriers||10 }}</li>
+<li style="margin-bottom:6px">Официантов: {{ p.max_waiters||10 }}</li>
 <li style="margin-bottom:6px">Позиций: {{ p.max_products }}</li>
 </ul>
 <button class="btn" v-bind:class="planBtnClass(p)" style="width:100%" v-bind:disabled="isCurrentPlan(p)" v-on:click="choosePlan(p)">
@@ -417,8 +448,8 @@ Vue.createApp({
 data: function() {
 return {
 ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:null,myVenues:[],venue:null,
-products:[],orders:[],cooks:[],couriers:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},
-cookName:'',courierName:'',courierPhone:'',vform:{},
+products:[],orders:[],cooks:[],couriers:[],waiters:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},
+cookName:'',courierName:'',courierPhone:'',waiterName:'',waiterPhone:'',vform:{},
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
 analyticsPeriod:'7',
 analytics:{revenue:0,clients:0,avgCheck:0,avgCookTime:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],cooks:[]},
@@ -432,6 +463,7 @@ modalTitle: function() { return this.editing ? 'Редактировать' : '�
 currentPlanName: function() { return this.currentPlan ? this.currentPlan.name : '-'; },
 maxCooks: function() { return this.currentPlan ? this.currentPlan.max_cooks : 999; },
 maxCouriers: function() { return this.currentPlan && this.currentPlan.max_couriers ? this.currentPlan.max_couriers : 999; },
+maxWaiters: function() { return this.currentPlan && this.currentPlan.max_waiters ? this.currentPlan.max_waiters : 999; },
 maxProducts: function() { return this.currentPlan ? this.currentPlan.max_products : '∞'; },
 revenue: function() { return this.orders.filter(function(o){return o.status==='done'}).reduce(function(s,o){return s+Number(o.total_price||0)},0); },
 activeCount: function() { return this.orders.filter(function(o){return ['new','cooking','delivery'].indexOf(o.status)!==-1}).length; },
@@ -479,6 +511,10 @@ this.copyText(txt);
 },
 copyCourierLogin: function(c){
 var txt='Вход для курьера '+c.name+':\nСайт: '+location.origin+'/courier.html\nКод заведения: '+this.venue.slug+'\nPIN: '+c.pin;
+this.copyText(txt);
+},
+copyWaiterLogin: function(w){
+var txt='Вход для официанта '+w.name+':\nСайт: '+location.origin+'/waiter.html\nКод заведения: '+this.venue.slug+'\nPIN: '+w.pin;
 this.copyText(txt);
 },
 
@@ -529,7 +565,7 @@ var self = this;
 this.venue=v; this.tab='menu'; this.subscriptionEnd=v.subscription_end;
 this.vform={name:v.name,description:v.description,brand_color:v.brand_color,logo_url:v.logo_url||''};
 if(this.isExpired(v)){ this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
-Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadPayments()]).then(function(){
+Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadWaiters(),this.loadPayments()]).then(function(){
 if(self.timer) clearInterval(self.timer);
 self.timer = setInterval(function(){ self.loadOrders(); }, 5000);
 });
@@ -538,6 +574,7 @@ loadProducts: function(){ var self=this; return db.from('products').select('*').
 loadOrders: function(){ var self=this; return db.from('orders').select('*,items:order_items(*)').eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50).then(function(r){ self.orders=r.data||[]; }); },
 loadCooks: function(){ var self=this; return db.from('cooks').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ if(r.error){ self.showToast('Ошибка загрузки поваров: '+r.error.message,'error'); } self.cooks=r.data||[]; }); },
 loadCouriers: function(){ var self=this; return db.from('couriers').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ if(r.error){ self.showToast('Ошибка загрузки курьеров: '+r.error.message,'error'); } self.couriers=r.data||[]; }); },
+loadWaiters: function(){ var self=this; return db.from('waiters').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){ if(r.error){ self.showToast('Ошибка загрузки официантов: '+r.error.message,'error'); } self.waiters=r.data||[]; }); },
 loadPayments: function(){ var self=this; return db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false}).then(function(r){ self.myPayments=r.data||[]; }); },
 
 loadAnalytics: function(){
@@ -725,6 +762,17 @@ self.courierName=''; self.courierPhone=''; self.loadCouriers(); self.showToast('
 });
 },
 delCourier: function(c){ if(!confirm('Удалить курьера '+c.name+'?')) return; var self=this; db.from('couriers').delete().eq('id',c.id).then(function(){ self.loadCouriers(); self.showToast('Удалено'); }); },
+
+addWaiter: function(){
+var self=this;
+if(this.waiters.length>=this.maxWaiters){ this.showToast('Лимит официантов по тарифу','error'); return; }
+var pin,a=0; do{ pin=String(Math.floor(1000+Math.random()*9000)); a++; }while(this.waiters.some(function(w){return w.pin===pin}) && a<10);
+db.from('waiters').insert({venue_id:this.venue.id,name:this.waiterName,phone:self.waiterPhone||null,pin:pin}).then(function(r){
+if(r.error){ self.showToast('Ошибка: '+r.error.message,'error'); return; }
+self.waiterName=''; self.waiterPhone=''; self.loadWaiters(); self.showToast('Официант добавлен! PIN: '+pin);
+});
+},
+delWaiter: function(w){ if(!confirm('Удалить официанта '+w.name+'?')) return; var self=this; db.from('waiters').delete().eq('id',w.id).then(function(){ self.loadWaiters(); self.showToast('Удалено'); }); },
 
 setStatus: function(id,status){
 var self=this; var u={status:status};
