@@ -94,6 +94,7 @@
 <button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
+<button v-bind:class="{on:tab==='design'}" v-on:click="tab='design'">🎨 Дизайн</button>
 </div>
 
 <div v-if="tab==='menu'">
@@ -349,6 +350,66 @@
 <p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px.</p></div>
 <div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
 </div>
+
+<!-- ===== НОВАЯ ВКЛАДКА ДИЗАЙН ===== -->
+<div v-if="tab==='design'" class="glass card" style="max-width:600px">
+<h3 style="margin-top:0">🎨 Дизайн меню</h3>
+<p class="muted" style="font-size:12px;margin-bottom:14px">Настройте внешний вид QR-меню для ваших клиентов.</p>
+
+<div class="field">
+<label>Логотип заведения</label>
+<div v-if="dform.logo_url" style="margin-bottom:10px;position:relative;display:inline-block">
+<img v-bind:src="dform.logo_url" style="width:90px;height:90px;object-fit:cover;border-radius:16px;border:1px solid rgba(255,255,255,.15)" alt="">
+<button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="dform.logo_url=''">×</button></div><br>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">
+<span v-if="!uploadingLogo">🖼 Загрузить логотип</span><span v-else>⏳ Загружаю...</span>
+<input type="file" accept="image/*" v-on:change="uploadDesignLogo" v-bind:disabled="uploadingLogo" style="display:none"></label>
+</div>
+
+<div class="field">
+<label>Фирменный цвет (градиент)</label>
+<div class="row">
+<input v-model="dform.brand_color" type="color" style="height:44px;padding:4px;flex:1">
+<span class="muted" style="font-size:12px">{{ dform.brand_color }}</span>
+</div>
+<p class="muted" style="font-size:11px">Этот цвет будет использоваться в заголовке и кнопках меню.</p>
+</div>
+
+<div class="field">
+<label>Шрифт заголовков</label>
+<select v-model="dform.font_family" style="width:auto">
+<option value="Plus+Jakarta+Sans">Plus Jakarta Sans (Современный)</option>
+<option value="Inter">Inter (Чистый)</option>
+<option value="Roboto">Roboto (Классический)</option>
+<option value="Montserrat">Montserrat (Элегантный)</option>
+<option value="Oswald">Oswald (Плотный)</option>
+</select>
+</div>
+
+<div class="field">
+<label>Цвет кнопок (акцент)</label>
+<div class="row">
+<input v-model="dform.button_color" type="color" style="height:44px;padding:4px;flex:1">
+<span class="muted" style="font-size:12px">{{ dform.button_color }}</span>
+</div>
+</div>
+
+<div class="field">
+<label>Цвет заголовка</label>
+<div class="row">
+<input v-model="dform.header_color" type="color" style="height:44px;padding:4px;flex:1">
+<span class="muted" style="font-size:12px">{{ dform.header_color }}</span>
+</div>
+</div>
+
+<div class="row" style="margin-top:10px">
+<button class="btn btn-primary" style="flex:1" v-on:click="saveDesign">💾 Сохранить дизайн</button>
+<button class="btn btn-ghost" v-on:click="resetDesign">↺ Сбросить</button>
+</div>
+<div v-if="designMsg" class="msg" v-bind:class="designMsgType" style="margin-top:12px">{{ designMsg }}</div>
+</div>
+<!-- ================================== -->
+
 </template>
 </div>
 
@@ -361,7 +422,6 @@
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
-<!-- ===== ОБНОВЛЕННАЯ МОДАЛКА С КНОПКОЙ ФОТО ===== -->
 <div v-if="showModal" class="modal" v-on:click.self="closeModal"><div class="glass box">
 <h3>{{ modalTitle }}</h3>
 <div class="field"><label>Название *</label><input v-model.trim="pform.name"></div>
@@ -382,10 +442,7 @@
 <select v-model="pform.applies_to">
 <option value="all">Ко всему</option><option value="main">К блюдам</option>
 <option value="drink">К напиткам</option><option value="main,drink">К блюдам и напиткам</option></select></div>
-
-<!-- ===== НОВЫЙ БЛОК ФОТО ===== -->
-<div class="field">
-<label>Фото блюда</label>
+<div class="field"><label>Фото блюда</label>
 <div v-if="pform.image_url" style="margin-bottom:10px;display:inline-block;position:relative;">
   <img v-bind:src="pform.image_url" style="width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid rgba(255,255,255,.15)" alt="Фото">
   <button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="pform.image_url=''">×</button>
@@ -398,8 +455,6 @@
 </label>
 <input v-model="pform.image_url" placeholder="Или вставьте ссылку на фото" style="margin-top:8px">
 </div>
-<!-- ============================== -->
-
 <div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveProduct" v-bind:disabled="uploading">Сохранить</button>
 <button class="btn btn-ghost" v-on:click="closeModal">Отмена</button></div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
@@ -416,6 +471,8 @@ data:function(){return{
 ready:false,busy:false,uploading:false,uploadingLogo:false,loadError:'',profile:null,myVenues:[],venue:null,
 products:[],orders:[],cooks:[],couriers:[],waiters:[],plans:[],tab:'menu',showModal:false,editing:null,pform:{},
 cookName:'',courierForm:{name:'',phone:''},waiterForm:{name:'',phone:''},vform:{},
+dform:{logo_url:'',brand_color:'#6366f1',font_family:'Plus+Jakarta+Sans',button_color:'#8b5cf6',header_color:'#ffffff'},
+designMsg:'',designMsgType:'',
 msg:'',msgType:'',toast:null,timer:null,formError:'',showCreateVenue:false,newVenueForm:{name:'',slug:''},
 analyticsPeriod:'7',analytics:{revenue:0,orders:0,clients:0,avgCheck:0,avgCookTime:0,newClients:0,repeatClients:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],daily:[],cooks:[],couriers:[],waiters:[]},
 subscriptionEnd:null,isBlocked:false,payPlan:null,myPayments:[],DEFAULT_IMG:window.DEFAULT_IMG
@@ -493,6 +550,15 @@ backToList:function(){this.venue=null;if(this.timer){clearInterval(this.timer);t
 selectVenue:function(v){var self=this;
 this.venue=v;this.tab='menu';this.subscriptionEnd=v.subscription_end;
 this.vform={name:v.name,description:v.description,brand_color:v.brand_color,logo_url:v.logo_url||''};
+// Загружаем настройки дизайна
+var ds = v.design_settings || {};
+this.dform = {
+  logo_url: ds.logo_url || v.logo_url || '',
+  brand_color: ds.brand_color || '#6366f1',
+  font_family: ds.font_family || 'Plus+Jakarta+Sans',
+  button_color: ds.button_color || '#8b5cf6',
+  header_color: ds.header_color || '#ffffff'
+};
 if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else{this.isBlocked=false}
 Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadWaiters(),this.loadPayments()]).then(function(){
 if(self.timer)clearInterval(self.timer);
@@ -657,6 +723,34 @@ saveVenue:function(){var self=this;self.busy=true;
 db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color,logo_url:this.vform.logo_url||null}).eq('id',this.venue.id).then(function(){
 return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
 }).then(function(r){self.venue=r.data;self.busy=false;self.showToast('Сохранено')})},
+
+// ===== МЕТОДЫ ДИЗАЙНА =====
+uploadDesignLogo:function(ev){var self=this;var f=ev.target.files[0];if(!f)return;self.uploadingLogo=true;
+self.resizeImage(f,512,.9).then(function(blob){
+var fn='logos/'+self.venue.id+'/'+Date.now()+'.jpg';
+return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
+if(r.error)throw r.error;
+self.dform.logo_url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
+self.showToast('Логотип загружен в дизайн');
+}).catch(function(e){self.showToast('Ошибка: '+e.message,'error')}).finally(function(){self.uploadingLogo=false;ev.target.value=''})},
+saveDesign:function(){var self=this;
+var settings={
+logo_url:this.dform.logo_url,
+brand_color:this.dform.brand_color,
+font_family:this.dform.font_family,
+button_color:this.dform.button_color,
+header_color:this.dform.header_color
+};
+db.from('venues').update({design_settings:settings}).eq('id',this.venue.id).then(function(r){
+if(r.error){self.designMsg='Ошибка сохранения: '+r.error.message;self.designMsgType='error';return}
+self.designMsg='✅ Дизайн сохранён!';self.designMsgType='ok';
+self.showToast('Дизайн сохранён');
+}).catch(function(e){self.designMsg='Ошибка: '+e.message;self.designMsgType='error'})},
+resetDesign:function(){
+this.dform={logo_url:this.venue.logo_url||'',brand_color:'#6366f1',font_family:'Plus+Jakarta+Sans',button_color:'#8b5cf6',header_color:'#ffffff'};
+this.designMsg='';this.designMsgType='';
+},
+// ========================
 
 logout:function(){try{db.auth.signOut()}catch(e){}if(this.timer)clearInterval(this.timer);location.href='/index.html'}
 },
