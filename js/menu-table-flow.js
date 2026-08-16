@@ -2,6 +2,7 @@
 'use strict';
 if(!/\/menu\.html$/i.test(location.pathname))return;
 var root=document.getElementById('app');
+var currentTable=null;
 function getVM(){
  if(!root)return null;
  try{
@@ -13,39 +14,25 @@ function getVM(){
 function token(){return new URLSearchParams(location.search).get('table')||'';}
 function tableText(t){return t?(t.name||('Стол '+t.table_number)):'';}
 async function loadTable(v){
- var t=token();
- if(!t||!v)return null;
- try{
-  var r=await db.rpc('get_public_table',{p_venue_id:v.id,p_qr_token:t});
-  if(!r.error&&r.data)return r.data;
- }catch(e){}
+ var t=token();if(!t||!v)return null;
+ try{var r=await db.rpc('get_public_table',{p_venue_id:v.id,p_qr_token:t});if(!r.error&&r.data)return r.data;}catch(e){}
  return null;
 }
-function showMenuTable(t){
- if(!t)return;
- var old=document.getElementById('qr-table-badge');if(old)old.remove();
- var hero=document.querySelector('.hero');
- if(hero){var b=document.createElement('div');b.id='qr-table-badge';b.style='display:inline-block;margin-top:10px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.18);font-weight:700;font-size:13px';b.textContent='🪑 '+tableText(t);hero.appendChild(b);}
-}
-function showTrackingTable(){
- var x=getVM();
- if(!x||!x.tracking)return;
- var card=document.querySelector('.order-card');
- if(!card)return;
- var old=document.getElementById('customer-table-badge');
- if(old)old.remove();
- var t=x.tracking;
- var text=t.table_name||((t.table_number!=null)?'Стол '+t.table_number:'');
+function badge(id,text){
  if(!text)return;
- var b=document.createElement('div');b.id='customer-table-badge';b.style='margin:10px 0;padding:10px 12px;border-radius:12px;background:rgba(99,102,241,.14);border:1px solid rgba(129,140,248,.3);color:#c7d2fe;font-weight:800;text-align:center';b.textContent='🪑 '+text;
- var status=card.querySelector('.spread');
- if(status)status.insertAdjacentElement('afterend',b);else card.insertBefore(b,card.firstChild);
+ var old=document.getElementById(id);if(old)old.remove();
+ var host=document.querySelector('.hero')||document.querySelector('.topbar');if(!host)return;
+ var b=document.createElement('div');b.id=id;b.style='display:block;width:max-content;max-width:100%;margin:10px auto 0;padding:7px 13px;border-radius:999px;background:rgba(99,102,241,.18);border:1px solid rgba(129,140,248,.32);color:#c7d2fe;font-weight:800;font-size:13px;box-sizing:border-box';b.textContent='🪑 '+text;host.appendChild(b);
+}
+function showMenuTable(t){if(t){currentTable=t;badge('qr-table-badge',tableText(t));}}
+function showTrackingTable(){
+ var x=getVM();if(!x)return;
+ var t=x.tracking;if(t&&t.table_number!=null||t&&t.table_name){badge('customer-table-badge',t.table_name||('Стол '+t.table_number));return;}
+ if(currentTable)badge('customer-table-badge',tableText(currentTable));
 }
 function install(x,t){
  if(!x||x.__tableFlowInstalled)return;
- x.__tableFlowInstalled=true;
- x.tableInfo=t||null;
- showMenuTable(t);
+ x.__tableFlowInstalled=true;x.tableInfo=t||null;showMenuTable(t);
  var oldCheckout=x.checkout;
  if(typeof oldCheckout==='function'){
   x.checkout=async function(){
@@ -63,14 +50,14 @@ function install(x,t){
     if(r.error)throw r.error;
     localStorage.setItem('last_phone',phone);if(r.data&&r.data.id)localStorage.setItem('last_order_id',r.data.id);
     self.cart=[];self.showCart=false;self.view='tracking';self.trackPhone=phone;self.previousStatus='';self.tracking=null;self.startTrackingTimer();await self.trackOrder();
+    setTimeout(showTrackingTable,50);
    }catch(e){self.msg='Ошибка: '+(e.message||String(e));}finally{self.busy=false;}
   };
  }
 }
 function tick(){
- var x=getVM();
- if(!x||!x.venue)return;
- if(!x.__tableFlowInstalled){loadTable(x.venue).then(function(t){install(x,t);});}
+ var x=getVM();if(!x)return;
+ if(x.venue&&!x.__tableFlowInstalled)loadTable(x.venue).then(function(t){install(x,t);showMenuTable(t);});
  showTrackingTable();
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',tick);else tick();
