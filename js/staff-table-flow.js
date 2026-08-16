@@ -29,28 +29,51 @@ function currentOrders(x){
  return [];
 }
 
+function mergeTableData(local,remote){
+ var byId={},byNumber={};
+ (remote||[]).forEach(function(o){
+  if(o&&o.id)byId[String(o.id)]=o;
+  if(o&&o.order_number!=null)byNumber[String(o.order_number)]=o;
+ });
+ return (local||[]).map(function(o){
+  var r=(o&&o.id&&byId[String(o.id)])||byNumber[String(o.order_number)];
+  if(!r)return o;
+  return Object.assign({},o,{
+   table_id:r.table_id||null,
+   table_number:r.table_number!=null?r.table_number:null,
+   table_name:r.table_name||null
+  });
+ });
+}
+
 async function refreshCache(){
  var x=vm();
  if(!x||!x.session||!x.session.token||loading)return;
- var local=currentOrders(x);
- if(local.length){
-  cache=local;
-  return;
- }
  loading=true;
  try{
   var r=await db.rpc('staff_orders_json',{p_token:x.session.token});
-  if(!r.error&&Array.isArray(r.data))cache=r.data;
- }catch(e){}
- loading=false;
+  var remote=Array.isArray(r.data)?r.data:[];
+  var local=currentOrders(x);
+  if(local.length){
+   cache=mergeTableData(local,remote);
+  }else if(remote.length){
+   cache=remote;
+  }else{
+   cache=[];
+  }
+ }catch(e){
+  var localFallback=currentOrders(x);
+  if(localFallback.length)cache=localFallback;
+ }finally{loading=false;}
 }
 
 function inject(){
  styles();
  var x=vm();
  var orders=currentOrders(x);
- if(orders.length)cache=orders;
- if(!cache.length)return;
+ if(orders.length&&cache.length===0)cache=orders;
+ if(!orders.length&&!cache.length)return;
+ var source=cache.length?cache:orders;
  document.querySelectorAll('.wcard').forEach(function(card){
   var head=card.querySelector('.spread');
   if(!head)return;
@@ -58,9 +81,9 @@ function inject(){
   if(!b)return;
   var m=String(b.textContent||'').match(/\d+/);
   if(!m)return;
-  var order=cache.find(function(o){return String(o.order_number)===String(m[0]);});
+  var order=source.find(function(o){return String(o.order_number)===String(m[0]);});
   if(!order)return;
-  var hasTable=!!(order.table_id||order.table_number||order.table_name);
+  var hasTable=!!(order.table_id||order.table_number!=null||order.table_name);
   var text=hasTable?'🪑 '+(order.table_name||('Стол '+order.table_number)):'📦 Без стола';
   var old=card.querySelector('.staff-table-badge');
   if(old){
