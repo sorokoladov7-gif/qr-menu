@@ -63,18 +63,47 @@ window.staffUpdateOrder = async function(token, orderId, status){
 
   db.from = function(table){
     if(table === 'orders'){
-      return wrap('orders', function(values){
-        pending = {values: values, actualOrderId: null};
-        return {
-          select: function(){
-            return {
-              single: async function(){
-                var fakeId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+      var targetOrders = originalFrom('orders');
+      return new Proxy(targetOrders, {
+        get: function(obj, prop){
+          if(prop === 'insert'){
+            return function(values){
+              pending = {values: values, actualOrderId: null};
+              return {select:function(){return {single:async function(){
+                var fakeId=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now());
                 return {data:{id:fakeId},error:null};
-              }
+              }}}};
             };
           }
-        };
+          if(prop === 'select'){
+            return function(columns){
+              if(columns && columns.indexOf('items:order_items')!==-1 && columns.indexOf('addons:order_addons')!==-1){
+                var venueId=null, customerPhone=null;
+                var chain={
+                  eq:function(field,value){
+                    if(field==='venue_id') venueId=value;
+                    if(field==='customer_phone') customerPhone=value;
+                    return chain;
+                  },
+                  order:function(){return chain;},
+                  limit:function(){return chain;},
+                  maybeSingle:async function(){
+                    if(!venueId||!customerPhone) return {data:null,error:null};
+                    var r=await db.rpc('get_public_order',{p_venue_id:venueId,p_customer_phone:customerPhone});
+                    if(r.error) return {data:null,error:r.error};
+                    var d=r.data;
+                    if(Array.isArray(d)) d=d.length?d[0]:null;
+                    return {data:d||null,error:null};
+                  }
+                };
+                return chain;
+              }
+              return obj.select.apply(obj,arguments);
+            };
+          }
+          var value=obj[prop];
+          return typeof value==='function'?value.bind(obj):value;
+        }
       });
     }
 
