@@ -1,9 +1,9 @@
 {
-  "id": "/manager-pwa-v1",
+  "id": "/manager.html",
   "name": "Кабинет управляющего — QR-Меню для Бизнеса",
   "short_name": "Управляющий",
   "description": "Управление заведением: меню, заказы, аналитика, тарифы",
-  "start_url": "/manager-pwa.html",
+  "start_url": "/manager.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
