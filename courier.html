@@ -3,365 +3,1488 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+
 <title>Курьер</title>
+
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+
 <meta name="theme-color" content="#0b1020">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Курьер">
+
 <link rel="manifest" href="/manifest-courier.webmanifest">
 <link rel="apple-touch-icon" href="/icon-courier-192.png">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+    rel="stylesheet"
+>
+
 <link rel="stylesheet" href="css/style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@Supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<style>[v-cloak]{display:none}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}.col h4{margin:0 0 10px;font-size:14px}.wcard{padding:12px;margin-bottom:10px}.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat-box .num{font-size:22px;font-weight:800}.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}</style>
-</head>
-<body>
-<div class="glow" style="width:40vw;height:40vw;background:rgba(245,158,11,.12);top:-100px;left:-100px"></div>
-<div id="app" v-cloak>
-<div class="topbar"><div class="brand"><div class="logo">🚗</div><span>Курьер{{ session?' · '+session.venueName:'' }}</span></div><div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div></div>
-<div class="wrap">
-<div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto"><h3 style="margin-top:0">Вход для курьера</h3><div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div><div class="field"><label>PIN</label><input v-model.trim="loginForm.pin" type="password" inputmode="numeric" v-on:keyup.enter="login"></div><button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button><div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div></div>
-<template v-else>
-<div class="muted" style="font-size:12px;margin-bottom:12px">🚗 {{ session.courierName }} · заказы обновляются автоматически</div>
-<div class="stats-grid"><div class="stat-box" style="border-color:#34d399"><div class="num">{{ courierStats.done }}</div><div class="lbl">Доставлено</div></div><div class="stat-box" style="border-color:#fbbf24"><div class="num">{{ courierStats.inProgress }}</div><div class="lbl">Сейчас в пути</div></div><div class="stat-box" style="border-color:#60a5fa"><div class="num">{{ courierStats.total }}</div><div class="lbl">Всего взято</div></div><div class="stat-box" style="border-color:#a78bfa"><div class="num">{{ fmt(courierStats.revenue) }} ₽</div><div class="lbl">Выручка заказов</div></div></div>
-<div class="cols"><div class="col"><h4>📦 Ждут выезда ({{ colReady.length }})</h4><div v-for="o in colReady" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-ready">готов к выезду</span></div><div class="muted" style="font-size:12px;margin-top:6px">📍 {{ o.delivery_address }}</div><div class="muted" style="font-size:12px;margin-top:4px">📞 {{ o.customer_phone }} {{ o.customer_name?'· '+o.customer_name:'' }}</div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div><div class="muted" style="font-size:12px;margin-top:6px">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено картой' }}</div><button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" v-on:click="take(o.id)">🚗 Взять на доставку</button></div><p v-if="!colReady.length" class="muted">Пусто — ждите готовые заказы</p></div>
-<div class="col"><h4>🚗 В доставке ({{ colDelivery.length }})</h4><div v-for="o in colDelivery" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-delivery">в пути</span></div><div class="muted" style="font-size:12px;margin-top:6px">📍 {{ o.delivery_address }}</div><div class="muted" style="font-size:12px;margin-top:4px">📞 {{ o.customer_phone }}</div><div class="muted" style="font-size:12px;margin-top:6px">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено' }}</div><button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" v-on:click="done(o.id)">✅ Доставлено</button></div><p v-if="!colDelivery.length" class="muted">Пусто</p></div></div>
-<div class="glass card" style="margin-top:18px"><h4 style="margin:0 0 12px">📜 Моя история (последние доставки)</h4><div v-for="o in courierHistory" v-bind:key="o.id" class="row" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><div style="flex:1;font-size:13px"><b>№{{ o.order_number }}</b> — {{ o.customer_name||'Клиент' }} <span class="muted" style="font-size:11px">📍 {{ o.delivery_address || '—' }}</span></div><div class="muted" style="font-size:12px">{{ fmtDate(o.created_at) }}</div><div style="color:#34d399;font-weight:700">{{ fmt(o.total_price) }} ₽</div></div><p v-if="!courierHistory.length" class="muted" style="padding:8px 0">У вас пока нет завершённых доставок.</p></div>
-</template></div></div>
-<script src="js/config.js"></script><script src="js/app.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function () {
-        navigator.serviceWorker.register('/sw.js').catch(function () {});
-    });
+
+<style>
+[v-cloak] {
+    display: none;
 }
 
+.cols {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+    align-items: start;
+}
+
+.col h4 {
+    margin: 0 0 10px;
+    font-size: 14px;
+}
+
+.wcard {
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.b-ready {
+    background: rgba(52,211,153,.15);
+    color: #6ee7b7;
+}
+
+.b-delivery {
+    background: rgba(167,139,250,.15);
+    color: #c4b5fd;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.stat-box {
+    background: rgba(255,255,255,.03);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+}
+
+.stat-box .num {
+    font-size: 22px;
+    font-weight: 800;
+}
+
+.stat-box .lbl {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+}
+
+.login-info {
+    margin-top: 12px;
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.error-box {
+    margin-top: 10px;
+}
+
+.loading {
+    opacity: .7;
+    pointer-events: none;
+}
+</style>
+</head>
+
+<body>
+
+<div
+    class="glow"
+    style="
+        width:40vw;
+        height:40vw;
+        background:rgba(245,158,11,.12);
+        top:-100px;
+        left:-100px
+    "
+></div>
+
+<div id="app" v-cloak>
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+
+        <div class="brand">
+            <div class="logo">🚗</div>
+
+            <span>
+                Курьер
+                <span v-if="session">
+                    · {{ session.venueName }}
+                </span>
+            </span>
+        </div>
+
+        <div class="row">
+
+            <button
+                v-if="session"
+                class="btn btn-ghost btn-sm"
+                v-on:click="logout"
+            >
+                Выйти
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <div class="wrap">
+
+        <!-- LOGIN -->
+        <div
+            v-if="!session"
+            class="glass card"
+            style="max-width:400px;margin:40px auto"
+        >
+
+            <h3 style="margin-top:0">
+                Вход для курьера
+            </h3>
+
+            <div class="field">
+
+                <label>
+                    Код заведения
+                </label>
+
+                <input
+                    v-model.trim="loginForm.slug"
+                    placeholder="my-cafe"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    spellcheck="false"
+                >
+
+            </div>
+
+
+            <div class="field">
+
+                <label>
+                    PIN
+                </label>
+
+                <input
+                    v-model.trim="loginForm.pin"
+                    type="password"
+                    inputmode="numeric"
+                    autocomplete="current-password"
+                    v-on:keyup.enter="login"
+                >
+
+            </div>
+
+
+            <button
+                class="btn btn-primary"
+                style="width:100%"
+                v-on:click="login"
+                v-bind:disabled="busy"
+            >
+                {{ busy ? 'Проверяем...' : 'Войти' }}
+            </button>
+
+
+            <div
+                v-if="err"
+                class="msg error error-box"
+            >
+                {{ err }}
+            </div>
+
+
+            <div class="login-info">
+                Для теста: код заведения <b>demo</b>
+            </div>
+
+        </div>
+
+
+        <!-- COURIER CABINET -->
+        <template v-else>
+
+            <div
+                class="muted"
+                style="font-size:12px;margin-bottom:12px"
+            >
+                🚗 {{ session.courierName }}
+                · заказы обновляются автоматически
+            </div>
+
+
+            <!-- STATS -->
+            <div class="stats-grid">
+
+                <div
+                    class="stat-box"
+                    style="border-color:#34d399"
+                >
+                    <div class="num">
+                        {{ courierStats.done }}
+                    </div>
+
+                    <div class="lbl">
+                        Доставлено
+                    </div>
+                </div>
+
+
+                <div
+                    class="stat-box"
+                    style="border-color:#fbbf24"
+                >
+                    <div class="num">
+                        {{ courierStats.inProgress }}
+                    </div>
+
+                    <div class="lbl">
+                        Сейчас в пути
+                    </div>
+                </div>
+
+
+                <div
+                    class="stat-box"
+                    style="border-color:#60a5fa"
+                >
+                    <div class="num">
+                        {{ courierStats.total }}
+                    </div>
+
+                    <div class="lbl">
+                        Всего взято
+                    </div>
+                </div>
+
+
+                <div
+                    class="stat-box"
+                    style="border-color:#a78bfa"
+                >
+                    <div class="num">
+                        {{ fmt(courierStats.revenue) }} ₽
+                    </div>
+
+                    <div class="lbl">
+                        Выручка заказов
+                    </div>
+                </div>
+
+            </div>
+
+
+            <!-- ORDERS -->
+            <div class="cols">
+
+                <!-- READY -->
+                <div class="col">
+
+                    <h4>
+                        📦 Ждут выезда
+                        ({{ colReady.length }})
+                    </h4>
+
+
+                    <div
+                        v-for="o in colReady"
+                        v-bind:key="o.id"
+                        class="glass wcard"
+                    >
+
+                        <div class="spread">
+
+                            <b>
+                                №{{ o.order_number }}
+                            </b>
+
+                            <span class="badge b-ready">
+                                готов к выезду
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            class="muted"
+                            style="font-size:12px;margin-top:6px"
+                        >
+                            📍 {{ o.delivery_address || 'Адрес не указан' }}
+                        </div>
+
+
+                        <div
+                            class="muted"
+                            style="font-size:12px;margin-top:4px"
+                        >
+                            📞 {{ o.customer_phone || 'Телефон не указан' }}
+
+                            <span v-if="o.customer_name">
+                                · {{ o.customer_name }}
+                            </span>
+                        </div>
+
+
+                        <div
+                            style="font-size:13px;margin-top:6px"
+                        >
+
+                            <div
+                                v-for="it in (o.items || [])"
+                                v-bind:key="it.id"
+                            >
+                                {{ it.qty }}x {{ it.name }}
+                            </div>
+
+                        </div>
+
+
+                        <div
+                            class="muted"
+                            style="font-size:12px;margin-top:6px"
+                        >
+
+                            <span v-if="o.payment_method === 'cash'">
+                                💵 Собрать {{ fmt(o.total_price) }} ₽
+                            </span>
+
+                            <span v-else>
+                                💳 Оплачено картой
+                            </span>
+
+                        </div>
+
+
+                        <button
+                            class="btn btn-primary btn-sm"
+                            style="width:100%;margin-top:10px"
+                            v-on:click="take(o.id)"
+                            v-bind:disabled="busy"
+                        >
+                            🚗 Взять на доставку
+                        </button>
+
+                    </div>
+
+
+                    <p
+                        v-if="!colReady.length"
+                        class="muted"
+                    >
+                        Пусто — ждите готовые заказы
+                    </p>
+
+                </div>
+
+
+                <!-- DELIVERY -->
+                <div class="col">
+
+                    <h4>
+                        🚗 В доставке
+                        ({{ colDelivery.length }})
+                    </h4>
+
+
+                    <div
+                        v-for="o in colDelivery"
+                        v-bind:key="o.id"
+                        class="glass wcard"
+                    >
+
+                        <div class="spread">
+
+                            <b>
+                                №{{ o.order_number }}
+                            </b>
+
+                            <span class="badge b-delivery">
+                                в пути
+                            </span>
+
+                        </div>
+
+
+                        <div
+                            class="muted"
+                            style="font-size:12px;margin-top:6px"
+                        >
+                            📍 {{ o.delivery_address || 'Адрес не указан' }}
+                        </div>
+
+
+                        <div
+                            class="muted"
+                            style="font-size:12px;margin-top:4px"
+                        >
+                            📞 {{ o.customer_phone || 'Телефон не указан' }}
+                        </div>
+
+
+                        <div
+                            class="muted"
+                            style="font-size:12px;margin-top:6px"
+                        >
+
+                            <span v-if="o.payment_method === 'cash'">
+                                💵 Собрать {{ fmt(o.total_price) }} ₽
+                            </span>
+
+                            <span v-else>
+                                💳 Оплачено
+                            </span>
+
+                        </div>
+
+
+                        <button
+                            class="btn btn-green btn-sm"
+                            style="width:100%;margin-top:10px"
+                            v-on:click="done(o.id)"
+                            v-bind:disabled="busy"
+                        >
+                            ✅ Доставлено
+                        </button>
+
+                    </div>
+
+
+                    <p
+                        v-if="!colDelivery.length"
+                        class="muted"
+                    >
+                        Пусто
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <!-- HISTORY -->
+            <div
+                class="glass card"
+                style="margin-top:18px"
+            >
+
+                <h4 style="margin:0 0 12px">
+                    📜 Моя история
+                    (последние доставки)
+                </h4>
+
+
+                <div
+                    v-for="o in courierHistory"
+                    v-bind:key="o.id"
+                    class="row"
+                    style="
+                        padding:8px 0;
+                        border-bottom:1px solid rgba(255,255,255,.05)
+                    "
+                >
+
+                    <div
+                        style="
+                            flex:1;
+                            font-size:13px
+                        "
+                    >
+
+                        <b>
+                            №{{ o.order_number }}
+                        </b>
+
+                        —
+
+                        {{ o.customer_name || 'Клиент' }}
+
+                        <span
+                            class="muted"
+                            style="font-size:11px"
+                        >
+                            📍 {{ o.delivery_address || '—' }}
+                        </span>
+
+                    </div>
+
+
+                    <div
+                        class="muted"
+                        style="font-size:12px"
+                    >
+                        {{ fmtDate(o.created_at) }}
+                    </div>
+
+
+                    <div
+                        style="
+                            color:#34d399;
+                            font-weight:700
+                        "
+                    >
+                        {{ fmt(o.total_price) }} ₽
+                    </div>
+
+                </div>
+
+
+                <p
+                    v-if="!courierHistory.length"
+                    class="muted"
+                    style="padding:8px 0"
+                >
+                    У вас пока нет завершённых доставок.
+                </p>
+
+            </div>
+
+        </template>
+
+    </div>
+
+</div>
+
+
+<!-- SUPABASE CONFIG -->
+<script src="js/config.js"></script>
+
+<!-- COMMON APP -->
+<script src="js/app.js"></script>
+
+
+<script>
+
+/*
+ * ============================================================
+ * COURIER PWA
+ * ============================================================
+ */
+
+if ('serviceWorker' in navigator) {
+
+    window.addEventListener('load', function () {
+
+        navigator.serviceWorker
+            .register('/sw.js')
+            .catch(function (error) {
+                console.warn(
+                    'Service Worker:',
+                    error
+                );
+            });
+
+    });
+
+}
+
+
+/*
+ * ============================================================
+ * VUE APPLICATION
+ * ============================================================
+ */
+
 Vue.createApp({
+
     data: function () {
+
         return {
+
             session: null,
+
             busy: false,
+
             err: '',
+
             loginForm: {
                 slug: '',
                 pin: ''
             },
+
             orders: [],
+
+            history: [],
+
             timer: null,
-            statsTimer: null,
-            history: []
+
+            statsTimer: null
+
         };
+
     },
+
 
     computed: {
+
+        /*
+         * Готовые к доставке
+         */
         colReady: function () {
+
             return this.orders.filter(function (o) {
+
                 return o.status === 'ready';
+
             });
+
         },
 
+
+        /*
+         * Заказы в доставке
+         */
         colDelivery: function () {
+
             return this.orders.filter(function (o) {
+
                 return o.status === 'delivery';
+
             });
+
         },
 
+
+        /*
+         * Статистика курьера
+         */
         courierStats: function () {
+
             var done = 0;
+
             var inProgress = 0;
-            var rev = 0;
+
+            var revenue = 0;
+
 
             this.history.forEach(function (o) {
+
                 if (o.status === 'done') {
+
                     done++;
-                    rev += Number(o.total_price || 0);
+
+                    revenue += Number(
+                        o.total_price || 0
+                    );
+
                 }
+
 
                 if (o.status === 'delivery') {
+
                     inProgress++;
+
                 }
+
             });
 
+
             return {
+
                 done: done,
+
                 inProgress: inProgress,
+
                 total: done + inProgress,
-                revenue: rev
+
+                revenue: revenue
+
             };
+
         },
 
+
+        /*
+         * История
+         */
         courierHistory: function () {
+
             return this.history.slice(0, 20);
+
         }
+
     },
 
+
     methods: {
-        fmt: function (v) {
-            return window.fmt(v);
-        },
 
-        fmtDate: function (d) {
-            return d
-                ? new Date(d).toLocaleDateString('ru-RU')
-                : '-';
-        },
+        /*
+         * Форматирование суммы
+         */
+        fmt: function (value) {
 
-        login: function () {
-            var self = this;
+            if (
+                window.fmt &&
+                typeof window.fmt === 'function'
+            ) {
 
-            self.err = '';
-            self.busy = true;
+                return window.fmt(value);
 
-            var slug = (self.loginForm.slug || '')
-                .replace(/\s+/g, '')
-                .toLowerCase();
-
-            var pin = (self.loginForm.pin || '')
-                .replace(/\s+/g, '');
-
-            if (!slug || !pin) {
-                self.err = 'Заполните оба поля';
-                self.busy = false;
-                return;
             }
 
-            db.rpc('staff_login', {
-                p_type: 'courier',
-                p_slug: slug,
-                p_pin: pin
-            })
-            .then(function (r) {
-                if (r.error) {
-                    throw r.error;
+            return Number(value || 0)
+                .toLocaleString('ru-RU');
+
+        },
+
+
+        /*
+         * Форматирование даты
+         */
+        fmtDate: function (date) {
+
+            if (!date) {
+
+                return '-';
+
+            }
+
+            return new Date(date)
+                .toLocaleDateString('ru-RU');
+
+        },
+
+
+        /*
+         * ====================================================
+         * LOGIN
+         * ====================================================
+         */
+
+        login: function () {
+
+            var self = this;
+
+
+            self.err = '';
+
+            self.busy = true;
+
+
+            var slug = String(
+                self.loginForm.slug || ''
+            )
+            .replace(/\s+/g, '')
+            .toLowerCase();
+
+
+            var pin = String(
+                self.loginForm.pin || ''
+            )
+            .replace(/\s+/g, '');
+
+
+            if (!slug || !pin) {
+
+                self.err =
+                    'Введите код заведения и PIN';
+
+                self.busy = false;
+
+                return;
+
+            }
+
+
+            /*
+             * Вызов существующей Supabase RPC
+             */
+            db.rpc(
+                'staff_login',
+                {
+                    p_type: 'courier',
+                    p_slug: slug,
+                    p_pin: pin
+                }
+            )
+
+            .then(function (result) {
+
+                if (result.error) {
+
+                    throw result.error;
+
                 }
 
-                var payload = r.data;
 
+                var payload = result.data;
+
+
+                /*
+                 * Supabase может вернуть массив
+                 */
                 if (Array.isArray(payload)) {
+
                     payload = payload[0];
+
                 }
 
+
+                /*
+                 * На некоторых версиях RPC
+                 * результат приходит JSON-строкой
+                 */
                 if (typeof payload === 'string') {
+
                     try {
+
                         payload = JSON.parse(payload);
+
                     } catch (e) {
+
                         payload = null;
+
                     }
+
                 }
 
-                var row = payload && payload.staff_login
-                    ? payload.staff_login
-                    : payload;
 
-                if (!row || !row.token) {
-                    self.err = 'Неверный PIN или код заведения';
+                var row = payload;
+
+
+                if (
+                    payload &&
+                    payload.staff_login
+                ) {
+
+                    row = payload.staff_login;
+
+                }
+
+
+                /*
+                 * Проверяем токен
+                 */
+                if (
+                    !row ||
+                    !row.token
+                ) {
+
+                    self.err =
+                        'Неверный PIN или код заведения';
+
                     self.busy = false;
+
                     return;
+
                 }
 
+
+                /*
+                 * Создаём сессию
+                 */
                 self.session = {
+
                     token: row.token,
-                    venueId: row.venueId || row.venue_id,
-                    venueName: row.venueName || row.venue_name,
+
+                    venueId:
+                        row.venueId ||
+                        row.venue_id ||
+                        null,
+
+                    venueName:
+                        row.venueName ||
+                        row.venue_name ||
+                        '',
+
                     courierId:
                         row.staffId ||
                         row.staff_id ||
                         row.courierId ||
                         row.courier_id ||
                         null,
+
                     courierName:
                         row.staffName ||
                         row.staff_name ||
                         row.courierName ||
                         row.courier_name ||
                         'Курьер'
+
                 };
 
+
+                /*
+                 * Сохраняем сессию
+                 */
                 localStorage.setItem(
                     'courier_session',
-                    JSON.stringify(self.session)
+                    JSON.stringify(
+                        self.session
+                    )
                 );
 
+
                 self.busy = false;
 
+
+                /*
+                 * Загружаем данные
+                 */
                 self.load();
-                self.loadHistory();
-                self.startTimer();
-                self.startStatsTimer();
-            })
-            .catch(function (e) {
-                console.error('courier staff_login:', e);
 
-                self.err = e && e.message
-                    ? 'Ошибка входа: ' + e.message
-                    : 'Ошибка входа';
+                self.loadHistory();
+
+                self.startTimer();
+
+                self.startStatsTimer();
+
+            })
+
+            .catch(function (error) {
+
+                console.error(
+                    'courier staff_login:',
+                    error
+                );
+
+
+                self.err =
+                    error &&
+                    error.message
+                        ? 'Ошибка входа: ' +
+                          error.message
+                        : 'Ошибка входа';
+
 
                 self.busy = false;
+
             });
+
         },
+
+
+        /*
+         * ====================================================
+         * LOGOUT
+         * ====================================================
+         */
 
         logout: function () {
-            localStorage.removeItem('courier_session');
+
+            localStorage.removeItem(
+                'courier_session'
+            );
+
 
             if (this.timer) {
-                clearInterval(this.timer);
+
+                clearInterval(
+                    this.timer
+                );
+
                 this.timer = null;
+
             }
 
+
             if (this.statsTimer) {
-                clearInterval(this.statsTimer);
+
+                clearInterval(
+                    this.statsTimer
+                );
+
                 this.statsTimer = null;
+
             }
+
 
             this.session = null;
+
             this.orders = [];
+
             this.history = [];
 
+
             this.loginForm = {
+
                 slug: '',
+
                 pin: ''
+
             };
+
         },
+
+
+        /*
+         * ====================================================
+         * LOAD ACTIVE ORDERS
+         * ====================================================
+         */
 
         load: function () {
+
             var self = this;
 
+
             if (!self.session) {
+
                 return;
+
             }
 
+
             db.from('orders')
-                .select('*, items:order_items(*)')
-                .eq('venue_id', self.session.venueId)
-                .eq('order_type', 'delivery')
-                .in('status', ['ready', 'delivery'])
-                .order('created_at', {
-                    ascending: false
-                })
-                .limit(30)
-                .then(function (r) {
-                    if (!r.error) {
-                        self.orders = r.data || [];
+
+                .select(
+                    '*, items:order_items(*)'
+                )
+
+                .eq(
+                    'venue_id',
+                    self.session.venueId
+                )
+
+                .eq(
+                    'order_type',
+                    'delivery'
+                )
+
+                .in(
+                    'status',
+                    [
+                        'ready',
+                        'delivery'
+                    ]
+                )
+
+                .order(
+                    'created_at',
+                    {
+                        ascending: false
                     }
+                )
+
+                .limit(30)
+
+                .then(function (result) {
+
+                    if (result.error) {
+
+                        console.error(
+                            'Courier orders:',
+                            result.error
+                        );
+
+                        return;
+
+                    }
+
+
+                    self.orders =
+                        result.data || [];
+
                 });
+
         },
+
+
+        /*
+         * ====================================================
+         * LOAD HISTORY
+         * ====================================================
+         */
 
         loadHistory: function () {
+
             var self = this;
+
 
             if (!self.session) {
+
                 return;
+
             }
 
+
             db.from('orders')
+
                 .select('*')
-                .eq('venue_id', self.session.venueId)
-                .eq('courier_name', self.session.courierName)
-                .in('status', ['done', 'delivery'])
-                .order('created_at', {
-                    ascending: false
-                })
-                .limit(50)
-                .then(function (r) {
-                    if (!r.error) {
-                        self.history = r.data || [];
+
+                .eq(
+                    'venue_id',
+                    self.session.venueId
+                )
+
+                .eq(
+                    'courier_name',
+                    self.session.courierName
+                )
+
+                .in(
+                    'status',
+                    [
+                        'done',
+                        'delivery'
+                    ]
+                )
+
+                .order(
+                    'created_at',
+                    {
+                        ascending: false
                     }
+                )
+
+                .limit(50)
+
+                .then(function (result) {
+
+                    if (result.error) {
+
+                        console.error(
+                            'Courier history:',
+                            result.error
+                        );
+
+                        return;
+
+                    }
+
+
+                    self.history =
+                        result.data || [];
+
                 });
+
         },
+
+
+        /*
+         * ====================================================
+         * AUTO REFRESH ORDERS
+         * ====================================================
+         */
 
         startTimer: function () {
+
             if (this.timer) {
-                clearInterval(this.timer);
+
+                clearInterval(
+                    this.timer
+                );
+
             }
+
 
             var self = this;
 
-            this.timer = setInterval(function () {
-                self.load();
-            }, 3000);
+
+            this.timer = setInterval(
+                function () {
+
+                    self.load();
+
+                },
+                3000
+            );
+
         },
+
+
+        /*
+         * ====================================================
+         * AUTO REFRESH HISTORY
+         * ====================================================
+         */
 
         startStatsTimer: function () {
+
             if (this.statsTimer) {
-                clearInterval(this.statsTimer);
+
+                clearInterval(
+                    this.statsTimer
+                );
+
             }
+
 
             var self = this;
 
-            this.statsTimer = setInterval(function () {
-                self.loadHistory();
-            }, 10000);
+
+            this.statsTimer = setInterval(
+                function () {
+
+                    self.loadHistory();
+
+                },
+                10000
+            );
+
         },
+
+
+        /*
+         * ====================================================
+         * TAKE DELIVERY
+         * ====================================================
+         */
 
         take: function (id) {
+
             var self = this;
 
+
+            self.busy = true;
+
+
             db.from('orders')
+
                 .update({
+
                     status: 'delivery',
-                    courier_name: self.session.courierName
+
+                    courier_name:
+                        self.session.courierName
+
                 })
-                .eq('id', id)
-                .then(function () {
+
+                .eq(
+                    'id',
+                    id
+                )
+
+                .then(function (result) {
+
+                    if (result.error) {
+
+                        throw result.error;
+
+                    }
+
+
                     self.load();
+
+                    self.loadHistory();
+
+                })
+
+                .catch(function (error) {
+
+                    console.error(
+                        'Take delivery:',
+                        error
+                    );
+
+                })
+
+                .finally(function () {
+
+                    self.busy = false;
+
                 });
+
         },
 
+
+        /*
+         * ====================================================
+         * COMPLETE DELIVERY
+         * ====================================================
+         */
+
         done: function (id) {
+
             var self = this;
 
+
+            self.busy = true;
+
+
             db.from('orders')
+
                 .update({
+
                     status: 'done'
+
                 })
-                .eq('id', id)
-                .then(function () {
+
+                .eq(
+                    'id',
+                    id
+                )
+
+                .then(function (result) {
+
+                    if (result.error) {
+
+                        throw result.error;
+
+                    }
+
+
                     self.load();
+
                     self.loadHistory();
+
+                })
+
+                .catch(function (error) {
+
+                    console.error(
+                        'Complete delivery:',
+                        error
+                    );
+
+                })
+
+                .finally(function () {
+
+                    self.busy = false;
+
                 });
+
         }
+
     },
+
+
+    /*
+     * ========================================================
+     * MOUNTED
+     * ========================================================
+     */
 
     mounted: function () {
-        var saved = localStorage.getItem('courier_session');
+
         var self = this;
 
+
+        var saved =
+            localStorage.getItem(
+                'courier_session'
+            );
+
+
+        /*
+         * Восстановление сессии
+         */
         if (saved) {
+
             try {
-                self.session = JSON.parse(saved);
+
+                self.session =
+                    JSON.parse(saved);
+
+
+                if (
+                    !self.session ||
+                    !self.session.venueId ||
+                    !self.session.token
+                ) {
+
+                    throw new Error(
+                        'Invalid courier session'
+                    );
+
+                }
+
+
                 self.load();
+
                 self.loadHistory();
+
                 self.startTimer();
+
                 self.startStatsTimer();
-            } catch (e) {
-                localStorage.removeItem('courier_session');
+
             }
+
+            catch (error) {
+
+                console.warn(
+                    'Invalid saved courier session',
+                    error
+                );
+
+
+                localStorage.removeItem(
+                    'courier_session'
+                );
+
+            }
+
         }
 
-        document.addEventListener('visibilitychange', function () {
-            if (
-                document.visibilityState === 'visible' &&
-                self.session
-            ) {
-                self.load();
-                self.loadHistory();
+
+        /*
+         * Обновление при возврате
+         * во вкладку браузера
+         */
+        document.addEventListener(
+            'visibilitychange',
+            function () {
+
+                if (
+                    document.visibilityState ===
+                    'visible' &&
+                    self.session
+                ) {
+
+                    self.load();
+
+                    self.loadHistory();
+
+                }
+
             }
-        });
+        );
+
     },
 
+
+    /*
+     * ========================================================
+     * BEFORE UNMOUNT
+     * ========================================================
+     */
+
     beforeUnmount: function () {
+
         if (this.timer) {
-            clearInterval(this.timer);
+
+            clearInterval(
+                this.timer
+            );
+
+            this.timer = null;
+
         }
 
+
         if (this.statsTimer) {
-            clearInterval(this.statsTimer);
+
+            clearInterval(
+                this.statsTimer
+            );
+
+            this.statsTimer = null;
+
         }
+
     }
+
 }).mount('#app');
+
 </script>
+
 </body>
 </html>
