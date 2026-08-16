@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="/icon-courier-192.png">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js" onerror="this.onerror=null;this.src='https://unpkg.com/vue@3/dist/vue.global.prod.js'"></script>
 <style>
 [v-cloak]{display:none}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}.wcard{padding:12px;margin-bottom:10px}.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat-box .num{font-size:22px;font-weight:800}.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}.login-info{text-align:center;margin-top:12px;font-size:12px;color:#9ca3af}
 </style>
@@ -42,6 +42,7 @@ async function callRpc(name,args){const r=await fetch(SUPABASE_URL+'/rest/v1/rpc
 function arr(v){if(v==null)return[];if(Array.isArray(v))return v;if(typeof v==='string'){try{return arr(JSON.parse(v))}catch(e){return[]}}if(typeof v==='object'){if(Array.isArray(v.orders))return v.orders;if(Array.isArray(v.data))return v.data;if(Array.isArray(v.items))return v.items;return [v]}return[]}
 function normalizeLogin(v){if(Array.isArray(v))v=v[0];if(typeof v==='string'){try{v=JSON.parse(v)}catch(e){}}if(v&&v.staff_login)v=v.staff_login;return v||null}
 function normalizeOrders(v){if(v&&typeof v==='object'&&!Array.isArray(v)){if(Array.isArray(v.orders))v=v.orders;else if(Array.isArray(v.data))v=v.data;else if(Array.isArray(v.result))v=v.result}return arr(v)}
+if(typeof Vue==='undefined'){throw new Error('Vue CDN failed to load');}
 Vue.createApp({
  data(){return{session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],history:[],timer:null,statsTimer:null}},
  computed:{colReady(){return this.orders.filter(o=>o.status==='ready')},colDelivery(){return this.orders.filter(o=>o.status==='delivery')},courierStats(){let done=0,inProgress=0,revenue=0;this.history.forEach(o=>{if(o.status==='done'){done++;revenue+=Number(o.total_price||0)}if(o.status==='delivery')inProgress++});return{done,inProgress,total:done+inProgress,revenue}}},
