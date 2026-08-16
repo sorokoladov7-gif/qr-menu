@@ -4,19 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Управляющий</title>
-<link rel="manifest" href="/manifest-manager.webmanifest">
 <meta name="theme-color" content="#0b1020">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Управляющий">
+<link rel="manifest" href="/manifest-manager.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="apple-touch-icon" href="/icon-manager-192.png">
+<style>html,body{margin:0;width:100%;height:100%;background:#0b1020;overflow:hidden}iframe{display:block;width:100%;height:100%;border:0}</style>
 </head>
-<body style="margin:0;background:#0b1020;color:#fff;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
-<div style="text-align:center">Открываем кабинет управляющего…</div>
+<body>
+<iframe src="/manager.html" title="Кабинет управляющего"></iframe>
 <script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('/manager-app/sw.js',{scope:'/manager-app/'}).catch(console.error);}
-setTimeout(function(){location.replace('/manager.html');},100);
+if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/manager-app/sw.js',{scope:'/manager-app/'}).catch(function(e){console.error('Manager SW:',e);});});}
 </script>
 </body>
 </html>
