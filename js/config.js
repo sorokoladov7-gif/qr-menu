@@ -49,7 +49,6 @@ window.db=baseDb;
       }
       return oldFrom(table)[state.action](state.payload||'*');
     }
-
     return api;
   }
 
@@ -78,6 +77,16 @@ window.db=baseDb;
   function load(){
     if(document.querySelector('script[data-manager-tables]')) return;
     var s=document.createElement('script');s.src='js/manager-tables.js';s.setAttribute('data-manager-tables','1');document.head.appendChild(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
+})();
+
+// Customer QR-table flow: reads ?table=TOKEN and routes table orders through create_public_order RPC.
+(function(){
+  if(!/\/menu\.html$/i.test(location.pathname)) return;
+  function load(){
+    if(document.querySelector('script[data-menu-table-flow]')) return;
+    var s=document.createElement('script');s.src='js/menu-table-flow.js';s.setAttribute('data-menu-table-flow','1');document.head.appendChild(s);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
 })();
