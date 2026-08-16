@@ -1,9 +1,13 @@
-const CACHE = 'qr-platform-v17';
+const CACHE = 'qr-platform-v18';
 const CORE = [
   '/css/style.css',
   '/js/config.js',
   '/js/app.js',
   '/manager-pwa.html',
+  '/cook.html',
+  '/waiter.html',
+  '/courier.html',
+  '/manager.html',
   '/manifest-kitchen.webmanifest',
   '/manifest-waiter.webmanifest',
   '/manifest-courier.webmanifest',
@@ -17,7 +21,9 @@ const CORE = [
   '/icon-courier-192.png',
   '/icon-courier-512.png',
   '/apple-touch-icon.png',
-  '/apple-touch-icon-waiter.png'
+  '/apple-touch-icon-waiter.png',
+  '/apple-touch-icon-manager.png',
+  '/apple-touch-icon-courier.png'
 ];
 
 self.addEventListener('install', event => {
