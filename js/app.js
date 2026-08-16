@@ -25,10 +25,7 @@ async function requireAuth(roles){
     if(!session){ safeRedirect('index.html', 'нет активной сессии'); return null; }
     const { data: profile, error } = await db.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     if(error){ console.error('Profile fetch error:', error); safeRedirect('index.html', 'ошибка чтения профиля: ' + error.message); return null; }
-    if(!profile){
-      safeRedirect('index.html', 'профиль не найден. Создайте профиль через административный onboarding.');
-      return null;
-    }
+    if(!profile){ safeRedirect('index.html', 'профиль не найден. Создайте профиль через административный onboarding.'); return null; }
     if(roles && roles.length && roles.indexOf(profile.role) === -1){ safeRedirect('index.html', 'нет доступа: нужна роль ' + roles.join('/')); return null; }
     return profile;
   }catch(e){ console.error(e); safeRedirect('index.html', 'исключение: ' + e.message); return null; }
@@ -93,6 +90,9 @@ window.staffUpdateOrder = async function(token, orderId, status){
                     if(r.error) return {data:null,error:r.error};
                     var d=r.data;
                     if(Array.isArray(d)) d=d.length?d[0]:null;
+                    if(d && d.order) d=d.order;
+                    if(d && d.result) d=d.result;
+                    if(d){d.items=Array.isArray(d.items)?d.items:[];d.addons=Array.isArray(d.addons)?d.addons:[];}
                     return {data:d||null,error:null};
                   }
                 };
