@@ -35,7 +35,7 @@ create or replace function public.customer_track_order_json(p_venue_id uuid,p_cu
 revoke all on function public.customer_track_order_json(uuid,text) from public; grant execute on function public.customer_track_order_json(uuid,text) to anon,authenticated;
 
 create or replace function public.customer_change_order_status(p_order_id uuid,p_customer_phone text,p_status text) returns public.orders language plpgsql security definer set search_path=public as $$ declare o orders; begin if p_status not in ('new','cooking') then raise exception 'invalid_customer_status'; end if; select * into o from orders where id=p_order_id and customer_phone=regexp_replace(p_customer_phone,'[^0-9+]','','g') for update; if o.id is null then raise exception 'order_not_found'; end if; update orders set status=p_status where id=o.id returning * into o; return o; end $$;
-revoke all on function public.customer_change_order_status(uuid,uuid,text) from public; grant execute on function public.customer_change_order_status(uuid,text,text) to anon,authenticated;
+revoke all on function public.customer_change_order_status(uuid,text,text) from public; grant execute on function public.customer_change_order_status(uuid,text,text) to anon,authenticated;
 
 -- Direct anonymous order table access is intentionally removed. All customer order mutations/reads use the RPCs above.
 drop policy if exists "anon insert orders" on public.orders; drop policy if exists "anon select orders" on public.orders; drop policy if exists "anon update orders" on public.orders; drop policy if exists "auth update orders" on public.orders; drop policy if exists "orders_ins" on public.orders; drop policy if exists "orders_insert" on public.orders; drop policy if exists "orders_sel" on public.orders;
