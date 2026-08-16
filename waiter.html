@@ -6,63 +6,39 @@
 <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script><script src="js/config.js"></script>
 <style>
-[v-cloak]{display:none}.tabs{display:flex;gap:8px;margin:16px 0}.tab{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit;padding:10px 14px;border-radius:10px;cursor:pointer}.tab.active{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}.card2{padding:15px}.state{border-radius:13px;padding:13px;border:1px solid rgba(255,255,255,.08)}.free{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.25)}.occupied{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.25)}.meta{font-size:12px;color:#94a3b8;margin-top:5px}.order{margin-top:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,.04);font-size:13px}.error{color:#fca5a5}.pill{display:inline-block;padding:4px 8px;border-radius:99px;font-size:11px;background:rgba(99,102,241,.15)}
+[v-cloak]{display:none}.tabs{display:flex;gap:8px;margin:16px 0}.tab{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit;padding:10px 14px;border-radius:10px;cursor:pointer}.tab.active{background:rgba(99,102,241,.2);border-color:rgba(99,102,241,.5)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}.card2{padding:15px}.state{border-radius:13px;padding:13px;border:1px solid rgba(255,255,255,.08)}.free{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.25)}.occupied{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.25)}.meta{font-size:12px;color:#94a3b8;margin-top:5px}.order{margin-top:10px;padding:10px;border-radius:10px;background:rgba(255,255,255,.04);font-size:13px}.error{color:#fca5a5}.pill{display:inline-block;padding:4px 8px;border-radius:99px;font-size:11px;background:rgba(99,102,241,.15)}.session-box{margin-top:12px;padding:12px;border-radius:12px;background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.18)}.order-row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)}.order-row:last-child{border-bottom:0}.muted2{color:#94a3b8;font-size:12px}
 </style>
 </head>
 <body>
 <div id="app" v-cloak>
 <div class="topbar"><div class="brand"><div class="logo">🤵</div><span>Официант</span></div><div v-if="session" class="row"><span class="pill">{{session.waiterName}}</span><button class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div></div>
 <div class="wrap">
-<div v-if="!session" class="glass card" style="max-width:420px;margin:50px auto">
-<h2>Вход официанта</h2><p class="muted">Введите код заведения и PIN.</p>
-<div class="field"><label>Код заведения</label><input v-model.trim="form.slug" placeholder="demo"></div>
-<div class="field" style="margin-top:10px"><label>PIN</label><input v-model.trim="form.pin" type="password" inputmode="numeric" @keyup.enter="login"></div>
-<button class="btn btn-primary" style="width:100%;margin-top:14px" @click="login" :disabled="busy">{{busy?'Вход...':'Войти'}}</button><p v-if="error" class="error">{{error}}</p>
-</div>
+<div v-if="!session" class="glass card" style="max-width:420px;margin:50px auto"><h2>Вход официанта</h2><p class="muted">Введите код заведения и PIN.</p><div class="field"><label>Код заведения</label><input v-model.trim="form.slug" placeholder="demo"></div><div class="field" style="margin-top:10px"><label>PIN</label><input v-model.trim="form.pin" type="password" inputmode="numeric" @keyup.enter="login"></div><button class="btn btn-primary" style="width:100%;margin-top:14px" @click="login" :disabled="busy">{{busy?'Вход...':'Войти'}}</button><p v-if="error" class="error">{{error}}</p></div>
 <template v-else>
-<div class="spread" style="margin-bottom:12px"><div><h2 style="margin:0">Рабочее место</h2><div class="muted">Стол освобождается только после подтверждения официанта.</div></div><button class="btn btn-ghost btn-sm" @click="refresh">↻ Обновить</button></div>
+<div class="spread" style="margin-bottom:12px"><div><h2 style="margin:0">Рабочее место</h2><div class="muted">Заказ выдаётся отдельно от освобождения стола.</div></div><button class="btn btn-ghost btn-sm" @click="refresh">↻ Обновить</button></div>
 <div class="tabs"><button class="tab" :class="{active:tab==='tables'}" @click="tab='tables'">🪑 Столы</button><button class="tab" :class="{active:tab==='orders'}" @click="tab='orders'">🍽 Заказы</button></div>
 <div v-if="error" class="glass card error" style="margin-bottom:12px">{{error}}</div>
 <section v-if="tab==='tables'">
 <div class="grid">
 <div v-for="t in tables" :key="t.id" class="glass card2">
-<div style="font-size:21px;font-weight:800">Стол {{t.table_number}}</div><div class="muted" v-if="t.name">{{t.name}}</div>
-<div class="state" :class="t.occupancy_status==='occupied'?'occupied':'free'" style="margin-top:12px">
-<strong>{{t.occupancy_status==='occupied'?'🔴 ЗАНЯТ':'🟢 СВОБОДЕН'}}</strong>
-<div v-if="t.session" class="meta">Гость сидит с {{time(t.session.started_at)}}</div>
-<div v-if="t.last_order" class="order"><b>Заказ №{{t.last_order.order_number}}</b> · {{statusText(t.last_order.status)}}<div class="meta">{{money(t.last_order.total_price)}} · {{time(t.last_order.created_at)}}</div></div>
-<button v-if="t.occupancy_status==='occupied'" class="btn btn-green" style="width:100%;margin-top:12px" @click="release(t)" :disabled="busy">✓ Гость ушёл — освободить</button>
-</div></div>
-</div>
-<div v-if="!tables.length" class="glass card" style="padding:35px;text-align:center">Столов пока нет.</div>
+<div class="spread"><div><div style="font-size:21px;font-weight:800">Стол {{t.table_number}}</div><div class="muted" v-if="t.name">{{t.name}}</div></div><span class="pill">{{t.occupancy_status==='occupied'?'ЗАНЯТ':'СВОБОДЕН'}}</span></div>
+<div class="state" :class="t.occupancy_status==='occupied'?'occupied':'free'" style="margin-top:12px"><strong>{{t.occupancy_status==='occupied'?'🔴 Гость за столом':'🟢 Можно посадить'}}</strong><div v-if="t.session" class="meta">Посадка: {{time(t.session.started_at)}} · {{duration(t.session.started_at)}}</div>
+<div v-if="t.session" class="session-box"><div class="spread"><b>Текущая посадка</b><b>{{money(t.session.total_price)}}</b></div><div class="muted2">Заказов в этой посадке: {{t.session.order_count}}</div><div v-if="t.session.orders?.length" style="margin-top:8px"><div v-for="o in t.session.orders" :key="o.id" class="order-row"><span>№{{o.order_number}} · {{statusText(o.status)}}</span><b>{{money(o.total_price)}}</b></div></div></div>
+<button v-if="t.occupancy_status==='occupied'" class="btn btn-green" style="width:100%;margin-top:12px" @click="release(t)" :disabled="busy">✓ Гость ушёл — закрыть посадку</button></div></div>
+</div><div v-if="!tables.length" class="glass card" style="padding:35px;text-align:center">Столов пока нет.</div>
 </section>
-<section v-else>
-<div class="grid">
-<div v-for="o in orders" :key="o.id" class="glass card2">
-<div class="spread"><b>№{{o.order_number}}</b><span class="pill">{{statusText(o.status)}}</span></div>
-<div class="meta">{{o.order_type==='delivery'?'Доставка':'Самовывоз'}} · {{money(o.total_price)}}</div>
-<div v-if="o.customer_name" class="meta">{{o.customer_name}} {{o.customer_phone?'· '+o.customer_phone:''}}</div>
-<div v-if="o.table_id" class="meta">🪑 Стол привязан</div>
-<div v-if="o.items?.length" class="order"><div v-for="it in o.items" :key="it.id">{{it.qty}}× {{it.name}}</div></div>
-<button v-if="o.status==='ready' && o.order_type==='pickup'" class="btn btn-green" style="width:100%;margin-top:12px" @click="serve(o)">✓ Выдать клиенту</button>
-<button v-if="o.status==='ready' && o.order_type==='delivery'" class="btn btn-primary" style="width:100%;margin-top:12px" @click="toCourier(o)">🚗 Курьеру</button>
-</div>
-</div>
-</section>
-</template>
-</div></div>
+<section v-else><div class="grid"><div v-for="o in orders" :key="o.id" class="glass card2"><div class="spread"><b>№{{o.order_number}}</b><span class="pill">{{statusText(o.status)}}</span></div><div class="meta">{{o.order_type==='delivery'?'Доставка':o.table_id?'🪑 Стол':'Самовывоз'}} · {{money(o.total_price)}}</div><div v-if="o.customer_name" class="meta">{{o.customer_name}} {{o.customer_phone?'· '+o.customer_phone:''}}</div><div v-if="o.table_number" class="meta">Стол №{{o.table_number}}</div><div v-if="o.items?.length" class="order"><div v-for="it in o.items" :key="it.id">{{it.qty}}× {{it.name}}</div></div><button v-if="o.status==='ready' && o.order_type==='pickup'" class="btn btn-green" style="width:100%;margin-top:12px" @click="serve(o)">✓ Выдать клиенту</button><button v-if="o.status==='ready' && o.order_type==='delivery'" class="btn btn-primary" style="width:100%;margin-top:12px" @click="toCourier(o)">🚗 Курьеру</button></div></div></section>
+</template></div></div>
 <script>
 Vue.createApp({
 data(){return{session:null,form:{slug:'',pin:''},token:'',tab:'tables',tables:[],orders:[],busy:false,error:'',timer:null}},
 methods:{
 async login(){this.error='';if(!this.form.slug||!this.form.pin){this.error='Заполните код заведения и PIN.';return}this.busy=true;try{const r=await db.rpc('waiter_login',{p_venue_slug:this.form.slug,p_pin:this.form.pin});if(r.error)throw r.error;const x=Array.isArray(r.data)?r.data[0]:r.data;if(!x?.token)throw new Error('Не удалось создать сессию');this.token=x.token;this.session={venueId:x.venue_id,venueName:x.venue_name,waiterId:x.waiter_id,waiterName:x.waiter_name};localStorage.setItem('qr_waiter_session',JSON.stringify(this.session));localStorage.setItem('qr_waiter_token',this.token);this.form.pin='';await this.refresh();this.timer=setInterval(this.refresh,10000)}catch(e){this.error=e.message||String(e)}finally{this.busy=false}},
-async refresh(){if(!this.token)return;this.error='';try{const d=await db.rpc('waiter_get_dashboard',{p_token:this.token});if(d.error)throw d.error;this.tables=d.data||[];const r=await db.from('orders').select('*, items:order_items(*)').eq('venue_id',this.session.venueId).in('status',['ready','delivery']).order('created_at',{ascending:false}).limit(50);if(r.error)throw r.error;this.orders=r.data||[]}catch(e){this.error=e.message||String(e);if(/сессия|истек/i.test(this.error))this.logout()}},
-async release(t){if(!confirm('Гость действительно ушёл со стола '+t.table_number+'?'))return;this.busy=true;try{const r=await db.rpc('waiter_release_table',{p_token:this.token,p_table_id:t.id});if(r.error)throw r.error;await this.refresh()}catch(e){this.error=e.message||String(e)}finally{this.busy=false}},
-async serve(o){const r=await db.from('orders').update({status:'done',waiter_name:this.session.waiterName}).eq('id',o.id);if(r.error)this.error=r.error.message;await this.refresh()},
-async toCourier(o){const r=await db.from('orders').update({status:'delivery',waiter_name:this.session.waiterName}).eq('id',o.id);if(r.error)this.error=r.error.message;await this.refresh()},
+async refresh(){if(!this.token)return;this.error='';try{const d=await db.rpc('waiter_get_dashboard',{p_token:this.token});if(d.error)throw d.error;this.tables=d.data||[];const r=await db.rpc('waiter_get_orders',{p_token:this.token});if(r.error)throw r.error;this.orders=r.data||[]}catch(e){this.error=e.message||String(e);if(/сессия|истек/i.test(this.error))this.logout()}},
+async release(t){if(!confirm('Гость действительно ушёл со стола '+t.table_number+'? Это закроет всю текущую посадку.'))return;this.busy=true;try{const r=await db.rpc('waiter_release_table',{p_token:this.token,p_table_id:t.id});if(r.error)throw r.error;await this.refresh()}catch(e){this.error=e.message||String(e)}finally{this.busy=false}},
+async serve(o){this.busy=true;try{const r=await db.rpc('waiter_serve_order',{p_token:this.token,p_order_id:o.id});if(r.error)throw r.error;await this.refresh()}catch(e){this.error=e.message||String(e)}finally{this.busy=false}},
+async toCourier(o){this.busy=true;try{const r=await db.rpc('waiter_send_delivery',{p_token:this.token,p_order_id:o.id});if(r.error)throw r.error;await this.refresh()}catch(e){this.error=e.message||String(e)}finally{this.busy=false}},
 logout(){clearInterval(this.timer);this.timer=null;localStorage.removeItem('qr_waiter_session');localStorage.removeItem('qr_waiter_token');this.session=null;this.token='';this.tables=[];this.orders=[]},
-time(v){return v?new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):''},money(v){return Number(v||0).toLocaleString('ru-RU')+' ₽'},statusText(s){return({new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'Выдан курьеру',done:'Выдан',cancelled:'Отменён',changed:'Изменён'})[s]||s}
-},
-async mounted(){const s=localStorage.getItem('qr_waiter_session'),t=localStorage.getItem('qr_waiter_token');if(s&&t){try{this.session=JSON.parse(s);this.token=t;await this.refresh();this.timer=setInterval(this.refresh,10000)}catch(e){this.logout()}}},beforeUnmount(){clearInterval(this.timer)}}).mount('#app');
-</script>
-</body></html>
+time(v){return v?new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):''},duration(v){if(!v)return'';const m=Math.max(0,Math.floor((Date.now()-new Date(v).getTime())/60000));return m<60?m+' мин':Math.floor(m/60)+' ч '+(m%60)+' мин'},money(v){return Number(v||0).toLocaleString('ru-RU')+' ₽'},statusText(s){return({new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'Выдан курьеру',done:'Выдан',cancelled:'Отменён',changed:'Изменён'})[s]||s}
+},mounted(){const s=localStorage.getItem('qr_waiter_session'),t=localStorage.getItem('qr_waiter_token');if(s&&t){try{this.session=JSON.parse(s);this.token=t;this.refresh();this.timer=setInterval(this.refresh,10000)}catch(e){this.logout()}}},beforeUnmount(){clearInterval(this.timer)}}).mount('#app');
+</script></body></html>
