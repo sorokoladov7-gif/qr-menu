@@ -4,7 +4,7 @@
   "short_name": "Курьер",
   "description": "Рабочее место курьера: заказы на доставку",
   "start_url": "/courier.html",
-  "scope": "/courier.html",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
