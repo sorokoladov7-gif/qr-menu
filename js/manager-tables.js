@@ -11,25 +11,34 @@ function getVM(){
 }
 function css(){if(document.getElementById('manager-tables-style'))return;var s=document.createElement('style');s.id='manager-tables-style';s.textContent='.mt-modal{position:fixed;inset:0;background:rgba(5,10,20,.78);backdrop-filter:blur(8px);z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px}.mt-box{width:min(900px,100%);max-height:90vh;overflow:auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff;box-shadow:0 25px 80px rgba(0,0,0,.45)}.mt-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}.mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px}.mt-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;text-align:center}.mt-qr{background:#fff;border-radius:12px;padding:8px;width:150px;height:150px;margin:10px auto;display:flex;align-items:center;justify-content:center}.mt-qr img{max-width:100%;max-height:100%}.mt-muted{color:#94a3b8;font-size:12px}.mt-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mt-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:10px}.mt-btn{border:0;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:700}.mt-primary{background:#6366f1;color:#fff}.mt-danger{background:#7f1d1d;color:#fff}.mt-ghost{background:rgba(255,255,255,.08);color:#fff}@media(max-width:600px){.mt-box{padding:14px}.mt-grid{grid-template-columns:1fr}.mt-head{align-items:flex-start}.mt-row{flex-direction:column;align-items:stretch}.mt-row .mt-btn{width:100%}}';document.head.appendChild(s)}
 function addButton(){var tabs=document.querySelector('.tabs');if(!tabs)return;if(tabs.querySelector('[data-manager-tables]'))return;var b=document.createElement('button');b.type='button';b.textContent='🪑 Столы';b.setAttribute('data-manager-tables','1');b.onclick=openPanel;tabs.appendChild(b)}
-function getVenue(){
+async function getVenue(){
   var vm=getVM();
   if(vm&&vm.venue&&vm.venue.id)return vm.venue;
-  return null;
+  try{
+    var q=await db.from('manager_venues').select('venue_id, venues(*)');
+    if(q.error||!q.data||!q.data.length)return null;
+    var list=q.data.map(function(x){return x.venues}).filter(Boolean);
+    if(list.length===1)return list[0];
+    var brand=document.querySelector('.brand span');
+    var name=brand?String(brand.textContent||'').trim():'';
+    var match=list.find(function(v){return v.name===name});
+    return match||null;
+  }catch(e){return null}
 }
 function tableUrl(t,v){return location.origin+location.pathname.replace(/manager\.html$/i,'menu.html')+'?venue='+encodeURIComponent(v.slug)+'&table='+encodeURIComponent(t.qr_token)}
 function qr(el,text){el.innerHTML='';if(window.QRCode){new QRCode(el,{text:text,width:140,height:140,colorDark:'#111827',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});return}var img=document.createElement('img');img.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(text);img.alt='QR';el.appendChild(img)}
 async function openPanel(){
   css();
-  var v=getVenue();
+  var v=await getVenue();
   if(!v){
     var vm=getVM();
     if(vm&&vm.myVenues&&vm.myVenues.length===1&&typeof vm.selectVenue==='function'){
       vm.selectVenue(vm.myVenues[0]);
-      await new Promise(function(resolve){setTimeout(resolve,100)});
-      v=getVenue();
+      await new Promise(function(resolve){setTimeout(resolve,250)});
+      v=await getVenue();
     }
   }
-  if(!v){alert('Сначала выберите своё заведение в кабинете управляющего.');return}
+  if(!v){alert('Не удалось определить выбранное заведение. Откройте список заведений и выберите нужное.');return}
   if(panel)panel.remove();
   panel=document.createElement('div');panel.className='mt-modal';
   panel.innerHTML='<div class="mt-box"><div class="mt-head"><div><h2 style="margin:0">🪑 Столы и QR-коды</h2><div class="mt-muted" style="margin-top:5px">'+escapeHtml(v.name)+'</div></div><button class="mt-btn mt-ghost" id="mt-close">✕ Закрыть</button></div><div class="mt-row" style="margin-bottom:16px"><input id="mt-count" class="mt-input" type="number" min="1" max="100" value="5" placeholder="Количество"><button id="mt-create" class="mt-btn mt-primary">+ Создать столы</button><button id="mt-print" class="mt-btn mt-ghost">🖨 Печать всех</button></div><div id="mt-msg" class="mt-muted" style="margin-bottom:12px"></div><div id="mt-grid" class="mt-grid"></div></div>';
