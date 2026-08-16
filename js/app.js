@@ -53,7 +53,20 @@ function css(){
 function getVue(){var el=document.getElementById('app');if(!el)return null;try{return el.__vueParentComponent?.proxy||el.__vue_app__?._instance?.proxy||null;}catch(e){return null;}}
 function session(){var p=location.pathname.toLowerCase(),k=p.indexOf('waiter')>=0?'waiter_session':p.indexOf('courier')>=0?'courier_session':'cook_session';try{return JSON.parse(localStorage.getItem(k)||'null');}catch(e){return null;}}
 function orderNumberFromCard(card){var b=card.querySelector('.spread b');var m=b&&String(b.textContent||'').match(/№\s*(\d+)/);return m?m[1]:null;}
-async function tableById(id,venueId){if(!id)return null;var key=String(id);if(tableCache[key])return tableCache[key];if(busy[key])return null;busy[key]=1;try{var q=db.from('venue_tables').select('id,table_number,name,venue_id').eq('id',id);if(venueId)q=q.eq('venue_id',venueId);var r=await q.maybeSingle();if(!r.error&&r.data)tableCache[key]=r.data;return r.data||null;}catch(e){return null}finally{delete busy[key];}}
+async function tableById(id,venueId){
+ if(!id)return null;
+ var key=String(id);
+ if(tableCache[key])return tableCache[key];
+ if(busy[key])return null;
+ busy[key]=1;
+ try{
+   var r=await db.rpc('public_table_by_id',{p_table_id:id});
+   var t=r&&r.data?r.data:null;
+   if(t&&(!venueId||String(t.venue_id)===String(venueId)))tableCache[key]=t;
+   return t&&(!venueId||String(t.venue_id)===String(venueId))?t:null;
+ }catch(e){console.warn('tableById:',e);return null}
+ finally{delete busy[key];}
+}
 function label(t){if(!t)return '📦 Без стола';var n=t.table_number!=null?'Стол '+t.table_number:(t.name||'Стол');return '🪑 '+(t.name&&t.name!==n?t.name:n);}
 async function staff(){
  var x=getVue();if(!x)return;var orders=Array.isArray(x.orders)?x.orders:[];var s=session();var venueId=s&&s.venueId;
@@ -64,9 +77,12 @@ async function client(){
  var venueId=x.venue.id;
  var token=new URLSearchParams(location.search).get('table');
  if(token){
-   var r=await db.from('venue_tables').select('id,table_number,name,venue_id').eq('venue_id',venueId).eq('qr_token',token).maybeSingle();
+   var r=await db.rpc('public_table_by_qr',{p_qr_token:token,p_venue_id:venueId});
    if(!r.error&&r.data){
      window.__qrTable=r.data;
+     localStorage.setItem('qr_table_id',r.data.id);
+     localStorage.setItem('qr_table_number',String(r.data.table_number));
+     localStorage.setItem('qr_table_name',r.data.name||('Стол '+r.data.table_number));
      var host=document.querySelector('.hero');if(host&&!document.querySelector('.qr-table-menu')){var b=document.createElement('div');b.className='qr-table-menu qr-table-floating';b.textContent='🪑 '+(r.data.name||('Стол '+r.data.table_number));host.insertAdjacentElement('afterend',b);}
    }
  }
