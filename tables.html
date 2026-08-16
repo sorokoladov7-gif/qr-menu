@@ -1,44 +1,43 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>QR-столы</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Столы и QR — QR-Меню</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
-<style>[v-cloak]{display:none}.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}.qr-card{padding:18px;text-align:center}.qr-box{background:#fff;border-radius:14px;padding:12px;width:180px;height:180px;margin:12px auto;display:flex;align-items:center;justify-content:center}.qr-box img{max-width:100%;max-height:100%}.muted2{font-size:11px;color:#94a3b8;word-break:break-all}.actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.form-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.form-row .field{flex:1;min-width:150px}.print-only{display:none}@media print{body{background:#fff!important;color:#111!important}.topbar,.controls,.no-print{display:none!important}.wrap{max-width:none!important}.qr-grid{grid-template-columns:repeat(3,1fr);gap:10px}.qr-card{break-inside:avoid;border:1px solid #ddd!important;color:#111;background:#fff!important}.qr-box{border:1px solid #ddd}.muted,.muted2{color:#555!important}.print-only{display:block!important}.page{box-shadow:none!important}}</style>
+<script src="js/config.js"></script>
+<style>[v-cloak]{display:none}.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}.qr-card{padding:18px;text-align:center}.qr-box{background:#fff;border-radius:14px;padding:12px;width:180px;height:180px;margin:12px auto;display:flex;align-items:center;justify-content:center}.qr-box img{max-width:100%;max-height:100%}.muted2{font-size:11px;color:#94a3b8;word-break:break-all}.actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.form-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.form-row .field{flex:1;min-width:150px}.error{color:#fca5a5}@media print{body{background:#fff!important;color:#111!important}.topbar,.controls,.no-print{display:none!important}.wrap{max-width:none!important}.qr-grid{grid-template-columns:repeat(3,1fr);gap:10px}.qr-card{break-inside:avoid;border:1px solid #ddd!important;color:#111;background:#fff!important}.qr-box{border:1px solid #ddd}.muted,.muted2{color:#555!important}}</style>
 </head>
 <body><div id="app" v-cloak><div class="topbar"><div class="brand"><div class="logo">QR</div><span>QR-столы</span></div><div class="row"><a class="btn btn-ghost btn-sm" href="manager.html">← Управляющий</a><button class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div></div>
-<div class="wrap page">
+<div class="wrap">
 <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка...</div>
 <div v-else-if="error" class="glass card" style="padding:30px;text-align:center"><h3>Ошибка</h3><p class="muted">{{error}}</p><button class="btn btn-primary" @click="init">Повторить</button></div>
 <template v-else>
 <div class="glass card controls" style="margin-bottom:16px">
-<div class="spread"><div><h2 style="margin:0">Столы и QR-коды</h2><div class="muted">Каждый QR открывает меню конкретного стола и автоматически привязывает заказ.</div></div><button class="btn btn-primary" @click="printAll" :disabled="!tables.length">🖨 Печать всех</button></div>
-<div class="form-row" style="margin-top:16px"><div class="field"><label>Заведение</label><select v-model="venueId" @change="loadTables"><option v-for="v in venues" :value="v.id">{{v.name}}</option></select></div><div class="field"><label>Количество новых столов</label><input v-model.number="count" type="number" min="1" max="100"></div><button class="btn btn-primary" @click="createTables" :disabled="busy">+ Создать столы</button></div>
-<div v-if="msg" class="msg" :class="msgType==='error'?'error':''" style="margin-top:12px">{{msg}}</div>
+<div class="spread"><div><h2 style="margin:0">Столы и QR-коды</h2><div class="muted">Управляющий видит только свои заведения.</div></div><button class="btn btn-primary" @click="printAll" :disabled="!tables.length">🖨 Печать всех</button></div>
+<div class="form-row" style="margin-top:16px"><div class="field"><label>Заведение</label><select v-model="venueId" @change="loadTables"><option v-for="v in venues" :key="v.id" :value="v.id">{{v.name}}</option></select></div><div class="field"><label>Количество новых столов</label><input v-model.number="count" type="number" min="1" max="100"></div><button class="btn btn-primary" @click="createTables" :disabled="busy||!venueId">+ Создать столы</button></div>
+<div v-if="msg" class="msg" :style="msgType==='error'?{color:'#fca5a5'}:{}" style="margin-top:12px">{{msg}}</div>
 </div>
-<div v-if="!tables.length" class="glass card" style="padding:40px;text-align:center"><div style="font-size:42px">🪑</div><h3>Столов пока нет</h3><p class="muted">Создайте нужное количество — QR-коды будут сгенерированы автоматически.</p></div>
+<div v-if="!venueId" class="glass card" style="padding:40px;text-align:center">У вас нет доступных заведений.</div>
+<div v-else-if="!tables.length" class="glass card" style="padding:40px;text-align:center"><div style="font-size:42px">🪑</div><h3>Столов пока нет</h3><p class="muted">Создайте нужное количество — QR-коды будут сгенерированы автоматически.</p></div>
 <div class="qr-grid">
 <div v-for="t in tables" :key="t.id" class="glass qr-card">
 <div style="font-size:20px;font-weight:800">Стол {{t.table_number}}</div><div class="muted" v-if="t.name">{{t.name}}</div>
-<div class="qr-box" :id="'qr-'+t.id"></div>
-<div class="muted2">{{tableUrl(t)}}</div>
+<div class="qr-box" :id="'qr-'+t.id"></div><div class="muted2">{{tableUrl(t)}}</div>
 <div class="actions no-print" style="margin-top:12px"><button class="btn btn-primary btn-sm" @click="printOne(t)">🖨 Печать</button><button class="btn btn-danger btn-sm" @click="removeTable(t)">Удалить</button></div>
 </div></div>
 </template></div></div>
-<script src="js/config.js"></script>
 <script>
 Vue.createApp({data(){return{ready:false,error:'',msg:'',msgType:'',busy:false,venues:[],venueId:'',tables:[],count:5}},methods:{
-async init(){this.ready=false;this.error='';try{const s=await db.auth.getSession();if(!s.data.session)throw new Error('Войдите как управляющий или администратор.');const r=await db.from('venues').select('*').order('name');if(r.error)throw r.error;this.venues=r.data||[];if(!this.venueId&&this.venues[0])this.venueId=this.venues[0].id;await this.loadTables()}catch(e){this.error=e.message||String(e)}finally{this.ready=true}},
-async loadTables(){if(!this.venueId)return;this.msg='';const r=await db.from('venue_tables').select('*').eq('venue_id',this.venueId).order('table_number');if(r.error){this.msg=r.error.message;this.msgType='error';return}this.tables=r.data||[];this.$nextTick(this.renderQrs)},
-async createTables(){if(!this.venueId)return;const n=Math.max(1,Math.min(100,Number(this.count)||1));this.busy=true;this.msg='';try{const used=new Set(this.tables.map(t=>Number(t.table_number)));let next=1;const rows=[];for(let i=0;i<n;i++){while(used.has(next))next++;rows.push({venue_id:this.venueId,table_number:next,name:'Стол '+next});used.add(next);next++}const r=await db.from('venue_tables').insert(rows);if(r.error)throw r.error;this.msg='Создано столов: '+n;this.msgType='';await this.loadTables()}catch(e){this.msg='Ошибка: '+(e.message||String(e));this.msgType='error'}finally{this.busy=false}},
+async init(){this.ready=false;this.error='';try{const s=await db.auth.getSession();if(!s.data.session)throw new Error('Войдите как управляющий или администратор.');const u=s.data.session.user;const p=await db.from('profiles').select('id,role').eq('id',u.id).maybeSingle();if(p.error)throw p.error;if(!p.data||!['manager','admin'].includes(p.data.role))throw new Error('Доступ только для администратора или управляющего');if(p.data.role==='admin'){const r=await db.from('venues').select('id,name,slug').order('name');if(r.error)throw r.error;this.venues=r.data||[]}else{const links=await db.from('manager_venues').select('venue_id').eq('manager_id',u.id);if(links.error)throw links.error;const ids=(links.data||[]).map(x=>x.venue_id);if(ids.length){const r=await db.from('venues').select('id,name,slug').in('id',ids).order('name');if(r.error)throw r.error;this.venues=r.data||[]}}if(this.venues.length)this.venueId=this.venues[0].id;await this.loadTables()}catch(e){this.error=e.message||String(e)}finally{this.ready=true}},
+async loadTables(){if(!this.venueId){this.tables=[];return}this.msg='';const r=await db.from('venue_tables').select('*').eq('venue_id',this.venueId).order('table_number');if(r.error){this.msg=r.error.message;this.msgType='error';return}this.tables=r.data||[];this.$nextTick(this.renderQrs)},
+async createTables(){if(!this.venueId)return;const n=Math.max(1,Math.min(100,Number(this.count)||1));this.busy=true;this.msg='';try{const used=new Set(this.tables.map(t=>Number(t.table_number)));let next=1;const rows=[];for(let i=0;i<n;i++){while(used.has(next))next++;rows.push({venue_id:this.venueId,table_number:next,name:'Стол '+next,is_active:true});used.add(next);next++}const r=await db.from('venue_tables').insert(rows);if(r.error)throw r.error;this.msg='Создано столов: '+n;this.msgType='';await this.loadTables()}catch(e){this.msg='Ошибка: '+(e.message||String(e));this.msgType='error'}finally{this.busy=false}},
 async removeTable(t){if(!confirm('Удалить QR стола '+t.table_number+'?'))return;const r=await db.from('venue_tables').delete().eq('id',t.id);if(r.error){this.msg='Ошибка: '+r.error.message;this.msgType='error';return}await this.loadTables()},
 tableUrl(t){const v=this.venues.find(x=>x.id===this.venueId);return location.origin+location.pathname.replace('tables.html','menu.html')+'?venue='+encodeURIComponent(v?v.slug:'')+'&table='+encodeURIComponent(t.qr_token)},
 renderQrs(){this.tables.forEach(t=>{const el=document.getElementById('qr-'+t.id);if(!el)return;el.innerHTML='';new QRCode(el,{text:this.tableUrl(t),width:160,height:160,colorDark:'#111827',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})})},
 printOne(t){document.querySelectorAll('.qr-card').forEach(x=>x.style.display='none');const el=document.getElementById('qr-'+t.id)?.closest('.qr-card');if(el)el.style.display='block';window.print();setTimeout(()=>document.querySelectorAll('.qr-card').forEach(x=>x.style.display=''),300)},printAll(){window.print()},
-async logout(){await db.auth.signOut();location.href='index.html'}},mounted(){this.init()}}).mount('#app');
+async logout(){await db.auth.signOut();location.href='manager.html'}},mounted(){this.init()}}).mount('#app');
 </script></body></html>
