@@ -107,3 +107,51 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   s.async=false;
   document.head.appendChild(s);
 })();
+
+/*
+ * Kitchen order feed.
+ * The kitchen uses a custom staff token, not Supabase Auth. Direct
+ * SELECT from orders can therefore be filtered differently by RLS.
+ * For cook.html we transparently replace only the orders SELECT chain
+ * with the SECURITY DEFINER staff_orders_json RPC. Other db.from calls
+ * (order_items, order_addons, manager pages, waiter, courier, etc.) are
+ * left untouched.
+ */
+(function(){
+  if(!/\/cook\.html$/i.test(location.pathname)) return;
+  if(!window.db || typeof window.db.from!=='function' || typeof window.db.rpc!=='function') return;
+  var originalFrom=window.db.from.bind(window.db);
+  window.db.from=function(table){
+    if(table!=='orders') return originalFrom(table);
+    var chain={
+      _isKitchenOrders:true,
+      select:function(){ return chain; },
+      eq:function(){ return chain; },
+      neq:function(){ return chain; },
+      in:function(){ return chain; },
+      order:function(){ return chain; },
+      limit:function(){ return chain; },
+      then:function(resolve,reject){
+        var s=null;
+        try{s=JSON.parse(localStorage.getItem('cook_session')||'null');}catch(e){}
+        if(!s||!s.token){
+          return Promise.resolve({data:[],error:null}).then(resolve,reject);
+        }
+        return window.db.rpc('staff_orders_json',{p_token:s.token}).then(function(r){
+          var rows=[];
+          if(!r.error){
+            rows=Array.isArray(r.data)?r.data:[];
+            rows=rows.map(function(o){
+              if(!Array.isArray(o.items)) o.items=[];
+              if(!Array.isArray(o.addons)) o.addons=[];
+              return o;
+            });
+          }
+          return {data:rows,error:r.error||null};
+        }).then(resolve,reject);
+      },
+      catch:function(reject){ return chain.then(function(){},reject); }
+    };
+    return chain;
+  };
+})();
