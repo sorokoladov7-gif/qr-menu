@@ -34,7 +34,6 @@ async function requireAuth(roles){
   }catch(e){ console.error(e); safeRedirect('index.html', 'исключение: ' + e.message); return null; }
 }
 
-// Staff clients use the current staff RPC contract.
 window.staffLogin = async function(role, slug, pin){
   const { data, error } = await db.rpc('staff_login', { p_type: role, p_slug: slug, p_pin: pin });
   if(error) throw new Error(error.message || 'Неверный код заведения или PIN');
@@ -46,86 +45,77 @@ window.staffUpdateOrder = async function(token, orderId, status){
   return data;
 };
 
-// Compatibility bridge for the existing menu.html checkout.
-// It converts the legacy three-step client flow into secure SECURITY DEFINER RPCs.
 (function installPublicOrderAdapter(){
   if(!window.db || !db.from) return;
   var originalFrom = db.from.bind(db);
   var pending = null;
 
+  function wrap(table, insertHandler){
+    var target = originalFrom(table);
+    return new Proxy(target, {
+      get: function(obj, prop){
+        if(prop === 'insert') return insertHandler;
+        var value = obj[prop];
+        return typeof value === 'function' ? value.bind(obj) : value;
+      }
+    });
+  }
+
   db.from = function(table){
     if(table === 'orders'){
-      return {
-        insert: function(values){
-          pending = {values: values, actualOrderId: null};
-          return {
-            select: function(){
-              return {
-                single: async function(){
-                  // Legacy menu expects an order id immediately. The real order is
-                  // created when order_items.insert() arrives with the full cart.
-                  var fakeId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
-                  return {data:{id:fakeId},error:null};
-                }
-              };
-            }
-          };
-        }
-      };
+      return wrap('orders', function(values){
+        pending = {values: values, actualOrderId: null};
+        return {
+          select: function(){
+            return {
+              single: async function(){
+                var fakeId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+                return {data:{id:fakeId},error:null};
+              }
+            };
+          }
+        };
+      });
     }
 
     if(table === 'order_items'){
-      return {
-        insert: async function(itemRows){
-          if(!pending) return {data:null,error:null};
-          var items = (itemRows||[]).map(function(i){
-            return {product_id:i.product_id,qty:Number(i.qty)||0};
-          });
-          var v = pending.values;
-          var r = await db.rpc('create_public_order', {
-            p_venue_id:v.venue_id,
-            p_order_type:v.order_type,
-            p_customer_name:v.customer_name,
-            p_customer_phone:v.customer_phone,
-            p_delivery_address:v.delivery_address,
-            p_comment:v.comment,
-            p_payment_method:v.payment_method,
-            p_items:items,
-            p_addons:[],
-            p_total_price:v.total_price
-          });
-          if(r.error) return {data:null,error:r.error};
-          pending.actualOrderId = r.data && r.data.id;
-          return {data:itemRows,error:null};
-        }
-      };
+      return wrap('order_items', async function(itemRows){
+        if(!pending) return {data:null,error:null};
+        var items=(itemRows||[]).map(function(i){return {product_id:i.product_id,qty:Number(i.qty)||0};});
+        var v=pending.values;
+        var r=await db.rpc('create_public_order',{
+          p_venue_id:v.venue_id,p_order_type:v.order_type,p_customer_name:v.customer_name,
+          p_customer_phone:v.customer_phone,p_delivery_address:v.delivery_address,
+          p_comment:v.comment,p_payment_method:v.payment_method,p_items:items,
+          p_addons:[],p_total_price:v.total_price
+        });
+        if(r.error) return {data:null,error:r.error};
+        pending.actualOrderId=r.data&&r.data.id;
+        return {data:itemRows,error:null};
+      });
     }
 
     if(table === 'order_addons'){
-      return {
-        insert: async function(addonRows){
-          if(!pending || !pending.actualOrderId || !addonRows || !addonRows.length) return {data:addonRows||[],error:null};
-          var grouped = {};
-          addonRows.forEach(function(a){
-            var key = a.name + '|' + a.item_name;
-            if(!grouped[key]) grouped[key] = {id:null,name:a.name,item_name:a.item_name,qty:0};
-            grouped[key].qty++;
-          });
-          var list = Object.keys(grouped).map(function(k){return grouped[k]});
-          // Resolve addon names back to product ids from the current venue.
-          var venueId = pending.values.venue_id;
-          var productsResult = await originalFrom('products').select('id,name').eq('venue_id',venueId).eq('category','addon').eq('is_available',true);
-          if(productsResult.error) return {data:null,error:productsResult.error};
-          list.forEach(function(a){
-            var p=(productsResult.data||[]).find(function(x){return x.name===a.name});
-            if(p) a.id=p.id;
-          });
-          list=list.filter(function(a){return a.id;});
-          var r=await db.rpc('append_public_order_addons',{p_order_id:pending.actualOrderId,p_customer_phone:pending.values.customer_phone,p_addons:list});
-          if(r.error) return {data:null,error:r.error};
-          return {data:addonRows,error:null};
-        }
-      };
+      return wrap('order_addons', async function(addonRows){
+        if(!pending || !pending.actualOrderId || !addonRows || !addonRows.length) return {data:addonRows||[],error:null};
+        var grouped={};
+        addonRows.forEach(function(a){
+          var key=a.name+'|'+(a.item_name||'');
+          if(!grouped[key]) grouped[key]={id:null,name:a.name,item_name:a.item_name||null,qty:0};
+          grouped[key].qty++;
+        });
+        var list=Object.keys(grouped).map(function(k){return grouped[k]});
+        var venueId=pending.values.venue_id;
+        var productsResult=await originalFrom('products').select('id,name').eq('venue_id',venueId).eq('category','addon').eq('is_available',true);
+        if(productsResult.error) return {data:null,error:productsResult.error};
+        list.forEach(function(a){var p=(productsResult.data||[]).find(function(x){return x.name===a.name});if(p)a.id=p.id;});
+        list=list.filter(function(a){return a.id;});
+        var r=await db.rpc('append_public_order_addons',{
+          p_order_id:pending.actualOrderId,p_customer_phone:pending.values.customer_phone,p_addons:list
+        });
+        if(r.error) return {data:null,error:r.error};
+        return {data:addonRows,error:null};
+      });
     }
 
     return originalFrom(table);
