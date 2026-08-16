@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v8';
+const CACHE = 'qr-platform-v9';
 const CORE = [
   '/waiter.html',
   '/cook.html',
@@ -7,16 +7,22 @@ const CORE = [
   '/css/style.css',
   '/js/config.js',
   '/js/app.js',
+  '/manifest.webmanifest',
   '/manifest-waiter.webmanifest',
   '/manifest-manager.webmanifest',
   '/manifest-courier.webmanifest',
+  '/icon-192.png',
+  '/icon-512.png',
   '/icon-waiter-192.png',
   '/icon-waiter-512.png',
   '/icon-manager-192.png',
   '/icon-manager-512.png',
   '/icon-courier-192.png',
-  '/icon-courier-512.png'
+  '/icon-courier-512.png',
+  '/apple-touch-icon.png',
+  '/apple-touch-icon-waiter.png'
 ];
+
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE)
@@ -24,19 +30,20 @@ self.addEventListener('install', event => {
       .then(() => self.skipWaiting())
   );
 });
+
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
+
 self.addEventListener('fetch', event => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  // HTML navigations are ALWAYS network-first. This prevents an old/broken waiter.html from producing a black screen.
   if (req.mode === 'navigate' || req.destination === 'document') {
     event.respondWith(
       fetch(req, {cache:'no-store'})
