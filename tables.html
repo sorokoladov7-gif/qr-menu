@@ -9,15 +9,33 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script src="js/config.js"></script>
-<style>[v-cloak]{display:none}.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}.qr-card{padding:18px;text-align:center}.qr-box{background:#fff;border-radius:14px;padding:12px;width:180px;height:180px;margin:12px auto;display:flex;align-items:center;justify-content:center}.qr-box img{max-width:100%;max-height:100%}.muted2{font-size:11px;color:#94a3b8;word-break:break-all}.actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}.form-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.form-row .field{flex:1;min-width:150px}.error{color:#fca5a5}@media print{body{background:#fff!important;color:#111!important}.topbar,.controls,.no-print{display:none!important}.wrap{max-width:none!important}.qr-grid{grid-template-columns:repeat(3,1fr);gap:10px}.qr-card{break-inside:avoid;border:1px solid #ddd!important;color:#111;background:#fff!important}.qr-box{border:1px solid #ddd}.muted,.muted2{color:#555!important}}</style>
+<style>
+[v-cloak]{display:none}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.qr-card{padding:18px;text-align:center}
+.qr-box{background:#fff;border-radius:14px;padding:12px;width:180px;height:180px;margin:12px auto;display:flex;align-items:center;justify-content:center}
+.qr-box img{max-width:100%;max-height:100%}
+.muted2{font-size:11px;color:#94a3b8;word-break:break-all}
+.actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.form-row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.form-row .field{flex:1;min-width:150px}
+.error{color:#fca5a5}
+.occupancy{margin:12px 0;padding:12px;border-radius:12px;text-align:left;border:1px solid rgba(255,255,255,.08)}
+.occupancy.free{background:rgba(52,211,153,.08);border-color:rgba(52,211,153,.25)}
+.occupancy.occupied{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.25)}
+.occupancy .title{font-weight:800}.occupancy .meta{font-size:12px;color:#94a3b8;margin-top:4px}
+.status-dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}.free .status-dot{background:#34d399}.occupied .status-dot{background:#f87171}
+@media print{body{background:#fff!important;color:#111!important}.topbar,.controls,.no-print{display:none!important}.wrap{max-width:none!important}.qr-grid{grid-template-columns:repeat(3,1fr);gap:10px}.qr-card{break-inside:avoid;border:1px solid #ddd!important;color:#111;background:#fff!important}.qr-box{border:1px solid #ddd}.muted,.muted2{color:#555!important}.occupancy{display:none!important}}
+</style>
 </head>
-<body><div id="app" v-cloak><div class="topbar"><div class="brand"><div class="logo">QR</div><span>QR-столы</span></div><div class="row"><a class="btn btn-ghost btn-sm" href="manager.html">← Управляющий</a><button class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div></div>
+<body>
+<div id="app" v-cloak>
+<div class="topbar"><div class="brand"><div class="logo">QR</div><span>QR-столы</span></div><div class="row"><a class="btn btn-ghost btn-sm" href="manager.html">← Управляющий</a><button class="btn btn-ghost btn-sm" @click="logout">Выйти</button></div></div>
 <div class="wrap">
 <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка...</div>
 <div v-else-if="error" class="glass card" style="padding:30px;text-align:center"><h3>Ошибка</h3><p class="muted">{{error}}</p><button class="btn btn-primary" @click="init">Повторить</button></div>
 <template v-else>
 <div class="glass card controls" style="margin-bottom:16px">
-<div class="spread"><div><h2 style="margin:0">Столы и QR-коды</h2><div class="muted">Управляющий видит только свои заведения.</div></div><button class="btn btn-primary" @click="printAll" :disabled="!tables.length">🖨 Печать всех</button></div>
+<div class="spread"><div><h2 style="margin:0">Столы и QR-коды</h2><div class="muted">Стол считается свободным только после явного освобождения сотрудником.</div></div><div class="row"><button class="btn btn-ghost btn-sm" @click="loadTables">↻ Обновить</button><button class="btn btn-primary" @click="printAll" :disabled="!tables.length">🖨 Печать всех</button></div></div>
 <div class="form-row" style="margin-top:16px"><div class="field"><label>Заведение</label><select v-model="venueId" @change="loadTables"><option v-for="v in venues" :key="v.id" :value="v.id">{{v.name}}</option></select></div><div class="field"><label>Количество новых столов</label><input v-model.number="count" type="number" min="1" max="100"></div><button class="btn btn-primary" @click="createTables" :disabled="busy||!venueId">+ Создать столы</button></div>
 <div v-if="msg" class="msg" :style="msgType==='error'?{color:'#fca5a5'}:{}" style="margin-top:12px">{{msg}}</div>
 </div>
@@ -26,18 +44,33 @@
 <div class="qr-grid">
 <div v-for="t in tables" :key="t.id" class="glass qr-card">
 <div style="font-size:20px;font-weight:800">Стол {{t.table_number}}</div><div class="muted" v-if="t.name">{{t.name}}</div>
+<div class="occupancy" :class="t.occupancy_status==='occupied'?'occupied':'free'">
+<div class="title"><span class="status-dot"></span>{{t.occupancy_status==='occupied'?'ЗАНЯТ':'СВОБОДЕН'}}</div>
+<div v-if="t.occupancy_status==='occupied'" class="meta">
+<span v-if="t.activeSession">Гость сидит с {{fmtDateTime(t.activeSession.started_at)}}</span>
+<span v-if="t.activeOrder"> · Заказ №{{t.activeOrder.order_number}}</span>
+</div>
+<div v-if="t.activeOrder && t.activeOrder.status==='done'" class="meta" style="color:#fbbf24">Заказ выдан — клиент ещё может сидеть за столом.</div>
+<div v-if="t.occupancy_status==='occupied'" class="actions no-print" style="margin-top:10px"><button class="btn btn-green btn-sm" @click="releaseTable(t)">✓ Гость ушёл — освободить</button></div>
+</div>
 <div class="qr-box" :id="'qr-'+t.id"></div><div class="muted2">{{tableUrl(t)}}</div>
-<div class="actions no-print" style="margin-top:12px"><button class="btn btn-primary btn-sm" @click="printOne(t)">🖨 Печать</button><button class="btn btn-danger btn-sm" @click="removeTable(t)">Удалить</button></div>
+<div class="actions no-print" style="margin-top:12px"><button class="btn btn-primary btn-sm" @click="printOne(t)">🖨 Печать</button><button class="btn btn-danger btn-sm" @click="removeTable(t)" :disabled="t.occupancy_status==='occupied'">Удалить</button></div>
 </div></div>
 </template></div></div>
 <script>
-Vue.createApp({data(){return{ready:false,error:'',msg:'',msgType:'',busy:false,venues:[],venueId:'',tables:[],count:5}},methods:{
-async init(){this.ready=false;this.error='';try{const s=await db.auth.getSession();if(!s.data.session)throw new Error('Войдите как управляющий или администратор.');const u=s.data.session.user;const p=await db.from('profiles').select('id,role').eq('id',u.id).maybeSingle();if(p.error)throw p.error;if(!p.data||!['manager','admin'].includes(p.data.role))throw new Error('Доступ только для администратора или управляющего');if(p.data.role==='admin'){const r=await db.from('venues').select('id,name,slug').order('name');if(r.error)throw r.error;this.venues=r.data||[]}else{const links=await db.from('manager_venues').select('venue_id').eq('manager_id',u.id);if(links.error)throw links.error;const ids=(links.data||[]).map(x=>x.venue_id);if(ids.length){const r=await db.from('venues').select('id,name,slug').in('id',ids).order('name');if(r.error)throw r.error;this.venues=r.data||[]}}if(this.venues.length)this.venueId=this.venues[0].id;await this.loadTables()}catch(e){this.error=e.message||String(e)}finally{this.ready=true}},
-async loadTables(){if(!this.venueId){this.tables=[];return}this.msg='';const r=await db.from('venue_tables').select('*').eq('venue_id',this.venueId).order('table_number');if(r.error){this.msg=r.error.message;this.msgType='error';return}this.tables=r.data||[];this.$nextTick(this.renderQrs)},
+Vue.createApp({
+data(){return{ready:false,error:'',msg:'',msgType:'',busy:false,venues:[],venueId:'',tables:[],count:5,timer:null}},
+methods:{
+async init(){this.ready=false;this.error='';try{const s=await db.auth.getSession();if(!s.data.session)throw new Error('Войдите как управляющий или администратор.');const u=s.data.session.user;const p=await db.from('profiles').select('id,role').eq('id',u.id).maybeSingle();if(p.error)throw p.error;if(!p.data||!['manager','admin'].includes(p.data.role))throw new Error('Доступ только для администратора или управляющего');if(p.data.role==='admin'){const r=await db.from('venues').select('id,name,slug').order('name');if(r.error)throw r.error;this.venues=r.data||[]}else{const links=await db.from('manager_venues').select('venue_id').eq('manager_id',u.id);if(links.error)throw links.error;const ids=(links.data||[]).map(x=>x.venue_id);if(ids.length){const r=await db.from('venues').select('id,name,slug').in('id',ids).order('name');if(r.error)throw r.error;this.venues=r.data||[]}}if(this.venues.length)this.venueId=this.venues[0].id;await this.loadTables();clearInterval(this.timer);this.timer=setInterval(()=>this.loadTables(),15000)}catch(e){this.error=e.message||String(e)}finally{this.ready=true}},
+async loadTables(){if(!this.venueId){this.tables=[];return}this.msg='';const r=await db.from('venue_tables').select('*').eq('venue_id',this.venueId).order('table_number');if(r.error){this.msg=r.error.message;this.msgType='error';return}const tables=r.data||[];const active=await db.from('table_sessions').select('id,table_id,started_at,started_order_id,last_order_id,status').eq('venue_id',this.venueId).eq('status','active');if(active.error){this.msg=active.error.message;this.msgType='error';return}const sessions=active.data||[];const orderIds=[...new Set(sessions.flatMap(s=>[s.started_order_id,s.last_order_id]).filter(Boolean))];let orders=[];if(orderIds.length){const or=await db.from('orders').select('id,order_number,status,created_at').in('id',orderIds);if(or.error){this.msg=or.error.message;this.msgType='error';return}orders=or.data||[]}this.tables=tables.map(t=>{const s=sessions.find(x=>x.table_id===t.id)||null;const o=s?orders.find(x=>x.id===s.last_order_id)||orders.find(x=>x.id===s.started_order_id)||null:null;return{...t,activeSession:s,activeOrder:o,occupancy_status:s?'occupied':(t.occupancy_status||'free')}});this.$nextTick(this.renderQrs)},
 async createTables(){if(!this.venueId)return;const n=Math.max(1,Math.min(100,Number(this.count)||1));this.busy=true;this.msg='';try{const used=new Set(this.tables.map(t=>Number(t.table_number)));let next=1;const rows=[];for(let i=0;i<n;i++){while(used.has(next))next++;rows.push({venue_id:this.venueId,table_number:next,name:'Стол '+next,is_active:true});used.add(next);next++}const r=await db.from('venue_tables').insert(rows);if(r.error)throw r.error;this.msg='Создано столов: '+n;this.msgType='';await this.loadTables()}catch(e){this.msg='Ошибка: '+(e.message||String(e));this.msgType='error'}finally{this.busy=false}},
-async removeTable(t){if(!confirm('Удалить QR стола '+t.table_number+'?'))return;const r=await db.from('venue_tables').delete().eq('id',t.id);if(r.error){this.msg='Ошибка: '+r.error.message;this.msgType='error';return}await this.loadTables()},
+async releaseTable(t){if(!confirm('Подтвердить: гость действительно ушёл со стола '+t.table_number+'?'))return;this.busy=true;this.msg='';try{const r=await db.rpc('release_table',{p_table_id:t.id});if(r.error)throw r.error;this.msg='Стол '+t.table_number+' освобождён.';this.msgType='';await this.loadTables()}catch(e){this.msg='Не удалось освободить стол: '+(e.message||String(e));this.msgType='error'}finally{this.busy=false}},
+async removeTable(t){if(t.occupancy_status==='occupied'){this.msg='Нельзя удалить занятый стол. Сначала освободите его.';this.msgType='error';return}if(!confirm('Удалить QR стола '+t.table_number+'?'))return;const r=await db.from('venue_tables').delete().eq('id',t.id);if(r.error){this.msg='Ошибка: '+r.error.message;this.msgType='error';return}await this.loadTables()},
 tableUrl(t){const v=this.venues.find(x=>x.id===this.venueId);return location.origin+location.pathname.replace('tables.html','menu.html')+'?venue='+encodeURIComponent(v?v.slug:'')+'&table='+encodeURIComponent(t.qr_token)},
 renderQrs(){this.tables.forEach(t=>{const el=document.getElementById('qr-'+t.id);if(!el)return;el.innerHTML='';new QRCode(el,{text:this.tableUrl(t),width:160,height:160,colorDark:'#111827',colorLight:'#ffffff',correctLevel:QRCode.CorrectLevel.M})})},
-printOne(t){document.querySelectorAll('.qr-card').forEach(x=>x.style.display='none');const el=document.getElementById('qr-'+t.id)?.closest('.qr-card');if(el)el.style.display='block';window.print();setTimeout(()=>document.querySelectorAll('.qr-card').forEach(x=>x.style.display=''),300)},printAll(){window.print()},
-async logout(){await db.auth.signOut();location.href='manager.html'}},mounted(){this.init()}}).mount('#app');
+fmtDateTime(v){if(!v)return '';return new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})},
+printOne(t){document.querySelectorAll('.qr-card').forEach(x=>x.style.display='none');const el=document.getElementById('qr-'+t.id)?.closest('.qr-card');if(el)el.style.display='block';window.print();setTimeout(()=>document.querySelectorAll('.qr-card').forEach(x=>x.style.display=''),300)},
+printAll(){window.print()},
+async logout(){clearInterval(this.timer);await db.auth.signOut();location.href='manager.html'}},
+mounted(){this.init()},beforeUnmount(){clearInterval(this.timer)}}).mount('#app');
 </script></body></html>
