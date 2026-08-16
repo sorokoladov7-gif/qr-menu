@@ -12,5 +12,14 @@
 </head>
 <body>
 <iframe src="/manager.html" title="Кабинет управляющего"></iframe>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('/sw.js', {scope:'/'}).catch(function (e) {
+      console.warn('Manager PWA:', e);
+    });
+  });
+}
+</script>
 </body>
 </html>
