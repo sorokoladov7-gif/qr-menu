@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Кабинет управляющего</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="manifest" href="/manifest-manager.webmanifest">
+<meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Менеджер">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -36,6 +42,7 @@
 .template-preview{max-height:180px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;margin:8px 0 14px}
 .template-preview-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
 .template-preview-row:last-child{border-bottom:0}
+.install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#6366f1}
 </style>
 </head>
 <body>
@@ -62,6 +69,8 @@
 </div>
 
 <div class="wrap">
+<div id="installHint" class="glass card install-hint hidden">📲 <b>Установите как приложение:</b> Android — меню браузера ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”».<button id="hideInstallHint" class="btn btn-ghost btn-sm" style="margin-left:8px">Понятно</button></div>
+
 <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка...</div>
 <div v-else-if="loadError" class="glass card" style="text-align:center;padding:40px">
 <div style="font-size:40px">⚠️</div><h3>Не удалось загрузить</h3>
@@ -918,9 +927,41 @@ return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
 
 logout:function(){try{db.auth.signOut()}catch(e){}if(this.timer)clearInterval(this.timer);location.href='/index.html'}
 },
-mounted:function(){this.init()},
+mounted:function(){
+this.init();
+// Показываем подсказку об установке после загрузки
+setTimeout(function() {
+  const hint = document.getElementById('installHint');
+  const hideBtn = document.getElementById('hideInstallHint');
+  const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  
+  if (!standalone && !localStorage.getItem('manager_app_hint') && hint) {
+    hint.classList.remove('hidden');
+  }
+  
+  if (hideBtn) {
+    hideBtn.addEventListener('click', function() {
+      hint.classList.add('hidden');
+      localStorage.setItem('manager_app_hint', '1');
+    });
+  }
+}, 2000);
+},
 beforeUnmount:function(){if(this.timer)clearInterval(this.timer)}
 }).mount('#app');
+
+// Исправленная регистрация service worker для менеджера
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(registration) {
+        console.log('Service Worker для менеджера зарегистрирован успешно:', registration);
+      })
+      .catch(function(error) {
+        console.warn('Ошибка регистрации Service Worker для менеджера:', error);
+      });
+  });
+}
 </script>
 </body>
 </html>
