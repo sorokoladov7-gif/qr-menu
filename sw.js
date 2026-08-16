@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v9';
+const CACHE = 'qr-platform-v10';
 const CORE = [
   '/waiter.html',
   '/cook.html',
