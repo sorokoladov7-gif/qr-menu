@@ -1,29 +1,5 @@
-var CACHE = 'qr-platform-v5';
-var CORE = ['/menu.html', '/cook.html', '/manager.html', '/courier.html', '/waiter.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/manifest-manager.webmanifest', '/manifest-courier.webmanifest', '/manifest-waiter.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png', '/icon-courier-192.png', '/icon-courier-512.png', '/icon-waiter-192.png', '/icon-waiter-512.png'];
-
-self.addEventListener('install', function(e) {
-  e.waitUntil(caches.open(CACHE).then(function(c) {
-    return Promise.all(CORE.map(function(u) { return c.add(u).catch(function() {}); }));
-  }).then(function() { return self.skipWaiting(); }));
-});
-
-self.addEventListener('activate', function(e) {
-  e.waitUntil(caches.keys().then(function(keys) {
-    return Promise.all(keys.filter(function(k) { return k !== CACHE; }).map(function(k) { return caches.delete(k); }));
-  }).then(function() { return self.clients.claim(); }));
-});
-
-self.addEventListener('fetch', function(e) {
-  var url = new URL(e.request.url);
-  if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-  if (url.hostname.indexOf('supabase') !== -1) return;
-  e.respondWith(
-    fetch(e.request).then(function(r) {
-      var copy = r.clone();
-      caches.open(CACHE).then(function(c) { c.put(e.request, copy); });
-      return r;
-    }).catch(function() {
-      return caches.match(e.request).then(function(m) { return m || caches.match('/waiter.html'); });
-    })
-  );
-});
+var CACHE = 'qr-platform-v6';
+var CORE = ['/waiter.html','/cook.html','/manager.html','/courier.html','/css/style.css','/js/config.js','/js/app.js','/manifest-waiter.webmanifest','/manifest-manager.webmanifest','/manifest-courier.webmanifest','/icon-waiter-192.png','/icon-waiter-512.png','/icon-manager-192.png','/icon-manager-512.png','/icon-courier-192.png','/icon-courier-512.png'];
+self.addEventListener('install',function(e){e.waitUntil(caches.open(CACHE).then(function(c){return Promise.all(CORE.map(function(u){return fetch(u,{cache:'no-store'}).then(function(r){if(r.ok)return c.put(u,r.clone());}).catch(function(){});}));}).then(function(){return self.skipWaiting();}));});
+self.addEventListener('activate',function(e){e.waitUntil(caches.keys().then(function(keys){return Promise.all(keys.filter(function(k){return k!==CACHE;}).map(function(k){return caches.delete(k);}));}).then(function(){return self.clients.claim();}));});
+self.addEventListener('fetch',function(e){var req=e.request;if(req.method!=='GET')return;var url=new URL(req.url);if(url.origin!==location.origin && url.hostname.indexOf('supabase')!==-1)return;e.respondWith(fetch(req,{cache:'no-store'}).then(function(r){if(r.ok){var copy=r.clone();caches.open(CACHE).then(function(c){c.put(req,copy);});}return r;}).catch(function(){return caches.match(req).then(function(cached){return cached||new Response('Offline',{status:503});});}));});
