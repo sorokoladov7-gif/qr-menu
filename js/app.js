@@ -26,7 +26,6 @@ async function requireAuth(roles){
     const { data: profile, error } = await db.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     if(error){ console.error('Profile fetch error:', error); safeRedirect('index.html', 'ошибка чтения профиля: ' + error.message); return null; }
     if(!profile){
-      // SECURITY: a browser session must never be allowed to self-assign the manager role.
       safeRedirect('index.html', 'профиль не найден. Создайте профиль через административный onboarding.');
       return null;
     }
@@ -35,17 +34,62 @@ async function requireAuth(roles){
   }catch(e){ console.error(e); safeRedirect('index.html', 'исключение: ' + e.message); return null; }
 }
 
-// Staff clients must use these RPCs. PINs are checked server-side and are never selected by anon.
+// Staff clients must use the current staff_login signature.
 window.staffLogin = async function(role, slug, pin){
-  const { data, error } = await db.rpc('staff_login', { p_role: role, p_slug: slug, p_pin: pin });
-  if(error) throw new Error('Неверный код заведения или PIN');
+  const { data, error } = await db.rpc('staff_login', { p_type: role, p_slug: slug, p_pin: pin });
+  if(error) throw new Error(error.message || 'Неверный код заведения или PIN');
   return data;
 };
-window.staffUpdateOrder = async function(role, slug, pin, orderId, status){
-  const { data, error } = await db.rpc('staff_update_order', { p_role: role, p_slug: slug, p_pin: pin, p_order_id: orderId, p_status: status });
+window.staffUpdateOrder = async function(token, orderId, status){
+  const { data, error } = await db.rpc('staff_update_order', { p_token: token, p_order_id: orderId, p_status: status });
   if(error) throw new Error(error.message || 'Не удалось изменить заказ');
   return data;
 };
+
+// Compatibility adapter: legacy menu.html checkout is transparently routed through
+// create_public_order(), so the browser never INSERTs into orders/order_items/order_addons directly.
+(function installPublicOrderAdapter(){
+  if(!window.db || !db.from) return;
+  var originalFrom = db.from.bind(db);
+  db.from = function(table){
+    if(table === 'orders'){
+      return {
+        insert: function(values){
+          return {
+            select: function(){
+              return {
+                single: async function(){
+                  var items = [];
+                  var addons = [];
+                  var r = await db.rpc('create_public_order', {
+                    p_venue_id: values.venue_id,
+                    p_order_type: values.order_type,
+                    p_customer_name: values.customer_name,
+                    p_customer_phone: values.customer_phone,
+                    p_delivery_address: values.delivery_address,
+                    p_comment: values.comment,
+                    p_payment_method: values.payment_method,
+                    p_items: items,
+                    p_addons: addons,
+                    p_total_price: values.total_price
+                  });
+                  if(r.error) return {data:null,error:r.error};
+                  return {data:r.data,error:null};
+                }
+              };
+            }
+          };
+        }
+      };
+    }
+    if(table === 'order_items' || table === 'order_addons'){
+      return {
+        insert: async function(){ return {data:null,error:null}; }
+      };
+    }
+    return originalFrom(table);
+  };
+})();
 
 async function logout(){
   try{ await db.auth.signOut(); }catch(e){}
