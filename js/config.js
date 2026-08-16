@@ -77,7 +77,10 @@ window.db=baseDb;
     return oldRpc(name,args,options);
   }
 
-  window.db={from:function(table){return table==='orders'?menuChain(table):oldFrom(table)},rpc:rpc,auth:real.auth,storage:real.storage};
+  // IMPORTANT: the special orders proxy is used only by menu.html.
+  // Staff pages must use the normal Supabase query builder, otherwise their
+  // orders queries are incorrectly interpreted as customer tracking queries.
+  window.db={from:function(table){return isMenu&&table==='orders'?menuChain(table):oldFrom(table)},rpc:rpc,auth:real.auth,storage:real.storage};
 
   // QR table: resolve by token directly. This does not depend on Vue or venue loading order.
   async function bootQrTable(){
@@ -110,53 +113,56 @@ window.db=baseDb;
     let n=0; const timer=setInterval(function(){renderCustomerTable();if(++n>30)clearInterval(timer)},500);
   }
 
-  // Staff: discover the active staff token from any localStorage JSON object instead of relying on a hard-coded key.
-  async function getStaffToken(){
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i), raw=localStorage.getItem(k);
-      if(!raw)continue;
-      try{
-        const v=JSON.parse(raw);
-        if(v&&typeof v==='object'&&typeof v.token==='string'&&v.token.length>10)return v.token;
-      }catch(e){}
-    }
-    return localStorage.getItem('staff_token')||localStorage.getItem('cook_token')||localStorage.getItem('waiter_token')||localStorage.getItem('courier_token')||null;
+  // Staff table badges. Staff pages already load orders normally and the orders
+  // contain table_id. We resolve the table number from venue_tables and inject
+  // a visible badge into each order card. This works for cook, waiter and courier.
+  const staffTableCache={};
+  const staffTablePending={};
+
+  async function resolveStaffOrderTable(orderNumber){
+    const key=String(orderNumber||'');
+    if(!key)return null;
+    if(staffTableCache[key])return staffTableCache[key];
+    if(staffTablePending[key])return staffTablePending[key];
+
+    staffTablePending[key]=(async function(){
+      const r=await oldFrom('orders').select('id,order_number,table_id').eq('order_number',key).maybeSingle();
+      if(r.error||!r.data||!r.data.table_id)return null;
+      const t=await oldFrom('venue_tables').select('id,table_number,name').eq('id',r.data.table_id).maybeSingle();
+      if(t.error||!t.data)return null;
+      staffTableCache[key]=t.data;
+      return t.data;
+    })();
+
+    try{return await staffTablePending[key]}
+    finally{delete staffTablePending[key]}
+  }
+
+  async function addStaffTableBadge(card){
+    if(!card||card.querySelector('.qr-table-fixed'))return;
+    const m=String(card.textContent||'').match(/№\s*(\d+)/);
+    if(!m)return;
+    const t=await resolveStaffOrderTable(m[1]);
+    if(!t||card.querySelector('.qr-table-fixed'))return;
+    const head=card.querySelector('.spread')||card.firstElementChild;
+    if(!head)return;
+    const badge=document.createElement('div');
+    badge.className='qr-table-fixed';
+    badge.textContent='🪑 '+(t.name||('Стол '+t.table_number));
+    badge.style.cssText='margin:8px 0;padding:9px 12px;border-radius:11px;background:#4f46e5;color:#fff;font-weight:800;display:block;text-align:center';
+    head.insertAdjacentElement('afterend',badge);
   }
 
   function addStaffBadges(){
     if(!isStaff)return;
-    const orders=window.__staffTableOrders||[];
-    if(!orders.length)return;
-    document.querySelectorAll('.wcard').forEach(function(card){
-      if(card.querySelector('.qr-table-fixed'))return;
-      const m=String(card.textContent||'').match(/№\s*(\d+)/);
-      if(!m)return;
-      const o=orders.find(function(x){return String(x.order_number)===String(m[1])});
-      if(!o)return;
-      const head=card.querySelector('.spread')||card.firstElementChild;
-      if(!head)return;
-      const badge=document.createElement('div');
-      badge.className='qr-table-fixed';
-      badge.textContent=o.table_number!=null?'🪑 Стол '+o.table_number:'📦 Без стола';
-      badge.style.cssText='margin:8px 0;padding:9px 12px;border-radius:11px;background:#4f46e5;color:#fff;font-weight:800;display:block;text-align:center';
-      head.insertAdjacentElement('afterend',badge);
-    });
-  }
-
-  async function loadStaffOrders(){
-    if(!isStaff)return;
-    const token=await getStaffToken();
-    if(!token)return;
-    const r=await oldRpc('staff_orders_json',{p_token:token});
-    if(!r.error&&Array.isArray(r.data)){
-      window.__staffTableOrders=r.data;
-      addStaffBadges();
-    }
+    document.querySelectorAll('.wcard').forEach(function(card){ addStaffTableBadge(card); });
   }
 
   if(isStaff){
-    setInterval(loadStaffOrders,2000);
-    loadStaffOrders();
+    // The badge is deliberately independent of staff session tokens.
+    // Kitchen/courier/waiter pages use their existing PIN/session logic.
+    setInterval(addStaffBadges,1500);
     new MutationObserver(addStaffBadges).observe(document.body,{childList:true,subtree:true});
+    addStaffBadges();
   }
 })();
