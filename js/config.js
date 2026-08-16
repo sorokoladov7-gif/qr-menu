@@ -53,8 +53,6 @@ window.db=baseDb;
     return api;
   }
 
-  // When the QR menu is opened from /menu.html?venue=...&table=TOKEN,
-  // transparently attach the validated table token to create_public_order.
   function rpc(name,args,options){
     if(name==='create_public_order'&&args&&typeof args==='object'){
       const token=new URLSearchParams(location.search).get('table');
@@ -72,4 +70,14 @@ window.db=baseDb;
     auth:real.auth,
     storage:real.storage
   };
+})();
+
+// Manager cabinet: table/QR management is embedded directly into manager.html.
+(function(){
+  if(!/\/manager\.html$/i.test(location.pathname)) return;
+  function load(){
+    if(document.querySelector('script[data-manager-tables]')) return;
+    var s=document.createElement('script');s.src='js/manager-tables.js';s.setAttribute('data-manager-tables','1');document.head.appendChild(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
 })();
