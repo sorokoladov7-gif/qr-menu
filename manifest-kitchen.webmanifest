@@ -4,7 +4,7 @@
   "short_name": "Кухня",
   "description": "Рабочее место повара: приём и приготовление заказов",
   "start_url": "/cook.html",
-  "scope": "/",
+  "scope": "/cook.html",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
