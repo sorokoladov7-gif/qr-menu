@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Управляющий</title>
+<link rel="manifest" href="/manifest-manager.webmanifest">
+<meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Управляющий">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/icon-manager-192.png">
+</head>
+<body style="margin:0;background:#0b1020;color:#fff;font-family:Arial,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh">
+<div style="text-align:center">Открываем кабинет управляющего…</div>
+<script>
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/manager-app/sw.js',{scope:'/manager-app/'}).catch(console.error);}
+setTimeout(function(){location.replace('/manager.html');},100);
+</script>
+</body>
+</html>
