@@ -14,7 +14,7 @@
 <link rel="apple-touch-icon" href="/icon-courier-192.png">
 <link rel="stylesheet" href="css/style.css">
 <style>
-[v-cloak]{display:none}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}.wcard{padding:12px;margin-bottom:10px}.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat-box .num{font-size:22px;font-weight:800}.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}.login-info{text-align:center;margin-top:12px;font-size:12px;color:#9ca3af}.hidden{display:none!important}
+[v-cloak]{display:none}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;align-items:start}.wcard{padding:12px;margin-bottom:10px}.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat-box .num{font-size:22px;font-weight:800}.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}.login-info{text-align:center;margin-top:12px;font-size:12px;color:#9ca3af}.hidden{display:none!important}.install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#6366f1}
 </style>
 </head>
 <body>
@@ -22,6 +22,9 @@
 <div id="app">
 <div class="topbar"><div class="brand"><div class="logo">🚗</div><span>Курьер<span id="venueTitle"></span></span></div><div class="row"><button id="logoutBtn" class="btn btn-ghost btn-sm hidden">Выйти</button></div></div>
 <div class="wrap">
+<!-- Подсказка об установке приложения -->
+<div id="installHint" class="glass card install-hint hidden">📲 <b>Установите как приложение:</b> Android — меню браузера ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”».<button id="hideInstallHint" class="btn btn-ghost btn-sm" style="margin-left:8px">Понятно</button></div>
+
 <div id="loginView" class="glass card" style="max-width:400px;margin:40px auto"><h3 style="margin-top:0">Вход для курьера</h3><div class="field"><label>Код заведения</label><input id="slug" value="demo" placeholder="demo" autocomplete="username" autocapitalize="none" spellcheck="false"></div><div class="field"><label>PIN</label><input id="pin" type="password" inputmode="numeric" autocomplete="current-password"></div><button id="loginBtn" class="btn btn-primary" style="width:100%">Войти</button><div id="loginErr" class="msg error hidden" style="margin-top:10px"></div><div class="login-info">Код заведения: <b>demo</b></div></div>
 <div id="mainView" class="hidden">
 <div id="userLine" class="muted" style="font-size:12px;margin-bottom:12px"></div>
@@ -67,18 +70,44 @@ $('loginBtn').addEventListener('click',login);$('pin').addEventListener('keyup',
 document.addEventListener('click',async e=>{const take=e.target.closest('.takeBtn'),done=e.target.closest('.doneBtn');if(take){try{await rpc('staff_update_order',{p_token:session.token,p_order_id:take.dataset.id,p_status:'delivery'});await load();await loadHistory()}catch(x){alert(x.message||'Не удалось взять заказ')}}if(done){try{await rpc('staff_update_order',{p_token:session.token,p_order_id:done.dataset.id,p_status:'done'});await load();await loadHistory()}catch(x){alert(x.message||'Не удалось завершить доставку')}}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&session){load();loadHistory()}});
 try{const saved=localStorage.getItem('courier_session');if(saved){session=JSON.parse(saved);showMain()}}catch(e){localStorage.removeItem('courier_session')}
+
+// Показываем подсказку об установке приложения
+function showInstallHint() {
+  const hint = $('installHint');
+  const hideBtn = $('hideInstallHint');
+  const standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+  
+  // Показываем подсказку только если приложение НЕ запущено в режиме standalone
+  if (!standalone && !localStorage.getItem('courier_app_hint')) {
+    hint.classList.remove('hidden');
+  }
+  
+  if (hideBtn) {
+    hideBtn.addEventListener('click', function() {
+      hint.classList.add('hidden');
+      localStorage.setItem('courier_app_hint', '1');
+    });
+  }
+}
+
 // Исправленная регистрация service worker
-if('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/sw.js')
       .then(function(registration) {
-        console.log('Service Worker зарегистрирован успешно:', registration);
+        console.log('Service Worker для курьера зарегистрирован успешно:', registration);
+        // После регистрации SW показываем подсказку об установке
+        showInstallHint();
       })
       .catch(function(error) {
-        console.warn('Ошибка регистрации Service Worker:', error);
+        console.warn('Ошибка регистрации Service Worker для курьера:', error);
       });
   });
+} else {
+  // Если SW не поддерживается, всё равно показываем подсказку
+  window.addEventListener('load', showInstallHint);
 }
+
 })();
 </script>
 </body>
