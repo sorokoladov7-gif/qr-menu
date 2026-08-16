@@ -11,48 +11,4 @@ async function requireAuth(roles){try{const{data:{session}}=await db.auth.getSes
 window.staffLogin=async function(role,slug,pin){const{data,error}=await db.rpc('staff_login',{p_type:role,p_slug:slug,p_pin:pin});if(error)throw new Error(error.message||'Неверный код заведения или PIN');return data;};
 window.staffUpdateOrder=async function(token,orderId,status){const{data,error}=await db.rpc('staff_update_order',{p_token:token,p_order_id:orderId,p_status:status});if(error)throw new Error(error.message||'Не удалось изменить заказ');return data;};
 
-(function installPublicOrderAdapter(){
- if(!window.db||!db.from)return;
- var originalFrom=db.from.bind(db);
- function wrap(table,insertHandler){var target=originalFrom(table);return new Proxy(target,{get:function(obj,prop){if(prop==='insert')return insertHandler;var value=obj[prop];return typeof value==='function'?value.bind(obj):value;}});}
- db.from=function(table){
-  if(table==='orders'){
-   var targetOrders=originalFrom('orders');
-   return new Proxy(targetOrders,{get:function(obj,prop){
-    if(prop==='insert'){
-     return function(values){return {select:function(){return {single:async function(){return{data:{id:(window.crypto&&crypto.randomUUID)?crypto.randomUUID():String(Date.now())},error:null};}}};};
-    }
-    if(prop==='select'){
-     return function(columns){
-      if(columns&&columns.indexOf('items:order_items')!==-1&&columns.indexOf('addons:order_addons')!==-1){
-       var venueId=null,customerPhone=null;
-       var chain={
-        eq:function(field,value){if(field==='venue_id')venueId=value;if(field==='customer_phone')customerPhone=value;return chain;},
-        order:function(){return chain;},limit:function(){return chain;},
-        maybeSingle:async function(){
-         if(!venueId||!customerPhone)return{data:null,error:null};
-         var r=await db.rpc('get_public_order',{p_venue_id:venueId,p_customer_phone:customerPhone});
-         if(r.error)return{data:null,error:r.error};
-         var d=r.data;
-         if(Array.isArray(d))d=d.length?d[0]:null;
-         if(d&&d.get_public_order)d=d.get_public_order;
-         if(d&&d.order)d=d.order;
-         if(d&&d.result)d=d.result;
-         if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){}}
-         if(d){d.items=Array.isArray(d.items)?d.items:[];d.addons=Array.isArray(d.addons)?d.addons:[];}
-         return{data:d||null,error:null};
-        }
-       };return chain;
-      }
-      return obj.select.apply(obj,arguments);
-     };
-    }
-    var value=obj[prop];return typeof value==='function'?value.bind(obj):value;
-   }});
-  }
-  if(table==='order_items')return wrap('order_items',async function(){return{data:[],error:null};});
-  if(table==='order_addons')return wrap('order_addons',async function(){return{data:[],error:null};});
-  return originalFrom(table);
- };
-})();
 async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.clear();location.href='index.html';}
