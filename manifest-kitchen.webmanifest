@@ -1,10 +1,10 @@
 {
-  "id": "/pwa/kitchen",
+  "id": "/cook.html",
   "name": "Кухня — QR-Меню для Бизнеса",
   "short_name": "Кухня",
   "description": "Рабочее место повара: приём и приготовление заказов",
   "start_url": "/cook.html",
-  "scope": "/cook.html",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
