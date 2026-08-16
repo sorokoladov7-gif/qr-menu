@@ -3,15 +3,53 @@
   "name": "Курьер — QR-Меню для Бизнеса",
   "short_name": "Курьер",
   "description": "Рабочее место курьера: заказы на доставку",
-  "start_url": "/courier.html",
+  "start_url": "/courier.html?utm_source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
   "theme_color": "#0b1020",
   "lang": "ru",
+  "categories": ["business", "food", "productivity"],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "shortcuts": [
+    {
+      "name": "Новые заказы",
+      "short_name": "Заказы",
+      "description": "Просмотр новых заказов на доставку",
+      "url": "/courier.html?action=orders",
+      "icons": [{ "src": "/icon-courier-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Моя статистика",
+      "short_name": "Статистика",
+      "description": "Просмотр статистики доставок",
+      "url": "/courier.html?action=stats",
+      "icons": [{ "src": "/icon-courier-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot-courier.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Экран курьера"
+    }
+  ],
   "icons": [
-    { "src": "/icon-courier-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-courier-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { 
+      "src": "/icon-courier-192.png", 
+      "sizes": "192x192", 
+      "type": "image/png", 
+      "purpose": "any" 
+    },
+    { 
+      "src": "/icon-courier-512.png", 
+      "sizes": "512x512", 
+      "type": "image/png", 
+      "purpose": "any maskable" 
+    }
   ]
 }
