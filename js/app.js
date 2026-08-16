@@ -6,7 +6,6 @@ window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
-/* QR TABLE TOKEN: автоматически передаём стол из URL в create_public_order(). */
 (function(){
   try{
     if(window.db && typeof window.db.rpc==='function'){
@@ -73,7 +72,7 @@ async function staff(){
  document.querySelectorAll('.wcard').forEach(async function(card){var no=orderNumberFromCard(card);if(!no)return;var o=orders.find(function(v){return String(v.order_number)===String(no);});if(!o)return;var t=o.table_id?await tableById(o.table_id,venueId):null;var text=label(t);var old=card.querySelector('.qr-table-badge');if(old){old.textContent=text;return;}var badge=document.createElement('div');badge.className='qr-table-badge';badge.textContent=text;var head=card.querySelector('.spread');if(head)head.insertAdjacentElement('afterend',badge);});
 }
 async function client(){
- var x=getVue();if(!x||!x.venue)return;
+ var x=getVue();if(!x||!x.venue)return null;
  var venueId=x.venue.id;
  var token=new URLSearchParams(location.search).get('table');
  if(token){
@@ -93,11 +92,18 @@ function start(){run();new MutationObserver(run).observe(document.body,{childLis
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 
-/* Manager: load the dedicated table management UI without changing the main manager Vue app. */
 (function(){
   if(!/\/manager\.html$/i.test(location.pathname)) return;
   var s=document.createElement('script');
   s.src='js/manager-tables.js?v=20260816';
+  s.async=false;
+  document.head.appendChild(s);
+})();
+
+(function(){
+  if(!/\/cook\.html$/i.test(location.pathname)) return;
+  var s=document.createElement('script');
+  s.src='js/cook-tables.js?v=20260817';
   s.async=false;
   document.head.appendChild(s);
 })();
