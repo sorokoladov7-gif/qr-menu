@@ -90,3 +90,13 @@ window.db=baseDb;
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
 })();
+
+// Staff cabinets: show the table attached to each order when the order came from a QR table.
+(function(){
+  if(!/\/(cook|courier|waiter)\.html$/i.test(location.pathname)) return;
+  function load(){
+    if(document.querySelector('script[data-staff-table-flow]')) return;
+    var s=document.createElement('script');s.src='js/staff-table-flow.js';s.setAttribute('data-staff-table-flow','1');document.head.appendChild(s);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
+})();
