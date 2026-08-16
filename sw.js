@@ -1,5 +1,5 @@
-var CACHE = 'qr-platform-v4';
-var CORE = ['/cook.html', '/manager.html', '/courier.html', '/waiter.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/manifest-manager.webmanifest', '/manifest-courier.webmanifest', '/manifest-waiter.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png', '/icon-courier-192.png', '/icon-courier-512.png', '/icon-waiter-192.png', '/icon-waiter-512.png'];
+var CACHE = 'qr-platform-v5';
+var CORE = ['/menu.html', '/cook.html', '/manager.html', '/courier.html', '/waiter.html', '/css/style.css', '/js/config.js', '/js/app.js', '/manifest.webmanifest', '/manifest-manager.webmanifest', '/manifest-courier.webmanifest', '/manifest-waiter.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png', '/icon-courier-192.png', '/icon-courier-512.png', '/icon-waiter-192.png', '/icon-waiter-512.png'];
 
 self.addEventListener('install', function(e) {
   e.waitUntil(caches.open(CACHE).then(function(c) {
