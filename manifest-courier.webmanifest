@@ -1,9 +1,9 @@
 {
-  "id": "/courier.html?v=15",
+  "id": "/courier.html",
   "name": "Курьер — QR-Меню для Бизнеса",
   "short_name": "Курьер",
   "description": "Рабочее место курьера: заказы на доставку",
-  "start_url": "/courier.html?v=15",
+  "start_url": "/courier.html",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
