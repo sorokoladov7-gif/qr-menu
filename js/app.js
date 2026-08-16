@@ -6,6 +6,22 @@ window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
+/* QR TABLE TOKEN: автоматически передаём стол из URL в create_public_order(). */
+(function(){
+  try{
+    if(window.db && typeof window.db.rpc==='function'){
+      var originalRpc=window.db.rpc.bind(window.db);
+      window.db.rpc=function(fn,args){
+        if(fn==='create_public_order' && args && typeof args==='object'){
+          var token=new URLSearchParams(location.search).get('table');
+          if(token && !args.p_table_token) args.p_table_token=token.trim();
+        }
+        return originalRpc(fn,args);
+      };
+    }
+  }catch(e){ console.warn('QR table RPC patch:',e); }
+})();
+
 function safeRedirect(fallbackUrl, reason) {
   var last = parseInt(sessionStorage.getItem('last_redirect') || '0', 10), now = Date.now();
   if (now - last < 3000) {
@@ -27,11 +43,6 @@ async function requireAuth(roles){
 }
 async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.clear();location.href='index.html';}
 
-/* =========================================================
-   QR TABLE DISPLAY — ЕДИНЫЙ НАДЁЖНЫЙ СЛОЙ
-   Работает поверх существующих menu/cook/waiter/courier страниц.
-   Не меняет логику заказов, только получает данные стола и показывает их.
-========================================================= */
 (function(){
 'use strict';
 var tableCache={},busy={};
