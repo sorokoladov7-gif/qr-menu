@@ -103,7 +103,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 (function(){
   if(!/\/cook\.html$/i.test(location.pathname)) return;
   var s=document.createElement('script');
-  s.src='js/cook-tables.js?v=20260817';
+  s.src='js/cook-tables.js?v=20260818';
   s.async=false;
   document.head.appendChild(s);
 })();
