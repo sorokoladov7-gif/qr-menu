@@ -67,7 +67,18 @@ $('loginBtn').addEventListener('click',login);$('pin').addEventListener('keyup',
 document.addEventListener('click',async e=>{const take=e.target.closest('.takeBtn'),done=e.target.closest('.doneBtn');if(take){try{await rpc('staff_update_order',{p_token:session.token,p_order_id:take.dataset.id,p_status:'delivery'});await load();await loadHistory()}catch(x){alert(x.message||'Не удалось взять заказ')}}if(done){try{await rpc('staff_update_order',{p_token:session.token,p_order_id:done.dataset.id,p_status:'done'});await load();await loadHistory()}catch(x){alert(x.message||'Не удалось завершить доставку')}}});
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&session){load();loadHistory()}});
 try{const saved=localStorage.getItem('courier_session');if(saved){session=JSON.parse(saved);showMain()}}catch(e){localStorage.removeItem('courier_session')}
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(e=>console.warn('PWA',e)));
+// Исправленная регистрация service worker
+if('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(registration) {
+        console.log('Service Worker зарегистрирован успешно:', registration);
+      })
+      .catch(function(error) {
+        console.warn('Ошибка регистрации Service Worker:', error);
+      });
+  });
+}
 })();
 </script>
 </body>
