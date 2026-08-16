@@ -1,157 +1,44 @@
 (function(){
 'use strict';
-
 if(!/\/manager\.html$/i.test(location.pathname)) return;
 
-var root=null;
-var panel=null;
-var observer=null;
+var root=null,panel=null,observer=null,currentVenue=null,tables=[],activeOrders=[],drag=null;
+function getRoot(){return root||(root=document.getElementById('app'));}
+function getVM(){var el=getRoot();try{return el&&el.__vue_app__&&el.__vue_app__._instance?el.__vue_app__._instance.proxy:null;}catch(e){return null;}}
+function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':c==='"'?'&quot;':'&#39;';});}
+function addStyles(){if(document.getElementById('manager-tables-style'))return;var s=document.createElement('style');s.id='manager-tables-style';s.textContent=`
+.mt-modal{position:fixed;inset:0;background:rgba(5,10,20,.84);backdrop-filter:blur(10px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:14px}
+.mt-box{width:min(1180px,100%);height:min(92vh,900px);overflow:hidden;background:#0f172a;border:1px solid rgba(255,255,255,.12);border-radius:22px;color:#fff;box-shadow:0 25px 90px rgba(0,0,0,.5);display:flex;flex-direction:column}
+.mt-head{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;justify-content:space-between;gap:12px;align-items:center}
+.mt-body{padding:16px 20px;overflow:auto;flex:1}.mt-tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.mt-tab{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#fff;border-radius:10px;padding:9px 13px;font-weight:700;cursor:pointer}.mt-tab.on{background:#6366f1;border-color:#818cf8}
+.mt-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mt-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:10px}.mt-btn{border:0;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:700}.mt-primary{background:#6366f1;color:#fff}.mt-danger{background:#7f1d1d;color:#fff}.mt-green{background:#047857;color:#fff}.mt-ghost{background:rgba(255,255,255,.08);color:#fff}.mt-muted{color:#94a3b8;font-size:12px}
+.mt-floor-wrap{overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:16px;background:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);background-size:32px 32px;min-height:560px}.mt-floor{position:relative;width:1100px;height:650px;min-width:1100px;background:radial-gradient(circle at 50% 50%,rgba(99,102,241,.07),transparent 45%)}
+.mt-table{position:absolute;width:112px;height:112px;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;touch-action:none;transition:box-shadow .15s,transform .08s;border:3px solid #475569;box-shadow:0 8px 22px rgba(0,0,0,.28);color:#fff}.mt-table:active{cursor:grabbing}.mt-table.free{background:rgba(16,185,129,.2);border-color:#34d399}.mt-table.busy{background:rgba(245,158,11,.2);border-color:#fbbf24}.mt-table.off{opacity:.45;filter:grayscale(.5)}.mt-table.round{border-radius:50%}.mt-table.square{border-radius:18px}.mt-table.rectangle{width:150px;height:92px;border-radius:18px}.mt-table .tn{font-weight:800;font-size:16px;text-align:center}.mt-table .ts{font-size:11px;color:#cbd5e1;margin-top:3px}.mt-table .to{font-size:10px;color:#fcd34d;margin-top:3px;max-width:95px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}.mt-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;text-align:center}.mt-card.busy{border-color:rgba(251,191,36,.5)}.mt-card.off{opacity:.58}.mt-qr{background:#fff;border-radius:12px;padding:8px;width:150px;height:150px;margin:10px auto;display:flex;align-items:center;justify-content:center}.mt-qr img{max-width:100%;max-height:100%}.mt-kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.mt-kpi>div{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;text-align:center}.mt-kpi b{display:block;font-size:20px}.mt-kpi span{font-size:11px;color:#94a3b8}
+@media(max-width:700px){.mt-box{height:95vh}.mt-head,.mt-body{padding:14px}.mt-kpi{grid-template-columns:1fr 1fr}.mt-floor{height:600px}.mt-row .mt-btn,.mt-row .mt-input{box-sizing:border-box}.mt-table{width:98px;height:98px}.mt-table.rectangle{width:130px;height:82px}}
+`;document.head.appendChild(s);}
+function addButton(){var tabs=document.querySelector('.tabs');if(!tabs)return false;var b=tabs.querySelector('[data-manager-tables]');if(!b){b=document.createElement('button');b.type='button';b.textContent='🪑 Столы';b.setAttribute('data-manager-tables','1');tabs.appendChild(b);}b.onclick=function(e){e.preventDefault();e.stopPropagation();openPanel();};return true;}
+async function getVenue(){var vm=getVM();if(vm&&vm.venue&&vm.venue.id)return vm.venue;try{var q=await db.from('manager_venues').select('venue_id, venues(*)');if(q.error||!q.data||!q.data.length)return null;var list=q.data.map(function(x){return x.venues;}).filter(Boolean);if(list.length===1)return list[0];var brand=document.querySelector('.brand span');var name=brand?String(brand.textContent||'').trim():'';return list.find(function(v){return v.name===name;})||null;}catch(e){return null;}}
+function tableUrl(t,v){return location.origin+location.pathname.replace(/manager\.html$/i,'menu.html')+'?venue='+encodeURIComponent(v.slug)+'&table='+encodeURIComponent(t.qr_token||'');}
+function renderQr(el,text){el.innerHTML='';if(window.QRCode){new QRCode(el,{text:text,width:140,height:140,colorDark:'#111827',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}else{var img=document.createElement('img');img.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(text);img.alt='QR';el.appendChild(img);}}
+function orderForTable(id){return activeOrders.find(function(o){return o.table_id===id;})||null;}
+function statusText(o){if(!o)return 'Свободен';return ({new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',changed:'Изменён'}[o.status]||o.status);}
 
-function getRoot(){
-  if(!root) root=document.getElementById('app');
-  return root;
-}
-
-function getVM(){
-  var el=getRoot();
-  try{
-    if(!el) return null;
-    if(el.__vueParentComponent && el.__vueParentComponent.proxy) return el.__vueParentComponent.proxy;
-    if(el.__vue_app__ && el.__vue_app__._instance && el.__vue_app__._instance.proxy) return el.__vue_app__._instance.proxy;
-  }catch(e){}
-  return null;
-}
-
-function escapeHtml(value){
-  return String(value==null?'':value).replace(/[&<>"']/g,function(c){
-    return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':c==='"'?'&quot;':'&#39;';
-  });
-}
-
-function addStyles(){
-  if(document.getElementById('manager-tables-style')) return;
-  var s=document.createElement('style');
-  s.id='manager-tables-style';
-  s.textContent='.mt-modal{position:fixed;inset:0;background:rgba(5,10,20,.78);backdrop-filter:blur(8px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px}.mt-box{width:min(980px,100%);max-height:90vh;overflow:auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff;box-shadow:0 25px 80px rgba(0,0,0,.45)}.mt-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:16px}.mt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}.mt-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;text-align:center}.mt-card.off{opacity:.58}.mt-qr{background:#fff;border-radius:12px;padding:8px;width:150px;height:150px;margin:10px auto;display:flex;align-items:center;justify-content:center}.mt-qr img{max-width:100%;max-height:100%}.mt-muted{color:#94a3b8;font-size:12px}.mt-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.mt-input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);color:#fff;border-radius:10px;padding:10px}.mt-btn{border:0;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:700}.mt-primary{background:#6366f1;color:#fff}.mt-danger{background:#7f1d1d;color:#fff}.mt-green{background:#047857;color:#fff}.mt-ghost{background:rgba(255,255,255,.08);color:#fff}.mt-modal input::placeholder{color:#94a3b8}@media(max-width:600px){.mt-box{padding:14px}.mt-grid{grid-template-columns:1fr}.mt-row{flex-direction:column;align-items:stretch}.mt-row .mt-btn,.mt-row .mt-input{width:100%;box-sizing:border-box}}';
-  document.head.appendChild(s);
-}
-
-function addButton(){
-  var tabs=document.querySelector('.tabs');
-  if(!tabs) return false;
-  var b=tabs.querySelector('[data-manager-tables]');
-  if(!b){
-    b=document.createElement('button');
-    b.type='button';
-    b.textContent='🪑 Столы';
-    b.setAttribute('data-manager-tables','1');
-    tabs.appendChild(b);
-  }
-  b.onclick=function(e){
-    if(e){e.preventDefault();e.stopPropagation();}
-    openPanel();
-  };
-  return true;
-}
-
-async function getVenue(){
-  var vm=getVM();
-  if(vm && vm.venue && vm.venue.id) return vm.venue;
-  try{
-    var q=await db.from('manager_venues').select('venue_id, venues(*)');
-    if(q.error || !q.data || !q.data.length) return null;
-    var list=q.data.map(function(x){return x.venues;}).filter(Boolean);
-    if(list.length===1) return list[0];
-    var brand=document.querySelector('.brand span');
-    var name=brand?String(brand.textContent||'').trim():'';
-    return list.find(function(v){return v.name===name;})||null;
-  }catch(e){return null;}
-}
-
-function tableUrl(t,v){
-  return location.origin+location.pathname.replace(/manager\.html$/i,'menu.html')+'?venue='+encodeURIComponent(v.slug)+'&table='+encodeURIComponent(t.qr_token||'');
-}
-
-function renderQr(el,text){
-  el.innerHTML='';
-  if(window.QRCode){
-    new QRCode(el,{text:text,width:140,height:140,colorDark:'#111827',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});
-  }else{
-    var img=document.createElement('img');
-    img.src='https://api.qrserver.com/v1/create-qr-code/?size=160x160&data='+encodeURIComponent(text);
-    img.alt='QR';
-    el.appendChild(img);
-  }
-}
-
-async function openPanel(){
-  addStyles();
-  var v=await getVenue();
-  if(!v){
-    var vm=getVM();
-    if(vm && vm.myVenues && vm.myVenues.length===1 && typeof vm.selectVenue==='function'){
-      vm.selectVenue(vm.myVenues[0]);
-      await new Promise(function(resolve){setTimeout(resolve,400);});
-      v=await getVenue();
-    }
-  }
-  if(!v){alert('Не удалось определить выбранное заведение. Выберите заведение в кабинете управляющего.');return;}
-  if(panel) panel.remove();
-  panel=document.createElement('div');
-  panel.className='mt-modal';
-  panel.innerHTML='<div class="mt-box"><div class="mt-head"><div><h2 style="margin:0">🪑 Столы и QR-коды</h2><div class="mt-muted" style="margin-top:5px">'+escapeHtml(v.name)+'</div></div><button class="mt-btn mt-ghost" id="mt-close">✕ Закрыть</button></div><div class="mt-row" style="margin-bottom:16px"><input id="mt-count" class="mt-input" type="number" min="1" max="100" value="5" placeholder="Количество"><button id="mt-create" class="mt-btn mt-primary">+ Создать столы</button><button id="mt-print" class="mt-btn mt-ghost">🖨 Печать всех</button></div><div id="mt-msg" class="mt-muted" style="margin-bottom:12px"></div><div id="mt-grid" class="mt-grid"></div></div>';
-  document.body.appendChild(panel);
-  panel.querySelector('#mt-close').onclick=closePanel;
-  panel.addEventListener('click',function(e){if(e.target===panel) closePanel();});
-  panel.querySelector('#mt-create').onclick=function(){createTables(v);};
-  panel.querySelector('#mt-print').onclick=printAll;
-  await loadTables(v);
-}
-
-function closePanel(){if(panel) panel.remove();panel=null;}
-
-async function loadTables(v){
-  if(!panel) return;
-  var grid=panel.querySelector('#mt-grid'),msg=panel.querySelector('#mt-msg');
-  grid.innerHTML='<div class="mt-muted">Загрузка...</div>';
-  var r=await db.from('venue_tables').select('*').eq('venue_id',v.id).order('table_number');
-  if(r.error){msg.textContent='Ошибка: '+r.error.message;return;}
-  var rows=r.data||[];msg.textContent=rows.length?'Всего столов: '+rows.length:'Столов пока нет';grid.innerHTML='';
-  rows.forEach(function(t){
-    var card=document.createElement('div');card.className='mt-card'+(t.is_active?'':' off');
-    card.innerHTML='<b style="font-size:18px">'+escapeHtml(t.name||('Стол '+t.table_number))+'</b><div class="mt-muted">№'+t.table_number+' · '+(t.is_active?'🟢 Активен':'🔴 Отключён')+'</div><div class="mt-qr"></div><div class="mt-row" style="justify-content:center"><button class="mt-btn mt-primary">✏️ Изменить</button><button class="mt-btn mt-green">'+(t.is_active?'🔴 Отключить':'🟢 Включить')+'</button><button class="mt-btn mt-ghost">🖨 QR</button><button class="mt-btn mt-danger">🗑</button></div>';
-    grid.appendChild(card);
-    if(t.is_active) renderQr(card.querySelector('.mt-qr'),tableUrl(t,v)); else card.querySelector('.mt-qr').innerHTML='<div style="color:#111827;font-weight:700">ОТКЛЮЧЁН</div>';
-    var buttons=card.querySelectorAll('button');buttons[0].onclick=function(){editTable(t,v);};buttons[1].onclick=function(){toggleTable(t,v);};buttons[2].onclick=function(){printOne(card,t,v);};buttons[3].onclick=function(){removeTable(t,v);};
-  });
-}
-
-async function createTables(v){
-  if(!panel)return;
-  var count=Math.max(1,Math.min(100,Number(panel.querySelector('#mt-count').value)||1)),msg=panel.querySelector('#mt-msg');
-  var existing=await db.from('venue_tables').select('table_number').eq('venue_id',v.id).order('table_number');
-  if(existing.error){msg.textContent='Ошибка: '+existing.error.message;return;}
-  var used=new Set((existing.data||[]).map(function(x){return Number(x.table_number);})),next=1,rows=[];
-  for(var i=0;i<count;i++){while(used.has(next))next++;rows.push({venue_id:v.id,table_number:next,name:'Стол '+next,is_active:true});used.add(next);next++;}
-  var result=await db.from('venue_tables').insert(rows);if(result.error){msg.textContent='Ошибка: '+result.error.message;return;}
-  msg.textContent='Создано столов: '+count;await loadTables(v);
-}
-
-async function editTable(t,v){var name=prompt('Название стола:',t.name||('Стол '+t.table_number));if(name===null)return;name=String(name).trim();if(!name){alert('Название не может быть пустым');return;}var r=await db.from('venue_tables').update({name:name}).eq('id',t.id);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadTables(v);}
-async function toggleTable(t,v){var r=await db.from('venue_tables').update({is_active:!t.is_active}).eq('id',t.id);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadTables(v);}
-async function removeTable(t,v){if(!confirm('Удалить '+(t.name||('Стол '+t.table_number))+'?'))return;var r=await db.from('venue_tables').delete().eq('id',t.id);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadTables(v);}
-
-function printOne(card,t,v){var clone=card.cloneNode(true);clone.querySelectorAll('button').forEach(function(b){b.remove();});var w=window.open('','_blank','width=500,height=650');if(!w){alert('Разрешите всплывающие окна для печати QR');return;}w.document.write('<html><head><title>'+escapeHtml(t.name||('Стол '+t.table_number))+'</title><style>body{font-family:Arial;text-align:center;padding:30px}.mt-qr{margin:20px auto}.mt-qr img{max-width:100%}.mt-muted{color:#666;font-size:12px}</style></head><body>'+clone.outerHTML+'</body></html>');w.document.close();w.focus();setTimeout(function(){w.print();w.close();},400);}
-function printAll(){if(!panel)return;var cards=panel.querySelectorAll('.mt-card');if(!cards.length)return;var w=window.open('','_blank','width=900,height=900');if(!w){alert('Разрешите всплывающие окна для печати QR');return;}var html='';cards.forEach(function(card){var clone=card.cloneNode(true);clone.querySelectorAll('button').forEach(function(b){b.remove();});html+='<div style="display:inline-block;width:30%;vertical-align:top;text-align:center;margin:10px;padding:12px;border:1px solid #ddd;border-radius:12px">'+clone.outerHTML+'</div>';});w.document.write('<html><head><title>QR-коды столов</title><style>body{font-family:Arial}.mt-qr{margin:10px auto;background:#fff;padding:8px;width:150px;height:150px}.mt-qr img{max-width:100%;max-height:100%}@media print{body{margin:10mm}}</style></head><body><h1>QR-коды столов</h1>'+html+'</body></html>');w.document.close();w.focus();setTimeout(function(){w.print();w.close();},500);}
-
-function start(){
-  addStyles();
-  addButton();
-  if(observer) observer.disconnect();
-  observer=new MutationObserver(function(){addButton();});
-  if(document.body) observer.observe(document.body,{childList:true,subtree:true});
-  [250,750,1500,3000,5000].forEach(function(ms){setTimeout(addButton,ms);});
-}
-
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
+async function openPanel(){addStyles();currentVenue=await getVenue();if(!currentVenue){var vm=getVM();if(vm&&vm.myVenues&&vm.myVenues.length===1&&typeof vm.selectVenue==='function'){vm.selectVenue(vm.myVenues[0]);await new Promise(function(r){setTimeout(r,400);});currentVenue=await getVenue();}}if(!currentVenue){alert('Не удалось определить выбранное заведение. Выберите заведение в кабинете управляющего.');return;}if(panel)panel.remove();panel=document.createElement('div');panel.className='mt-modal';panel.innerHTML=`<div class="mt-box"><div class="mt-head"><div><h2 style="margin:0">🪑 Столы</h2><div class="mt-muted" style="margin-top:5px">${esc(currentVenue.name)} · схема зала</div></div><button class="mt-btn mt-ghost" id="mt-close">✕ Закрыть</button></div><div class="mt-body"><div class="mt-tabs"><button class="mt-tab on" data-tab="floor">🗺 Схема зала</button><button class="mt-tab" data-tab="list">📋 Список</button><button class="mt-tab" data-tab="qr">🔳 QR-коды</button></div><div id="mt-content"></div></div></div>`;document.body.appendChild(panel);panel.querySelector('#mt-close').onclick=closePanel;panel.addEventListener('click',function(e){if(e.target===panel)closePanel();});panel.querySelectorAll('.mt-tab').forEach(function(b){b.onclick=function(){panel.querySelectorAll('.mt-tab').forEach(function(x){x.classList.remove('on')});b.classList.add('on');renderTab(b.dataset.tab);};});await loadData();renderTab('floor');}
+function closePanel(){if(panel)panel.remove();panel=null;currentVenue=null;tables=[];activeOrders=[];}
+async function loadData(){if(!panel)return;var content=panel.querySelector('#mt-content');content.innerHTML='<div class="mt-muted">Загрузка столов...</div>';var r=await db.from('venue_tables').select('*').eq('venue_id',currentVenue.id).order('table_number');if(r.error){content.innerHTML='<div class="mt-muted">Ошибка: '+esc(r.error.message)+'</div>';return;}tables=r.data||[];var o=await db.from('orders').select('id,order_number,status,total_price,customer_name,table_id,created_at').eq('venue_id',currentVenue.id).in('status',['new','changed','cooking','ready','delivery']);activeOrders=o.error?[]:(o.data||[]);}
+function renderTab(tab){if(!panel)return;var c=panel.querySelector('#mt-content');if(tab==='floor')renderFloor(c);else if(tab==='list')renderList(c);else renderQrList(c);}
+function renderFloor(c){var free=tables.filter(function(t){return t.is_active&&!orderForTable(t.id)}).length,busy=tables.filter(function(t){return t.is_active&&orderForTable(t.id)}).length,off=tables.filter(function(t){return !t.is_active}).length;c.innerHTML=`<div class="mt-kpi"><div><b>${tables.length}</b><span>Всего</span></div><div><b style="color:#34d399">${free}</b><span>Свободно</span></div><div><b style="color:#fbbf24">${busy}</b><span>Занято</span></div></div><div class="mt-row" style="margin-bottom:12px"><input id="mt-count" class="mt-input" type="number" min="1" max="100" value="1"><button id="mt-create" class="mt-btn mt-primary">+ Добавить стол</button><button id="mt-save-all" class="mt-btn mt-green">💾 Сохранить расположение</button><button id="mt-refresh" class="mt-btn mt-ghost">↻ Обновить</button><span class="mt-muted">Перетаскивайте столы мышью или пальцем.</span></div><div class="mt-floor-wrap"><div id="mt-floor" class="mt-floor"></div></div>`;var floor=c.querySelector('#mt-floor');tables.forEach(function(t){var el=document.createElement('div');var o=orderForTable(t.id);el.className='mt-table '+(t.shape||'round')+' '+(!t.is_active?'off':o?'busy':'free');el.style.left=(Number(t.pos_x)||80)+'px';el.style.top=(Number(t.pos_y)||80)+'px';el.dataset.id=t.id;el.innerHTML='<div class="tn">🪑 '+esc(t.name||('Стол '+t.table_number))+'</div><div class="ts">'+(t.is_active?(o?'🟡 '+statusText(o):'🟢 Свободен'):'🔴 Выключен')+'</div>'+(o?'<div class="to">Заказ №'+esc(o.order_number)+'</div>':'');attachDrag(el,t);el.ondblclick=function(){editTable(t);};el.oncontextmenu=function(e){e.preventDefault();editTable(t);};floor.appendChild(el);});c.querySelector('#mt-create').onclick=function(){createTables();};c.querySelector('#mt-save-all').onclick=saveAllPositions;c.querySelector('#mt-refresh').onclick=async function(){await loadData();renderFloor(c);};}
+function attachDrag(el,t){el.addEventListener('pointerdown',function(e){if(e.button!==undefined&&e.button!==0)return;e.preventDefault();el.setPointerCapture(e.pointerId);var floor=el.parentElement,fr=floor.getBoundingClientRect(),startX=e.clientX,startY=e.clientY,origX=Number(t.pos_x)||80,origY=Number(t.pos_y)||80;drag={el:el,t:t,floor:floor,fr:fr,startX:startX,startY:startY,origX:origX,origY:origY};el.style.zIndex=10;});el.addEventListener('pointermove',function(e){if(!drag||drag.el!==el)return;var x=Math.max(60,Math.min(1040,drag.origX+(e.clientX-drag.startX)));var y=Math.max(60,Math.min(590,drag.origY+(e.clientY-drag.startY)));t.pos_x=Math.round(x);t.pos_y=Math.round(y);el.style.left=x+'px';el.style.top=y+'px';});el.addEventListener('pointerup',function(){if(drag&&drag.el===el){el.style.zIndex='';drag=null;}});}
+async function saveAllPositions(){var msg=[];for(var i=0;i<tables.length;i++){var t=tables[i];var r=await db.from('venue_tables').update({pos_x:Math.round(Number(t.pos_x)||80),pos_y:Math.round(Number(t.pos_y)||80)}).eq('id',t.id);if(r.error)msg.push((t.name||t.table_number)+': '+r.error.message);}alert(msg.length?'Ошибки: '+msg.join('\n'):'Расположение столов сохранено.');}
+async function createTables(){var count=Math.max(1,Math.min(100,Number(panel.querySelector('#mt-count').value)||1)),used=new Set(tables.map(function(t){return Number(t.table_number)})),next=1,rows=[];for(var i=0;i<count;i++){while(used.has(next))next++;var col=i%6,row=Math.floor(i/6);rows.push({venue_id:currentVenue.id,table_number:next,name:'Стол '+next,is_active:true,pos_x:100+col*175,pos_y:100+row*150,seats:4,shape:'round'});used.add(next);next++;}var r=await db.from('venue_tables').insert(rows);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadData();renderFloor(panel.querySelector('#mt-content'));}
+async function editTable(t){var name=prompt('Название стола:',t.name||('Стол '+t.table_number));if(name===null)return;name=String(name).trim();if(!name)return;var seats=prompt('Количество мест:',String(t.seats||4));seats=Math.max(1,Math.min(30,Number(seats)||4));var shape=prompt('Форма: round / square / rectangle',t.shape||'round');shape=['round','square','rectangle'].indexOf(shape)===-1?(t.shape||'round'):shape;var r=await db.from('venue_tables').update({name:name,seats:seats,shape:shape}).eq('id',t.id);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadData();var tab=panel.querySelector('.mt-tab.on');renderTab(tab?tab.dataset.tab:'floor');}
+async function toggleTable(t){var r=await db.from('venue_tables').update({is_active:!t.is_active}).eq('id',t.id);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadData();renderTab('list');}
+async function removeTable(t){if(orderForTable(t.id)){alert('Нельзя удалить стол с активным заказом. Сначала завершите заказ.');return;}if(!confirm('Удалить '+(t.name||('Стол '+t.table_number))+'?'))return;var r=await db.from('venue_tables').delete().eq('id',t.id);if(r.error){alert('Ошибка: '+r.error.message);return;}await loadData();renderTab('list');}
+function renderList(c){c.innerHTML=`<div class="mt-row" style="margin-bottom:14px"><button id="mt-create-list" class="mt-btn mt-primary">+ Создать столы</button><span class="mt-muted">Всего: ${tables.length}</span></div><div class="mt-grid" id="mt-grid"></div>`;var grid=c.querySelector('#mt-grid');tables.forEach(function(t){var o=orderForTable(t.id),card=document.createElement('div');card.className='mt-card '+(o?'busy ':'')+(!t.is_active?'off':'');card.innerHTML='<b style="font-size:18px">'+esc(t.name||('Стол '+t.table_number))+'</b><div class="mt-muted">№'+t.table_number+' · '+(t.seats||4)+' мест · '+(t.shape||'round')+'</div><div style="margin:8px 0">'+(o?'<span style="color:#fbbf24;font-weight:800">🟡 Занят · заказ №'+esc(o.order_number)+'</span>':'<span style="color:#34d399;font-weight:800">🟢 Свободен</span>')+'</div><div class="mt-row" style="justify-content:center"><button class="mt-btn mt-primary">✏️</button><button class="mt-btn mt-green">'+(t.is_active?'🔴 Отключить':'🟢 Включить')+'</button><button class="mt-btn mt-danger">🗑</button></div>';grid.appendChild(card);var bs=card.querySelectorAll('button');bs[0].onclick=function(){editTable(t);};bs[1].onclick=function(){toggleTable(t);};bs[2].onclick=function(){removeTable(t);};});c.querySelector('#mt-create-list').onclick=function(){var n=prompt('Сколько столов создать?', '5');if(n!==null){panel.querySelector('.mt-tab[data-tab="floor"]').click();setTimeout(function(){var i=panel.querySelector('#mt-count');if(i)i.value=n;var b=panel.querySelector('#mt-create');if(b)b.click();},0);}};}
+function renderQrList(c){c.innerHTML='<div class="mt-row" style="margin-bottom:14px"><button id="mt-print-all" class="mt-btn mt-ghost">🖨 Печать всех QR</button><span class="mt-muted">QR открывает меню с привязкой к конкретному столу.</span></div><div class="mt-grid" id="mt-qr-grid"></div>';var grid=c.querySelector('#mt-qr-grid');tables.forEach(function(t){var card=document.createElement('div');card.className='mt-card '+(!t.is_active?'off':'');card.innerHTML='<b>'+esc(t.name||('Стол '+t.table_number))+'</b><div class="mt-qr"></div><div class="mt-muted">'+(t.is_active?'Активен':'Отключён')+'</div><button class="mt-btn mt-ghost" style="margin-top:8px">🖨 Печать</button>';grid.appendChild(card);if(t.is_active)renderQr(card.querySelector('.mt-qr'),tableUrl(t,currentVenue));else card.querySelector('.mt-qr').innerHTML='<div style="color:#111827;font-weight:700">ОТКЛЮЧЁН</div>';card.querySelector('button').onclick=function(){printOne(card,t);};});c.querySelector('#mt-print-all').onclick=printAll;}
+function printOne(card,t){var clone=card.cloneNode(true);clone.querySelectorAll('button').forEach(function(b){b.remove();});var w=window.open('','_blank','width=500,height=650');if(!w){alert('Разрешите всплывающие окна для печати QR');return;}w.document.write('<html><head><title>'+esc(t.name||('Стол '+t.table_number))+'</title><style>body{font-family:Arial;text-align:center;padding:30px}.mt-qr{margin:20px auto}.mt-qr img{max-width:100%;max-height:100%}.mt-muted{color:#666;font-size:12px}</style></head><body>'+clone.outerHTML+'</body></html>');w.document.close();w.focus();setTimeout(function(){w.print();w.close();},400);}
+function printAll(){if(!panel)return;var cards=panel.querySelectorAll('#mt-qr-grid .mt-card');if(!cards.length)return;var w=window.open('','_blank','width=900,height=900');if(!w){alert('Разрешите всплывающие окна для печати');return;}var html='';cards.forEach(function(card){var clone=card.cloneNode(true);clone.querySelectorAll('button').forEach(function(b){b.remove();});html+='<div style="display:inline-block;width:30%;vertical-align:top;text-align:center;margin:10px;padding:12px;border:1px solid #ddd;border-radius:12px">'+clone.outerHTML+'</div>';});w.document.write('<html><head><title>QR-коды столов</title><style>body{font-family:Arial}.mt-qr{margin:10px auto;background:#fff;padding:8px;width:150px;height:150px}.mt-qr img{max-width:100%;max-height:100%}@media print{body{margin:10mm}}</style></head><body><h1>QR-коды столов</h1>'+html+'</body></html>');w.document.close();w.focus();setTimeout(function(){w.print();w.close();},500);}
+function start(){addStyles();addButton();if(observer)observer.disconnect();observer=new MutationObserver(function(){addButton();});if(document.body)observer.observe(document.body,{childList:true,subtree:true});[250,750,1500,3000,5000].forEach(function(ms){setTimeout(addButton,ms);});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
