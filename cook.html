@@ -28,356 +28,97 @@
 <template v-else>
 <div class="muted" style="font-size:12px;margin-bottom:12px">👨‍🍳 {{ session.cookName }} · заказы обновляются автоматически</div>
 <div class="stats-grid"><div class="stat-box" style="border-color:#60a5fa"><div class="num">{{ cookStats.total }}</div><div class="lbl">Всего взял заказов</div></div><div class="stat-box" style="border-color:#34d399"><div class="num">{{ cookStats.done }}</div><div class="lbl">Выполнено (готово)</div></div><div class="stat-box" style="border-color:#fbbf24"><div class="num">{{ cookStats.avgTime }} мин</div><div class="lbl">Среднее время готовки</div></div><div class="stat-box" style="border-color:#a78bfa"><div class="num">{{ fmt(cookStats.revenue) }} ₽</div><div class="lbl">Выручка (заказы)</div></div></div>
-<div class="cols"><div class="col"><h4>🆕 Новые ({{ colNew.length }})</h4><div v-for="o in colNew" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-new">{{ deliveryIcon(o.order_type) }}</span></div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div><div v-for="a in o.addons" v-bind:key="a.id" class="muted">+ {{ a.name }}</div></div><div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div><div class="row" style="margin-top:10px"><button class="btn btn-ghost btn-sm" style="flex:1" v-on:click="openEditOrder(o)">✏️ Изменить</button><button class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'cooking')">✋ Взять заказ</button></div></div><p v-if="!colNew.length" class="muted">Пусто</p></div>
-<div class="col"><h4>🔥 Готовятся ({{ colCooking.length }})</h4><div v-for="o in colCooking" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ deliveryIcon(o.order_type) }}</span></div><div class="muted" style="font-size:12px;margin-top:4px">👨‍🍳 Готовит: <b style="color:#fcd34d">{{ o.cook_name||'—' }}</b></div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div><button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" v-on:click="setStatus(o.id,'ready')">Готово ✓</button></div><p v-if="!colCooking.length" class="muted">Пусто</p></div>
-<div class="col"><h4>✅ Выдача ({{ colReady.length }})</h4><div v-for="o in colReady" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span></div><div class="muted" style="font-size:12px;margin-top:4px">👨‍🍳 {{ o.cook_name||'—' }}</div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div><div class="row" style="margin-top:10px"><button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'delivery')">Курьеру 🚗</button><button v-if="isReadyOrDelivery(o.status)" class="btn btn-green btn-sm" style="flex:1" v-on:click="setStatus(o.id,'done')">Выдан клиенту</button></div></div><p v-if="!colReady.length" class="muted">Пусто</p></div></div>
-<div class="glass card" style="margin-top:18px"><h4 style="margin:0 0 12px">📜 Моя история (последние выполненные)</h4><div v-for="o in cookHistory" v-bind:key="o.id" class="row" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><div style="flex:1;font-size:13px"><b>№{{ o.order_number }}</b> — {{ o.customer_name||'Клиент' }}</div><div class="muted" style="font-size:12px">{{ fmtDate(o.created_at) }}</div><div style="color:#34d399;font-weight:700">{{ fmt(o.total_price) }} ₽</div></div><p v-if="!cookHistory.length" class="muted" style="padding:8px 0">У вас пока нет завершённых заказов.</p></div>
+<div class="cols"><div class="col"><h4>🆕 Новые ({{ colNew.length }})</h4><div v-for="o in colNew" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-new">{{ deliveryIcon(o.order_type) }}</span></div><div v-if="o.table_number" class="muted" style="font-size:12px;margin-top:4px">🪑 Стол {{ o.table_number }}</div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div><div v-for="a in o.addons" v-bind:key="a.id" class="muted">+ {{ a.name }}</div></div><div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div><div class="row" style="margin-top:10px"><button class="btn btn-ghost btn-sm" style="flex:1" v-on:click="openEditOrder(o)">✏️ Изменить</button><button class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'cooking')">✋ Взять заказ</button></div></div><p v-if="!colNew.length" class="muted">Пусто</p></div>
+<div class="col"><h4>🔥 Готовятся ({{ colCooking.length }})</h4><div v-for="o in colCooking" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ deliveryIcon(o.order_type) }}</span></div><div v-if="o.table_number" class="muted" style="font-size:12px;margin-top:4px">🪑 Стол {{ o.table_number }}</div><div class="muted" style="font-size:12px;margin-top:4px">👨‍🍳 Готовит: <b style="color:#fcd34d">{{ o.cook_name||'—' }}</b></div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div><button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" v-on:click="setStatus(o.id,'ready')">Готово ✓</button></div><p v-if="!colCooking.length" class="muted">Пусто</p></div>
+<div class="col"><h4>✅ Выдача ({{ colReady.length }})</h4><div v-for="o in colReady" v-bind:key="o.id" class="glass wcard"><div class="spread"><b>№{{ o.order_number }}</b><span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span></div><div v-if="o.table_number" class="muted" style="font-size:12px;margin-top:4px">🪑 Стол {{ o.table_number }}</div><div class="muted" style="font-size:12px;margin-top:4px">👨‍🍳 {{ o.cook_name||'—' }}</div><div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div><div class="row" style="margin-top:10px"><button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'delivery')">Курьеру 🚗</button><button v-if="isReadyOrDelivery(o.status)" class="btn btn-green btn-sm" style="flex:1" v-on:click="setStatus(o.id,'done')">Выдан клиенту</button></div></div><p v-if="!colReady.length" class="muted">Пусто</p></div></div>
+<div class="glass card" style="margin-top:18px"><h4 style="margin:0 0 12px">📜 Моя история (последние выполненные)</h4><div v-for="o in cookHistory" v-bind:key="o.id" class="row" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)"><div style="flex:1;font-size:13px"><b>№{{ o.order_number }}</b> — {{ o.customer_name||'Клиент' }}<span v-if="o.table_number" class="muted"> · 🪑 Стол {{ o.table_number }}</span></div><div class="muted" style="font-size:12px">{{ fmtDate(o.created_at) }}</div><div style="color:#34d399;font-weight:700">{{ fmt(o.total_price) }} ₽</div></div><p v-if="!cookHistory.length" class="muted" style="padding:8px 0">У вас пока нет завершённых заказов.</p></div>
 </template></div>
 <div v-if="showEditModal" class="modal" v-on:click.self="showEditModal=false"><div class="glass box"><h3 style="margin-top:0">Изменение заказа №{{ editingOrder?editingOrder.order_number:'' }}</h3><p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии.</p><div v-if="editingOrder"><div v-for="it in editingOrder.items" v-bind:key="it.id" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px"><div style="flex:1"><b>{{ it.name }}</b><br><span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span></div><button class="btn btn-ghost btn-sm" v-on:click="changeQty(it,-1)">−</button><b style="width:20px;text-align:center">{{ it.qty }}</b><button class="btn btn-ghost btn-sm" v-on:click="changeQty(it,1)">+</button><button class="btn btn-danger btn-sm" v-on:click="removeItem(it.id)">🗑</button></div><div v-if="editingOrder.addons&&editingOrder.addons.length" style="margin-top:15px"><div class="muted" style="font-size:12px;margin-bottom:8px">Дополнительно:</div><div v-for="a in editingOrder.addons" v-bind:key="a.id" class="row" style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.03);border-radius:10px"><div style="flex:1;font-size:13px">{{ a.name }} ({{ a.price }} ₽)</div><button class="btn btn-danger btn-sm" v-on:click="removeAddon(a.id)">🗑</button></div></div><div class="spread" style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,.1)"><span class="muted">Новая сумма:</span><b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b></div></div><div class="row" style="margin-top:20px"><button class="btn btn-primary" style="flex:1" v-on:click="saveEditedOrder" v-bind:disabled="busy||!editingOrder||editingOrder.items.length===0">{{ busy?'Сохранение...':'✅ Сохранить' }}</button><button class="btn btn-ghost" v-on:click="showEditModal=false" v-bind:disabled="busy">Отмена</button></div><div v-if="editError" class="msg error" style="margin-top:10px">{{ editError }}</div></div></div>
 </div>
 <script src="js/config.js"></script><script src="js/app.js"></script>
 <script>
-// Исправленная регистрация service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js', { scope: '/' })
-      .then(function(registration) {
-        console.log('Service Worker для кухни зарегистрирован успешно:', registration);
-      })
-      .catch(function(error) {
-        console.warn('Ошибка регистрации Service Worker для кухни:', error);
-      });
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function(error) {
+      console.warn('Ошибка регистрации Service Worker для кухни:', error);
+    });
   });
 }
 
 Vue.createApp({
   data: function() {
-    return {
-      session: null,
-      busy: false,
-      err: '',
-      loginForm: { slug: '', pin: '' },
-      orders: [],
-      timer: null,
-      history: [],
-      statsTimer: null,
-      showEditModal: false,
-      editingOrder: null,
-      editError: '',
-      showInstallHint: false
-    };
+    return {session:null,busy:false,err:'',loginForm:{slug:'',pin:''},orders:[],timer:null,history:[],statsTimer:null,showEditModal:false,editingOrder:null,editError:'',showInstallHint:false};
   },
   computed: {
-    colNew: function() {
-      return this.orders.filter(function(o) {
-        return o.status === 'new' || o.status === 'changed';
-      });
-    },
-    colCooking: function() {
-      return this.orders.filter(function(o) {
-        return o.status === 'cooking';
-      });
-    },
-    colReady: function() {
-      return this.orders.filter(function(o) {
-        return ['ready', 'delivery'].indexOf(o.status) !== -1;
-      });
-    },
-    cookStats: function() {
-      var total = 0, done = 0, rev = 0, times = [];
-      this.history.forEach(function(o) {
-        total++;
-        if (o.status === 'done') {
-          done++;
-          rev += Number(o.total_price || 0);
-        }
-        if (o.cooking_started_at && o.ready_at) {
-          times.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 6e4);
-        }
-      });
-      var avg = times.length ? Math.round(times.reduce(function(a, b) { return a + b; }, 0) / times.length) : 0;
-      return { total: total, done: done, avgTime: avg, revenue: rev };
-    },
-    newTotal: function() {
-      if (!this.editingOrder) return 0;
-      var s = this.editingOrder.items.reduce(function(x, i) {
-        return x + i.price * i.qty;
-      }, 0);
-      if (this.editingOrder.addons) {
-        s += this.editingOrder.addons.reduce(function(x, a) {
-          return x + a.price;
-        }, 0);
-      }
-      if (this.editingOrder.order_type === 'delivery') s += 150;
-      return s;
-    },
-    cookHistory: function() {
-      return this.history.slice(0, 20);
-    }
+    colNew:function(){return this.orders.filter(function(o){return o.status==='new'||o.status==='changed';});},
+    colCooking:function(){return this.orders.filter(function(o){return o.status==='cooking';});},
+    colReady:function(){return this.orders.filter(function(o){return o.status==='ready'||o.status==='delivery';});},
+    cookStats:function(){var total=0,done=0,rev=0,times=[];this.history.forEach(function(o){total++;if(o.status==='done'){done++;rev+=Number(o.total_price||0);}if(o.cooking_started_at&&o.ready_at)times.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4);});var avg=times.length?Math.round(times.reduce(function(a,b){return a+b;},0)/times.length):0;return{total:total,done:done,avgTime:avg,revenue:rev};},
+    newTotal:function(){if(!this.editingOrder)return 0;var s=this.editingOrder.items.reduce(function(x,i){return x+i.price*i.qty;},0);if(this.editingOrder.addons)s+=this.editingOrder.addons.reduce(function(x,a){return x+a.price;},0);if(this.editingOrder.order_type==='delivery')s+=150;return s;},
+    cookHistory:function(){return this.history.slice(0,20);}
   },
   methods: {
-    fmt: function(v) {
-      return window.fmt(v);
-    },
-    fmtDate: function(d) {
-      return d ? new Date(d).toLocaleDateString('ru-RU') : '-';
-    },
-    statusName: function(s) {
-      return window.statusName(s);
-    },
-    orderBadge: function(s) {
-      return 'b-' + s;
-    },
-    deliveryIcon: function(t) {
-      return t === 'delivery' ? '🚗' : '';
-    },
-    isReadyOrDelivery: function(s) {
-      return s === 'ready' || s === 'delivery';
-    },
-    hideInstallHint: function() {
-      this.showInstallHint = false;
-      localStorage.setItem('kitchen_app_hint', '1');
-    },
-    login: function() {
-      var self = this;
-      self.err = '';
-      self.busy = true;
-      var slug = (self.loginForm.slug || '').trim().toLowerCase();
-      var pin = (self.loginForm.pin || '').trim();
-      if (!slug || !pin) {
-        self.err = 'Заполните оба поля';
-        self.busy = false;
-        return;
-      }
-      db.rpc('staff_login', {
-        p_type: 'cook',
-        p_slug: slug,
-        p_pin: pin
-      }).then(function(r) {
-        if (r.error) throw r.error;
-        var x = r.data;
-        if (!x || !x.token) {
-          self.err = 'Неверный PIN или код заведения';
-          self.busy = false;
-          return;
-        }
-        self.session = {
-          venueId: x.venueId,
-          venueName: x.venueName,
-          cookId: x.staffId,
-          cookName: x.staffName,
-          token: x.token
-        };
-        localStorage.setItem('cook_session', JSON.stringify(self.session));
-        self.busy = false;
-        self.load();
-        self.loadHistory();
-        self.startTimer();
-        self.startStatsTimer();
-      }).catch(function(e) {
-        self.err = e && e.message === 'venue_not_found' ? 'Заведение не найдено' :
-                  (e && e.message === 'invalid_credentials' ? 'Неверный PIN' :
-                  'Ошибка входа: ' + (e && e.message ? e.message : 'неизвестная ошибка'));
-        self.busy = false;
+    fmt:function(v){return window.fmt(v);},
+    fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'-';},
+    statusName:function(s){return window.statusName(s);},
+    orderBadge:function(s){return 'b-'+s;},
+    deliveryIcon:function(t){return t==='delivery'?'🚗':'';},
+    isReadyOrDelivery:function(s){return s==='ready'||s==='delivery';},
+    hideInstallHint:function(){this.showInstallHint=false;localStorage.setItem('kitchen_app_hint','1');},
+    normalizeOrders:function(data){
+      var payload=data;
+      if(typeof payload==='string'){try{payload=JSON.parse(payload);}catch(e){payload=[];}}
+      if(payload&&payload.staff_orders_json)payload=payload.staff_orders_json;
+      if(!Array.isArray(payload))payload=payload&&Array.isArray(payload.orders)?payload.orders:[];
+      return payload.map(function(o){
+        o.items=Array.isArray(o.items)?o.items:[];
+        o.addons=Array.isArray(o.addons)?o.addons:[];
+        return o;
       });
     },
-    logout: function() {
-      localStorage.removeItem('cook_session');
-      if (this.timer) {
-        clearInterval(this.timer);
-        this.timer = null;
-      }
-      if (this.statsTimer) {
-        clearInterval(this.statsTimer);
-        this.statsTimer = null;
-      }
-      this.session = null;
-      this.orders = [];
-      this.history = [];
-      this.loginForm = { slug: '', pin: '' };
+    login:function(){
+      var self=this;self.err='';self.busy=true;var slug=(self.loginForm.slug||'').trim().toLowerCase(),pin=(self.loginForm.pin||'').trim();
+      if(!slug||!pin){self.err='Заполните оба поля';self.busy=false;return;}
+      db.rpc('staff_login',{p_type:'cook',p_slug:slug,p_pin:pin}).then(function(r){
+        if(r.error)throw r.error;var x=r.data;if(Array.isArray(x))x=x[0];if(typeof x==='string'){try{x=JSON.parse(x);}catch(e){x=null;}}
+        if(!x||!x.token){self.err='Неверный PIN или код заведения';self.busy=false;return;}
+        self.session={venueId:x.venueId||x.venue_id,venueName:x.venueName||x.venue_name,cookId:x.staffId||x.staff_id,cookName:x.staffName||x.staff_name,token:x.token};
+        localStorage.setItem('cook_session',JSON.stringify(self.session));self.busy=false;self.load();self.loadHistory();self.startTimer();self.startStatsTimer();
+      }).catch(function(e){self.err=e&&e.message==='venue_not_found'?'Заведение не найдено':(e&&e.message==='invalid_credentials'?'Неверный PIN':'Ошибка входа: '+(e&&e.message?e.message:'неизвестная ошибка'));self.busy=false;});
     },
-    load: function() {
-      var self = this;
-      if (!self.session) return;
-      db.from('orders')
-        .select('*, items:order_items(*)')
-        .eq('venue_id', self.session.venueId)
-        .neq('status', 'done')
-        .neq('status', 'cancelled')
-        .order('created_at', { ascending: false })
-        .limit(30)
-        .then(function(r) {
-          if (r.error) {
-            console.error(r.error);
-            self.orders = [];
-            return;
-          }
-          self.orders = r.data || [];
-          var ids = self.orders.map(function(o) { return o.id; });
-          if (ids.length) {
-            db.from('order_addons')
-              .select('*')
-              .in('order_id', ids)
-              .then(function(a) {
-                if (a.error) return;
-                var map = {};
-                (a.data || []).forEach(function(x) {
-                  (map[x.order_id] = map[x.order_id] || []).push(x);
-                });
-                self.orders.forEach(function(o) {
-                  o.addons = map[o.id] || [];
-                });
-              });
-          }
-        });
-    },
-    loadHistory: function() {
-      var self = this;
-      if (!self.session || !self.session.token) return;
-      db.rpc('staff_history', { p_token: self.session.token })
-        .then(function(r) {
-          if (r.error) {
-            console.error('staff_history:', r.error);
-            self.history = [];
-            return;
-          }
-          self.history = r.data || [];
-        });
-    },
-    startTimer: function() {
-      if (this.timer) clearInterval(this.timer);
-      var self = this;
-      this.timer = setInterval(function() {
-        self.load();
-      }, 3000);
-    },
-    startStatsTimer: function() {
-      if (this.statsTimer) clearInterval(this.statsTimer);
-      var self = this;
-      this.statsTimer = setInterval(function() {
-        self.loadHistory();
-      }, 10000);
-    },
-    setStatus: function(id, status) {
-      var self = this;
-      var u = { status: status };
-      if (status === 'cooking') {
-        u.cooking_started_at = new Date().toISOString();
-        u.cook_name = self.session.cookName;
-      }
-      if (status === 'ready') {
-        u.ready_at = new Date().toISOString();
-      }
-      db.from('orders').update(u).eq('id', id).then(function() {
-        self.load();
+    logout:function(){localStorage.removeItem('cook_session');if(this.timer){clearInterval(this.timer);this.timer=null;}if(this.statsTimer){clearInterval(this.statsTimer);this.statsTimer=null;}this.session=null;this.orders=[];this.history=[];this.loginForm={slug:'',pin:''};},
+    load:function(){
+      var self=this;if(!self.session||!self.session.token)return;
+      db.rpc('staff_orders_json',{p_token:self.session.token}).then(function(r){
+        if(r.error){console.error('staff_orders_json:',r.error);self.orders=[];return;}
+        self.orders=self.normalizeOrders(r.data);
       });
     },
-    openEditOrder: function(o) {
-      this.editingOrder = JSON.parse(JSON.stringify(o));
-      if (!this.editingOrder.addons) this.editingOrder.addons = [];
-      this.editError = '';
-      this.showEditModal = true;
-    },
-    changeQty: function(item, d) {
-      item.qty += d;
-      if (item.qty < 1) item.qty = 1;
-    },
-    removeItem: function(id) {
-      this.editingOrder.items = this.editingOrder.items.filter(function(i) {
-        return i.id !== id;
-      });
-    },
-    removeAddon: function(id) {
-      this.editingOrder.addons = this.editingOrder.addons.filter(function(a) {
-        return a.id !== id;
-      });
-    },
-    saveEditedOrder: function() {
-      var self = this;
-      if (self.editingOrder.items.length === 0) {
-        self.editError = 'Должна остаться хотя бы одна позиция';
-        return;
-      }
-      self.busy = true;
-      self.editError = '';
-      var orig = null;
-      for (var i = 0; i < self.orders.length; i++) {
-        if (self.orders[i].id === self.editingOrder.id) {
-          orig = self.orders[i];
-          break;
-        }
-      }
-      db.from('orders').update({
-        status: 'changed',
-        total_price: self.newTotal
-      }).eq('id', self.editingOrder.id)
-        .then(function(r) {
-          if (r.error) throw r.error;
-          var curIds = self.editingOrder.items.map(function(i) { return i.id; });
-          var delIds = (orig.items || []).map(function(i) { return i.id; })
-            .filter(function(id) {
-              return curIds.indexOf(id) === -1;
-            });
-          var p = Promise.resolve();
-          if (delIds.length) {
-            p = db.from('order_items').delete().in('id', delIds);
-          }
-          return p.then(function() {
-            var chain = Promise.resolve();
-            self.editingOrder.items.forEach(function(it) {
-              var o = (orig.items || []).find(function(x) { return x.id === it.id; });
-              if (o && o.qty !== it.qty) {
-                chain = chain.then(function() {
-                  return db.from('order_items').update({ qty: it.qty }).eq('id', it.id);
-                });
-              }
-            });
-            return chain;
-          }).then(function() {
-            if (orig.addons && orig.addons.length) {
-              var curA = self.editingOrder.addons.map(function(a) { return a.id; });
-              var delA = orig.addons.map(function(a) { return a.id; })
-                .filter(function(id) {
-                  return curA.indexOf(id) === -1;
-                });
-              if (delA.length) {
-                return db.from('order_addons').delete().in('id', delA).then(function() {});
-              }
-            }
-          }).then(function() {
-            self.showEditModal = false;
-            self.load();
-          });
-        }).catch(function(e) {
-          self.editError = 'Ошибка сохранения: ' + e.message;
-        }).finally(function() {
-          self.busy = false;
-        });
+    loadHistory:function(){var self=this;if(!self.session||!self.session.token)return;db.rpc('staff_history',{p_token:self.session.token}).then(function(r){if(r.error){console.error('staff_history:',r.error);self.history=[];return;}var d=r.data;if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){d=[];}}self.history=Array.isArray(d)?d:[];});},
+    startTimer:function(){if(this.timer)clearInterval(this.timer);var self=this;this.timer=setInterval(function(){self.load();},3000);},
+    startStatsTimer:function(){if(this.statsTimer)clearInterval(this.statsTimer);var self=this;this.statsTimer=setInterval(function(){self.loadHistory();},10000);},
+    setStatus:function(id,status){var self=this,u={status:status};if(status==='cooking'){u.cooking_started_at=new Date().toISOString();u.cook_name=self.session.cookName;}if(status==='ready')u.ready_at=new Date().toISOString();db.from('orders').update(u).eq('id',id).then(function(){self.load();});},
+    openEditOrder:function(o){this.editingOrder=JSON.parse(JSON.stringify(o));if(!this.editingOrder.addons)this.editingOrder.addons=[];this.editError='';this.showEditModal=true;},
+    changeQty:function(item,d){item.qty+=d;if(item.qty<1)item.qty=1;},
+    removeItem:function(id){this.editingOrder.items=this.editingOrder.items.filter(function(i){return i.id!==id;});},
+    removeAddon:function(id){this.editingOrder.addons=this.editingOrder.addons.filter(function(a){return a.id!==id;});},
+    saveEditedOrder:function(){
+      var self=this;if(self.editingOrder.items.length===0){self.editError='Должна остаться хотя бы одна позиция';return;}self.busy=true;self.editError='';var orig=null;
+      for(var i=0;i<self.orders.length;i++){if(self.orders[i].id===self.editingOrder.id){orig=self.orders[i];break;}}
+      db.from('orders').update({status:'changed',total_price:self.newTotal}).eq('id',self.editingOrder.id).then(function(r){
+        if(r.error)throw r.error;var curIds=self.editingOrder.items.map(function(i){return i.id;}),delIds=(orig.items||[]).map(function(i){return i.id;}).filter(function(id){return curIds.indexOf(id)===-1;}),p=Promise.resolve();
+        if(delIds.length)p=db.from('order_items').delete().in('id',delIds);
+        return p.then(function(){var chain=Promise.resolve();self.editingOrder.items.forEach(function(it){var o=(orig.items||[]).find(function(x){return x.id===it.id;});if(o&&o.qty!==it.qty)chain=chain.then(function(){return db.from('order_items').update({qty:it.qty}).eq('id',it.id);});});return chain;}).then(function(){
+          if(orig.addons&&orig.addons.length){var curA=self.editingOrder.addons.map(function(a){return a.id;}),delA=orig.addons.map(function(a){return a.id;}).filter(function(id){return curA.indexOf(id)===-1;});if(delA.length)return db.from('order_addons').delete().in('id',delA).then(function(){});}
+        }).then(function(){self.showEditModal=false;self.load();});
+      }).catch(function(e){self.editError='Ошибка сохранения: '+e.message;}).finally(function(){self.busy=false;});
     }
   },
-  mounted: function() {
-    var saved = localStorage.getItem('cook_session');
-    var self = this;
-    if (saved) {
-      try {
-        self.session = JSON.parse(saved);
-        self.load();
-        self.loadHistory();
-        self.startTimer();
-        self.startStatsTimer();
-      } catch(e) {
-        localStorage.removeItem('cook_session');
-      }
-    }
-    var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-    if (!standalone && !localStorage.getItem('kitchen_app_hint')) {
-      self.showInstallHint = true;
-    }
+  mounted:function(){
+    var saved=localStorage.getItem('cook_session'),self=this;if(saved){try{self.session=JSON.parse(saved);self.load();self.loadHistory();self.startTimer();self.startStatsTimer();}catch(e){localStorage.removeItem('cook_session');}}
+    var standalone=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator.standalone===true;if(!standalone&&!localStorage.getItem('kitchen_app_hint'))self.showInstallHint=true;
   },
-  beforeUnmount: function() {
-    if (this.timer) clearInterval(this.timer);
-    if (this.statsTimer) clearInterval(this.statsTimer);
-  }
+  beforeUnmount:function(){if(this.timer)clearInterval(this.timer);if(this.statsTimer)clearInterval(this.statsTimer);}
 }).mount('#app');
 </script>
 </body>
