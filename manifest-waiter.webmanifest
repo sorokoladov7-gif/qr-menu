@@ -1,9 +1,9 @@
 {
-  "id": "/waiter.html",
+  "id": "/waiter-pwa",
   "name": "Официант — QR-Меню для Бизнеса",
   "short_name": "Официант",
   "description": "Рабочее место официанта: выдача готовых заказов",
-  "start_url": "/waiter.html",
+  "start_url": "/waiter.html?source=pwa",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
