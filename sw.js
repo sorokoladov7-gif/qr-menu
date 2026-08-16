@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v10';
+const CACHE = 'qr-platform-v11';
 const CORE = [
   '/waiter.html',
   '/cook.html',
@@ -8,6 +8,7 @@ const CORE = [
   '/js/config.js',
   '/js/app.js',
   '/manifest.webmanifest',
+  '/manifest-kitchen.webmanifest',
   '/manifest-waiter.webmanifest',
   '/manifest-manager.webmanifest',
   '/manifest-courier.webmanifest',
@@ -54,7 +55,7 @@ self.addEventListener('fetch', event => {
           }
           return response;
         })
-        .catch(() => caches.match(req).then(cached => cached || caches.match('/waiter.html')))
+        .catch(() => caches.match(req).then(cached => cached || new Response('Офлайн. Страница недоступна.', {status:503, headers:{'Content-Type':'text/plain; charset=utf-8'}})))
     );
     return;
   }
