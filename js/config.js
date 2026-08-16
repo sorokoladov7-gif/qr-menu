@@ -4,13 +4,21 @@ const SUPABASE_ANON_KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 const baseDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 window.db=baseDb;
 
-// Public customer tracking/order flow uses SECURITY DEFINER RPCs instead of direct RLS-protected orders access.
 (function(){
   const path=location.pathname.toLowerCase();
   if(!path.endsWith('/menu.html')&&!path.endsWith('menu.html')) return;
   const real=baseDb;
   const oldFrom=real.from.bind(real);
   const oldRpc=real.rpc.bind(real);
+
+  async function resolveQrTable(venueId){
+    const token=new URLSearchParams(location.search).get('table');
+    if(!token||!venueId) return null;
+    if(window.__qrTable&&window.__qrTable.qr_token===token) return window.__qrTable;
+    const {data,error}=await oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('venue_id',venueId).eq('qr_token',token).maybeSingle();
+    if(!error&&data){window.__qrTable=data;return data;}
+    return null;
+  }
 
   function menuChain(table){
     const state={action:'select',filters:{},payload:null};
@@ -47,6 +55,20 @@ window.db=baseDb;
           p_status:state.payload&&state.payload.status
         });
       }
+      if(table==='orders'&&state.action==='insert'){
+        let payload=state.payload;
+        const venueId=payload&&payload.venue_id;
+        const token=new URLSearchParams(location.search).get('table');
+        if(token&&venueId){
+          const t=await resolveQrTable(venueId);
+          if(t&&t.is_active!==false){
+            if(Array.isArray(payload)) payload=payload.map(function(row){return Object.assign({},row,{table_id:row.table_id||t.id});});
+            else payload=Object.assign({},payload,{table_id:payload.table_id||t.id});
+            window.__qrTable=t;
+          }
+        }
+        return oldFrom(table).insert(payload);
+      }
       return oldFrom(table)[state.action](state.payload||'*');
     }
     return api;
@@ -69,6 +91,76 @@ window.db=baseDb;
     auth:real.auth,
     storage:real.storage
   };
+
+  // Resolve and expose the QR table immediately, independent of Vue.
+  async function bootQrTable(){
+    const token=new URLSearchParams(location.search).get('table');
+    const slug=new URLSearchParams(location.search).get('venue');
+    if(!token||!slug) return;
+    const v=await oldFrom('venues').select('id').eq('slug',String(slug).trim().toLowerCase()).maybeSingle();
+    if(v.error||!v.data) return;
+    await resolveQrTable(v.data.id);
+    if(window.__qrTable){
+      localStorage.setItem('qr_table_id',window.__qrTable.id);
+      localStorage.setItem('qr_table_number',String(window.__qrTable.table_number));
+      localStorage.setItem('qr_table_name',window.__qrTable.name||('Стол '+window.__qrTable.table_number));
+    }
+  }
+  bootQrTable();
+})();
+
+// Visible customer table badge.
+(function(){
+  if(!/\/menu\.html$/i.test(location.pathname)) return;
+  function render(){
+    var t=window.__qrTable;if(!t)return;
+    var hero=document.querySelector('.hero');
+    if(!hero)return;
+    var b=document.getElementById('qr-table-fixed-badge');
+    if(!b){
+      b=document.createElement('div');
+      b.id='qr-table-fixed-badge';
+      b.style.cssText='display:block;margin:10px 0;padding:12px 14px;border-radius:12px;background:rgba(99,102,241,.2);border:1px solid rgba(129,140,248,.45);color:#fff;font-weight:800;text-align:center;position:relative;z-index:50';
+      hero.insertAdjacentElement('afterend',b);
+    }
+    b.textContent='🪑 '+(t.name||('Стол '+t.table_number));
+  }
+  var tries=0;
+  var timer=setInterval(function(){render();if(++tries>40)clearInterval(timer)},500);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render);else render();
+  new MutationObserver(render).observe(document.body,{childList:true,subtree:true});
+})();
+
+// Staff table display: use the authoritative staff_orders_json response when a staff token exists.
+(function(){
+  if(!/\/(cook|courier|waiter)\.html$/i.test(location.pathname)) return;
+  function getSession(){
+    var key=/waiter\.html$/i.test(location.pathname)?'waiter_session':/courier\.html$/i.test(location.pathname)?'courier_session':'cook_session';
+    try{return JSON.parse(localStorage.getItem(key)||'null')}catch(e){return null}
+  }
+  function label(t){return t?'🪑 '+(t.name||('Стол '+t.table_number)):'📦 Без стола'}
+  function findCards(){
+    var cards=document.querySelectorAll('.wcard');
+    cards.forEach(function(card){
+      if(card.querySelector('.qr-table-fixed'))return;
+      var head=card.querySelector('.spread');
+      if(!head)return;
+      var m=String(head.textContent||'').match(/№\s*(\d+)/);if(!m)return;
+      var no=m[1];
+      var o=(window.__staffTableOrders||[]).find(function(x){return String(x.order_number)===String(no)});
+      if(!o)return;
+      var badge=document.createElement('div');badge.className='qr-table-fixed';badge.textContent=label(o.table_number!=null?{table_number:o.table_number,name:o.table_name}:null);badge.style.cssText='margin:8px 0;padding:9px 12px;border-radius:11px;background:rgba(99,102,241,.18);border:1px solid rgba(129,140,248,.4);color:#fff;font-weight:800';
+      head.insertAdjacentElement('afterend',badge);
+    });
+  }
+  async function load(){
+    var s=getSession();if(!s||!s.token)return;
+    var r=await baseDb.rpc('staff_orders_json',{p_token:s.token});
+    if(!r.error&&Array.isArray(r.data))window.__staffTableOrders=r.data;
+    findCards();
+  }
+  setInterval(load,2500);load();
+  new MutationObserver(findCards).observe(document.body,{childList:true,subtree:true});
 })();
 
 // Manager cabinet: table/QR management is embedded directly into manager.html.
