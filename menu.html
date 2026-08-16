@@ -7,7 +7,7 @@
 <title>QR-Меню</title>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@Supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
 [v-cloak]{display:none}
@@ -191,7 +191,7 @@ form:{name:'',phone:'',type:'pickup',address:'',comment:'',pay:'cash'},
 msg:'',busy:false,trackPhone:'',tracking:null,trackSearched:false,
 DELIVERY_FEE:DELIVERY_FEE,DEFAULT_IMG:window.DEFAULT_IMG,
 trackTimer:null,
-previousStatus:'' // ЗАПОМИНАЕМ ПРЕДЫДУЩИЙ СТАТУС
+previousStatus:''
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -205,7 +205,7 @@ fmt:function(v){return window.fmt(v)},
 norm:function(p){return window.normPhone(p)},
 statusName:function(s){return window.statusName(s)},
 statusColor:function(s){return window.statusColor(s)},
-statusEmoji:function(s){return{new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
+statusEmoji:function(s){return{new:'🆕',cooking:'👨‍🍳',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
 statusHint:function(s){return{new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''},
 goToTracking:function(){
 var last=localStorage.getItem('last_phone')||'';
@@ -239,82 +239,77 @@ if(f){f.qty++;adds.forEach(function(a){var ex=f.addons.find(function(x){return x
 else this.cart.push({id:m.product.id,name:m.product.name,price:Number(m.product.price)||0,qty:1,addons:adds});
 this.dishModal.show=false},
 dec:function(i){if(i.qty>1){i.qty--}else{this.cart.splice(this.cart.indexOf(i),1)}},
-checkout:function(){var self=this;self.msg='';var phone=self.norm(self.form.phone);
+checkout:function(){
+var self=this;
+self.msg='';
+var phone=self.norm(self.form.phone);
 if(!phone){self.msg='Укажите телефон';return}
 if(self.form.type==='delivery'&&!self.form.address.trim()){self.msg='Укажите адрес';return}
 if(!self.cart.length){self.msg='Корзина пустая';return}
+if(!self.venue||!self.venue.id){self.msg='Не удалось определить заведение';return}
 self.busy=true;
-db.from('orders').insert({venue_id:self.venue.id,customer_name:self.form.name||null,customer_phone:phone,
-order_type:self.form.type,delivery_address:self.form.type==='delivery'?self.form.address:null,
-comment:self.form.comment||null,payment_method:self.form.pay,total_price:self.cartTotal,status:'new'
-}).select().single().then(function(r){
+var itemRows=self.cart.map(function(i){return{product_id:i.id,qty:Number(i.qty)||1}});
+var addonRows=[];
+self.cart.forEach(function(i){
+(i.addons||[]).forEach(function(a){
+if((Number(a.qty)||0)>0){addonRows.push({id:a.id,qty:Number(a.qty)||1,item_name:i.name})}
+});
+});
+db.rpc('create_public_order',{
+p_venue_id:self.venue.id,
+p_order_type:self.form.type,
+p_customer_name:self.form.name||null,
+p_customer_phone:phone,
+p_delivery_address:self.form.type==='delivery'?self.form.address.trim():null,
+p_comment:self.form.comment||null,
+p_payment_method:self.form.pay||'cash',
+p_items:itemRows,
+p_addons:addonRows,
+p_total_price:Number(self.cartTotal)||0
+}).then(function(r){
 if(r.error)throw r.error;
-var orderId=r.data.id;var itemRows=[];var addonRows=[];
-self.cart.forEach(function(i){itemRows.push({order_id:orderId,product_id:i.id,name:i.name,price:i.price,qty:i.qty});
-(i.addons||[]).forEach(function(a){for(var k=0;k<a.qty;k++)addonRows.push({order_id:orderId,name:a.name,price:a.price,item_name:i.name})})});
-return db.from('order_items').insert(itemRows).then(function(ri){
-if(ri.error)throw ri.error;
-return addonRows.length?db.from('order_addons').insert(addonRows).then(function(){}):Promise.resolve();
-}).then(function(){
+if(!r.data||!r.data.id)throw new Error('Сервер не вернул созданный заказ');
 localStorage.setItem('last_phone',phone);
-self.cart=[];self.showCart=false;self.view='tracking';self.trackPhone=phone;
-self.startTrackingTimer(); 
+self.cart=[];
+self.showCart=false;
+self.view='tracking';
+self.trackPhone=phone;
+self.previousStatus='';
+self.startTrackingTimer();
 return self.trackOrder();
-})}).catch(function(e){self.msg='Ошибка: '+e.message}).finally(function(){self.busy=false})},
-
-startTrackingTimer: function(){
+}).catch(function(e){
+console.error('create_public_order error:',e);
+self.msg='Ошибка: '+(e.message||'Не удалось оформить заказ');
+}).finally(function(){self.busy=false})},
+startTrackingTimer:function(){
 if(this.trackTimer) clearInterval(this.trackTimer);
 var self=this;
-this.trackTimer = setInterval(function(){
-if(self.view === 'tracking' && self.trackPhone){
-  self.trackOrder();
-}
-}, 5000); 
+this.trackTimer=setInterval(function(){if(self.view==='tracking'&&self.trackPhone){self.trackOrder()}},5000);
 },
-
 trackOrder:function(){
 var self=this;
 var phone=self.norm(self.trackPhone);
-if(!phone) return Promise.resolve();
+if(!phone)return Promise.resolve();
 self.trackSearched=true;
 return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
 .eq('venue_id',self.venue.id).eq('customer_phone',phone)
 .order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){
-var newData = r.data || null;
+var newData=r.data||null;
 if(newData){
-   // Если статус изменился, принудительно обновляем интерфейс
-   if(self.previousStatus !== newData.status){
-       self.previousStatus = newData.status;
-       // ВАЖНО: Используем Vue.nextTick, чтобы гарантировать перерисовку
-       self.$nextTick(function(){
-           self.tracking = JSON.parse(JSON.stringify(newData));
-           // Воспроизводим короткий звук, чтобы клиент понял, что статус изменился
-           try {
-               var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
-               audio.play();
-           } catch(e) {}
-       });
-   } else {
-       // Если статус не изменился, просто обновляем данные
-       self.tracking = newData;
-   }
-} else {
-   self.tracking = null;
-}
+if(self.previousStatus!==newData.status){
+self.previousStatus=newData.status;
+self.$nextTick(function(){
+self.tracking=JSON.parse(JSON.stringify(newData));
+try{var audio=new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");audio.play()}catch(e){}}
+);
+}else{self.tracking=newData}
+}else{self.tracking=null}
 });
 },
 confirmChanged:function(){var self=this;db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){self.trackOrder()})},
 revertOrder:function(){var self=this;db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){self.trackOrder();self.view='menu'})}
 },
-watch: {
-'view': function(newVal) {
-if(newVal !== 'tracking' && this.trackTimer) {
-  clearInterval(this.trackTimer);
-  this.trackTimer = null;
-  this.previousStatus = ''; // Сбрасываем статус при выходе
-}
-}
-},
+watch:{'view':function(newVal){if(newVal!=='tracking'&&this.trackTimer){clearInterval(this.trackTimer);this.trackTimer=null;this.previousStatus=''}}},
 mounted:function(){this.init()},
 beforeUnmount:function(){if(this.trackTimer)clearInterval(this.trackTimer)}
 }).mount('#app');
