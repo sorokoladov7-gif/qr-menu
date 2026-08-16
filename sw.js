@@ -1,8 +1,9 @@
-const CACHE = 'qr-platform-v16';
+const CACHE = 'qr-platform-v17';
 const CORE = [
   '/css/style.css',
   '/js/config.js',
   '/js/app.js',
+  '/manager-pwa.html',
   '/manifest-kitchen.webmanifest',
   '/manifest-waiter.webmanifest',
   '/manifest-courier.webmanifest',
