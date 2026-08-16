@@ -12,8 +12,5 @@
 </head>
 <body>
 <iframe src="/manager.html" title="Кабинет управляющего"></iframe>
-<script>
-if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/manager-app/sw.js',{scope:'/manager-app/'}).catch(function(e){console.error('Manager SW:',e);});});}
-</script>
 </body>
 </html>
