@@ -1,6 +1,6 @@
 // Browser Supabase client.
 const SUPABASE_URL='https://ulxfsozdryqrnlxzlblt.supabase.co';
-const SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJ1bHhmczB6ZHJ5cXJubHh6bGJ0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY2MzAzMzgsImV4cCI6MjEwMjIwNjMzOH0.Ray02ePv1_EXMStpfaWWhw2BlRdOuTMniY8Ws1Ps0F8';
+const SUPABASE_ANON_KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 const baseDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 window.db=baseDb;
 
@@ -37,7 +37,6 @@ window.db=baseDb;
           p_customer_phone:normalized
         });
         if(error) return {data:null,error};
-        // RPC returns one JSON object or null.
         return {data:single?(data||null):(data?[data]:[]),error:null};
       }
       if(table==='orders'&&state.action==='update'){
