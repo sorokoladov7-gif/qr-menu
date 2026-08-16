@@ -92,3 +92,12 @@ function run(){css();var p=location.pathname.toLowerCase();if(p.endsWith('/menu.
 function start(){run();new MutationObserver(run).observe(document.body,{childList:true,subtree:true});setInterval(run,1500);}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+/* Manager: load the dedicated table management UI without changing the main manager Vue app. */
+(function(){
+  if(!/\/manager\.html$/i.test(location.pathname)) return;
+  var s=document.createElement('script');
+  s.src='js/manager-tables.js?v=20260816';
+  s.async=false;
+  document.head.appendChild(s);
+})();
