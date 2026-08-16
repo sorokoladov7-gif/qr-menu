@@ -4,13 +4,14 @@ const SUPABASE_ANON_KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 const baseDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 window.db=baseDb;
 
-// Public customer tracking must use the SECURITY DEFINER RPC instead of
-// selecting from orders directly (RLS intentionally blocks public SELECT).
+// Public customer tracking/order flow uses SECURITY DEFINER RPCs instead of direct RLS-protected orders access.
 (function(){
   const path=location.pathname.toLowerCase();
   if(!path.endsWith('/menu.html')&&!path.endsWith('menu.html')) return;
   const real=baseDb;
   const oldFrom=real.from.bind(real);
+  const oldRpc=real.rpc.bind(real);
+
   function menuChain(table){
     const state={action:'select',filters:{},payload:null};
     const api={
@@ -31,17 +32,16 @@ window.db=baseDb;
         const venueId=state.filters.venue_id;
         const phone=state.filters.customer_phone||localStorage.getItem('last_phone')||'';
         if(!venueId||!phone) return {data:null,error:new Error('tracking_context_missing')};
-        const normalized=String(phone).trim();
-        const {data,error}=await real.rpc('customer_track_order_json',{
+        const {data,error}=await oldRpc('customer_track_order_json',{
           p_venue_id:venueId,
-          p_customer_phone:normalized
+          p_customer_phone:String(phone).trim()
         });
         if(error) return {data:null,error};
         return {data:single?(data||null):(data?[data]:[]),error:null};
       }
       if(table==='orders'&&state.action==='update'){
         const phone=localStorage.getItem('last_phone')||'';
-        return real.rpc('customer_change_order_status',{
+        return oldRpc('customer_change_order_status',{
           p_order_id:state.filters.id,
           p_customer_phone:phone,
           p_status:state.payload&&state.payload.status
@@ -49,14 +49,26 @@ window.db=baseDb;
       }
       return oldFrom(table)[state.action](state.payload||'*');
     }
+
     return api;
   }
+
+  // When the QR menu is opened from /menu.html?venue=...&table=TOKEN,
+  // transparently attach the validated table token to create_public_order.
+  function rpc(name,args,options){
+    if(name==='create_public_order'&&args&&typeof args==='object'){
+      const token=new URLSearchParams(location.search).get('table');
+      if(token) args=Object.assign({},args,{p_table_token:token});
+    }
+    return oldRpc(name,args,options);
+  }
+
   window.db={
     from:function(table){
       if(table==='orders') return menuChain(table);
       return oldFrom(table);
     },
-    rpc:real.rpc.bind(real),
+    rpc:rpc,
     auth:real.auth,
     storage:real.storage
   };
