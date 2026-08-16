@@ -4,7 +4,7 @@
   "short_name": "Официант",
   "description": "Рабочее место официанта: выдача готовых заказов",
   "start_url": "/waiter.html",
-  "scope": "/waiter.html",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0b1020",
