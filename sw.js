@@ -1,9 +1,9 @@
-const CACHE = 'qr-platform-v20';
+const CACHE = 'qr-platform-v21';
 const CORE = [
   '/css/style.css',
   '/js/config.js',
   '/js/app.js',
-  '/manager-pwa.html',
+  '/js/cook-tables.js',
   '/cook.html',
   '/waiter.html',
   '/courier.html',
@@ -79,10 +79,6 @@ self.addEventListener('fetch', event => {
         }
         return response;
       })
-      .catch(() =>
-        caches.match(request).then(cached =>
-          cached || new Response('Offline', { status: 503 })
-        )
-      )
+      .catch(() => caches.match(request))
   );
 });
