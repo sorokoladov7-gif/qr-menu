@@ -1,0 +1,1 @@
+Full manager cabinet restored from working commit 5f87dfc36075af013c927977d08a712ffd257dbf.
