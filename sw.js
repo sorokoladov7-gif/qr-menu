@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v19';
+const CACHE = 'qr-platform-v20';
 const CORE = [
   '/css/style.css',
   '/js/config.js',
