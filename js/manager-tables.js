@@ -23,8 +23,8 @@ function getVM(){
 }
 
 function escapeHtml(value){
-  return String(value==null?'':value).replace(/[&<>"']/g,function(c){
-    return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':c==='"'?'&quot;':'&#39;';
+  return String(value==null?'':value).replace(/[&<>\"']/g,function(c){
+    return c==='&'?'&amp;':c==='<'?'&lt;':c==='>'?'&gt;':c==='\"'?'&quot;':'&#39;';
   });
 }
 
@@ -39,12 +39,12 @@ function addStyles(){
 function addButton(){
   var tabs=document.querySelector('.tabs');
   if(!tabs) return false;
-  var b=tabs.querySelector('[data-manager-tables]');
+  var b=tabs.querySelector('[data-manager-hall-tab]');
   if(!b){
     b=document.createElement('button');
     b.type='button';
-    b.textContent='🪑 Столы';
-    b.setAttribute('data-manager-tables','1');
+    b.textContent='🪑 Зал / Столы';
+    b.setAttribute('data-manager-hall-tab','1');
     tabs.appendChild(b);
   }
   b.onclick=function(e){
