@@ -27,10 +27,65 @@ async function requireAuth(roles){
 }
 async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.clear();location.href='index.html';}
 
+/* Manager: secure PIN reset controls for cooks, couriers and waiters. */
+(function(){
+'use strict';
+function getVue(){var el=document.getElementById('app');if(!el)return null;try{return el.__vueParentComponent?.proxy||el.__vue_app__?._instance?.proxy||null;}catch(e){return null;}}
+function staffTypeFromCard(card){
+  var t=(card.textContent||'').toLowerCase();
+  if(t.indexOf('cook.html')>=0)return 'cook';
+  if(t.indexOf('курьер')>=0)return 'courier';
+  if(t.indexOf('официант')>=0)return 'waiter';
+  return null;
+}
+function staffArray(vm,type){return type==='cook'?vm.cooks:type==='courier'?vm.couriers:vm.waiters;}
+window.resetStaffPin=async function(type,index,button){
+  var vm=getVue();
+  if(!vm)return;
+  var arr=staffArray(vm,type)||[], staff=arr[Number(index)];
+  if(!staff||!staff.id)return;
+  if(!confirm('Сбросить PIN сотрудника «'+staff.name+'»? Старый PIN перестанет работать.'))return;
+  if(button){button.disabled=true;button.textContent='⏳ Сброс...';}
+  try{
+    var r=await db.rpc('manager_reset_staff_pin',{p_staff_type:type,p_staff_id:staff.id});
+    if(r.error)throw r.error;
+    var data=r.data||{};
+    alert('Новый PIN для '+staff.name+': '+data.pin+'\n\nСообщите его сотруднику. Старый PIN больше не действует.');
+    if(type==='cook'&&vm.loadCooks)await vm.loadCooks();
+    if(type==='courier'&&vm.loadCouriers)await vm.loadCouriers();
+    if(type==='waiter'&&vm.loadWaiters)await vm.loadWaiters();
+  }catch(e){console.error('PIN reset error',e);alert('Не удалось сбросить PIN: '+(e.message||String(e)));}
+  finally{if(button){button.disabled=false;button.textContent='🔄 Сбросить PIN';}}
+};
+function installManagerResetButtons(){
+  if(!/\/manager\.html$/i.test(location.pathname))return;
+  var vm=getVue();if(!vm)return;
+  var cards=[].slice.call(document.querySelectorAll('#app .menu-item')).filter(function(c){return staffTypeFromCard(c);});
+  cards.forEach(function(card){
+    if(card.querySelector('.manager-reset-pin'))return;
+    var type=staffTypeFromCard(card),arr=staffArray(vm,type)||[];
+    var name=(card.textContent||'').replace(/\s+/g,' ').trim();
+    var idx=-1;
+    arr.some(function(s,i){if(name.indexOf(s.name)>=0){idx=i;return true;}return false;});
+    if(idx<0)return;
+    var pinLine=card.querySelector('.muted');
+    if(pinLine){pinLine.innerHTML=pinLine.innerHTML.replace(/PIN:\s*<b[^>]*>.*?<\/b>/i,'PIN: <b style="color:#a5b4fc">скрыт</b>').replace(/PIN:\s*<b[^>]*>.*?<\/b>/i,'PIN: <b style="color:#a5b4fc">скрыт</b>');}
+    var btn=document.createElement('button');btn.type='button';btn.className='btn btn-ghost btn-sm manager-reset-pin';btn.textContent='🔄 Сбросить PIN';
+    btn.onclick=function(ev){ev.stopPropagation();window.resetStaffPin(type,idx,btn);};
+    var del=card.querySelector('.btn-danger');
+    if(del)del.parentNode.insertBefore(btn,del);else card.appendChild(btn);
+  });
+}
+function startManagerReset(){
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installManagerResetButtons);else installManagerResetButtons();
+  new MutationObserver(installManagerResetButtons).observe(document.body,{childList:true,subtree:true});
+  setInterval(installManagerResetButtons,1500);
+}
+if(/\/manager\.html$/i.test(location.pathname))startManagerReset();
+})();
+
 /* =========================================================
    QR TABLE DISPLAY — ЕДИНЫЙ НАДЁЖНЫЙ СЛОЙ
-   Работает поверх существующих menu/cook/waiter/courier страниц.
-   Не меняет логику заказов, только получает данные стола и показывает их.
 ========================================================= */
 (function(){
 'use strict';
