@@ -24,192 +24,32 @@ window.db=baseDb;
     }
     return null;
   }
+  function rememberStaffLogin(type,data){if(data&&data.token){localStorage.setItem(type+'_token',data.token);localStorage.setItem('staff_token',data.token);}}
+  function resolveQrTable(venueId){const token=new URLSearchParams(location.search).get('table');if(!token)return Promise.resolve(null);if(window.__qrTable&&window.__qrTable.qr_token===token)return Promise.resolve(window.__qrTable);let q=oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('qr_token',String(token).trim()).eq('is_active',true);if(venueId)q=q.eq('venue_id',venueId);return q.maybeSingle().then(function(r){if(!r.error&&r.data)window.__qrTable=r.data;return r.data||null;});}
+  function makeChain(table){const state={action:'select',filters:{},inFilters:{},payload:null};const api={select:function(){state.action='select';return api},insert:function(v){state.action='insert';state.payload=v;return api},update:function(v){state.action='update';state.payload=v;return api},delete:function(){state.action='delete';return api},eq:function(k,v){state.filters[k]=v;return api},in:function(k,v){state.inFilters[k]=v;return api},order:function(){return api},limit:function(){return api},maybeSingle:function(){return execute(true)},single:function(){return execute(true)},then:function(a,b){return execute(false).then(a,b)},catch:function(a){return execute(false).catch(a)}};async function execute(single){if(isStaff&&table==='venues'&&state.action==='select'&&state.filters.slug){const slug=String(state.filters.slug).trim().toLowerCase();localStorage.setItem(staffType+'_login_context',JSON.stringify({slug:slug}));const r=await oldRpc('staff_venue_by_slug',{p_slug:slug});return{data:r.error?null:r.data,error:r.error||null};}if(isStaff&&['cooks','waiters','couriers'].indexOf(table)>=0&&state.action==='select'&&state.filters.venue_id&&state.filters.pin){const type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';const ctx=JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};const r=await oldRpc('staff_login',{p_type:type,p_slug:ctx.slug||'',p_pin:String(state.filters.pin)});if(!r.error)rememberStaffLogin(type,r.data);return{data:r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),error:r.error||null};}if(isStaff&&table==='orders'&&state.action==='select'){const token=staffToken();if(!token)return{data:[],error:new Error('staff_session_missing')};const historyKey=state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;const r=await oldRpc(historyKey?'staff_history_json':'staff_orders_json',{p_token:token});if(r.error)return{data:[],error:r.error};return{data:Array.isArray(r.data)?r.data:[],error:null};}if(isStaff&&table==='orders'&&state.action==='update'){const token=staffToken();if(!token)return{data:null,error:new Error('staff_session_missing')};const r=await oldRpc('staff_update_order',{p_token:token,p_order_id:state.filters.id,p_status:state.payload&&state.payload.status});return{data:r.data||null,error:r.error||null};}if(table==='orders'&&state.action==='select'&&isMenu){const venueId=state.filters.venue_id;const phone=state.filters.customer_phone||localStorage.getItem('last_phone')||'';if(!venueId||!phone)return{data:null,error:new Error('tracking_context_missing')};const r=await oldRpc('customer_track_order_json',{p_venue_id:venueId,p_customer_phone:String(phone).trim()});return{data:single?(r.data||null):(r.data?[r.data]:[]),error:r.error||null};}if(table==='orders'&&state.action==='update'&&isMenu)return oldRpc('customer_change_order_status',{p_order_id:state.filters.id,p_customer_phone:localStorage.getItem('last_phone')||'',p_status:state.payload&&state.payload.status});if(table==='orders'&&state.action==='insert'){let payload=state.payload;const venueId=payload&&payload.venue_id;const token=new URLSearchParams(location.search).get('table');if(token&&venueId){const t=await resolveQrTable(venueId);if(t){if(Array.isArray(payload))payload=payload.map(function(row){return Object.assign({},row,{table_id:row.table_id||t.id});});else payload=Object.assign({},payload,{table_id:payload.table_id||t.id});}}return oldFrom(table).insert(payload);}return oldFrom(table)[state.action](state.payload||'*');}return api;}
+  function rpc(name,args,options){if(name==='create_public_order'&&args&&typeof args==='object'){const token=new URLSearchParams(location.search).get('table');if(token)args=Object.assign({},args,{p_table_token:String(token).trim()});}return oldRpc(name,args,options);}
+  window.db={from:function(table){if(isStaff)return makeChain(table);if(isMenu&&table==='orders')return makeChain(table);return oldFrom(table);},rpc:rpc,auth:real.auth,storage:real.storage};
+  async function bootQrTable(){if(!isMenu)return;const token=new URLSearchParams(location.search).get('table');if(!token)return;const t=await resolveQrTable(null);if(!t)return;localStorage.setItem('qr_table_id',t.id);localStorage.setItem('qr_table_number',String(t.table_number));localStorage.setItem('qr_table_name',t.name||('Стол '+t.table_number));renderCustomerTable();}
+  function renderCustomerTable(){const t=window.__qrTable;if(!t)return;let b=document.getElementById('qr-table-fixed-badge');if(!b){b=document.createElement('div');b.id='qr-table-fixed-badge';b.style.cssText='position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';document.body.appendChild(b);}b.textContent='🪑 '+(t.name||('Стол '+t.table_number));}
+  if(isMenu){bootQrTable();let n=0;const timer=setInterval(function(){renderCustomerTable();if(++n>30)clearInterval(timer)},500);}
+  async function loadStaffOrders(){if(!isStaff)return;const token=staffToken();if(!token)return;const r=await oldRpc('staff_orders_json',{p_token:token});if(!r.error&&Array.isArray(r.data))window.__staffTableOrders=r.data;}
+  function installTableControl(){if(!isStaff||document.getElementById('staff-table-control-btn'))return;const btn=document.createElement('button');btn.id='staff-table-control-btn';btn.type='button';btn.textContent='🪑 Столы';btn.style.cssText='position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';document.body.appendChild(btn);btn.onclick=showStaffTables;}
+  async function showStaffTables(){const token=staffToken();if(!token){alert('Сессия сотрудника не найдена. Войдите заново.');return;}const rpcName=staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';const r=await oldRpc(rpcName,{p_token:token});if(r.error){alert(r.error.message||'Не удалось загрузить столы');return;}const payload=r.data||{};const tables=Array.isArray(payload.tables)?payload.tables:[];const canControl=staffType==='waiter'||payload.can_control_tables===true;let modal=document.getElementById('staff-table-modal');if(modal)modal.remove();modal=document.createElement('div');modal.id='staff-table-modal';modal.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(5,10,20,.82);backdrop-filter:blur(8px);padding:20px;overflow:auto';const box=document.createElement('div');box.style.cssText='max-width:900px;margin:20px auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff';const head=document.createElement('div');head.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';head.innerHTML='<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer">✕</button>';box.appendChild(head);const info=document.createElement('div');info.style.cssText='color:#94a3b8;font-size:13px;margin-bottom:14px';info.textContent=staffType==='cook'?(canControl?'Официанта нет — столами управляет повар':'Есть официант — управление столами передано официанту'):'Официант управляет посадкой и освобождением столов';box.appendChild(info);const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px';tables.forEach(function(t){const occupied=t.occupancy_status==='occupied';const card=document.createElement('div');card.style.cssText='border:1px solid '+(occupied?'rgba(251,191,36,.45)':'rgba(52,211,153,.35)')+';border-radius:14px;padding:14px;background:rgba(255,255,255,.03)';const actionText=occupied?'Освободить стол':'Посадить гостя';card.innerHTML='<b style="font-size:17px">'+(t.name||('Стол '+t.table_number))+'</b><div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>'+(t.session?'<div style="font-size:12px;color:#94a3b8">Заказов: '+(t.session.order_count||0)+' · '+Number(t.session.total_price||0).toLocaleString('ru-RU')+' ₽</div>':'')+(canControl?'<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>':'<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>');const action=card.querySelector('.staff-seat-btn');if(action)action.onclick=async function(){action.disabled=true;let rr;if(occupied)rr=await oldRpc(staffType==='cook'?'cook_release_table':'waiter_release_table',{p_token:token,p_table_id:t.id});else rr=await oldRpc(staffType==='cook'?'cook_start_table_session':'waiter_start_table_session',{p_token:token,p_table_id:t.id});if(rr.error){alert(rr.error.message||'Операция не выполнена');action.disabled=false;return;}modal.remove();showStaffTables();};grid.appendChild(card);});box.appendChild(grid);modal.appendChild(box);document.body.appendChild(modal);modal.onclick=function(e){if(e.target===modal)modal.remove();};box.querySelector('#staff-table-close').onclick=function(){modal.remove();};}
+  if(isStaff){installTableControl();loadStaffOrders();setInterval(loadStaffOrders,3000);new MutationObserver(installTableControl).observe(document.body,{childList:true,subtree:true});}
+})();
 
-  function rememberStaffLogin(type,data){
-    if(data&&data.token){localStorage.setItem(type+'_token',data.token);localStorage.setItem('staff_token',data.token);}
-  }
-
-  function resolveQrTable(venueId){
-    const token=new URLSearchParams(location.search).get('table');
-    if(!token)return Promise.resolve(null);
-    if(window.__qrTable&&window.__qrTable.qr_token===token)return Promise.resolve(window.__qrTable);
-    let q=oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('qr_token',String(token).trim()).eq('is_active',true);
-    if(venueId)q=q.eq('venue_id',venueId);
-    return q.maybeSingle().then(function(r){if(!r.error&&r.data)window.__qrTable=r.data;return r.data||null;});
-  }
-
-  function makeChain(table){
-    const state={action:'select',filters:{},inFilters:{},payload:null};
-    const api={
-      select:function(){state.action='select';return api},
-      insert:function(v){state.action='insert';state.payload=v;return api},
-      update:function(v){state.action='update';state.payload=v;return api},
-      delete:function(){state.action='delete';return api},
-      eq:function(k,v){state.filters[k]=v;return api},
-      in:function(k,v){state.inFilters[k]=v;return api},
-      order:function(){return api},
-      limit:function(){return api},
-      maybeSingle:function(){return execute(true)},
-      single:function(){return execute(true)},
-      then:function(a,b){return execute(false).then(a,b)},
-      catch:function(a){return execute(false).catch(a)}
-    };
-
-    async function execute(single){
-      if(isStaff && table==='venues' && state.action==='select' && state.filters.slug){
-        const slug=String(state.filters.slug).trim().toLowerCase();
-        localStorage.setItem(staffType+'_login_context',JSON.stringify({slug:slug}));
-        const r=await oldRpc('staff_venue_by_slug',{p_slug:slug});
-        return {data:r.error?null:r.data,error:r.error||null};
-      }
-
-      if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
-        const type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
-        const ctx=JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
-        const r=await oldRpc('staff_login',{p_type:type,p_slug:ctx.slug||'',p_pin:String(state.filters.pin)});
-        if(!r.error)rememberStaffLogin(type,r.data);
-        return {data:r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),error:r.error||null};
-      }
-
-      if(isStaff && table==='orders' && state.action==='select'){
-        const token=staffToken();
-        if(!token)return {data:[],error:new Error('staff_session_missing')};
-        const historyKey=state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;
-        const r=await oldRpc(historyKey?'staff_history_json':'staff_orders_json',{p_token:token});
-        if(r.error)return {data:[],error:r.error};
-        return {data:Array.isArray(r.data)?r.data:[],error:null};
-      }
-
-      if(isStaff && table==='orders' && state.action==='update'){
-        const token=staffToken();
-        if(!token)return {data:null,error:new Error('staff_session_missing')};
-        const r=await oldRpc('staff_update_order',{p_token:token,p_order_id:state.filters.id,p_status:state.payload&&state.payload.status});
-        return {data:r.data||null,error:r.error||null};
-      }
-
-      if(table==='orders'&&state.action==='select'&&isMenu){
-        const venueId=state.filters.venue_id;
-        const phone=state.filters.customer_phone||localStorage.getItem('last_phone')||'';
-        if(!venueId||!phone)return {data:null,error:new Error('tracking_context_missing')};
-        const r=await oldRpc('customer_track_order_json',{p_venue_id:venueId,p_customer_phone:String(phone).trim()});
-        return {data:single?(r.data||null):(r.data?[r.data]:[]),error:r.error||null};
-      }
-
-      if(table==='orders'&&state.action==='update'&&isMenu){
-        return oldRpc('customer_change_order_status',{p_order_id:state.filters.id,p_customer_phone:localStorage.getItem('last_phone')||'',p_status:state.payload&&state.payload.status});
-      }
-
-      if(table==='orders'&&state.action==='insert'){
-        let payload=state.payload;
-        const venueId=payload&&payload.venue_id;
-        const token=new URLSearchParams(location.search).get('table');
-        if(token&&venueId){
-          const t=await resolveQrTable(venueId);
-          if(t){
-            if(Array.isArray(payload))payload=payload.map(function(row){return Object.assign({},row,{table_id:row.table_id||t.id});});
-            else payload=Object.assign({},payload,{table_id:payload.table_id||t.id});
-          }
-        }
-        return oldFrom(table).insert(payload);
-      }
-
-      return oldFrom(table)[state.action](state.payload||'*');
-    }
-    return api;
-  }
-
-  function rpc(name,args,options){
-    if(name==='create_public_order'&&args&&typeof args==='object'){
-      const token=new URLSearchParams(location.search).get('table');
-      if(token)args=Object.assign({},args,{p_table_token:String(token).trim()});
-    }
-    return oldRpc(name,args,options);
-  }
-
-  window.db={from:function(table){
-    if(isStaff)return makeChain(table);
-    if(isMenu&&table==='orders')return makeChain(table);
-    return oldFrom(table);
-  },rpc:rpc,auth:real.auth,storage:real.storage};
-
-  async function bootQrTable(){
-    if(!isMenu)return;
-    const token=new URLSearchParams(location.search).get('table');
-    if(!token)return;
-    const t=await resolveQrTable(null);
-    if(!t)return;
-    localStorage.setItem('qr_table_id',t.id);
-    localStorage.setItem('qr_table_number',String(t.table_number));
-    localStorage.setItem('qr_table_name',t.name||('Стол '+t.table_number));
-    renderCustomerTable();
-  }
-
-  function renderCustomerTable(){
-    const t=window.__qrTable;if(!t)return;
-    let b=document.getElementById('qr-table-fixed-badge');
-    if(!b){
-      b=document.createElement('div');b.id='qr-table-fixed-badge';
-      b.style.cssText='position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
-      document.body.appendChild(b);
-    }
-    b.textContent='🪑 '+(t.name||('Стол '+t.table_number));
-  }
-
-  if(isMenu){
-    bootQrTable();
-    let n=0;const timer=setInterval(function(){renderCustomerTable();if(++n>30)clearInterval(timer)},500);
-  }
-
-  async function loadStaffOrders(){
-    if(!isStaff)return;
-    const token=staffToken();if(!token)return;
-    const r=await oldRpc('staff_orders_json',{p_token:token});
-    if(!r.error&&Array.isArray(r.data))window.__staffTableOrders=r.data;
-  }
-
-  function installTableControl(){
-    if(!isStaff||document.getElementById('staff-table-control-btn'))return;
-    const btn=document.createElement('button');
-    btn.id='staff-table-control-btn';btn.type='button';btn.textContent='🪑 Столы';
-    btn.style.cssText='position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
-    document.body.appendChild(btn);btn.onclick=showStaffTables;
-  }
-
-  async function showStaffTables(){
-    const token=staffToken();if(!token){alert('Сессия сотрудника не найдена. Войдите заново.');return;}
-    const rpcName=staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
-    const r=await oldRpc(rpcName,{p_token:token});
-    if(r.error){alert(r.error.message||'Не удалось загрузить столы');return;}
-    const payload=r.data||{};const tables=Array.isArray(payload.tables)?payload.tables:[];
-    const canControl=staffType==='waiter'||payload.can_control_tables===true;
-    let modal=document.getElementById('staff-table-modal');if(modal)modal.remove();
-    modal=document.createElement('div');modal.id='staff-table-modal';modal.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(5,10,20,.82);backdrop-filter:blur(8px);padding:20px;overflow:auto';
-    const box=document.createElement('div');box.style.cssText='max-width:900px;margin:20px auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff';
-    const head=document.createElement('div');head.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
-    head.innerHTML='<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer">✕</button>';box.appendChild(head);
-    const info=document.createElement('div');info.style.cssText='color:#94a3b8;font-size:13px;margin-bottom:14px';
-    info.textContent=staffType==='cook'?(canControl?'Официанта нет — столами управляет повар':'Есть официант — управление столами передано официанту'):'Официант управляет посадкой и освобождением столов';box.appendChild(info);
-    const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px';
-    tables.forEach(function(t){
-      const occupied=t.occupancy_status==='occupied';
-      const card=document.createElement('div');card.style.cssText='border:1px solid '+(occupied?'rgba(251,191,36,.45)':'rgba(52,211,153,.35)')+';border-radius:14px;padding:14px;background:rgba(255,255,255,.03)';
-      const actionText=occupied?'Освободить стол':'Посадить гостя';
-      card.innerHTML='<b style="font-size:17px">'+(t.name||('Стол '+t.table_number))+'</b><div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>'+(t.session?'<div style="font-size:12px;color:#94a3b8">Заказов: '+(t.session.order_count||0)+' · '+Number(t.session.total_price||0).toLocaleString('ru-RU')+' ₽</div>':'')+(canControl?'<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>':'<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>');
-      const action=card.querySelector('.staff-seat-btn');
-      if(action)action.onclick=async function(){
-        action.disabled=true;let rr;
-        if(occupied)rr=await oldRpc(staffType==='cook'?'cook_release_table':'waiter_release_table',{p_token:token,p_table_id:t.id});
-        else rr=await oldRpc(staffType==='cook'?'cook_start_table_session':'waiter_start_table_session',{p_token:token,p_table_id:t.id});
-        if(rr.error){alert(rr.error.message||'Операция не выполнена');action.disabled=false;return;}
-        modal.remove();showStaffTables();
-      };
-      grid.appendChild(card);
-    });
-    box.appendChild(grid);modal.appendChild(box);document.body.appendChild(modal);modal.onclick=function(e){if(e.target===modal)modal.remove();};box.querySelector('#staff-table-close').onclick=function(){modal.remove();};
-  }
-
-  if(isStaff){
-    installTableControl();loadStaffOrders();setInterval(loadStaffOrders,3000);
-    new MutationObserver(installTableControl).observe(document.body,{childList:true,subtree:true});
-  }
+(function(){
+  'use strict';
+  if(!/\/manager\.html$/i.test(location.pathname))return;
+  let modal=null,selectedVenue=null;
+  const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  const money=v=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Number(v||0));
+  const dt=v=>v?new Date(v).toLocaleString('ru-RU'):'—';
+  function addCss(){if(document.getElementById('manager-hall-style'))return;const s=document.createElement('style');s.id='manager-hall-style';s.textContent='#manager-hall-btn{position:fixed;right:18px;bottom:18px;z-index:9000;border:0;border-radius:15px;padding:13px 17px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.3);cursor:pointer}#manager-hall-modal{position:fixed;inset:0;z-index:99999;background:rgba(5,10,20,.82);backdrop-filter:blur(9px);padding:18px;overflow:auto}#manager-hall-box{max-width:1120px;margin:20px auto;background:#101827;border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:20px;color:#fff}.mh-head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.mh-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.mh-select{background:#172033;color:#fff;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px;min-width:220px}.mh-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:13px;margin-top:16px}.mh-card{border-radius:16px;padding:15px;border:1px solid rgba(52,211,153,.35);background:rgba(52,211,153,.045)}.mh-card.busy{border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.055)}.mh-status{font-weight:800;margin:7px 0}.mh-free{color:#6ee7b7}.mh-busy{color:#fcd34d}.mh-meta{color:#94a3b8;font-size:12px;line-height:1.65}.mh-btn{border:0;border-radius:10px;padding:9px 12px;background:#172033;color:#fff;cursor:pointer;font-weight:700}.mh-danger{background:#7f1d1d}.mh-empty{padding:36px;text-align:center;color:#94a3b8}';document.head.appendChild(s);}
+  async function getVenues(){const u=await baseDb.auth.getUser();if(!u.data.user)throw new Error('Сессия управляющего не найдена');const p=await baseDb.from('profiles').select('id,role').eq('id',u.data.user.id).maybeSingle();if(p.error)throw p.error;if(p.data&&p.data.role==='admin'){const r=await baseDb.from('venues').select('id,name,slug').order('name');if(r.error)throw r.error;return r.data||[];}const r=await baseDb.from('manager_venues').select('venue_id,venues(id,name,slug)').eq('manager_id',u.data.user.id);if(r.error)throw r.error;return(r.data||[]).map(x=>x.venues).filter(Boolean);}
+  async function loadBoard(){if(!modal||!selectedVenue)return;const grid=modal.querySelector('#mh-grid');grid.innerHTML='<div class="mh-empty">Обновление…</div>';try{const r=await baseDb.rpc('manager_table_board',{p_venue_id:selectedVenue});if(r.error)throw r.error;const tables=Array.isArray(r.data?.tables)?r.data.tables:[];const busy=tables.filter(t=>t.occupancy_status==='occupied');const total=busy.reduce((s,t)=>s+Number(t.total_amount||0),0);modal.querySelector('#mh-summary').textContent=`Всего: ${tables.length} · Занято: ${busy.length} · Свободно: ${tables.length-busy.length} · В сессиях: ${money(total)}`;if(!tables.length){grid.innerHTML='<div class="mh-empty">Столы в этом заведении не созданы.</div>';return;}grid.innerHTML=tables.map(t=>{const b=t.occupancy_status==='occupied';return`<div class="mh-card ${b?'busy':''}"><b style="font-size:17px">${esc(t.name||('Стол '+t.table_number))}</b><div class="mh-status ${b?'mh-busy':'mh-free'}">${b?'🟡 Занят':'🟢 Свободен'}</div>${b?`<div class="mh-meta">Посадка: ${esc(dt(t.session_started_at))}<br>Заказов: <b>${Number(t.order_count||0)}</b> · Сумма: <b>${money(t.total_amount)}</b><br>Незавершённых: <b>${Number(t.open_order_count||0)}</b></div><button class="mh-btn mh-danger" data-release="${esc(t.id)}" style="width:100%;margin-top:10px">Освободить стол</button>`:'<div class="mh-meta">Готов к посадке гостя</div>'}</div>`;}).join('');grid.querySelectorAll('[data-release]').forEach(btn=>btn.onclick=async function(){if(!confirm('Освободить стол? Незавершённые заказы не закрываются автоматически.'))return;btn.disabled=true;const r=await baseDb.rpc('manager_close_table_session',{p_venue_id:selectedVenue,p_table_id:btn.dataset.release});if(r.error){alert(r.error.message||'Не удалось освободить стол');btn.disabled=false;return;}loadBoard();});}catch(e){grid.innerHTML=`<div class="mh-empty">Ошибка: ${esc(e.message||e)}</div>`;}}
+  function open(){addCss();if(modal)modal.remove();modal=document.createElement('div');modal.id='manager-hall-modal';modal.innerHTML='<div id="manager-hall-box"><div class="mh-head"><div><h2 style="margin:0">🪑 Зал / Столы</h2><div style="color:#94a3b8;font-size:13px;margin-top:4px">Состояние посадки и активных сессий</div></div><button id="mh-close" class="mh-btn">✕</button></div><div class="mh-actions" style="margin-top:14px"><select id="mh-venue" class="mh-select"><option>Загрузка…</option></select><button id="mh-refresh" class="mh-btn">↻ Обновить</button></div><div id="mh-summary" style="margin-top:12px;color:#94a3b8;font-size:13px"></div><div id="mh-grid" class="mh-grid"><div class="mh-empty">Загрузка…</div></div></div>';document.body.appendChild(modal);modal.querySelector('#mh-close').onclick=close;modal.onclick=e=>{if(e.target===modal)close()};modal.querySelector('#mh-refresh').onclick=loadBoard;modal.querySelector('#mh-venue').onchange=e=>{selectedVenue=e.target.value;loadBoard()};getVenues().then(vs=>{const s=modal.querySelector('#mh-venue');s.innerHTML=vs.length?vs.map(v=>`<option value="${esc(v.id)}">${esc(v.name)} · /${esc(v.slug)}</option>`).join(''):'<option value="">Нет заведений</option>';if(vs.length){selectedVenue=vs[0].id;loadBoard();}else modal.querySelector('#mh-grid').innerHTML='<div class="mh-empty">Нет доступных заведений.</div>';}).catch(e=>modal.querySelector('#mh-grid').innerHTML=`<div class="mh-empty">Ошибка: ${esc(e.message||e)}</div>`);}
+  function close(){if(modal){modal.remove();modal=null}}
+  function install(){if(document.getElementById('manager-hall-btn'))return;addCss();const b=document.createElement('button');b.id='manager-hall-btn';b.textContent='🪑 Зал / Столы';b.onclick=open;document.body.appendChild(b);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
