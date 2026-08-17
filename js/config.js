@@ -126,7 +126,11 @@ window.db=baseDb;
     return oldRpc(name,args,options);
   }
 
-  window.db={from:function(table){return makeChain(table)},rpc:rpc,auth:real.auth,storage:real.storage};
+  window.db={from:function(table){
+    if(isStaff)return makeChain(table);
+    if(isMenu&&table==='orders')return makeChain(table);
+    return oldFrom(table);
+  },rpc:rpc,auth:real.auth,storage:real.storage};
 
   async function bootQrTable(){
     if(!isMenu)return;
