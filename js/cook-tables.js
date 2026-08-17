@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   if(!/\/cook\.html$/i.test(location.pathname)) return;
-  var panel=null,timer=null,loading=false,actionBusy=false,tableCache={},tableBusy={};
+  var panel=null,timer=null,loading=false,actionBusy=false,tableCache={},tableBusy={},documentBound=false;
   function getSession(){try{return JSON.parse(localStorage.getItem('cook_session')||'null');}catch(e){return null;}}
   function ensurePanel(){
     if(panel&&document.body.contains(panel)) return panel;
@@ -39,10 +39,7 @@
     finally{delete tableBusy[key];}
     return null;
   }
-  function tableText(t){
-    if(!t)return '📦 Без стола';
-    return '🪑 '+(t.table_number!=null?'Стол '+t.table_number:(t.name||'Стол'));
-  }
+  function tableText(t){if(!t)return '📦 Без стола';return '🪑 '+(t.table_number!=null?'Стол '+t.table_number:(t.name||'Стол'));}
   async function annotateOrders(){
     var x=vue();if(!x||!window.db)return;
     var s=getSession();var venueId=s&&s.venueId;
@@ -88,9 +85,7 @@
       p.style.display='block';
       var tables=Array.isArray(d.tables)?d.tables:[];
       var html='<div class="ct-head"><div><h4 style="margin:0">🪑 Столы</h4><div class="muted" style="font-size:12px;margin-top:3px">Официант не назначен — занятость столов контролирует кухня.</div></div><button class="btn btn-ghost btn-sm" id="ct-refresh" type="button">↻</button></div>';
-      if(!tables.length){
-        html+='<div class="muted">Столы ещё не настроены.</div>';
-      }else{
+      if(!tables.length){html+='<div class="muted">Столы ещё не настроены.</div>';}else{
         html+='<div class="ct-grid">';
         tables.forEach(function(t){
           var occ=t.occupancy_status==='occupied',sess=t.session;
@@ -114,35 +109,30 @@
       if(r&&r.data===false)throw new Error('Операция не выполнена');
       tableCache={};
       await refresh();
-    }catch(e){
-      console.error('cook table action:',e);
-      alert(e&&e.message?e.message:'Не удалось изменить состояние стола');
-      await refresh();
-    }finally{
-      actionBusy=false;
-    }
+    }catch(e){console.error('cook table action:',e);alert(e&&e.message?e.message:'Не удалось изменить состояние стола');await refresh();}
+    finally{actionBusy=false;}
   }
-  function bindPanel(){
-    if(!panel||panel.dataset.bound==='1')return;
-    panel.dataset.bound='1';
-    panel.addEventListener('click',function(e){
-      var target=e.target.closest ? e.target.closest('button') : null;
-      if(!target||!panel.contains(target))return;
-      if(target.id==='ct-refresh'){e.preventDefault();refresh();return;}
+  function bindDocument(){
+    if(documentBound)return;
+    documentBound=true;
+    document.addEventListener('click',function(e){
+      var target=e.target&&e.target.closest?e.target.closest('button[data-ct-release],button[data-ct-start],#ct-refresh'):null;
+      if(!target||!document.getElementById('cook-table-control')?.contains(target))return;
+      if(target.id==='ct-refresh'){e.preventDefault();e.stopPropagation();refresh();return;}
       var release=target.getAttribute('data-ct-release');
       var start=target.getAttribute('data-ct-start');
-      if(release){e.preventDefault();action('cook_release_table',release,target);return;}
-      if(start){e.preventDefault();action('cook_start_table_session',start,target);return;}
-    });
+      if(release){e.preventDefault();e.stopPropagation();action('cook_release_table',release,target);return;}
+      if(start){e.preventDefault();e.stopPropagation();action('cook_start_table_session',start,target);return;}
+    },true);
   }
   function start(){
     css();
+    bindDocument();
     ensurePanel();
-    bindPanel();
     refresh();
     if(timer)clearInterval(timer);
     timer=setInterval(function(){refresh();annotateOrders();},2000);
-    new MutationObserver(function(){ensurePanel();bindPanel();annotateOrders();}).observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});
+    new MutationObserver(function(){ensurePanel();annotateOrders();}).observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
   window.addEventListener('beforeunload',function(){if(timer)clearInterval(timer);});
