@@ -108,15 +108,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   document.head.appendChild(s);
 })();
 
-/*
- * Kitchen order feed.
- * The kitchen uses a custom staff token, not Supabase Auth. Direct
- * SELECT from orders can therefore be filtered differently by RLS.
- * For cook.html we transparently replace only the orders SELECT chain
- * with the SECURITY DEFINER staff_orders_json RPC. Other db.from calls
- * (order_items, order_addons, manager pages, waiter, courier, etc.) are
- * left untouched.
- */
 (function(){
   if(!/\/cook\.html$/i.test(location.pathname)) return;
   if(!window.db || typeof window.db.from!=='function' || typeof window.db.rpc!=='function') return;
@@ -125,15 +116,25 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     if(table!=='orders') return originalFrom(table);
     var chain={
       _isKitchenOrders:true,
+      _updatePayload:null,
+      _updateId:null,
       select:function(){ return chain; },
-      eq:function(){ return chain; },
+      eq:function(field,value){ if(field==='id') chain._updateId=value; return chain; },
       neq:function(){ return chain; },
       in:function(){ return chain; },
       order:function(){ return chain; },
       limit:function(){ return chain; },
+      update:function(payload){ chain._updatePayload=payload||{}; return chain; },
       then:function(resolve,reject){
         var s=null;
         try{s=JSON.parse(localStorage.getItem('cook_session')||'null');}catch(e){}
+        if(chain._updatePayload && chain._updateId){
+          var status=chain._updatePayload.status;
+          if(!status){ return Promise.resolve({data:null,error:{message:'status_required'}}).then(resolve,reject); }
+          return window.db.rpc('staff_update_order',{p_token:s&&s.token,p_order_id:chain._updateId,p_status:status}).then(function(r){
+            return {data:r.data||null,error:r.error||null};
+          }).then(resolve,reject);
+        }
         if(!s||!s.token){
           return Promise.resolve({data:[],error:null}).then(resolve,reject);
         }
