@@ -40,7 +40,7 @@ window.db=baseDb;
 
 (function(){
   'use strict';
-  if(!/\/manager\.html$/i.test(location.pathname))return;
+  if(!/\/manager\.html$/i.test(location.pathname))return;\n  (function(){\n    function installHallTab(){\n      document.querySelectorAll('.tabs').forEach(function(tabs){\n        if(tabs.querySelector('[data-manager-hall-tab]')) return;\n        var ref=Array.prototype.slice.call(tabs.querySelectorAll('button')).find(function(b){return /Тарифы/.test(b.textContent||'');});\n        var b=document.createElement('button');\n        b.type='button'; b.setAttribute('data-manager-hall-tab','1');\n        b.textContent='🪑 Зал / Столы'; b.title='Управление залом и столами';\n        b.onclick=function(){var x=document.getElementById('manager-hall-btn'); if(x)x.click();};\n        if(ref)tabs.insertBefore(b,ref);else tabs.appendChild(b);\n      });\n    }\n    installHallTab();\n    new MutationObserver(installHallTab).observe(document.body,{childList:true,subtree:true});\n  })();\n
   let modal=null,selectedVenue=null;
   const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
   const money=v=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB',maximumFractionDigits:0}).format(Number(v||0));
