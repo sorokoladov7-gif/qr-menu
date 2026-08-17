@@ -1,0 +1,39 @@
+name: Add Hall tab to manager
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-manager-hall:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Add Hall tab
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('js/config.js')
+          s = p.read_text(encoding='utf-8')
+          marker = "(function(){\n  'use strict';\n  if(!/\\/manager\\.html$/i.test(location.pathname))return;"
+          if 'data-manager-hall-tab' in s:
+              print('Hall tab already installed')
+              raise SystemExit(0)
+          if marker not in s:
+              raise SystemExit('Manager Hall marker not found')
+          code = r'''\n  (function(){\n    function installManagerHallTab(){\n      if(!document.querySelector('.tabs')) return;\n      document.querySelectorAll('.tabs').forEach(function(tabs){\n        if(tabs.querySelector('[data-manager-hall-tab]')) return;\n        var ref=null;\n        Array.prototype.forEach.call(tabs.querySelectorAll('button'),function(btn){\n          if(!ref && /Тарифы/.test(btn.textContent||'')) ref=btn;\n        });\n        var btn=document.createElement('button');\n        btn.type='button';\n        btn.setAttribute('data-manager-hall-tab','1');\n        btn.textContent='🪑 Зал / Столы';\n        btn.title='Управление залом и столами';\n        btn.onclick=function(){\n          var hall=document.getElementById('manager-hall-btn');\n          if(hall) hall.click();\n          else alert('Раздел «Зал / Столы» ещё загружается.');\n        };\n        if(ref) tabs.insertBefore(btn,ref); else tabs.appendChild(btn);\n      });\n    }\n    installManagerHallTab();\n    new MutationObserver(installManagerHallTab).observe(document.body,{childList:true,subtree:true});\n  })();\n'''
+          s = s.replace(marker, marker + code, 1)
+          p.write_text(s, encoding='utf-8')
+      - name: Commit patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/config.js
+          git diff --cached --quiet || git commit -m "Add Hall / Tables tab to manager navigation"
+          git push origin main
