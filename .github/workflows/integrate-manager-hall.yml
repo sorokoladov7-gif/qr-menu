@@ -1,0 +1,55 @@
+name: Integrate Manager Hall
+
+on:
+  push:
+    paths:
+      - 'manager.html'
+      - '.github/workflows/integrate-manager-hall.yml'
+
+jobs:
+  integrate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Integrate Hall without touching app.js
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('manager.html')
+          s = p.read_text(encoding='utf-8')
+
+          script = '<script src="/js/manager-hall.js"></script>'
+          if script not in s:
+              marker = '<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>'
+              if marker not in s:
+                  raise SystemExit('Vue script marker not found')
+              s = s.replace(marker, marker + '\n' + script, 1)
+
+          tab = '<button v-bind:class="{on:tab===\'hall\'}" data-manager-hall-tab v-on:click="tab=\'hall\'">🪑 Зал / Столы</button>'
+          if 'data-manager-hall-tab' not in s:
+              marker = '<button v-bind:class="{on:tab===\'staff\'}" v-on:click="tab=\'staff\'">Повара</button>'
+              if marker not in s:
+                  raise SystemExit('Staff tab marker not found')
+              s = s.replace(marker, tab + '\n' + marker, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Validate JavaScript
+        run: |
+          node --check js/app.js
+          node --check js/manager-hall.js
+
+      - name: Commit integration and remove one-shot workflow
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manager.html
+          git rm .github/workflows/integrate-manager-hall.yml
+          git commit -m 'Connect Manager Hall Vue module' || exit 0
+          git push
