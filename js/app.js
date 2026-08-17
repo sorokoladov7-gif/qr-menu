@@ -52,3 +52,10 @@ async function client(){var x=getVue();if(!x||!x.venue)return;var venueId=x.venu
 function run(){css();var p=location.pathname.toLowerCase();if(p.endsWith('/menu.html')||p.endsWith('menu.html'))client();if(/\/(cook|waiter|courier)\.html$/i.test(p))staff();}
 function start(){run();new MutationObserver(run).observe(document.body,{childList:true,subtree:true});setInterval(run,1500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
+
+/* ADMIN: platform-controlled design access UI. */
+(function(){
+'use strict';
+if(!/\/admin\.html$/i.test(location.pathname))return;
+var s=document.createElement('script');s.src='/js/admin-design-access.js?v=1';s.defer=true;document.head.appendChild(s);
+})();
