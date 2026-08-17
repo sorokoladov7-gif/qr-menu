@@ -5,52 +5,98 @@ const baseDb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 window.db=baseDb;
 
 (function(){
+  'use strict';
   const path=location.pathname.toLowerCase();
   const isMenu=/\/menu\.html$/i.test(path);
-  const isStaff=/(cook|courier|waiter)\.html$/i.test(path);
+  const staffMatch=path.match(/\/(cook|courier|waiter)\.html$/i);
+  const isStaff=!!staffMatch;
+  const staffType=isStaff?staffMatch[1]:null;
   const real=baseDb;
   const oldFrom=real.from.bind(real);
   const oldRpc=real.rpc.bind(real);
 
-  async function resolveQrTable(venueId){
-    const token=new URLSearchParams(location.search).get('table');
-    if(!token) return null;
-    if(window.__qrTable && window.__qrTable.qr_token===token) return window.__qrTable;
-    let q=oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('qr_token',String(token).trim()).eq('is_active',true);
-    if(venueId) q=q.eq('venue_id',venueId);
-    const {data,error}=await q.maybeSingle();
-    if(!error&&data){ window.__qrTable=data; return data; }
+  function staffToken(){
+    const keys=[staffType+'_token','staff_token','cook_token','waiter_token','courier_token'];
+    for(const k of keys){const v=localStorage.getItem(k);if(v)return v;}
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i),raw=localStorage.getItem(k);if(!raw)continue;
+      try{const v=JSON.parse(raw);if(v&&typeof v.token==='string'&&v.token.length>20)return v.token;}catch(e){}
+    }
     return null;
   }
 
-  function menuChain(table){
-    const state={action:'select',filters:{},payload:null};
+  function rememberStaffLogin(type,data){
+    if(data&&data.token){localStorage.setItem(type+'_token',data.token);localStorage.setItem('staff_token',data.token);}
+  }
+
+  function resolveQrTable(venueId){
+    const token=new URLSearchParams(location.search).get('table');
+    if(!token)return Promise.resolve(null);
+    if(window.__qrTable&&window.__qrTable.qr_token===token)return Promise.resolve(window.__qrTable);
+    let q=oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('qr_token',String(token).trim()).eq('is_active',true);
+    if(venueId)q=q.eq('venue_id',venueId);
+    return q.maybeSingle().then(function(r){if(!r.error&&r.data)window.__qrTable=r.data;return r.data||null;});
+  }
+
+  function makeChain(table){
+    const state={action:'select',filters:{},inFilters:{},payload:null,ordered:false,limitValue:null};
     const api={
       select:function(){state.action='select';return api},
       insert:function(v){state.action='insert';state.payload=v;return api},
       update:function(v){state.action='update';state.payload=v;return api},
+      delete:function(){state.action='delete';return api},
       eq:function(k,v){state.filters[k]=v;return api},
-      in:function(k,v){state.filters[k]={in:v};return api},
-      order:function(){return api},
-      limit:function(){return api},
+      in:function(k,v){state.inFilters[k]=v;return api},
+      order:function(){state.ordered=true;return api},
+      limit:function(v){state.limitValue=v;return api},
       maybeSingle:function(){return execute(true)},
       single:function(){return execute(true)},
       then:function(a,b){return execute(false).then(a,b)},
       catch:function(a){return execute(false).catch(a)}
     };
+
     async function execute(single){
-      if(table==='orders'&&state.action==='select'){
+      if(isStaff && table==='venues' && state.action==='select' && state.filters.slug){
+        const r=await oldRpc('staff_venue_by_slug',{p_slug:String(state.filters.slug).trim().toLowerCase()});
+        return {data:r.error?null:r.data,error:r.error||null};
+      }
+
+      if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
+        const type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+        const r=await oldRpc('staff_login',{p_type:type,p_slug:state.filters.__slug||'',p_pin:String(state.filters.pin)});
+        return {data:r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),error:r.error||null};
+      }
+
+      if(isStaff && table==='orders' && state.action==='select'){
+        const token=staffToken();
+        if(!token)return {data:[],error:new Error('staff_session_missing')};
+        const historyKey=state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;
+        const rpcName=historyKey?'staff_history_json':'staff_orders_json';
+        const r=await oldRpc(rpcName,{p_token:token});
+        if(r.error)return {data:[],error:r.error};
+        return {data:Array.isArray(r.data)?r.data:[],error:null};
+      }
+
+      if(isStaff && table==='orders' && state.action==='update'){
+        const token=staffToken();
+        if(!token)return {data:null,error:new Error('staff_session_missing')};
+        const r=await oldRpc('staff_update_order',{p_token:token,p_order_id:state.filters.id,p_status:state.payload&&state.payload.status});
+        return {data:r.data||null,error:r.error||null};
+      }
+
+      if(table==='orders'&&state.action==='select'&&isMenu){
         const venueId=state.filters.venue_id;
         const phone=state.filters.customer_phone||localStorage.getItem('last_phone')||'';
-        if(!venueId||!phone) return {data:null,error:new Error('tracking_context_missing')};
+        if(!venueId||!phone)return {data:null,error:new Error('tracking_context_missing')};
         const {data,error}=await oldRpc('customer_track_order_json',{p_venue_id:venueId,p_customer_phone:String(phone).trim()});
-        if(error) return {data:null,error};
-        return {data:single?(data||null):(data?[data]:[]),error:null};
+        return {data:single?(data||null):(data?[data]:[]),error:error||null};
       }
-      if(table==='orders'&&state.action==='update'){
+
+      if(table==='orders'&&state.action==='update'&&isMenu){
         const phone=localStorage.getItem('last_phone')||'';
         return oldRpc('customer_change_order_status',{p_order_id:state.filters.id,p_customer_phone:phone,p_status:state.payload&&state.payload.status});
       }
+
       if(table==='orders'&&state.action==='insert'){
         let payload=state.payload;
         const venueId=payload&&payload.venue_id;
@@ -58,12 +104,13 @@ window.db=baseDb;
         if(token&&venueId){
           const t=await resolveQrTable(venueId);
           if(t){
-            if(Array.isArray(payload)) payload=payload.map(function(row){return Object.assign({},row,{table_id:row.table_id||t.id});});
+            if(Array.isArray(payload))payload=payload.map(function(row){return Object.assign({},row,{table_id:row.table_id||t.id});});
             else payload=Object.assign({},payload,{table_id:payload.table_id||t.id});
           }
         }
         return oldFrom(table).insert(payload);
       }
+
       return oldFrom(table)[state.action](state.payload||'*');
     }
     return api;
@@ -72,14 +119,56 @@ window.db=baseDb;
   function rpc(name,args,options){
     if(name==='create_public_order'&&args&&typeof args==='object'){
       const token=new URLSearchParams(location.search).get('table');
-      if(token) args=Object.assign({},args,{p_table_token:String(token).trim()});
+      if(token)args=Object.assign({},args,{p_table_token:String(token).trim()});
     }
     return oldRpc(name,args,options);
   }
 
-  window.db={from:function(table){return table==='orders'?menuChain(table):oldFrom(table)},rpc:rpc,auth:real.auth,storage:real.storage};
+  window.db={from:function(table){return makeChain(table)},rpc:rpc,auth:real.auth,storage:real.storage};
 
-  // QR table: resolve by token directly. This does not depend on Vue or venue loading order.
+  // Staff login compatibility: the legacy pages query the staff table after resolving the venue.
+  // Capture the venue slug from the URL/form query indirectly through the selected venue id.
+  if(isStaff){
+    const originalFrom=window.db.from;
+    window.db.from=function(table){
+      const chain=originalFrom(table);
+      if(['cooks','waiters','couriers'].indexOf(table)>=0){
+        const oldEq=chain.eq;
+        chain.eq=function(k,v){
+          if(k==='venue_id')chain.__venueId=v;
+          if(k==='pin')chain.__pin=v;
+          if(k==='id')chain.__id=v;
+          return oldEq.call(chain,k,v);
+        };
+        const oldThen=chain.then;
+        chain.then=function(a,b){
+          if(chain.__venueId&&chain.__pin){
+            const type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+            const slug=(JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{}).slug||'';
+            return oldRpc('staff_login',{p_type:type,p_slug:slug,p_pin:String(chain.__pin)}).then(function(r){
+              if(!r.error)rememberStaffLogin(type,r.data);
+              const out={data:r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),error:r.error||null};
+              return a?Promise.resolve(out).then(a,b):out;
+            },b);
+          }
+          return oldThen.call(chain,a,b);
+        };
+        chain.maybeSingle=function(){
+          if(chain.__venueId&&chain.__pin){
+            const type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+            const ctx=JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
+            return oldRpc('staff_login',{p_type:type,p_slug:ctx.slug||'',p_pin:String(chain.__pin)}).then(function(r){
+              if(!r.error)rememberStaffLogin(type,r.data);
+              return {data:r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),error:r.error||null};
+            });
+          }
+          return oldFrom(table).select('*').maybeSingle();
+        };
+      }
+      return chain;
+    };
+  }
+
   async function bootQrTable(){
     if(!isMenu)return;
     const token=new URLSearchParams(location.search).get('table');
@@ -93,12 +182,10 @@ window.db=baseDb;
   }
 
   function renderCustomerTable(){
-    const t=window.__qrTable;
-    if(!t)return;
+    const t=window.__qrTable;if(!t)return;
     let b=document.getElementById('qr-table-fixed-badge');
     if(!b){
-      b=document.createElement('div');
-      b.id='qr-table-fixed-badge';
+      b=document.createElement('div');b.id='qr-table-fixed-badge';
       b.style.cssText='position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
       document.body.appendChild(b);
     }
@@ -107,56 +194,73 @@ window.db=baseDb;
 
   if(isMenu){
     bootQrTable();
-    let n=0; const timer=setInterval(function(){renderCustomerTable();if(++n>30)clearInterval(timer)},500);
-  }
-
-  // Staff: discover the active staff token from any localStorage JSON object instead of relying on a hard-coded key.
-  async function getStaffToken(){
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i), raw=localStorage.getItem(k);
-      if(!raw)continue;
-      try{
-        const v=JSON.parse(raw);
-        if(v&&typeof v==='object'&&typeof v.token==='string'&&v.token.length>10)return v.token;
-      }catch(e){}
-    }
-    return localStorage.getItem('staff_token')||localStorage.getItem('cook_token')||localStorage.getItem('waiter_token')||localStorage.getItem('courier_token')||null;
-  }
-
-  function addStaffBadges(){
-    if(!isStaff)return;
-    const orders=window.__staffTableOrders||[];
-    if(!orders.length)return;
-    document.querySelectorAll('.wcard').forEach(function(card){
-      if(card.querySelector('.qr-table-fixed'))return;
-      const m=String(card.textContent||'').match(/№\s*(\d+)/);
-      if(!m)return;
-      const o=orders.find(function(x){return String(x.order_number)===String(m[1])});
-      if(!o)return;
-      const head=card.querySelector('.spread')||card.firstElementChild;
-      if(!head)return;
-      const badge=document.createElement('div');
-      badge.className='qr-table-fixed';
-      badge.textContent=o.table_number!=null?'🪑 Стол '+o.table_number:'📦 Без стола';
-      badge.style.cssText='margin:8px 0;padding:9px 12px;border-radius:11px;background:#4f46e5;color:#fff;font-weight:800;display:block;text-align:center';
-      head.insertAdjacentElement('afterend',badge);
-    });
+    let n=0;const timer=setInterval(function(){renderCustomerTable();if(++n>30)clearInterval(timer)},500);
   }
 
   async function loadStaffOrders(){
     if(!isStaff)return;
-    const token=await getStaffToken();
-    if(!token)return;
+    const token=staffToken();if(!token)return;
     const r=await oldRpc('staff_orders_json',{p_token:token});
-    if(!r.error&&Array.isArray(r.data)){
-      window.__staffTableOrders=r.data;
-      addStaffBadges();
-    }
+    if(!r.error&&Array.isArray(r.data))window.__staffTableOrders=r.data;
+  }
+
+  // Staff table-control panel. A table is released only when the guest actually leaves.
+  function installTableControl(){
+    if(!isStaff||document.getElementById('staff-table-control-btn'))return;
+    const btn=document.createElement('button');
+    btn.id='staff-table-control-btn';btn.type='button';btn.textContent='🪑 Столы';
+    btn.style.cssText='position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
+    document.body.appendChild(btn);btn.onclick=showStaffTables;
+  }
+
+  async function showStaffTables(){
+    const token=staffToken();if(!token){alert('Сессия сотрудника не найдена. Войдите заново.');return;}
+    const rpcName=staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
+    const r=await oldRpc(rpcName,{p_token:token});
+    if(r.error){alert(r.error.message||'Не удалось загрузить столы');return;}
+    const payload=r.data||{};const tables=Array.isArray(payload.tables)?payload.tables:[];
+    let modal=document.getElementById('staff-table-modal');
+    if(modal)modal.remove();
+    modal=document.createElement('div');modal.id='staff-table-modal';
+    modal.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(5,10,20,.82);backdrop-filter:blur(8px);padding:20px;overflow:auto';
+    const box=document.createElement('div');box.style.cssText='max-width:900px;margin:20px auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff';
+    const head=document.createElement('div');head.style.cssText='display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
+    head.innerHTML='<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer">✕</button>';
+    box.appendChild(head);
+    const info=document.createElement('div');info.style.cssText='color:#94a3b8;font-size:13px;margin-bottom:14px';
+    info.textContent=staffType==='cook'?(payload.can_control_tables?'Официанта нет — столами управляет повар':'Есть официант — столами управляет официант'):'Официант управляет посадкой и освобождением столов';
+    box.appendChild(info);
+    const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px';
+    tables.forEach(function(t){
+      const card=document.createElement('div');card.style.cssText='border:1px solid '+(t.occupancy_status==='occupied'?'rgba(251,191,36,.45)':'rgba(52,211,153,.35)')+';border-radius:14px;padding:14px;background:rgba(255,255,255,.03)';
+      const occupied=t.occupancy_status==='occupied';
+      card.innerHTML='<b style="font-size:17px">'+(t.name||('Стол '+t.table_number))+'</b><div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>'+(t.session?'<div style="font-size:12px;color:#94a3b8">Заказов: '+(t.session.order_count||0)+' · '+Number(t.session.total_price||0).toLocaleString('ru-RU')+' ₽</div>':'')+'<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+(occupied?'Освободить стол':'Посадить гостя')+'</button>';
+      const action=card.querySelector('.staff-seat-btn');
+      action.onclick=async function(){
+        action.disabled=true;
+        let rr;
+        if(occupied){
+          rr=await oldRpc(staffType==='cook'?'cook_release_table':'waiter_release_table',{p_token:token,p_table_id:t.id});
+        }else if(staffType==='cook'){
+          rr=await oldRpc('cook_start_table_session',{p_token:token,p_table_id:t.id});
+        }else{
+          rr=await oldRpc('waiter_start_table_session',{p_token:token,p_table_id:t.id});
+        }
+        if(rr.error){alert(rr.error.message||'Операция не выполнена');action.disabled=false;return;}
+        modal.remove();showStaffTables();
+      };
+      grid.appendChild(card);
+    });
+    box.appendChild(grid);modal.appendChild(box);document.body.appendChild(modal);
+    modal.onclick=function(e){if(e.target===modal)modal.remove();};
+    box.querySelector('#staff-table-close').onclick=function(){modal.remove();};
   }
 
   if(isStaff){
-    setInterval(loadStaffOrders,2000);
-    loadStaffOrders();
-    new MutationObserver(addStaffBadges).observe(document.body,{childList:true,subtree:true});
+    installTableControl();
+    loadStaffOrders();setInterval(loadStaffOrders,3000);
+    new MutationObserver(installTableControl).observe(document.body,{childList:true,subtree:true});
   }
+
+  window.addEventListener('beforeunload',function(){});
 })();
