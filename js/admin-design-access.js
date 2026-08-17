@@ -3,123 +3,14 @@
 if(!/\/admin\.html$/i.test(location.pathname))return;
 if(window.__adminDesignAccessLoaded)return;
 window.__adminDesignAccessLoaded=true;
-
-var STYLE_ID='admin-design-access-style';
-var ITEM_CLASS='admin-design-access-item';
-
-function getRoot(){return document.getElementById('app')}
-function getProxy(){
-  var root=getRoot();
-  var app=root&&root.__vue_app__;
-  return app&&app._instance&&app._instance.proxy||null;
-}
-
-function addStyle(){
-  if(document.getElementById(STYLE_ID))return;
-  var s=document.createElement('style');
-  s.id=STYLE_ID;
-  s.textContent='.'+ITEM_CLASS+'{display:flex!important;align-items:center;gap:7px;background:rgba(99,102,241,.10);border:1px solid rgba(99,102,241,.30);padding:7px 10px;border-radius:8px;color:#e5e7eb;cursor:pointer}.'+ITEM_CLASS+' input{accent-color:#6366f1}.admin-design-access-note{display:block!important;margin:7px 0 0;color:#94a3b8;font-size:11px;line-height:1.4}';
-  document.head.appendChild(s);
-}
-
-function getVenueForModal(p){
-  if(!p||!p.venueEditModal)return null;
-  var id=p.venueEditModal.id;
-  var list=Array.isArray(p.venues)?p.venues:[];
-  for(var i=0;i<list.length;i++)if(list[i]&&list[i].id===id)return list[i];
-  return null;
-}
-
-function ensurePerm(p){
-  if(!p||!p.venueEditModal||!p.venueEditModal.show)return false;
-  if(!p.venueEditModal.perms)p.venueEditModal.perms={addons:true,products:true,prices:true};
-  var v=getVenueForModal(p);
-  if(v){
-    var mp=v.manager_permissions||{};
-    if(typeof p.venueEditModal.perms.design!=='boolean')p.venueEditModal.perms.design=mp.design===true;
-  }else if(typeof p.venueEditModal.perms.design!=='boolean'){
-    p.venueEditModal.perms.design=false;
-  }
-  return true;
-}
-
-function patchOpen(p){
-  if(!p||p.__adminDesignOpenPatched||typeof p.openVenueEdit!=='function')return;
-  var original=p.openVenueEdit;
-  p.openVenueEdit=function(v){
-    var r=original.apply(this,arguments);
-    try{
-      if(this.venueEditModal){
-        var mp=(v&&v.manager_permissions)||{};
-        if(!this.venueEditModal.perms)this.venueEditModal.perms={addons:true,products:true,prices:true};
-        this.venueEditModal.perms.design=mp.design===true;
-      }
-    }catch(e){console.error('design permission init',e)}
-    setTimeout(function(){render(p)},0);
-    return r;
-  };
-  p.__adminDesignOpenPatched=true;
-}
-
-function findSettingsModal(){
-  var list=document.querySelectorAll('.modal');
-  for(var i=0;i<list.length;i++){
-    var n=list[i];
-    if(n.offsetParent===null)continue;
-    var text=(n.textContent||'').replace(/\s+/g,' ');
-    if(text.indexOf('Права управляющего')!==-1&&text.indexOf('Менять цены')!==-1)return n;
-  }
-  return null;
-}
-
-function render(p){
-  addStyle();
-  if(!ensurePerm(p))return;
-  var modal=findSettingsModal();
-  if(!modal)return;
-  var group=null;
-  var labels=modal.querySelectorAll('label');
-  for(var i=0;i<labels.length;i++){
-    if((labels[i].textContent||'').indexOf('Менять цены')!==-1){group=labels[i].parentNode;break;}
-  }
-  if(!group)return;
-  var old=group.querySelector('.'+ITEM_CLASS);
-  if(old)old.remove();
-  var oldNote=group.querySelector('.admin-design-access-note');
-  if(oldNote)oldNote.remove();
-
-  var item=document.createElement('label');
-  item.className='checkbox-label '+ITEM_CLASS;
-  var input=document.createElement('input');
-  input.type='checkbox';
-  input.checked=p.venueEditModal.perms.design===true;
-  input.addEventListener('change',function(){
-    if(p.venueEditModal&&p.venueEditModal.perms)p.venueEditModal.perms.design=input.checked;
-  });
-  var span=document.createElement('span');
-  span.textContent='🎨 Разрешить управляющему дизайн';
-  item.appendChild(input);item.appendChild(span);
-  group.appendChild(item);
-
-  var note=document.createElement('div');
-  note.className='admin-design-access-note';
-  note.textContent='Только администратор платформы может выдать или отозвать это право.';
-  group.appendChild(note);
-}
-
-function boot(){
-  addStyle();
-  var ticks=0;
-  var timer=setInterval(function(){
-    var p=getProxy();
-    if(p){patchOpen(p);render(p)}
-    if(++ticks>1200)clearInterval(timer);
-  },250);
-  new MutationObserver(function(){
-    var p=getProxy();
-    if(p){patchOpen(p);render(p)}
-  }).observe(document.body,{childList:true,subtree:true});
-}
-
+var STYLE_ID='admin-design-access-style',ITEM_CLASS='admin-design-access-item';
+function getProxy(){var root=document.getElementById('app'),app=root&&root.__vue_app__;return app&&app._instance&&app._instance.proxy||null}
+function addStyle(){if(document.getElementById(STYLE_ID))return;var s=document.createElement('style');s.id=STYLE_ID;s.textContent='.'+ITEM_CLASS+'{display:flex!important;align-items:center;gap:7px;background:rgba(99,102,241,.10);border:1px solid rgba(99,102,241,.30);padding:7px 10px;border-radius:8px;color:#e5e7eb;cursor:pointer}.'+ITEM_CLASS+' input{accent-color:#6366f1}.admin-design-access-note{display:block!important;margin:7px 0 0;color:#94a3b8;font-size:11px;line-height:1.4}';document.head.appendChild(s)}
+function getVenueForModal(p){if(!p||!p.venueEditModal)return null;var id=p.venueEditModal.id,list=Array.isArray(p.venues)?p.venues:[];for(var i=0;i<list.length;i++)if(list[i]&&list[i].id===id)return list[i];return null}
+function ensurePerm(p){if(!p||!p.venueEditModal||!p.venueEditModal.show)return false;if(!p.venueEditModal.perms)p.venueEditModal.perms={addons:true,products:true,prices:true};var v=getVenueForModal(p);if(v){var mp=v.manager_permissions||{};if(typeof p.venueEditModal.perms.design!=='boolean')p.venueEditModal.perms.design=mp.design===true}else if(typeof p.venueEditModal.perms.design!=='boolean')p.venueEditModal.perms.design=false;return true}
+function patchOpen(p){if(!p||p.__adminDesignOpenPatched||typeof p.openVenueEdit!=='function')return;var original=p.openVenueEdit;p.openVenueEdit=function(v){var r=original.apply(this,arguments);try{if(this.venueEditModal){var mp=(v&&v.manager_permissions)||{};if(!this.venueEditModal.perms)this.venueEditModal.perms={addons:true,products:true,prices:true};this.venueEditModal.perms.design=mp.design===true}}catch(e){console.error('design permission init',e)}setTimeout(function(){render(p)},0);return r};p.__adminDesignOpenPatched=true}
+function findSettingsModal(){var list=document.querySelectorAll('.modal');for(var i=0;i<list.length;i++){var n=list[i];if(n.offsetParent===null)continue;var text=(n.textContent||'').replace(/\s+/g,' ');if(text.indexOf('Права управляющего')!==-1&&text.indexOf('Менять цены')!==-1)return n}return null}
+function render(p){addStyle();if(!ensurePerm(p))return;var modal=findSettingsModal();if(!modal)return;var group=null,labels=modal.querySelectorAll('label');for(var i=0;i<labels.length;i++){if((labels[i].textContent||'').indexOf('Менять цены')!==-1){group=labels[i].parentNode;break}}if(!group)return;var item=group.querySelector('.'+ITEM_CLASS);if(item){var existingInput=item.querySelector('input');if(existingInput)existingInput.checked=p.venueEditModal.perms.design===true;if(!group.querySelector('.admin-design-access-note')){var note0=document.createElement('div');note0.className='admin-design-access-note';note0.textContent='Только администратор платформы может выдать или отозвать это право.';group.appendChild(note0)}return}var itemNew=document.createElement('label');itemNew.className='checkbox-label '+ITEM_CLASS;var input=document.createElement('input');input.type='checkbox';input.checked=p.venueEditModal.perms.design===true;input.addEventListener('change',function(){if(p.venueEditModal&&p.venueEditModal.perms)p.venueEditModal.perms.design=input.checked});var span=document.createElement('span');span.textContent='🎨 Разрешить управляющему дизайн';itemNew.appendChild(input);itemNew.appendChild(span);group.appendChild(itemNew);var note=document.createElement('div');note.className='admin-design-access-note';note.textContent='Только администратор платформы может выдать или отозвать это право.';group.appendChild(note)}
+function boot(){addStyle();var ticks=0,timer=setInterval(function(){var p=getProxy();if(p){patchOpen(p);render(p)}if(++ticks>1200)clearInterval(timer)},250);new MutationObserver(function(){var p=getProxy();if(p){patchOpen(p);render(p)}}).observe(document.body,{childList:true,subtree:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
