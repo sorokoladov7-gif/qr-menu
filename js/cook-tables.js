@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   if(!/\/cook\.html$/i.test(location.pathname)) return;
-  var panel=null,timer=null,loading=false,tableCache={},tableBusy={};
+  var panel=null,timer=null,loading=false,actionBusy=false,tableCache={},tableBusy={};
   function getSession(){try{return JSON.parse(localStorage.getItem('cook_session')||'null');}catch(e){return null;}}
   function ensurePanel(){
     if(panel&&document.body.contains(panel)) return panel;
@@ -19,7 +19,7 @@
   function css(){
     if(document.getElementById('cook-table-control-css')) return;
     var s=document.createElement('style');s.id='cook-table-control-css';
-    s.textContent='#cook-table-control .ct-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}#cook-table-control .ct-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}#cook-table-control .ct-table{padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.03)}#cook-table-control .ct-free{border-color:rgba(52,211,153,.28)}#cook-table-control .ct-occupied{border-color:rgba(248,113,113,.38)}#cook-table-control .ct-status{font-size:11px;font-weight:800;padding:4px 8px;border-radius:99px}#cook-table-control .ct-free .ct-status{background:rgba(52,211,153,.14);color:#6ee7b7}#cook-table-control .ct-occupied .ct-status{background:rgba(248,113,113,.14);color:#fca5a5}#cook-table-control .ct-meta{font-size:11px;color:#94a3b8;margin-top:7px}#cook-table-control .ct-actions{display:flex;gap:7px;margin-top:9px}#cook-table-control .ct-actions button{flex:1}.cook-order-table{display:block!important;box-sizing:border-box!important;margin:7px 0!important;padding:7px 10px!important;border-radius:10px!important;background:rgba(99,102,241,.16)!important;border:1px solid rgba(129,140,248,.32)!important;color:#e0e7ff!important;font-size:12px!important;font-weight:800!important}.cook-history-table{display:inline-block!important;margin-left:8px!important;padding:3px 7px!important;border-radius:7px!important;background:rgba(99,102,241,.15)!important;color:#c7d2fe!important;font-size:11px!important;font-weight:800!important}';
+    s.textContent='#cook-table-control .ct-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}#cook-table-control .ct-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}#cook-table-control .ct-table{padding:12px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(255,255,255,.03)}#cook-table-control .ct-free{border-color:rgba(52,211,153,.28)}#cook-table-control .ct-occupied{border-color:rgba(248,113,113,.38)}#cook-table-control .ct-status{font-size:11px;font-weight:800;padding:4px 8px;border-radius:99px}#cook-table-control .ct-free .ct-status{background:rgba(52,211,153,.14);color:#6ee7b7}#cook-table-control .ct-occupied .ct-status{background:rgba(248,113,113,.14);color:#fca5a5}#cook-table-control .ct-meta{font-size:11px;color:#94a3b8;margin-top:7px}#cook-table-control .ct-actions{display:flex;gap:7px;margin-top:9px}#cook-table-control .ct-actions button{flex:1}#cook-table-control button[disabled]{opacity:.55;pointer-events:none}.cook-order-table{display:block!important;box-sizing:border-box!important;margin:7px 0!important;padding:7px 10px!important;border-radius:10px!important;background:rgba(99,102,241,.16)!important;border:1px solid rgba(129,140,248,.32)!important;color:#e0e7ff!important;font-size:12px!important;font-weight:800!important}.cook-history-table{display:inline-block!important;margin-left:8px!important;padding:3px 7px!important;border-radius:7px!important;background:rgba(99,102,241,.15)!important;color:#c7d2fe!important;font-size:11px!important;font-weight:800!important}';
     document.head.appendChild(s);
   }
   function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
@@ -75,7 +75,7 @@
     var s=getSession();
     if(!s||!s.token||typeof window.db==='undefined'||!window.db||typeof window.db.rpc!=='function') return;
     var p=ensurePanel();
-    if(!p||loading) return;
+    if(!p||loading||actionBusy) return;
     loading=true;
     try{
       var r=await window.db.rpc('cook_get_dashboard',{p_token:s.token});
@@ -87,36 +87,62 @@
       if(waiterCount>0){p.style.display='none';return;}
       p.style.display='block';
       var tables=Array.isArray(d.tables)?d.tables:[];
-      var html='<div class="ct-head"><div><h4 style="margin:0">🪑 Столы</h4><div class="muted" style="font-size:12px;margin-top:3px">Официант не назначен — занятость столов контролирует кухня.</div></div><button class="btn btn-ghost btn-sm" id="ct-refresh">↻</button></div>';
+      var html='<div class="ct-head"><div><h4 style="margin:0">🪑 Столы</h4><div class="muted" style="font-size:12px;margin-top:3px">Официант не назначен — занятость столов контролирует кухня.</div></div><button class="btn btn-ghost btn-sm" id="ct-refresh" type="button">↻</button></div>';
       if(!tables.length){
         html+='<div class="muted">Столы ещё не настроены.</div>';
       }else{
         html+='<div class="ct-grid">';
         tables.forEach(function(t){
           var occ=t.occupancy_status==='occupied',sess=t.session;
-          html+='<div class="ct-table '+(occ?'ct-occupied':'ct-free')+'"><div class="spread"><b>Стол '+esc(t.table_number)+'</b><span class="ct-status">'+(occ?'ЗАНЯТ':'СВОБОДЕН')+'</span></div>'+(t.name?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(t.name)+'</div>':'')+(occ?'<div class="ct-meta">Посадка: '+minutes(t.occupied_since)+' · Заказов: '+(sess?sess.order_count:0)+' · '+fmt(sess?sess.total_price:0)+' ₽</div>':'<div class="ct-meta">Гости ещё не сидят</div>')+'<div class="ct-actions">'+(occ?'<button class="btn btn-green btn-sm" data-ct-release="'+esc(t.id)+'">✓ Освободить</button>':'<button class="btn btn-primary btn-sm" data-ct-start="'+esc(t.id)+'">🪑 Посадить гостей</button>')+'</div></div>';
+          html+='<div class="ct-table '+(occ?'ct-occupied':'ct-free')+'"><div class="spread"><b>Стол '+esc(t.table_number)+'</b><span class="ct-status">'+(occ?'ЗАНЯТ':'СВОБОДЕН')+'</span></div>'+(t.name?'<div class="muted" style="font-size:12px;margin-top:4px">'+esc(t.name)+'</div>':'')+(occ?'<div class="ct-meta">Посадка: '+minutes(t.occupied_since)+' · Заказов: '+(sess?sess.order_count:0)+' · '+fmt(sess?sess.total_price:0)+' ₽</div>':'<div class="ct-meta">Гости ещё не сидят</div>')+'<div class="ct-actions">'+(occ?'<button type="button" class="btn btn-green btn-sm" data-ct-release="'+esc(t.id)+'">✓ Освободить</button>':'<button type="button" class="btn btn-primary btn-sm" data-ct-start="'+esc(t.id)+'">🪑 Посадить гостей</button>')+'</div></div>';
         });
         html+='</div>';
       }
       p.innerHTML=html;
-      var rb=p.querySelector('#ct-refresh');if(rb)rb.addEventListener('click',refresh);
-      p.querySelectorAll('[data-ct-start]').forEach(function(b){b.addEventListener('click',async function(){await action('cook_start_table_session',b.getAttribute('data-ct-start'));});});
-      p.querySelectorAll('[data-ct-release]').forEach(function(b){b.addEventListener('click',async function(){if(confirm('Гости действительно ушли со стола?'))await action('cook_release_table',b.getAttribute('data-ct-release'));});});
     }catch(e){console.error('cook table control:',e);p.style.display='none';}
     finally{loading=false;}
     annotateOrders();
   }
-  async function action(fn,id){
-    var s=getSession();if(!s||!s.token||!window.db)return;
-    try{var r=await window.db.rpc(fn,{p_token:s.token,p_table_id:id});if(r.error)throw r.error;await refresh();}
-    catch(e){alert(e&&e.message?e.message:'Не удалось изменить состояние стола');}
+  async function action(fn,id,button){
+    var s=getSession();if(!s||!s.token||!window.db||actionBusy)return;
+    if(fn==='cook_release_table'&&!window.confirm('Гости действительно ушли со стола?'))return;
+    actionBusy=true;
+    if(button){button.disabled=true;button.textContent='⏳ Обновление...';}
+    try{
+      var r=await window.db.rpc(fn,{p_token:s.token,p_table_id:id});
+      if(r&&r.error)throw r.error;
+      if(r&&r.data===false)throw new Error('Операция не выполнена');
+      tableCache={};
+      await refresh();
+    }catch(e){
+      console.error('cook table action:',e);
+      alert(e&&e.message?e.message:'Не удалось изменить состояние стола');
+      await refresh();
+    }finally{
+      actionBusy=false;
+    }
+  }
+  function bindPanel(){
+    if(!panel||panel.dataset.bound==='1')return;
+    panel.dataset.bound='1';
+    panel.addEventListener('click',function(e){
+      var target=e.target.closest ? e.target.closest('button') : null;
+      if(!target||!panel.contains(target))return;
+      if(target.id==='ct-refresh'){e.preventDefault();refresh();return;}
+      var release=target.getAttribute('data-ct-release');
+      var start=target.getAttribute('data-ct-start');
+      if(release){e.preventDefault();action('cook_release_table',release,target);return;}
+      if(start){e.preventDefault();action('cook_start_table_session',start,target);return;}
+    });
   }
   function start(){
     css();
+    ensurePanel();
+    bindPanel();
     refresh();
     if(timer)clearInterval(timer);
     timer=setInterval(function(){refresh();annotateOrders();},2000);
-    new MutationObserver(function(){annotateOrders();}).observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});
+    new MutationObserver(function(){ensurePanel();bindPanel();annotateOrders();}).observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
   window.addEventListener('beforeunload',function(){if(timer)clearInterval(timer);});
