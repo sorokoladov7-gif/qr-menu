@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="/js/manager-hall.js"></script>
 <style>
 .bar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:4px 0}
 .bar-fill{height:8px;border-radius:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6)}
@@ -98,6 +99,7 @@
 <button v-bind:class="{on:tab==='menu'}" v-on:click="tab='menu'">Меню</button>
 <button v-bind:class="{on:tab==='orders'}" v-on:click="tab='orders'">Заказы</button>
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
+<button v-bind:class="{on:tab==='hall'}" data-manager-hall-tab v-on:click="tab='hall'">🪑 Зал / Столы</button>
 <button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">Повара</button>
 <button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
 <button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
