@@ -1,68 +1,19 @@
 (function(){
 'use strict';
-if(!/\/manager\.html$/i.test(location.pathname)||!window.Vue)return;
-if(window.__managerHallLoader)return;
-window.__managerHallLoader=true;
+if(!/\/manager\.html$/i.test(location.pathname)) return;
+if(window.__managerHallBridge)return;
+window.__managerHallBridge=true;
 
-var Hall={
-props:['venue'],
-data:function(){return{tables:[],loading:false,saving:false,error:'',selected:null,editing:false,qr:false,drag:null,search:'',filter:'all',form:{number:'',name:'',seats:4,shape:'round',x:80,y:80}}},
-computed:{
-filtered:function(){var q=String(this.search||'').toLowerCase(),f=this.filter;return this.tables.filter(function(t){return(f==='all'||(f==='busy'?t.occupancy_status==='occupied':t.occupancy_status!=='occupied'))&&(!q||String(t.table_number||'').toLowerCase().includes(q)||String(t.name||'').toLowerCase().includes(q));})},
-busy:function(){return this.tables.filter(function(t){return t.occupancy_status==='occupied'}).length},
-free:function(){return this.tables.length-this.busy},
-orders:function(){return this.tables.reduce(function(n,t){return n+Number(t.order_count||0)},0)},
-total:function(){return this.tables.reduce(function(n,t){return n+Number(t.session_total||t.total_amount||0)},0)}
-},
-watch:{venue:function(){this.selected=null;this.editing=false;this.load()}},
-mounted:function(){this.load()},
-methods:{
-rpc:function(n,a){if(!window.db||!window.db.rpc)return Promise.reject(new Error('Supabase не подключен'));return window.db.rpc(n,a)},
-load:function(){var s=this;if(!this.venue)return;this.loading=true;this.error='';this.rpc('manager_table_board',{p_venue_id:this.venue.id}).then(function(r){if(r.error)throw r.error;var d=r.data;s.tables=Array.isArray(d)?d:(d&&Array.isArray(d.tables)?d.tables:[])}).catch(function(e){s.error=e.message||String(e)}).finally(function(){s.loading=false})},
-title:function(t){return t.name||('Стол '+(t.table_number==null?'':t.table_number))},
-status:function(t){return t.occupancy_status==='occupied'?'Занят':'Свободен'},
-edit:function(t){this.selected=t;this.editing=true;this.qr=false;this.form={number:t.table_number==null?'':t.table_number,name:t.name||'',seats:Number(t.seats||4),shape:t.shape||'round',x:Number(t.pos_x||80),y:Number(t.pos_y||80)}},
-add:function(){this.selected=null;this.qr=false;this.editing=true;this.form={number:'',name:'',seats:4,shape:'round',x:80+(this.tables.length%5)*140,y:80+Math.floor(this.tables.length/5)*140}},
-cancel:function(){this.selected=null;this.editing=false},
-save:function(){var s=this;if(!this.venue||this.saving)return;this.saving=true;this.rpc('manager_upsert_table',{p_venue_id:this.venue.id,p_table_id:this.selected?this.selected.id:null,p_table_number:this.form.number===''?null:Number(this.form.number),p_name:this.form.name||null,p_seats:Number(this.form.seats)||4,p_shape:this.form.shape,p_pos_x:Number(this.form.x)||80,p_pos_y:Number(this.form.y)||80}).then(function(r){if(r.error)throw r.error;s.selected=null;s.editing=false;return s.load()}).catch(function(e){s.error=e.message||String(e)}).finally(function(){s.saving=false})},
-remove:function(t){var s=this;if(!confirm('Удалить '+this.title(t)+'?'))return;this.rpc('manager_delete_table',{p_venue_id:this.venue.id,p_table_id:t.id}).then(function(r){if(r.error)throw r;s.selected=null;s.editing=false;return s.load()}).catch(function(e){s.error=e.message||String(e)})},
-qrShow:function(t){this.selected=t;this.editing=false;this.qr=true},
-qrNew:function(t){var s=this;if(!confirm('Старый QR перестанет работать. Создать новый?'))return;this.rpc('manager_regenerate_table_qr',{p_venue_id:this.venue.id,p_table_id:t.id}).then(function(r){if(r.error)throw r;return s.load()}).then(function(){var n=s.tables.find(function(x){return x.id===t.id});if(n)s.selected=n}).catch(function(e){s.error=e.message||String(e)})},
-qrUrl:function(t){return location.origin+'/menu.html?table='+encodeURIComponent(t.qr_token||t.id)},
-qrImage:function(t){return'https://api.qrserver.com/v1/create-qr-code/?size=700x700&margin=10&data='+encodeURIComponent(this.qrUrl(t))},
-printQr:function(t){var w=window.open('','_blank','width=700,height=850');if(!w)return;w.document.write('<!doctype html><html><body style="font-family:Arial;text-align:center;padding:30px"><h1>'+this.title(t)+'</h1><img style="width:500px;max-width:90%" src="'+this.qrImage(t)+'"><p>Отсканируйте QR-код камерой телефона</p><script>window.onload=function(){window.print()}<\\/script></body></html>');w.document.close()},
-start:function(e,t){if(e.target.closest&&e.target.closest('button'))return;this.drag={id:t.id,x:Number(t.pos_x||80),y:Number(t.pos_y||80),sx:e.clientX,sy:e.clientY}},
-move:function(e){if(!this.drag)return;var d=this.drag,t=this.tables.find(function(x){return x.id===d.id});if(t){t.pos_x=Math.max(10,d.x+e.clientX-d.sx);t.pos_y=Math.max(10,d.y+e.clientY-d.sy)}},
-end:function(){var s=this;if(!this.drag)return;var d=this.drag,t=this.tables.find(function(x){return x.id===d.id});this.drag=null;if(!t)return;this.rpc('manager_upsert_table',{p_venue_id:this.venue.id,p_table_id:t.id,p_table_number:t.table_number,p_name:t.name||null,p_seats:t.seats||4,p_shape:t.shape||'round',p_pos_x:Math.round(t.pos_x),p_pos_y:Math.round(t.pos_y)}).catch(function(e){s.error=e.message||String(e);s.load()})},
-style:function(t){var w=t.shape==='rectangle'?170:t.shape==='square'?120:100,h=t.shape==='rectangle'?76:t.shape==='square'?120:100;return{left:(Number(t.pos_x)||80)+'px',top:(Number(t.pos_y)||80)+'px',width:w+'px',height:h+'px',borderRadius:t.shape==='round'?'50%':'14px'}}
-},
-template:'<section class="manager-hall"><div class="hall-toolbar"><div><h2>🪑 Зал / Столы</h2><p>План зала, посадка, QR-коды и текущие сессии</p></div><div class="hall-actions"><button class="btn btn-primary" @click="add">＋ Добавить стол</button><button class="btn btn-ghost" @click="load">↻ Обновить</button></div></div><div v-if="error" class="hall-alert">⚠️ {{error}}</div><div class="hall-stats"><button :class="{active:filter===\'all\'}" @click="filter=\'all\'"><b>{{tables.length}}</b><span>Всего</span></button><button :class="{active:filter===\'free\'}" @click="filter=\'free\'"><b class="green">{{free}}</b><span>Свободно</span></button><button :class="{active:filter===\'busy\'}" @click="filter=\'busy\'"><b class="yellow">{{busy}}</b><span>Занято</span></button><div class="hall-stat"><b>{{orders}}</b><span>Заказов</span></div><div class="hall-stat"><b>{{total.toFixed(2)}} ₽</b><span>Сумма сессий</span></div></div><div class="hall-main"><div><div class="hall-board-head"><input v-model="search" class="hall-search" placeholder="Поиск стола…"><span class="muted">Перетаскивайте столы · двойной клик — редактирование</span></div><div class="hall-plan" @mousemove="move" @mouseup="end" @mouseleave="end"><div v-if="loading" class="hall-empty">Загрузка столов…</div><div v-for="t in filtered" :key="t.id" class="hall-table" :class="{busy:t.occupancy_status===\'occupied\',selected:selected&&selected.id===t.id}" :style="style(t)" @mousedown="start($event,t)" @dblclick="edit(t)"><b>{{title(t)}}</b><span>{{status(t)}}</span><small>{{t.seats||4}} мест · {{t.order_count||0}} заказов</small><strong v-if="t.session_total||t.total_amount">{{Number(t.session_total||t.total_amount||0).toFixed(2)}} ₽</strong><div class="hall-table-actions"><button @mousedown.stop @click.stop="edit(t)">✏️</button><button @mousedown.stop @click.stop="qrShow(t)">▣ QR</button></div></div><div v-if="!filtered.length&&!loading" class="hall-empty"><b>Столов нет</b><span>Добавьте первый стол и разместите его на плане.</span><button class="btn btn-primary" @click="add">＋ Добавить стол</button></div></div></div><aside class="hall-editor card"><div class="editor-title"><h3>{{editing?(selected?\'Стол: \'+title(selected):\'Новый стол\'):\'Управление столом\'}}</h3><button v-if="editing" class="icon-btn" @click="cancel">×</button></div><div v-if="editing" class="editor-form"><label>Номер<input v-model="form.number" type="number" min="1"></label><label>Название<input v-model="form.name" placeholder="Например VIP 1"></label><div class="two"><label>Мест<input v-model.number="form.seats" type="number" min="1" max="50"></label><label>Форма<select v-model="form.shape"><option value="round">Круг</option><option value="square">Квадрат</option><option value="rectangle">Прямоугольник</option></select></label></div><div class="two"><label>X<input v-model.number="form.x" type="number"></label><label>Y<input v-model.number="form.y" type="number"></label></div><div class="editor-buttons"><button class="btn btn-primary" :disabled="saving" @click="save">{{saving?\'Сохранение…\':\'Сохранить\'}}</button><button class="btn btn-ghost" @click="cancel">Отмена</button></div><button v-if="selected" class="btn btn-danger full" @click="remove(selected)">Удалить стол</button></div><div v-else class="editor-empty"><span>Выберите стол или добавьте новый</span><button class="btn btn-primary" @click="add">＋ Добавить стол</button></div><div v-if="selected&&!editing" class="editor-info"><div><span>Статус</span><b>{{status(selected)}}</b></div><div><span>Заказов</span><b>{{selected.order_count||0}}</b></div><div><span>Сумма</span><b>{{Number(selected.session_total||selected.total_amount||0).toFixed(2)}} ₽</b></div><div class="editor-buttons"><button class="btn btn-ghost" @click="edit(selected)">✏️ Редактировать</button><button class="btn btn-ghost" @click="qrShow(selected)">▣ QR</button></div></div></aside></div><div v-if="qr&&selected" class="hall-modal" @click.self="qr=false"><div class="hall-modal-card"><button class="modal-close" @click="qr=false">×</button><h2>QR — {{title(selected)}}</h2><img class="qr-image" :src="qrImage(selected)" alt="QR"><div class="qr-url">{{qrUrl(selected)}}</div><div class="qr-buttons"><button class="btn btn-primary" @click="printQr(selected)">🖨 Печать</button><button class="btn btn-ghost" @click="qrNew(selected)">Новый QR</button></div></div></div></section>'
-};
-
-function addStyles(){if(document.getElementById('manager-hall-style'))return;var s=document.createElement('style');s.id='manager-hall-style';s.textContent='.manager-hall{padding:4px 0 30px}.hall-toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px}.hall-toolbar h2{margin:0 0 4px}.hall-toolbar p{margin:0;color:#94a3b8}.hall-actions,.editor-buttons{display:flex;gap:8px;flex-wrap:wrap}.hall-alert{padding:12px;border-radius:12px;background:rgba(239,68,68,.12);color:#fca5a5;margin-bottom:14px}.hall-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.hall-stats>button,.hall-stat{min-width:105px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);border-radius:12px;padding:10px 14px;color:inherit;text-align:left}.hall-stats>button{cursor:pointer}.hall-stats>button.active{border-color:#60a5fa}.hall-stats b{display:block;font-size:18px}.hall-stats span{display:block;color:#94a3b8;font-size:11px}.green{color:#34d399}.yellow{color:#fbbf24}.hall-main{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px}.hall-board-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:8px}.hall-search{width:230px;max-width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit}.hall-plan{position:relative;min-height:620px;overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:18px;background-size:40px 40px;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px)}.hall-table{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:2px solid #34d399;background:rgba(52,211,153,.12);border-radius:14px;cursor:grab;user-select:none;padding:8px;box-sizing:border-box}.hall-table.busy{border-color:#fbbf24;background:rgba(251,191,36,.14)}.hall-table.selected{outline:3px solid rgba(96,165,250,.45)}.hall-table span,.hall-table small{font-size:10px;color:#cbd5e1}.hall-table strong{font-size:11px}.hall-table-actions{display:flex;gap:4px}.hall-table button{border:0;border-radius:6px;background:rgba(0,0,0,.35);color:#fff;padding:3px 6px}.hall-empty{min-height:560px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#94a3b8}.hall-editor{padding:16px;height:max-content;position:sticky;top:10px}.editor-form{display:grid;gap:10px;margin-top:14px}.editor-form label{display:grid;gap:5px;font-size:12px;color:#94a3b8}.editor-form input,.editor-form select{padding:9px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit}.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.editor-empty{padding:25px 0;display:grid;gap:10px;text-align:center;color:#94a3b8}.editor-info{margin-top:15px;padding-top:15px;border-top:1px solid rgba(255,255,255,.08);display:grid;gap:10px}.editor-info>div{display:flex;justify-content:space-between}.editor-info span{color:#94a3b8}.full{width:100%}.hall-modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px}.hall-modal-card{position:relative;background:#111827;border-radius:18px;padding:24px;max-width:650px;width:100%;text-align:center}.modal-close{position:absolute;right:12px;top:10px;border:0;background:none;color:#fff;font-size:28px}.qr-image{width:min(500px,100%);background:#fff;padding:10px;border-radius:10px}.qr-url{word-break:break-all;color:#94a3b8;font-size:11px;margin:10px 0}.muted{color:#94a3b8}@media(max-width:900px){.hall-main{grid-template-columns:1fr}.hall-editor{position:static}.hall-board-head{flex-direction:column}}';document.head.appendChild(s)}
-
-function findMainApp(){var root=document.getElementById('app');if(!root||!root.__vue_app__||!root.__vue_app__._instance)return null;return root.__vue_app__._instance.proxy||null}
-function install(){
- addStyles();
- var tries=0;
- var timer=setInterval(function(){
-  tries++;
-  var proxy=findMainApp();
-  if(!proxy){if(tries>300)clearInterval(timer);return}
-  var tabs=document.querySelector('#app .tabs');
-  if(!tabs)return;
-  clearInterval(timer);
-  var host=document.getElementById('manager-hall-host');
-  if(!host){host=document.createElement('div');host.id='manager-hall-host';host.style.display='none';host.style.marginTop='18px';tabs.parentNode.insertBefore(host,tabs.nextSibling)}
-  var hallApp=window.Vue.createApp({data:function(){return{venue:null}},components:{ManagerHall:Hall},template:'<manager-hall :venue="venue"></manager-hall>'});
-  hallApp.mount(host);
-  window.__managerHallInstalled=true;
-  var hallProxy=hallApp._instance&&hallApp._instance.proxy;
-  var sync=function(){var isHall=proxy.tab==='hall';host.style.display=isHall?'block':'none';if(hallProxy&&hallProxy.venue!==proxy.venue)hallProxy.venue=proxy.venue||null};
-  sync();
-  setInterval(sync,300);
-  console.info('Manager Hall integrated with main Vue app');
- },100);
+function loadTablesModule(){
+  if(window.__managerTablesLoaded || document.querySelector('script[data-manager-tables-loader]')) return;
+  var s=document.createElement('script');
+  s.src='/js/manager-tables.js?v=1';
+  s.async=false;
+  s.setAttribute('data-manager-tables-loader','1');
+  s.onload=function(){window.__managerTablesLoaded=true;console.info('manager-tables.js loaded');};
+  s.onerror=function(e){console.error('manager-tables.js load error',e);};
+  document.head.appendChild(s);
 }
-install();
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',loadTablesModule); else loadTablesModule();
 })();
