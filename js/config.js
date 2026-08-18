@@ -34,5 +34,5 @@ window.db=baseDb;
   var p=location.pathname.toLowerCase();
   function load(src,key){if(document.querySelector('script['+key+']'))return;var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(key,'1');document.head.appendChild(s)}
   if(/\/admin\.html$/i.test(p))load('/js/admin-design-access.js?v=1','data-admin-design-access');
-  if(/\/menu\.html$/i.test(p))load('/js/design-runtime.js?v=1','data-design-runtime');
+  if(/\/menu\.html$/i.test(p))load('/js/design-runtime.js?v=2','data-design-runtime');
 })();
