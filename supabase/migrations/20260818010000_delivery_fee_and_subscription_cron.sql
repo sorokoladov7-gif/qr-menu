@@ -133,7 +133,7 @@ GRANT EXECUTE ON FUNCTION public.create_public_order(uuid,text,text,text,text,te
 -- Run subscription expiry automatically. pg_cron is available in Supabase projects.
 CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
 
-DO $$
+DO $do$
 DECLARE job_id bigint;
 BEGIN
   SELECT jobid INTO job_id FROM cron.job WHERE jobname='check-subscription-expiry';
@@ -143,7 +143,7 @@ BEGIN
   PERFORM cron.schedule(
     'check-subscription-expiry',
     '*/15 * * * *',
-    $$SELECT public.check_subscription_expiry();$$
+    $job$SELECT public.check_subscription_expiry();$job$
   );
 END;
-$$;
+$do$;
