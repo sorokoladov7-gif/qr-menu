@@ -27,6 +27,28 @@ async function requireAuth(roles){
 }
 async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.clear();location.href='index.html';}
 
+/* MENU: bind the legacy DELIVERY_FEE global used by menu.html to the selected venue. */
+(function(){
+'use strict';
+if(!/\/menu\.html$/i.test(location.pathname))return;
+var lastVenueId=null,lastFee=null;
+function sync(){
+  var el=document.getElementById('app');
+  if(!el)return;
+  try{
+    var vm=el.__vueParentComponent?.proxy||el.__vue_app__?._instance?.proxy||null;
+    if(!vm||!vm.venue)return;
+    var id=vm.venue.id, raw=vm.venue.delivery_fee;
+    var fee=raw===null||raw===undefined||raw===''?150:Number(raw);
+    if(!isFinite(fee)||fee<0)fee=150;
+    if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}
+  }catch(e){}
+}
+if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;
+function start(){sync();setInterval(sync,250);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+})();
+
 /* Manager: secure PIN reset controls for cooks, couriers and waiters. */
 (function(){
 'use strict';
