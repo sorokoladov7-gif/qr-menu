@@ -105,6 +105,7 @@
 <button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
+<button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
 <div v-if="tab==='menu'">
@@ -557,6 +558,7 @@ return{addons:true,products:true,prices:true}}
 methods:{
 fmt:function(v){return window.fmt(v)},
 fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'-'},
+openStaffGuide:function(){ window.open('/staff-guide.html', '_blank'); },
 statusName:function(s){return window.statusName(s)},
 statusColor:function(s){return window.statusColor(s)},
 categoryLabel:function(c){return window.categoryLabel(c)},
