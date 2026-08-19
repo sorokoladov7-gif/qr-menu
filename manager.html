@@ -378,7 +378,8 @@
 </div>
 </div>
 
-<div v-if="tab==='settings'" class="glass card" style="max-width:560px">
+<!-- ===== ВКЛАДКА НАСТРОЙКИ С АВТООПРЕДЕЛЕНИЕМ КООРДИНАТ ===== -->
+<div v-if="tab==='settings'" class="glass card" style="max-width:700px">
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
 <div class="field"><label>Логотип</label>
@@ -389,7 +390,52 @@
 <span v-if="!uploadingLogo">🖼 Загрузить логотип</span><span v-else>⏳ Загружаю...</span>
 <input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
-<button class="btn btn-primary" v-on:click="saveVenue">Сохранить</button>
+
+<!-- НОВЫЕ ПОЛЯ ДЛЯ ДОСТАВКИ С АВТОГЕОКОДИНГОМ -->
+<div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
+  <h4 style="margin:0 0 10px">🚗 Настройки доставки</h4>
+  <div class="field">
+    <label>Физический адрес заведения</label>
+    <div class="row">
+      <input v-model="vform.address" placeholder="Улица, дом" style="flex:1">
+      <button class="btn btn-primary btn-sm" v-on:click="geocodeVenueAddress" :disabled="geocodeBusy || !vform.address.trim()">
+        {{ geocodeBusy ? '⏳' : '🔍 Определить координаты' }}
+      </button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="field" style="flex:1"><label>Широта (lat)</label><input v-model.number="vform.lat" type="number" step="0.0000001" placeholder="55.7558"></div>
+    <div class="field" style="flex:1"><label>Долгота (lng)</label><input v-model.number="vform.lng" type="number" step="0.0000001" placeholder="37.6173"></div>
+  </div>
+  <div v-if="geocodeError" style="color:#f87171;font-size:12px;margin-top:4px">{{ geocodeError }}</div>
+  <p class="muted" style="font-size:12px;margin-top:4px">Укажите координаты заведения для расчёта стоимости доставки. Нажмите «Определить координаты», чтобы заполнить их автоматически по адресу.</p>
+</div>
+
+<!-- УПРАВЛЕНИЕ СТОЛАМИ -->
+<div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
+  <div class="spread"><h4 style="margin:0">🪑 Управление столами</h4>
+    <button class="btn btn-primary btn-sm" v-on:click="addTable">+ Добавить стол</button>
+  </div>
+  <div v-if="tables.length" class="tblwrap" style="margin-top:10px">
+    <table class="tbl">
+      <tr><th>Номер</th><th>Название</th><th>Статус</th><th>Координаты X/Y</th><th></th></tr>
+      <tr v-for="t in tables" v-bind:key="t.id">
+        <td><input v-model.number="t.number" style="width:60px" @change="saveTable(t)"></td>
+        <td><input v-model="t.name" placeholder="Стол 1" @change="saveTable(t)"></td>
+        <td><span class="badge" :class="t.status==='free'?'b-ready':t.status==='busy'?'b-cooking':'b-delivery'">{{ t.status }}</span></td>
+        <td><input v-model.number="t.x" style="width:50px" @change="saveTable(t)"> x <input v-model.number="t.y" style="width:50px" @change="saveTable(t)"></td>
+        <td><button class="btn btn-danger btn-sm" v-on:click="deleteTable(t)">🗑</button></td>
+      </tr>
+    </table>
+  </div>
+  <p v-else class="muted" style="margin-top:10px">Столы не добавлены. Добавьте стол для заказов «за столом».</p>
+</div>
+
+<button class="btn btn-primary" v-on:click="saveVenue" :disabled="busy">{{ busy ? 'Сохранение...' : 'Сохранить настройки' }}</button>
+<div v-if="msg" class="msg" :class="msgType" style="margin-top:14px">{{ msg }}</div>
+</div>
+
+<!-- QR-код -->
 <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
 <label>QR-код для клиентов</label>
 <div class="row"><img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
@@ -397,8 +443,8 @@
 <button class="btn btn-primary btn-sm" style="margin-top:8px" v-on:click="downloadQr">⬇️ Скачать QR</button>
 <button class="btn btn-ghost btn-sm" style="margin-top:8px" v-on:click="copyText(clientLink)">Копировать</button>
 <a class="btn btn-ghost btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a></div></div>
-<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px.</p></div>
-<div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
+<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px.</p>
+</div>
 </div>
 </template>
 </div>
@@ -581,7 +627,11 @@ venueTemplates:[
 analyticsPeriod:'7',
 analytics:{revenue:0,orders:0,clients:0,avgCheck:0,avgCookTime:0,newClients:0,repeatClients:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],daily:[],cooks:[],couriers:[],waiters:[]},
 subscriptionEnd:null, isBlocked:false, payPlan:null, myPayments:[],
-DEFAULT_IMG:window.DEFAULT_IMG
+DEFAULT_IMG:window.DEFAULT_IMG,
+tables: [],
+// ===== НОВЫЕ ПОЛЯ ДЛЯ ГЕОКОДИНГА =====
+geocodeBusy: false,
+geocodeError: ''
 };
 },
 computed:{
@@ -691,9 +741,18 @@ backToList:function(){this.venue=null;if(this.timer){clearInterval(this.timer);t
 selectVenue:function(v){
 var self=this;
 this.venue=v;this.tab='menu';this.subscriptionEnd=v.subscription_end;
-this.vform={name:v.name,description:v.description,brand_color:v.brand_color,logo_url:v.logo_url||''};
+this.vform={
+name:v.name,
+description:v.description,
+brand_color:v.brand_color,
+logo_url:v.logo_url||'',
+address:v.address||'',
+lat:v.lat ? parseFloat(v.lat) : null,
+lng:v.lng ? parseFloat(v.lng) : null
+};
+this.geocodeError='';
 if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else{this.isBlocked=false}
-Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadWaiters(),this.loadPayments()]).then(function(){
+Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadWaiters(),this.loadPayments(),this.loadTables()]).then(function(){
 self.loadStaffAnalytics();
 if(self.timer)clearInterval(self.timer);
 self.timer=setInterval(function(){self.loadOrders()},5000);
@@ -706,6 +765,86 @@ loadCooks:function(){var self=this;return db.from('cooks').select('id,name,venue
 loadCouriers:function(){var self=this;return db.from('couriers').select('id,name,phone,venue_id,created_at').eq('venue_id',this.venue.id).order('created_at').then(function(r){self.couriers=r.data||[]})},
 loadWaiters:function(){var self=this;return db.from('waiters').select('id,name,phone,venue_id,created_at').eq('venue_id',this.venue.id).order('created_at').then(function(r){self.waiters=r.data||[]})},
 loadPayments:function(){var self=this;return db.from('payments').select('*').eq('manager_id',this.profile.id).order('created_at',{ascending:false}).then(function(r){self.myPayments=r.data||[]})},
+loadTables:function(){
+var self=this;
+if(!this.venue) return Promise.resolve();
+return db.from('tables').select('*').eq('venue_id',this.venue.id).order('number').then(function(r){
+self.tables=r.data||[];
+});
+},
+
+// ===== НОВЫЙ МЕТОД ДЛЯ ГЕОКОДИНГА =====
+geocodeVenueAddress:function(){
+var self=this;
+if(!this.vform.address || !this.vform.address.trim()){
+this.geocodeError = 'Введите адрес';
+return;
+}
+this.geocodeBusy = true;
+this.geocodeError = '';
+var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(this.vform.address.trim()) + '&format=json&limit=1';
+fetch(url, {
+headers: { 'User-Agent': 'QR-Menu-App/1.0' }
+})
+.then(function(res){ return res.json(); })
+.then(function(data){
+if(!data || !data.length){
+throw new Error('Адрес не найден');
+}
+var lat = parseFloat(data[0].lat);
+var lon = parseFloat(data[0].lon);
+if(isNaN(lat) || isNaN(lon)){
+throw new Error('Не удалось определить координаты');
+}
+self.vform.lat = Math.round(lat * 10000000) / 10000000;
+self.vform.lng = Math.round(lon * 10000000) / 10000000;
+self.geocodeBusy = false;
+self.showToast('Координаты определены: ' + self.vform.lat + ', ' + self.vform.lng);
+})
+.catch(function(err){
+self.geocodeError = 'Ошибка: ' + err.message;
+self.geocodeBusy = false;
+});
+},
+
+addTable:function(){
+var self=this;
+var maxNum = this.tables.reduce(function(max, t){ return Math.max(max, t.number||0); }, 0) + 1;
+var newTable = {
+venue_id: this.venue.id,
+number: maxNum,
+name: 'Стол '+maxNum,
+status: 'free',
+x: 100 + Math.random()*200,
+y: 100 + Math.random()*200
+};
+db.from('tables').insert(newTable).select().single().then(function(r){
+if(r.error){ self.showToast('Ошибка: '+r.error.message, 'error'); return; }
+self.tables.push(r.data);
+self.showToast('Стол добавлен');
+});
+},
+saveTable:function(t){
+var self=this;
+db.from('tables').update({
+number: t.number,
+name: t.name,
+x: t.x,
+y: t.y,
+status: t.status
+}).eq('id',t.id).then(function(r){
+if(r.error) self.showToast('Ошибка сохранения', 'error');
+});
+},
+deleteTable:function(t){
+var self=this;
+if(!confirm('Удалить стол "'+t.name+'"?')) return;
+db.from('tables').delete().eq('id',t.id).then(function(r){
+if(r.error){ self.showToast('Ошибка удаления', 'error'); return; }
+self.tables = self.tables.filter(function(item){ return item.id !== t.id; });
+self.showToast('Стол удалён');
+});
+},
 
 loadStaffAnalytics:function(){
 var self=this;
@@ -980,10 +1119,27 @@ db.from('orders').update(u).eq('id',id).then(function(){self.loadOrders()});
 },
 
 saveVenue:function(){
-var self=this;self.busy=true;
-db.from('venues').update({name:this.vform.name,description:this.vform.description,brand_color:this.vform.brand_color,logo_url:this.vform.logo_url||null}).eq('id',this.venue.id).then(function(){
+var self=this;self.busy=true;self.msg='';
+db.from('venues').update({
+name:this.vform.name,
+description:this.vform.description,
+brand_color:this.vform.brand_color,
+logo_url:this.vform.logo_url||null,
+address:this.vform.address||null,
+lat: this.vform.lat ? parseFloat(this.vform.lat) : null,
+lng: this.vform.lng ? parseFloat(this.vform.lng) : null
+}).eq('id',this.venue.id).then(function(r){
+if(r.error) throw r.error;
 return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
-}).then(function(r){self.venue=r.data;self.busy=false;self.showToast('Сохранено')});
+}).then(function(r){
+self.venue=r.data;
+self.busy=false;
+self.showToast('Сохранено');
+}).catch(function(e){
+self.busy=false;
+self.msg='Ошибка: '+e.message;
+self.msgType='error';
+});
 },
 
 logout:function(){try{db.auth.signOut()}catch(e){}if(this.timer)clearInterval(this.timer);location.href='/index.html'}
