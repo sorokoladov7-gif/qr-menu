@@ -76,8 +76,10 @@ function addStyles(){
   css.push('.mhv-danger{background:#7f1d1d;color:#fff}');
   css.push('.mhv-green{background:#047857;color:#fff}');
   css.push('.mhv-warn{background:#b45309;color:#fff}');
-  css.push('.mhv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}');
-  css.push('.mhv-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px}');
+  css.push('.mhv-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;margin-top:14px}');
+  css.push('.mhv-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px;text-align:center}');
+  css.push('.mhv-qr{background:#fff;border-radius:12px;padding:8px;width:140px;height:140px;margin:10px auto;display:flex;align-items:center;justify-content:center}');
+  css.push('.mhv-qr img{max-width:100%;max-height:100%}');
   css.push('.mhv-muted{color:#94a3b8;font-size:12px}');
   css.push('.mhv-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}');
   css.push('.mhv-editor{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100000;display:flex;align-items:center;justify-content:center;padding:16px}');
@@ -99,6 +101,14 @@ function tableSize(t){
   var base = seats<=2 ? 70 : seats<=4 ? 90 : seats<=6 ? 105 : 120;
   if(t.shape==='rectangle') return {w: base+40, h: base-20};
   return {w: base, h: base};
+}
+
+function tableUrl(t){
+  return location.origin + location.pathname.replace(/manager\.html$/i,'menu.html') + '?table=' + encodeURIComponent(t.qr_token||t.id);
+}
+
+function qrImg(t){
+  return 'https://api.qrserver.com/v1/create-qr-code/?size=500x500&margin=8&data=' + encodeURIComponent(tableUrl(t));
 }
 
 function statClass(t){
@@ -131,6 +141,7 @@ async function load(){
 function render(){
   if(!panel) return;
   var plan = panel.querySelector('#mhv-plan');
+  var list = panel.querySelector('#mhv-list');
   var stats = panel.querySelector('#mhv-stats');
 
   var busyCount = tables.filter(function(t){ return t.occupancy_status==='occupied'; }).length;
@@ -143,6 +154,7 @@ function render(){
   statsHtml.push('<div class="mhv-stat"><b style="color:#6ee7b7">' + (tables.length-busyCount-reservedCount) + '</b>Свободно</div>');
   stats.innerHTML = statsHtml.join('');
 
+  // План-схема
   plan.innerHTML = '';
   tables.forEach(function(t){
     var size = tableSize(t);
@@ -158,6 +170,34 @@ function render(){
     el.addEventListener('touchstart', function(e){ startDrag(e.touches[0], t, el, e); }, {passive:false});
     plan.appendChild(el);
   });
+
+  // Карточки с QR
+  if(list){
+    list.innerHTML = '';
+    tables.forEach(function(t){
+      var card = document.createElement('div');
+      card.className = 'mhv-card';
+      var h = [];
+      h.push('<b style="font-size:16px">' + esc(t.name||('Стол '+t.table_number)) + '</b>');
+      h.push('<div class="mhv-muted">№' + t.table_number + ' · ' + statLabel(t) + ' · ' + (t.seats||4) + ' мест</div>');
+      h.push('<div class="mhv-qr"></div>');
+      h.push('<div class="mhv-row" style="justify-content:center">');
+      h.push('<button class="mhv-btn mhv-primary" data-act="edit">✏️ Изменить</button>');
+      h.push('<button class="mhv-btn mhv-ghost" data-act="qr">🖨 Печать</button>');
+      h.push('</div>');
+      card.innerHTML = h.join('');
+
+      var qrBox = card.querySelector('.mhv-qr');
+      var img = document.createElement('img');
+      img.src = qrImg(t);
+      img.alt = 'QR';
+      qrBox.appendChild(img);
+
+      card.querySelector('[data-act="edit"]').onclick = function(){ openEditor(t); };
+      card.querySelector('[data-act="qr"]').onclick = function(){ showQr(t); };
+      list.appendChild(card);
+    });
+  }
 }
 
 function startDrag(e, t, el, touchEv){
@@ -218,7 +258,6 @@ function openEditor(t){
   h.push('<h3 style="margin:0 0 10px">✏️ ' + esc(t.name||('Стол '+t.table_number)) + '</h3>');
   h.push(statBadgeHtml(t));
 
-  // Блок управления статусом
   h.push('<div class="mhv-field"><label>Управление столом</label><div class="mhv-row" style="margin-top:0">');
   if(t.occupancy_status==='occupied'){
     h.push('<button class="mhv-btn mhv-warn" id="mhv-e-free">🟢 Освободить стол</button>');
@@ -231,7 +270,6 @@ function openEditor(t){
   }
   h.push('</div></div>');
 
-  // Блок редактирования
   h.push('<div class="mhv-field"><label>Название</label><input id="mhv-e-name" value="' + esc(t.name||('Стол '+t.table_number)) + '"></div>');
   h.push('<div class="mhv-field"><label>Количество мест</label><input id="mhv-e-seats" type="number" min="1" max="20" value="' + (t.seats||4) + '"></div>');
   h.push('<div class="mhv-field"><label>Форма стола</label><div class="mhv-shapes">');
@@ -242,6 +280,7 @@ function openEditor(t){
 
   h.push('<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">');
   h.push('<button class="mhv-btn mhv-primary" id="mhv-e-save">💾 Сохранить</button>');
+  h.push('<button class="mhv-btn mhv-ghost" id="mhv-e-qr">🖨 QR</button>');
   h.push('<button class="mhv-btn mhv-danger" id="mhv-e-del">🗑</button>');
   h.push('<button class="mhv-btn mhv-ghost" id="mhv-e-close" style="margin-left:auto">✕</button>');
   h.push('</div></div>');
@@ -261,8 +300,8 @@ function openEditor(t){
   editor.querySelector('#mhv-e-close').onclick = closeEditor;
   editor.querySelector('#mhv-e-del').onclick = function(){ removeTable(t); };
   editor.querySelector('#mhv-e-save').onclick = function(){ saveTable(t, selectedShape); };
+  editor.querySelector('#mhv-e-qr').onclick = function(){ showQr(t); };
 
-  // Кнопки статусов
   var btnFree = editor.querySelector('#mhv-e-free');
   var btnUnreserve = editor.querySelector('#mhv-e-unreserve');
   var btnReserve = editor.querySelector('#mhv-e-reserve');
@@ -293,7 +332,6 @@ function saveTable(t, shape){
   }).catch(function(e){ alert('Ошибка: '+(e.message||e)); });
 }
 
-// ОСВОБОДИТЬ СТОЛ (закрывает сессию, проверяет открытые заказы)
 function freeTable(t){
   if(!confirm('Освободить ' + (t.name||('Стол '+t.table_number)) + '?\nСессия стола будет закрыта.')) return;
   rpc('manager_set_table_status', {
@@ -313,7 +351,6 @@ function freeTable(t){
   });
 }
 
-// ЗАРЕЗЕРВИРОВАТЬ СТОЛ
 function reserveTable(t){
   var mins = prompt('Зарезервировать на сколько минут?', '60');
   if(mins===null) return;
@@ -329,7 +366,6 @@ function reserveTable(t){
   }).catch(function(e){ alert('Ошибка: '+(e.message||e)); });
 }
 
-// ПОСАДИТЬ ГОСТЯ (открывает сессию)
 function seatGuest(t){
   rpc('manager_set_table_status', {
     p_venue_id: venue.id, p_table_id: t.id, p_status: 'occupied',
@@ -341,7 +377,6 @@ function seatGuest(t){
   }).catch(function(e){ alert('Ошибка: '+(e.message||e)); });
 }
 
-// Универсальная смена статуса
 function setStatus(t, status){
   rpc('manager_set_table_status', {
     p_venue_id: venue.id, p_table_id: t.id, p_status: status,
@@ -376,6 +411,34 @@ function addTable(){
   Promise.all(promises).then(function(){ load(); }).catch(function(e){ alert('Ошибка: '+(e.message||e)); });
 }
 
+function showQr(t){
+  var w = window.open('','_blank','width=450,height=600');
+  if(!w){ alert('Разрешите всплывающие окна'); return; }
+  var html = [];
+  html.push('<div style="text-align:center;font-family:Arial;padding:30px">');
+  html.push('<h2>' + esc(t.name||('Стол '+t.table_number)) + '</h2>');
+  html.push('<img src="' + qrImg(t) + '" style="width:280px;height:280px">');
+  html.push('<p style="color:#666">Отсканируйте для заказа</p>');
+  html.push('</div>');
+  w.document.write('<html><head><title>QR</title></head><body>' + html.join('') + '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 400);
+}
+
+function printAll(){
+  var w = window.open('','_blank','width=900,height=900');
+  if(!w){ alert('Разрешите всплывающие окна'); return; }
+  var html = tables.map(function(t){
+    return '<div style="display:inline-block;width:30%;vertical-align:top;text-align:center;margin:10px;padding:12px;border:1px solid #ddd;border-radius:12px">' +
+      '<b>' + esc(t.name||('Стол '+t.table_number)) + '</b>' +
+      '<img src="' + qrImg(t) + '" style="width:140px;height:140px;display:block;margin:10px auto">' +
+      '<div style="color:#666;font-size:12px">Отсканируйте для заказа</div></div>';
+  }).join('');
+  w.document.write('<html><head><title>QR-коды столов</title></head><body style="font-family:Arial"><h1>QR-коды столов</h1>' + html + '</body></html>');
+  w.document.close();
+  setTimeout(function(){ w.print(); }, 500);
+}
+
 async function openPanel(){
   addStyles();
   venue = null;
@@ -391,18 +454,21 @@ async function openPanel(){
   var h = [];
   h.push('<div class="mhv-box">');
   h.push('<div class="mhv-head">');
-  h.push('<div><h2 style="margin:0">🪑 Зал / Столы</h2><div style="color:#94a3b8;font-size:12px">' + esc(venue.name) + ' · клик по столу — управление</div></div>');
+  h.push('<div><h2 style="margin:0">🪑 Зал / Столы</h2><div style="color:#94a3b8;font-size:12px">' + esc(venue.name) + ' · клик по столу — управление, перетаскивайте для перемещения</div></div>');
   h.push('<div style="display:flex;gap:8px;flex-wrap:wrap">');
   h.push('<button class="mhv-btn mhv-primary" id="mhv-add">+ Стол</button>');
+  h.push('<button class="mhv-btn mhv-ghost" id="mhv-print">🖨 Печать всех QR</button>');
   h.push('<button class="mhv-btn mhv-ghost" id="mhv-close">✕ Закрыть</button>');
   h.push('</div></div>');
   h.push('<div class="mhv-stats" id="mhv-stats"></div>');
   h.push('<div class="mhv-plan" id="mhv-plan"></div>');
+  h.push('<div class="mhv-list" id="mhv-list"></div>');
   h.push('</div>');
   panel.innerHTML = h.join('');
   document.body.appendChild(panel);
   panel.querySelector('#mhv-close').onclick = closePanel;
   panel.querySelector('#mhv-add').onclick = addTable;
+  panel.querySelector('#mhv-print').onclick = printAll;
   panel.onclick = function(e){ if(e.target===panel) closePanel(); };
   load();
 }
