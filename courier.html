@@ -138,9 +138,15 @@ createApp({
     parseItems(o){ try{ return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){ return o.items||[]; } },
 
     async login(){
-      this.busy=true; this.err='';
-      const slug=this.form.slug.trim(), pin=this.form.pin.trim();
-      if(!slug||!pin){ this.err='Заполните код и PIN'; this.busy=false; return; }
+  if(typeof window.db === 'undefined' || !window.db.from){
+    this.err = 'Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)';
+    return;
+  }
+  this.busy = true; this.err = '';
+  const slug = this.form.slug.trim();
+  const pin = this.form.pin.trim();
+  if(!slug || !pin){ this.err = 'Заполните код и PIN'; this.busy = false; return; }
+  // ...остальной код login без изменений
       const v=await db.from('venues').select('*').eq('slug',slug);
       if(v.error||!v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
       const r=await db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin);
