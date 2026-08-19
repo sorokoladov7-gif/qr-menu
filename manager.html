@@ -237,6 +237,54 @@
 <table class="tbl" style="min-width:auto"><tr><th>Официант</th><th>Выдано</th></tr>
 <tr v-for="w in analytics.waiters" v-bind:key="w.name"><td>🤵 {{ w.name }}</td><td>{{ w.count }}</td></tr>
 <tr v-if="!analytics.waiters.length"><td colspan="2" class="muted">Нет выдач</td></tr></table>
+<!-- 📊 ПРОИЗВОДИТЕЛЬНОСТЬ ПЕРСОНАЛА (SQL) -->
+<div class="glass card" style="margin-top:14px">
+<div class="spread" style="margin-bottom:12px">
+<h4 style="margin:0">📊 Производительность персонала</h4>
+<select v-model="staffAnalyticsDays" v-on:change="loadStaffAnalytics" style="width:auto">
+<option value="7">7 дней</option>
+<option value="30">30 дней</option>
+<option value="90">90 дней</option>
+</select>
+</div>
+<p class="muted" style="font-size:12px;margin-bottom:12px">За последние {{ staffAnalytics.period_days }} дней · данные из заказов</p>
+
+<div class="row" style="align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#fcd34d">👨‍🍳 Повара</h5>
+<table class="tbl"><tr><th>Имя</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th></tr>
+<tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
+<td>{{ c.name }}</td>
+<td>{{ c.orders_count }}</td>
+<td v-bind:style="{color:c.avg_time_min<=10?'#6ee7b7':c.avg_time_min<=20?'#fcd34d':'#fca5a5'}">{{ c.avg_time_min }} мин</td>
+<td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных</td></tr>
+</table>
+</div>
+
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#c4b5fd">🚗 Курьеры</h5>
+<table class="tbl"><tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr>
+<tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
+<td>{{ c.name }}</td>
+<td>{{ c.deliveries_count }}</td>
+<td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных</td></tr>
+</table>
+</div>
+
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#67e8f9">🤵 Официанты</h5>
+<table class="tbl"><tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr>
+<tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
+<td>{{ w.name }}</td>
+<td>{{ w.served_count }}</td>
+<td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных</td></tr>
+</table>
 </div>
 </div>
 </div>
@@ -581,7 +629,20 @@ showToast:function(t,type){type=type||'ok';this.toast={text:t,type:type};var sel
 copyText:function(t){try{navigator.clipboard.writeText(t);this.showToast('Скопировано')}catch(e){prompt('Скопируйте:',t)}},
 copySbp:function(){this.copyText(window.SBP_PHONE)},
 copyCourierAccess:function(c){this.copyText('Вход для курьера '+c.name+':\nСайт: '+location.origin+'/courier.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN и показать его курьеру.')},
-copyWaiterAccess:function(w){this.copyText('Вход для официанта '+w.name+':\nСайт: '+location.origin+'/waiter.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN и показать его официанту.')},
+copyWaiterAccess:function(w){this.copyText('Вход для официанта '+w.name+':\nСайт: '+location.origin+'/waiter.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN и показать его официанту.'
+staffAnalytics: { period_days: 30, cooks: [], couriers: [], waiters: [] },
+staffAnalyticsDays: '30',)
+loadStaffAnalytics:function(){
+  var self = this;
+  if(!this.venue) return;
+  var days = parseInt(this.staffAnalyticsDays) || 30;
+  db.rpc('manager_staff_performance', { p_venue_id: this.venue.id, p_days: days })
+    .then(function(r){
+      if(r.error){ console.warn('staff analytics error:', r.error.message||r.error); return; }
+      if(r.data) self.staffAnalytics = r.data;
+    })
+    .catch(function(e){ console.warn('staff analytics exception:', e); });
+},
 
 init:function(){var self=this;self.loadError='';self.ready=false;
 try{if(typeof db==='undefined')throw new Error('Supabase не подключен');
@@ -621,6 +682,7 @@ this.venue=v;this.tab='menu';this.subscriptionEnd=v.subscription_end;
 this.vform={name:v.name,description:v.description,brand_color:v.brand_color,logo_url:v.logo_url||''};
 if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else{this.isBlocked=false}
 Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadWaiters(),this.loadPayments()]).then(function(){
+self.loadStaffAnalytics();
 if(self.timer)clearInterval(self.timer);
 self.timer=setInterval(function(){self.loadOrders()},5000)})},
 loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){self.products=r.data||[]})},
