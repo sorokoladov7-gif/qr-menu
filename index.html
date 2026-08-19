@@ -33,14 +33,20 @@
     <button onclick="startDemo('cook.html')" class="btn btn-ghost">👨‍🍳 Демо кухни</button>
     <button onclick="startDemo('courier.html')" class="btn btn-ghost">🚗 Демо курьера</button>
     <button onclick="startDemo('waiter.html')" class="btn btn-ghost">🤵 Демо официанта</button>
-    <button onclick="startDemo('manager.html')" class="btn btn-primary">🏢 Демо кабинета</button>
+    <button onclick="startDemo('manager-demo.html')" class="btn btn-primary">🏢 Демо кабинета</button>
   </div>
 </div>
 
 <script>
 function startDemo(page){
-  localStorage.setItem('qr_demo_mode','1');
-  location.href = page;
+  // Для автономных демо-файлов НЕ ставим qr_demo_mode
+  // чтобы не активировать демо-режим в реальных страницах
+  if(page === 'manager-demo.html'){
+    location.href = page;
+  } else {
+    localStorage.setItem('qr_demo_mode','1');
+    location.href = page;
+  }
 }
 </script>
 
