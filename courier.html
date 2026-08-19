@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
 <title>Курьер — QR-SETKA</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
@@ -22,12 +21,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .login{max-width:380px;margin:60px auto;padding:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px}
 .login h2{margin-bottom:16px;text-align:center}
 .login input{width:100%;padding:12px;margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:10px;font-size:15px}
+.login .pin{text-align:center;letter-spacing:8px;font-size:20px}
+.login .hint{color:#94a3b8;font-size:12px;margin:-6px 0 12px;text-align:center}
 .login .err{color:#f87171;font-size:13px;margin-bottom:10px;text-align:center;min-height:16px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}
 .stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
 .stat b{display:block;font-size:22px;margin-bottom:4px}
 .stat span{color:#94a3b8;font-size:12px}
-.hint{padding:0 16px 12px;color:#94a3b8;font-size:12px;text-align:center}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:0 16px 16px}
 .col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;min-height:200px}
 .col h3{font-size:14px;margin-bottom:12px;color:#cbd5e1}
@@ -36,30 +36,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .order-items{font-size:13px;color:#cbd5e1;line-height:1.7}
 .order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}
-@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <div id="app">
-
   <div class="topbar">
     <div class="brand">🚗 Курьер<span v-if="session"> · {{ session.venueName }}</span></div>
     <button v-if="session" class="btn btn-ghost" @click="logout">Выйти</button>
   </div>
 
-  <!-- Форма входа -->
   <div v-if="!session" class="login">
     <h2>Вход для курьера</h2>
-    <input v-model="form.slug" placeholder="Код заведения">
-    <input v-model="form.pin" placeholder="PIN" type="password" inputmode="numeric" maxlength="4">
+    <input v-model="form.slug" placeholder="Код заведения" autocomplete="off">
+    <input v-model="form.pin" class="pin" placeholder="••••" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+    <div class="hint">PIN — 4 цифры, выдаёт управляющий</div>
     <div class="err">{{ err }}</div>
     <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
   </div>
 
-  <!-- Рабочая область -->
   <div v-else>
-    <div class="hint">🚗 {{ session.courierName }} · заказы обновляются автоматически</div>
-
     <div class="stats">
       <div class="stat"><b>{{ courierStats.done }}</b><span>Доставлено</span></div>
       <div class="stat"><b>{{ courierStats.inProgress }}</b><span>Сейчас в пути</span></div>
@@ -68,7 +63,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
 
     <div class="cols">
-      <!-- Ждут выезда -->
       <div class="col">
         <h3>📦 Ждут выезда ({{ colReady.length }})</h3>
         <div v-for="o in colReady" :key="o.id" class="order">
@@ -89,7 +83,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div v-if="!colReady.length" class="empty">Пусто — ждите готовые заказы</div>
       </div>
 
-      <!-- В доставке -->
       <div class="col">
         <h3>🚗 В доставке ({{ colDelivery.length }})</h3>
         <div v-for="o in colDelivery" :key="o.id" class="order">
@@ -110,9 +103,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div v-if="!colDelivery.length" class="empty">Пусто</div>
       </div>
 
-      <!-- История -->
       <div class="col">
-        <h3>📜 Моя история (последние доставки)</h3>
+        <h3>📜 Моя история</h3>
         <div v-for="o in history" :key="o.id" class="order" style="opacity:.7">
           <div class="order-head">
             <b>№{{ o.order_number }} — {{ o.customer_name||'Клиент' }}</b>
@@ -128,54 +120,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script>
 const { createApp } = Vue;
-
 createApp({
   data(){
     return {
-      session: null,
-      busy: false,
-      err: '',
-      form: { slug:'', pin:'' },
-      orders: [],
-      history: [],
-      courierStats: { done:0, inProgress:0, total:0, revenue:0 },
-      timer: null
+      session:null, busy:false, err:'',
+      form:{slug:'',pin:''},
+      orders:[], history:[],
+      courierStats:{done:0,inProgress:0,total:0,revenue:0},
+      timer:null
     };
   },
   computed:{
-    colReady(){ return this.orders.filter(o=>o.status==='ready' && o.order_type==='delivery'); },
+    colReady(){ return this.orders.filter(o=>o.status==='ready'&&o.order_type==='delivery'); },
     colDelivery(){ return this.orders.filter(o=>o.status==='delivery'||o.status==='arrived'); }
   },
   methods:{
     fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
     fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
-    parseItems(o){
-      try{ return typeof o.items==='string' ? JSON.parse(o.items) : (o.items||[]); }
-      catch(e){ return o.items||[]; }
-    },
+    parseItems(o){ try{ return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){ return o.items||[]; } },
 
     async login(){
-      if(typeof window.db === 'undefined' || !window.db.from){
-        this.err = 'Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)';
-        return;
-      }
-      this.busy = true; this.err = '';
-      const slug = this.form.slug.trim();
-      const pin = this.form.pin.trim();
-      if(!slug || !pin){ this.err='Заполните код и PIN'; this.busy=false; return; }
-
-      // 1. Найти заведение по slug
-      const v = await db.from('venues').select('*').eq('slug', slug);
-      if(v.error || !v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
-
-      // 2. Вход по PIN (config.js сохранит токен)
-      const r = await db.from('couriers').select('*').eq('venue_id', v.data.id).eq('pin', pin);
-      if(r.error || !r.data){ this.err='Неверный PIN'; this.busy=false; return; }
-
-      this.session = { courierName:r.data.name, venueId:v.data.id, venueName:v.data.name };
-      localStorage.setItem('courier_session', JSON.stringify(this.session));
-      this.busy = false;
-      this.load();
+      if(typeof window.db==='undefined'||!window.db.from){ this.err='Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)'; return; }
+      this.busy=true; this.err='';
+      const slug=this.form.slug.trim(), pin=this.form.pin.trim();
+      if(!slug||!pin){ this.err='Заполните код и PIN'; this.busy=false; return; }
+      if(!/^[0-9]{4}$/.test(pin)){ this.err='PIN должен быть из 4 цифр'; this.busy=false; return; }
+      const v=await db.from('venues').select('*').eq('slug',slug);
+      if(v.error||!v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
+      const r=await db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin);
+      if(r.error||!r.data){ this.err='Неверный PIN'; this.busy=false; return; }
+      this.session={courierName:r.data.name,venueId:v.data.id,venueName:v.data.name};
+      localStorage.setItem('courier_session',JSON.stringify(this.session));
+      this.busy=false; this.load();
     },
 
     logout(){
@@ -188,42 +164,34 @@ createApp({
 
     async load(){
       if(!this.session) return;
-      if(typeof window.db === 'undefined' || !window.db.from){
-        setTimeout(()=>this.load(), 300);
-        return;
-      }
-      const r = await db.from('orders').select('*');
-      if(r.error){ console.warn('[courier] load error', r.error); return; }
-      this.orders = Array.isArray(r.data) ? r.data : [];
-
-      // История курьера
-      const h = await db.from('orders').select('*').eq('courier_name', this.session.courierName);
-      if(!h.error && Array.isArray(h.data)){
-        this.history = h.data.filter(o=>o.status==='done').slice(0,10);
-        this.courierStats.done = h.data.filter(o=>o.status==='done').length;
-        this.courierStats.total = h.data.length;
-        this.courierStats.inProgress = this.colDelivery.length;
-        this.courierStats.revenue = h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
+      if(typeof window.db==='undefined'||!window.db.from){ setTimeout(()=>this.load(),300); return; }
+      const r=await db.from('orders').select('*');
+      if(r.error) return;
+      this.orders=Array.isArray(r.data)?r.data:[];
+      const h=await db.from('orders').select('*').eq('courier_name',this.session.courierName);
+      if(!h.error&&Array.isArray(h.data)){
+        this.history=h.data.filter(o=>o.status==='done').slice(0,10);
+        this.courierStats.done=h.data.filter(o=>o.status==='done').length;
+        this.courierStats.total=h.data.length;
+        this.courierStats.inProgress=this.colDelivery.length;
+        this.courierStats.revenue=h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
       }
     },
 
-    async setStatus(o, status){
-      const r = await db.from('orders').update({status:status}).eq('id', o.id);
+    async setStatus(o,status){
+      const r=await db.from('orders').update({status:status}).eq('id',o.id);
       if(r.error){ alert('Ошибка: '+(r.error.message||r.error)); return; }
       this.load();
     },
 
     restore(){
-      const s = localStorage.getItem('courier_session');
-      if(s){
-        try{ this.session = JSON.parse(s); this.load(); }
-        catch(e){}
-      }
+      const s=localStorage.getItem('courier_session');
+      if(s){ try{ this.session=JSON.parse(s); this.load(); }catch(e){} }
     }
   },
   mounted(){
     this.restore();
-    this.timer = setInterval(()=>{ if(this.session) this.load(); }, 4000);
+    this.timer=setInterval(()=>{ if(this.session) this.load(); },4000);
   },
   beforeUnmount(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
