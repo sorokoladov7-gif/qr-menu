@@ -2,60 +2,69 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
-<title>Курьер</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+<title>Курьер — QR-SETKA</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="/js/config.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
-.topbar{position:sticky;top:0;background:rgba(11,17,32,.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}
+.topbar{position:sticky;top:0;background:rgba(11,17,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}
 .brand{font-weight:800;font-size:16px}
 .btn{border:0;padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
 .btn-ghost{background:rgba(255,255,255,.08);color:#fff}
 .btn-primary{background:#6366f1;color:#fff}
 .btn-green{background:#047857;color:#fff}
+.btn-warn{background:#b45309;color:#fff}
 .login{max-width:380px;margin:60px auto;padding:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px}
 .login h2{margin-bottom:16px;text-align:center}
 .login input{width:100%;padding:12px;margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:10px;font-size:15px}
-.login .err{color:#f87171;font-size:13px;margin-bottom:10px;text-align:center}
+.login .err{color:#f87171;font-size:13px;margin-bottom:10px;text-align:center;min-height:16px}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}
 .stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
 .stat b{display:block;font-size:22px;margin-bottom:4px}
 .stat span{color:#94a3b8;font-size:12px}
+.hint{padding:0 16px 12px;color:#94a3b8;font-size:12px;text-align:center}
 .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:0 16px 16px}
 .col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;min-height:200px}
 .col h3{font-size:14px;margin-bottom:12px;color:#cbd5e1}
 .order{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:10px}
-.order-head{display:flex;justify-content:space-between;margin-bottom:8px}
-.order-items{font-size:13px;color:#cbd5e1;line-height:1.6}
+.order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.order-items{font-size:13px;color:#cbd5e1;line-height:1.7}
 .order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
 <div id="app">
+
   <div class="topbar">
     <div class="brand">🚗 Курьер<span v-if="session"> · {{ session.venueName }}</span></div>
     <button v-if="session" class="btn btn-ghost" @click="logout">Выйти</button>
   </div>
 
+  <!-- Форма входа -->
   <div v-if="!session" class="login">
     <h2>Вход для курьера</h2>
     <input v-model="form.slug" placeholder="Код заведения">
-    <input v-model="form.pin" placeholder="PIN" type="password" inputmode="numeric">
-    <div class="err" v-if="err">{{ err }}</div>
-    <button class="btn btn-primary" style="width:100%" @click="login">{{ busy?'Проверяем...':'Войти' }}</button>
+    <input v-model="form.pin" placeholder="PIN" type="password" inputmode="numeric" maxlength="4">
+    <div class="err">{{ err }}</div>
+    <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
   </div>
 
+  <!-- Рабочая область -->
   <div v-else>
+    <div class="hint">🚗 {{ session.courierName }} · заказы обновляются автоматически</div>
+
     <div class="stats">
       <div class="stat"><b>{{ courierStats.done }}</b><span>Доставлено</span></div>
       <div class="stat"><b>{{ courierStats.inProgress }}</b><span>Сейчас в пути</span></div>
       <div class="stat"><b>{{ courierStats.total }}</b><span>Всего взято</span></div>
-      <div class="stat"><b>{{ fmt(courierStats.revenue) }} ₽</b><span>Выручка</span></div>
+      <div class="stat"><b>{{ fmt(courierStats.revenue) }} ₽</b><span>Выручка заказов</span></div>
     </div>
 
     <div class="cols">
@@ -71,7 +80,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div>📍 {{ o.delivery_address }}</div>
             <div>📞 {{ o.customer_phone }} {{ o.customer_name?'· '+o.customer_name:'' }}</div>
             <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
-            <div style="margin-top:6px;font-weight:700">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено' }}</div>
+            <div style="margin-top:6px;font-weight:700">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено картой' }}</div>
           </div>
           <div class="order-actions">
             <button class="btn btn-primary" @click="setStatus(o,'delivery')">🚗 Взять на доставку</button>
@@ -103,13 +112,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       <!-- История -->
       <div class="col">
-        <h3>📜 Моя история</h3>
+        <h3>📜 Моя история (последние доставки)</h3>
         <div v-for="o in history" :key="o.id" class="order" style="opacity:.7">
           <div class="order-head">
-            <b>№{{ o.order_number }}</b>
+            <b>№{{ o.order_number }} — {{ o.customer_name||'Клиент' }}</b>
             <span style="color:#94a3b8;font-size:12px">{{ fmtDate(o.created_at) }}</span>
           </div>
-          <div class="order-items">{{ o.customer_name||'Клиент' }} · {{ fmt(o.total_price) }} ₽</div>
+          <div class="order-items">📍 {{ o.delivery_address||'—' }} · {{ fmt(o.total_price) }} ₽</div>
         </div>
         <div v-if="!history.length" class="empty">У вас пока нет завершённых доставок.</div>
       </div>
@@ -119,13 +128,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <script>
 const { createApp } = Vue;
+
 createApp({
   data(){
     return {
-      session: null, busy: false, err: '',
+      session: null,
+      busy: false,
+      err: '',
       form: { slug:'', pin:'' },
-      orders: [], history: [],
-      courierStats: { done:0, inProgress:0, total:0, revenue:0 }
+      orders: [],
+      history: [],
+      courierStats: { done:0, inProgress:0, total:0, revenue:0 },
+      timer: null
     };
   },
   computed:{
@@ -135,25 +149,32 @@ createApp({
   methods:{
     fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
     fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
-    parseItems(o){ try{ return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){ return o.items||[]; } },
+    parseItems(o){
+      try{ return typeof o.items==='string' ? JSON.parse(o.items) : (o.items||[]); }
+      catch(e){ return o.items||[]; }
+    },
 
     async login(){
-  if(typeof window.db === 'undefined' || !window.db.from){
-    this.err = 'Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)';
-    return;
-  }
-  this.busy = true; this.err = '';
-  const slug = this.form.slug.trim();
-  const pin = this.form.pin.trim();
-  if(!slug || !pin){ this.err = 'Заполните код и PIN'; this.busy = false; return; }
-  // ...остальной код login без изменений
-      const v=await db.from('venues').select('*').eq('slug',slug);
-      if(v.error||!v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
-      const r=await db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin);
-      if(r.error||!r.data){ this.err='Неверный PIN'; this.busy=false; return; }
-      this.session={courierName:r.data.name,venueId:v.data.id,venueName:v.data.name};
-      localStorage.setItem('courier_session',JSON.stringify(this.session));
-      this.busy=false;
+      if(typeof window.db === 'undefined' || !window.db.from){
+        this.err = 'Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)';
+        return;
+      }
+      this.busy = true; this.err = '';
+      const slug = this.form.slug.trim();
+      const pin = this.form.pin.trim();
+      if(!slug || !pin){ this.err='Заполните код и PIN'; this.busy=false; return; }
+
+      // 1. Найти заведение по slug
+      const v = await db.from('venues').select('*').eq('slug', slug);
+      if(v.error || !v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
+
+      // 2. Вход по PIN (config.js сохранит токен)
+      const r = await db.from('couriers').select('*').eq('venue_id', v.data.id).eq('pin', pin);
+      if(r.error || !r.data){ this.err='Неверный PIN'; this.busy=false; return; }
+
+      this.session = { courierName:r.data.name, venueId:v.data.id, venueName:v.data.name };
+      localStorage.setItem('courier_session', JSON.stringify(this.session));
+      this.busy = false;
       this.load();
     },
 
@@ -167,35 +188,44 @@ createApp({
 
     async load(){
       if(!this.session) return;
-      const r=await db.from('orders').select('*');
-      if(r.error) return;
-      this.orders=Array.isArray(r.data)?r.data:[];
-      const h=await db.from('orders').select('*').eq('courier_name',this.session.courierName);
-      if(!h.error&&Array.isArray(h.data)){
-        this.history=h.data.filter(o=>o.status==='done').slice(0,10);
-        this.courierStats.done=h.data.filter(o=>o.status==='done').length;
-        this.courierStats.inProgress=this.colDelivery.length;
-        this.courierStats.total=h.data.length;
-        this.courierStats.revenue=h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
+      if(typeof window.db === 'undefined' || !window.db.from){
+        setTimeout(()=>this.load(), 300);
+        return;
+      }
+      const r = await db.from('orders').select('*');
+      if(r.error){ console.warn('[courier] load error', r.error); return; }
+      this.orders = Array.isArray(r.data) ? r.data : [];
+
+      // История курьера
+      const h = await db.from('orders').select('*').eq('courier_name', this.session.courierName);
+      if(!h.error && Array.isArray(h.data)){
+        this.history = h.data.filter(o=>o.status==='done').slice(0,10);
+        this.courierStats.done = h.data.filter(o=>o.status==='done').length;
+        this.courierStats.total = h.data.length;
+        this.courierStats.inProgress = this.colDelivery.length;
+        this.courierStats.revenue = h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
       }
     },
 
-    async setStatus(o,status){
-      const r=await db.from('orders').update({status:status}).eq('id',o.id);
+    async setStatus(o, status){
+      const r = await db.from('orders').update({status:status}).eq('id', o.id);
       if(r.error){ alert('Ошибка: '+(r.error.message||r.error)); return; }
       this.load();
     },
 
     restore(){
-      const s=localStorage.getItem('courier_session');
-      if(s){ try{ this.session=JSON.parse(s); this.load(); }catch(e){} }
+      const s = localStorage.getItem('courier_session');
+      if(s){
+        try{ this.session = JSON.parse(s); this.load(); }
+        catch(e){}
+      }
     }
   },
   mounted(){
     this.restore();
-    this.timer=setInterval(()=>{ if(this.session) this.load(); },4000);
+    this.timer = setInterval(()=>{ if(this.session) this.load(); }, 4000);
   },
-  beforeUnmount(){ clearInterval(this.timer); }
+  beforeUnmount(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
 </script>
 </body>
