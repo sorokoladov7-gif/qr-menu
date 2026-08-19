@@ -2,311 +2,265 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍🍳</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍🍳</text></svg>">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Кухня</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<meta name="theme-color" content="#0b1020">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Кухня">
-<link rel="manifest" href="/manifest.webmanifest">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="/js/config.js"></script>
 <style>
-[v-cloak]{display:none}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;align-items:start}
-.col h4{margin:0 0 10px;font-size:14px}
-.wcard{padding:12px;margin-bottom:10px}
-.b-new{background:rgba(96,165,250,.15);color:#93c5fd}
-.b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
-.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}
-.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
-.b-changed{background:rgba(251,146,60,.15);color:#fdba74}
-.install-hint{margin:12px 0;padding:12px;font-size:12px;border-color:#6366f1}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:16px}
-.stat-box{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
-.stat-box .num{font-size:22px;font-weight:800}
-.stat-box .lbl{font-size:11px;color:#9ca3af;margin-top:4px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
+.topbar{position:sticky;top:0;background:rgba(11,17,32,.9);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}
+.brand{font-weight:800;font-size:16px}
+.btn{border:0;padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
+.btn-ghost{background:rgba(255,255,255,.08);color:#fff}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-green{background:#047857;color:#fff}
+.btn-warn{background:#b45309;color:#fff}
+.btn-danger{background:#7f1d1d;color:#fff}
+.login{max-width:380px;margin:60px auto;padding:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px}
+.login h2{margin-bottom:16px;text-align:center}
+.login input{width:100%;padding:12px;margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:10px;font-size:15px}
+.login .err{color:#f87171;font-size:13px;margin-bottom:10px;text-align:center}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}
+.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:22px;margin-bottom:4px}
+.stat span{color:#94a3b8;font-size:12px}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:0 16px 16px}
+.col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;min-height:200px}
+.col h3{font-size:14px;margin-bottom:12px;color:#cbd5e1}
+.order{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:10px}
+.order-head{display:flex;justify-content:space-between;margin-bottom:8px}
+.order-items{font-size:13px;color:#cbd5e1;line-height:1.6}
+.order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}
+.badge{padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700}
 </style>
 </head>
 <body>
-<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
-<div id="app" v-cloak>
-<div class="topbar">
-<div class="brand"><div class="logo">👨‍🍳</div><span>Кухня{{ session?' · '+session.venueName:'' }}</span></div>
-<div class="row"><button v-if="session" class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
-</div>
-<div class="wrap">
+<div id="app">
+  <div class="topbar">
+    <div class="brand">👨‍🍳 Кухня<span v-if="session"> · {{ session.venueName }}</span></div>
+    <button v-if="session" class="btn btn-ghost" @click="logout">Выйти</button>
+  </div>
 
-<div v-if="session&&showInstallHint" class="glass card install-hint">
-📲 <b>Установите как приложение:</b> Android — меню браузера ⋮ → «Добавить на главный экран»; iPhone — «Поделиться» → «На экран “Домой”».
-<button class="btn btn-ghost btn-sm" style="margin-left:8px" v-on:click="hideInstallHint">Понятно</button>
+  <!-- Форма входа -->
+  <div v-if="!session" class="login">
+    <h2>Вход для повара</h2>
+    <input v-model="form.slug" placeholder="Код заведения">
+    <input v-model="form.pin" placeholder="PIN" type="password" inputmode="numeric">
+    <div class="err" v-if="err">{{ err }}</div>
+    <button class="btn btn-primary" style="width:100%" @click="login">{{ busy?'Проверяем...':'Войти' }}</button>
+  </div>
+
+  <!-- Рабочая область -->
+  <div v-else>
+    <div class="stats">
+      <div class="stat"><b>{{ cookStats.total }}</b><span>Всего взял заказов</span></div>
+      <div class="stat"><b>{{ cookStats.done }}</b><span>Выполнено</span></div>
+      <div class="stat"><b>{{ cookStats.avgTime }} мин</b><span>Ср. время готовки</span></div>
+      <div class="stat"><b>{{ fmt(cookStats.revenue) }} ₽</b><span>Выручка</span></div>
+    </div>
+
+    <div class="cols">
+      <!-- Новые -->
+      <div class="col">
+        <h3>🆕 Новые ({{ colNew.length }})</h3>
+        <div v-for="o in colNew" :key="o.id" class="order">
+          <div class="order-head">
+            <b>№{{ o.order_number }}</b>
+            <span class="badge" style="background:rgba(96,165,250,.2);color:#60a5fa">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span>
+          </div>
+          <div class="order-items">
+            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
+            <div v-for="a in parseAddons(o)" :key="a.name" style="color:#94a3b8">+ {{ a.name }}</div>
+          </div>
+          <div v-if="o.comment" style="color:#fbbf24;font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
+          <div class="order-actions">
+            <button class="btn btn-warn" @click="editOrder(o)">✏️ Изменить</button>
+            <button class="btn btn-primary" @click="setStatus(o,'cooking')">✋ Взять заказ</button>
+          </div>
+        </div>
+        <div v-if="!colNew.length" class="empty">Пусто</div>
+      </div>
+
+      <!-- Готовятся -->
+      <div class="col">
+        <h3>🔥 Готовятся ({{ colCooking.length }})</h3>
+        <div v-for="o in colCooking" :key="o.id" class="order">
+          <div class="order-head">
+            <b>№{{ o.order_number }}</b>
+            <span style="color:#94a3b8;font-size:12px">👨‍🍳 {{ o.cook_name||'—' }}</span>
+          </div>
+          <div class="order-items">
+            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
+          </div>
+          <div class="order-actions">
+            <button class="btn btn-green" @click="setStatus(o,'ready')">Готово ✓</button>
+          </div>
+        </div>
+        <div v-if="!colCooking.length" class="empty">Пусто</div>
+      </div>
+
+      <!-- Выдача -->
+      <div class="col">
+        <h3>✅ Выдача ({{ colReady.length }})</h3>
+        <div v-for="o in colReady" :key="o.id" class="order">
+          <div class="order-head">
+            <b>№{{ o.order_number }}</b>
+            <span style="color:#94a3b8;font-size:12px">👨‍ {{ o.cook_name||'—' }}</span>
+          </div>
+          <div class="order-items">
+            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
+          </div>
+          <div class="order-actions">
+            <button v-if="o.order_type==='delivery'" class="btn btn-primary" @click="setStatus(o,'delivery')">Курьеру 🚗</button>
+            <button class="btn btn-green" @click="setStatus(o,'done')">Выдан клиенту</button>
+          </div>
+        </div>
+        <div v-if="!colReady.length" class="empty">Пусто</div>
+      </div>
+
+      <!-- История -->
+      <div class="col">
+        <h3>📜 Моя история</h3>
+        <div v-for="o in history" :key="o.id" class="order" style="opacity:.7">
+          <div class="order-head">
+            <b>№{{ o.order_number }}</b>
+            <span style="color:#94a3b8;font-size:12px">{{ fmtDate(o.created_at) }}</span>
+          </div>
+          <div class="order-items">{{ fmt(o.total_price) }} ₽</div>
+        </div>
+        <div v-if="!history.length" class="empty">У вас пока нет завершённых заказов.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка редактирования -->
+  <div v-if="editingOrder" style="position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px">
+    <div style="width:min(420px,100%);background:#1e293b;border-radius:16px;padding:20px;color:#fff;max-height:90vh;overflow:auto">
+      <h3>Изменение заказа №{{ editingOrder.order_number }}</h3>
+      <p style="color:#94a3b8;font-size:13px;margin:8px 0">Уберите позиции, которых нет в наличии.</p>
+      <div v-for="(it,i) in editItems" :key="i" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.08)">
+        <span>{{ it.name }}</span>
+        <button class="btn btn-danger" @click="editItems.splice(i,1)">🗑</button>
+      </div>
+      <div style="margin-top:12px;font-weight:700">Новая сумма: {{ fmt(editTotal) }} ₽</div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button class="btn btn-green" @click="saveEdit">{{ busy?'Сохранение...':'✅ Сохранить' }}</button>
+        <button class="btn btn-ghost" @click="editingOrder=null">Отмена</button>
+      </div>
+    </div>
+  </div>
 </div>
 
-<div v-if="!session" class="glass card" style="max-width:400px;margin:40px auto">
-<h3 style="margin-top:0">Вход для повара</h3>
-<div class="field"><label>Код заведения</label><input v-model.trim="loginForm.slug" placeholder="my-cafe"></div>
-<div class="field"><label>PIN</label><input v-model.trim="loginForm.pin" type="password" inputmode="numeric" v-on:keyup.enter="login"></div>
-<button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
-<div v-if="err" class="msg error" style="margin-top:10px">{{ err }}</div>
-</div>
-
-<template v-else>
-<div class="muted" style="font-size:12px;margin-bottom:12px">👨‍ {{ session.cookName }} · заказы обновляются автоматически</div>
-
-<!-- ЛИЧНАЯ СТАТИСТИКА ПОВАРА -->
-<div class="stats-grid">
-  <div class="stat-box" style="border-color:#60a5fa"><div class="num">{{ cookStats.total }}</div><div class="lbl">Всего взял заказов</div></div>
-  <div class="stat-box" style="border-color:#34d399"><div class="num">{{ cookStats.done }}</div><div class="lbl">Выполнено (готово)</div></div>
-  <div class="stat-box" style="border-color:#fbbf24"><div class="num">{{ cookStats.avgTime }} мин</div><div class="lbl">Среднее время готовки</div></div>
-  <div class="stat-box" style="border-color:#a78bfa"><div class="num">{{ fmt(cookStats.revenue) }} ₽</div><div class="lbl">Выручка (заказы)</div></div>
-</div>
-
-<div class="cols">
-<div class="col"><h4>🆕 Новые ({{ colNew.length }})</h4>
-<div v-for="o in colNew" v-bind:key="o.id" class="glass wcard">
-<div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-new">{{ deliveryIcon(o.order_type) }}</span></div>
-<div style="font-size:13px;margin-top:6px">
-<div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div>
-<div v-for="a in o.addons" v-bind:key="a.id" class="muted">+ {{ a.name }}</div>
-</div>
-<div v-if="o.comment" class="muted" style="font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
-<div class="row" style="margin-top:10px">
-<button class="btn btn-ghost btn-sm" style="flex:1" v-on:click="openEditOrder(o)">✏️ Изменить</button>
-<button class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'cooking')">✋ Взять заказ</button>
-</div>
-</div>
-<p v-if="!colNew.length" class="muted">Пусто</p>
-</div>
-
-<div class="col"><h4>🔥 Готовятся ({{ colCooking.length }})</h4>
-<div v-for="o in colCooking" v-bind:key="o.id" class="glass wcard">
-<div class="spread"><b>№{{ o.order_number }}</b><span class="badge b-cooking">{{ deliveryIcon(o.order_type) }}</span></div>
-<div class="muted" style="font-size:12px;margin-top:4px">👨‍🍳 Готовит: <b style="color:#fcd34d">{{ o.cook_name||'—' }}</b></div>
-<div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
-<button class="btn btn-green btn-sm" style="width:100%;margin-top:10px" v-on:click="setStatus(o.id,'ready')">Готово ✓</button>
-</div>
-<p v-if="!colCooking.length" class="muted">Пусто</p>
-</div>
-
-<div class="col"><h4>✅ Выдача ({{ colReady.length }})</h4>
-<div v-for="o in colReady" v-bind:key="o.id" class="glass wcard">
-<div class="spread"><b>№{{ o.order_number }}</b><span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span></div>
-<div class="muted" style="font-size:12px;margin-top:4px">👨‍ {{ o.cook_name||'—' }}</div>
-<div style="font-size:13px;margin-top:6px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div></div>
-<div class="row" style="margin-top:10px">
-<button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" style="flex:1" v-on:click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
-<button v-if="isReadyOrDelivery(o.status)" class="btn btn-green btn-sm" style="flex:1" v-on:click="setStatus(o.id,'done')">Выдан клиенту</button>
-</div>
-</div>
-<p v-if="!colReady.length" class="muted">Пусто</p>
-</div>
-</div>
-
-<!-- ИСТОРИЯ ВЫПОЛНЕННЫХ ЗАКАЗОВ -->
-<div class="glass card" style="margin-top:18px">
-<h4 style="margin:0 0 12px">📜 Моя история (последние выполненные)</h4>
-<div v-for="o in cookHistory" v-bind:key="o.id" class="row" style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
-<div style="flex:1;font-size:13px"><b>№{{ o.order_number }}</b> — {{ o.customer_name||'Клиент' }}</div>
-<div class="muted" style="font-size:12px">{{ fmtDate(o.created_at) }}</div>
-<div style="color:#34d399;font-weight:700">{{ fmt(o.total_price) }} ₽</div>
-</div>
-<p v-if="!cookHistory.length" class="muted" style="padding:8px 0">У вас пока нет завершённых заказов.</p>
-</div>
-
-</template>
-</div>
-
-<div v-if="showEditModal" class="modal" v-on:click.self="showEditModal=false"><div class="glass box">
-<h3 style="margin-top:0">Изменение заказа №{{ editingOrder?editingOrder.order_number:'' }}</h3>
-<p class="muted" style="font-size:13px;margin-bottom:15px">Уберите позиции, которых нет в наличии.</p>
-<div v-if="editingOrder">
-<div v-for="it in editingOrder.items" v-bind:key="it.id" class="row" style="margin-bottom:10px;padding:10px;background:rgba(255,255,255,.03);border-radius:10px">
-<div style="flex:1"><b>{{ it.name }}</b><br><span class="muted" style="font-size:12px">{{ it.price }} ₽ / шт.</span></div>
-<button class="btn btn-ghost btn-sm" v-on:click="changeQty(it,-1)">−</button><b style="width:20px;text-align:center">{{ it.qty }}</b>
-<button class="btn btn-ghost btn-sm" v-on:click="changeQty(it,1)">+</button>
-<button class="btn btn-danger btn-sm" v-on:click="removeItem(it.id)">🗑</button>
-</div>
-<div v-if="editingOrder.addons&&editingOrder.addons.length" style="margin-top:15px">
-<div class="muted" style="font-size:12px;margin-bottom:8px">Дополнительно:</div>
-<div v-for="a in editingOrder.addons" v-bind:key="a.id" class="row" style="margin-bottom:8px;padding:8px;background:rgba(255,255,255,.03);border-radius:10px">
-<div style="flex:1;font-size:13px">{{ a.name }} ({{ a.price }} ₽)</div>
-<button class="btn btn-danger btn-sm" v-on:click="removeAddon(a.id)">🗑</button>
-</div>
-</div>
-<div class="spread" style="margin-top:20px;padding-top:15px;border-top:1px solid rgba(255,255,255,.1)">
-<span class="muted">Новая сумма:</span><b style="font-size:18px;color:#a5b4fc">{{ fmt(newTotal) }} ₽</b></div>
-</div>
-<div class="row" style="margin-top:20px">
-<button class="btn btn-primary" style="flex:1" v-on:click="saveEditedOrder" v-bind:disabled="busy||!editingOrder||editingOrder.items.length===0">{{ busy?'Сохранение...':'✅ Сохранить' }}</button>
-<button class="btn btn-ghost" v-on:click="showEditModal=false" v-bind:disabled="busy">Отмена</button>
-</div>
-<div v-if="editError" class="msg error" style="margin-top:10px">{{ editError }}</div>
-</div></div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="/js/config.js"></script>
-<script src="/js/demo-data.js"></script>
-<script src="/js/demo-mode.js"></script>
-<script src="/js/notify.js"></script>
-<script src="js/app.js"></script>
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() { navigator.serviceWorker.register('/sw.js').catch(function() {}); });
-}
-Vue.createApp({
-data: function(){ return { 
-session:null,busy:false,err:'',loginForm:{slug:'',pin:''},
-orders:[],timer:null,history:[],statsTimer:null,
-showEditModal:false,editingOrder:null,editError:'',showInstallHint:false 
-}},
-computed: {
-colNew: function(){ return this.orders.filter(function(o){return o.status==='new'||o.status==='changed';}); },
-colCooking: function(){ return this.orders.filter(function(o){return o.status==='cooking';}); },
-colReady: function(){ return this.orders.filter(function(o){return ['ready','delivery'].indexOf(o.status)!==-1}); },
-cookStats: function(){
-var self=this;
-var total=0,done=0,rev=0,times=[];
-self.history.forEach(function(o){
-total++;
-if(o.status==='done'){ done++; rev+=Number(o.total_price||0); }
-if(o.cooking_started_at&&o.ready_at){ times.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4); }
-});
-var avg=times.length?Math.round(times.reduce(function(a,b){return a+b},0)/times.length):0;
-return {total:total,done:done,avgTime:avg,revenue:rev};
-},
-newTotal: function(){
-if(!this.editingOrder) return 0;
-var s=this.editingOrder.items.reduce(function(x,i){return x+i.price*i.qty},0);
-if(this.editingOrder.addons) s+=this.editingOrder.addons.reduce(function(x,a){return x+a.price},0);
-if(this.editingOrder.order_type==='delivery') s+=150;
-return s;
-},
-cookHistory: function(){ return this.history.slice(0,20); }
-},
-methods: {
-fmt: function(v){ return window.fmt(v); },
-fmtDate: function(d){ return d?new Date(d).toLocaleDateString('ru-RU'):'-'; },
-statusName: function(s){ return window.statusName(s); },
-orderBadge: function(s){ return 'b-'+s; },
-deliveryIcon: function(t){ return t==='delivery'?'🚗':''; },
-isReadyOrDelivery: function(s){ return s==='ready'||s==='delivery'; },
-hideInstallHint: function(){ this.showInstallHint=false; localStorage.setItem('kitchen_app_hint','1'); },
-login: function(){
-var self=this; self.err=''; self.busy=true;
-var slug=(self.loginForm.slug||'').trim().toLowerCase();
-var pin=(self.loginForm.pin||'').trim();
-if(!slug||!pin){ self.err='Заполните оба поля'; self.busy=false; return; }
-db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(v){
-if(!v.data){ self.err='Заведение не найдено'; self.busy=false; return; }
-return db.from('cooks').select('*').eq('venue_id',v.data.id).eq('pin',pin).maybeSingle().then(function(c){
-if(!c.data){ self.err='Неверный PIN'; self.busy=false; return; }
-db.from('cooks').update({last_login_at:new Date().toISOString()}).eq('id',c.data.id).then(function(){});
-self.session={venueId:v.data.id,venueName:v.data.name,cookId:c.data.id,cookName:c.data.name};
-localStorage.setItem('cook_session',JSON.stringify(self.session));
-self.busy=false;
-self.load(); self.loadHistory(); self.startTimer(); self.startStatsTimer();
-});
-}).catch(function(e){ self.err='Ошибка: '+e.message; self.busy=false; });
-},
-logout: function(){
-localStorage.removeItem('cook_session');
-if(this.timer){ clearInterval(this.timer); this.timer=null; }
-if(this.statsTimer){ clearInterval(this.statsTimer); this.statsTimer=null; }
-this.session=null; this.orders=[]; this.history=[]; this.loginForm={slug:'',pin:''};
-},
-load: function(){
-var self=this; if(!self.session) return;
-db.from('orders').select('*, items:order_items(*)')
-.eq('venue_id',self.session.venueId).neq('status','done').neq('status','cancelled')
-.order('created_at',{ascending:false}).limit(30).then(function(r){
-if(r.error){ console.error(r.error); self.orders=[]; return; }
-self.orders=r.data||[];
-var ids=self.orders.map(function(o){return o.id});
-if(ids.length){
-db.from('order_addons').select('*').in('order_id',ids).then(function(a){
-if(a.error) return;
-var map={}; (a.data||[]).forEach(function(x){ (map[x.order_id]=map[x.order_id]||[]).push(x); });
-self.orders.forEach(function(o){ o.addons=map[o.id]||[]; });
-});
-}
-});
-},
-loadHistory: function(){
-var self=this; if(!self.session) return;
-db.from('orders').select('*, items:order_items(*)')
-.eq('venue_id',self.session.venueId).eq('cook_name',self.session.cookName)
-.in('status',['done','ready'])
-.order('created_at',{ascending:false}).limit(100).then(function(r){
-if(!r.error) self.history=r.data||[];
-});
-},
-startTimer: function(){ if(this.timer) clearInterval(this.timer); var self=this; this.timer=setInterval(function(){ self.load(); },3000); },
-startStatsTimer: function(){ if(this.statsTimer) clearInterval(this.statsTimer); var self=this; this.statsTimer=setInterval(function(){ self.loadHistory(); },10000); },
-setStatus: function(id,status){
-var self=this; var u={status:status};
-if(status==='cooking'){ u.cooking_started_at=new Date().toISOString(); u.cook_name=self.session.cookName; }
-if(status==='ready'){ u.ready_at=new Date().toISOString(); }
-db.from('orders').update(u).eq('id',id).then(function(){ self.load(); });
-},
-openEditOrder: function(o){ this.editingOrder=JSON.parse(JSON.stringify(o)); if(!this.editingOrder.addons) this.editingOrder.addons=[]; this.editError=''; this.showEditModal=true; },
-changeQty: function(item,d){ item.qty+=d; if(item.qty<1) item.qty=1; },
-removeItem: function(id){ this.editingOrder.items=this.editingOrder.items.filter(function(i){return i.id!==id}); },
-removeAddon: function(id){ this.editingOrder.addons=this.editingOrder.addons.filter(function(a){return a.id!==id}); },
-saveEditedOrder: function(){
-var self=this;
-if(self.editingOrder.items.length===0){ self.editError='Должна остаться хотя бы одна позиция'; return; }
-self.busy=true; self.editError='';
-var orig=null;
-for(var i=0;i<self.orders.length;i++){ if(self.orders[i].id===self.editingOrder.id){ orig=self.orders[i]; break; } }
-db.from('orders').update({status:'changed',total_price:self.newTotal}).eq('id',self.editingOrder.id).then(function(r){
-if(r.error) throw r.error;
-var curIds=self.editingOrder.items.map(function(i){return i.id});
-var delIds=(orig.items||[]).map(function(i){return i.id}).filter(function(id){return curIds.indexOf(id)===-1});
-var p=Promise.resolve();
-if(delIds.length) p=db.from('order_items').delete().in('id',delIds);
-return p.then(function(){
-var chain=Promise.resolve();
-self.editingOrder.items.forEach(function(it){
-var o=(orig.items||[]).find(function(x){return x.id===it.id});
-if(o&&o.qty!==it.qty){ chain=chain.then(function(){ return db.from('order_items').update({qty:it.qty}).eq('id',it.id); }); }
-});
-return chain;
-}).then(function(){
-if(orig.addons&&orig.addons.length){
-var curA=self.editingOrder.addons.map(function(a){return a.id});
-var delA=orig.addons.map(function(a){return a.id}).filter(function(id){return curA.indexOf(id)===-1});
-if(delA.length) return db.from('order_addons').delete().in('id',delA).then(function(){});
-}
-}).then(function(){
-self.showEditModal=false; self.load();
-});
-}).catch(function(e){ self.editError='Ошибка сохранения: '+e.message; }).finally(function(){ self.busy=false; });
-}
-},
-mounted: function(){
-var saved=localStorage.getItem('cook_session');
-var self=this;
-if(saved){ try{ self.session=JSON.parse(saved); self.load(); self.loadHistory(); self.startTimer(); self.startStatsTimer(); }catch(e){ localStorage.removeItem('cook_session'); } }
-var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
-if(!standalone && !localStorage.getItem('kitchen_app_hint')) self.showInstallHint = true;
+const { createApp } = Vue;
+createApp({
+  data(){
+    return {
+      session: null,
+      busy: false,
+      err: '',
+      form: { slug:'', pin:'' },
+      orders: [],
+      history: [],
+      editingOrder: null,
+      editItems: [],
+      cookStats: { total:0, done:0, avgTime:0, revenue:0 }
+    };
+  },
+  computed:{
+    colNew(){ return this.orders.filter(o=>o.status==='new'||o.status==='changed'); },
+    colCooking(){ return this.orders.filter(o=>o.status==='cooking'); },
+    colReady(){ return this.orders.filter(o=>o.status==='ready'); },
+    editTotal(){ return this.editItems.reduce((s,it)=>s+(it.price*it.qty||0),0); }
+  },
+  methods:{
+    fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
+    fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
+    parseItems(o){ try{ return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){ return o.items||[]; } },
+    parseAddons(o){ try{ return typeof o.addons==='string'?JSON.parse(o.addons):(o.addons||[]); }catch(e){ return o.addons||[]; } },
 
-// ===== ДОБАВЛЕННЫЙ ОБРАБОТЧИК ВОЗВРАТА В ПРИЛОЖЕНИЕ =====
-document.addEventListener('visibilitychange', function() {
-  if (document.visibilityState === 'visible' && self.session) {
-    console.log('Вернулись в приложение, обновляем данные...');
-    self.load();
-    self.loadHistory();
-  }
-});
-},
-beforeUnmount: function(){ if(this.timer) clearInterval(this.timer); if(this.statsTimer) clearInterval(this.statsTimer); }
+    async login(){
+      this.busy = true; this.err = '';
+      const slug = this.form.slug.trim();
+      const pin = this.form.pin.trim();
+      if(!slug || !pin){ this.err='Заполните код и PIN'; this.busy=false; return; }
+      // 1. Найти заведение
+      const v = await db.from('venues').select('*').eq('slug', slug);
+      if(v.error || !v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
+      // 2. Логин по PIN (config.js сохранит токен)
+      const r = await db.from('cooks').select('*').eq('venue_id', v.data.id).eq('pin', pin);
+      if(r.error || !r.data){ this.err='Неверный PIN'; this.busy=false; return; }
+      this.session = { cookName:r.data.name, venueId:v.data.id, venueName:v.data.name };
+      localStorage.setItem('cook_session', JSON.stringify(this.session));
+      this.busy = false;
+      this.load();
+    },
+
+    logout(){
+      localStorage.removeItem('cook_session');
+      localStorage.removeItem('cook_token');
+      localStorage.removeItem('staff_token');
+      if(window.StaffAuth) window.StaffAuth.clear();
+      location.reload();
+    },
+
+    async load(){
+      if(!this.session) return;
+      const r = await db.from('orders').select('*');
+      if(r.error){ console.warn('load error', r.error); return; }
+      this.orders = Array.isArray(r.data)?r.data:[];
+      // История повара
+      const h = await db.from('orders').select('*').eq('cook_name', this.session.cookName);
+      if(!h.error && Array.isArray(h.data)){
+        this.history = h.data.filter(o=>o.status==='done'||o.status==='cancelled').slice(0,10);
+        this.cookStats.total = h.data.length;
+        this.cookStats.done = h.data.filter(o=>o.status==='done').length;
+        this.cookStats.revenue = h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
+      }
+    },
+
+    async setStatus(o, status){
+      const r = await db.from('orders').update({status:status}).eq('id', o.id);
+      if(r.error){ alert('Ошибка: '+(r.error.message||r.error)); return; }
+      this.load();
+    },
+
+    editOrder(o){
+      this.editingOrder = o;
+      this.editItems = JSON.parse(JSON.stringify(this.parseItems(o)));
+    },
+
+    async saveEdit(){
+      if(!this.editingOrder) return;
+      this.busy = true;
+      const newTotal = this.editTotal;
+      const r = await db.from('orders').update({
+        items: JSON.stringify(this.editItems),
+        total_price: newTotal,
+        status: 'changed'
+      }).eq('id', this.editingOrder.id);
+      if(r.error){ alert('Ошибка: '+(r.error.message||r.error)); this.busy=false; return; }
+      this.editingOrder = null;
+      this.busy = false;
+      this.load();
+    },
+
+    restore(){
+      const s = localStorage.getItem('cook_session');
+      if(s){
+        try{ this.session = JSON.parse(s); this.load(); }catch(e){}
+      }
+    }
+  },
+  mounted(){
+    this.restore();
+    this.timer = setInterval(()=>{ if(this.session) this.load(); }, 4000);
+  },
+  beforeUnmount(){ clearInterval(this.timer); }
 }).mount('#app');
 </script>
 </body>
