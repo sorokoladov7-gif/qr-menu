@@ -27,6 +27,22 @@
 <button v-bind:class="{on:tab==='courier'}" v-on:click="tab='courier'">🚗 Курьер</button>
 <button v-bind:class="{on:tab==='waiter'}" v-on:click="tab='waiter'">🤵 Официант</button>
 </div>
+<div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);text-align:center">
+  <div style="color:#94a3b8;font-size:13px;margin-bottom:12px">🎮 Посмотреть без регистрации:</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+    <button onclick="startDemo('cook.html')" class="btn btn-ghost">👨‍🍳 Демо кухни</button>
+    <button onclick="startDemo('courier.html')" class="btn btn-ghost">🚗 Демо курьера</button>
+    <button onclick="startDemo('waiter.html')" class="btn btn-ghost">🤵 Демо официанта</button>
+    <button onclick="startDemo('manager.html')" class="btn btn-primary">🏢 Демо кабинета</button>
+  </div>
+</div>
+
+<script>
+function startDemo(page){
+  localStorage.setItem('qr_demo_mode','1');
+  location.href = page;
+}
+</script>
 
 <template v-if="tab==='login'">
 <div class="field"><label>Email</label><input v-model.trim="lform.email" type="email" v-on:keyup.enter="login"></div>
@@ -64,7 +80,9 @@
 </div>
 </div>
 </div>
-<script src="js/config.js"></script>
+<script src="/js/demo-data.js"></script>
+<script src="/js/demo-mode.js"></script>
+<script src="/js/config.js"></script>
 <script src="js/app.js"></script>
 <script>
 Vue.createApp({
