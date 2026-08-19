@@ -9,37 +9,49 @@ window.__isDemoMode = isDemo;
 if(!isDemo) return;
 
 var D = window.QR_DEMO_DATA || {};
+var path = location.pathname.toLowerCase();
+var isStaff = /(cook|courier|waiter)\.html$/i.test(path);
+var isManager = /manager\.html$/i.test(path);
+var isAdmin = /admin\.html$/i.test(path);
 
-// ─── 0. БЛОКИРУЕМ вылеты: перехват requireAuth и safeRedirect ───
-// Ждём загрузки app.js и подменяем его функции
-function blockRedirects(){
-  // Подменяем safeRedirect чтобы в демо не вылетало
-  if(typeof window.safeRedirect === 'function' && !window.__demoSafePatched){
-    window.__demoSafePatched = true;
-    window.safeRedirect = function(url, reason){
-      console.warn('[demo] safeRedirect заблокирован:', reason);
-      // Не редиректим, показываем сообщение
-    };
-  }
-  // Подменяем requireAuth чтобы всегда возвращал демо-профиль
-  if(typeof window.requireAuth === 'function' && !window.__demoAuthPatched){
-    window.__demoAuthPatched = true;
-    window.requireAuth = function(roles){
-      console.info('[demo] requireAuth → демо-профиль');
-      return Promise.resolve(D.profile);
-    };
-  }
-  // Подменяем logout
-  if(typeof window.logout === 'function' && !window.__demoLogoutPatched){
-    window.__demoLogoutPatched = true;
-    window.logout = function(){
-      localStorage.removeItem('qr_demo_mode');
-      location.href = 'index.html';
-    };
-  }
-}
+// ─── 0. ПЕРЕХВАТ ЛЮБЫХ РЕДИРЕКТОВ ───
+// Подменяем location.assign/replace/href setter
+(function(){
+  var origAssign = window.location.assign;
+  var origReplace = window.location.replace;
+  window.location.assign = function(url){
+    if(String(url||'').indexOf('index.html')!==-1){
+      console.warn('[demo] location.assign заблокирован:', url);
+      return;
+    }
+    return origAssign.apply(this, arguments);
+  };
+  window.location.replace = function(url){
+    if(String(url||'').indexOf('index.html')!==-1){
+      console.warn('[demo] location.replace заблокирован:', url);
+      return;
+    }
+    return origReplace.apply(this, arguments);
+  };
+  // Intercept через defineProperty на href
+  try{
+    var origHrefDesc = Object.getOwnPropertyDescriptor(Location.prototype, 'href');
+    if(origHrefDesc && origHrefDesc.set){
+      Object.defineProperty(window.location, 'href', {
+        set: function(url){
+          if(String(url||'').indexOf('index.html')!==-1){
+            console.warn('[demo] location.href= заблокирован:', url);
+            return;
+          }
+          return origHrefDesc.set.call(this, url);
+        },
+        get: function(){ return origHrefDesc.get.call(this); }
+      });
+    }
+  }catch(e){}
+})();
 
-// ─── 1. Staff-сессии в localStorage ───
+// ─── 1. Staff-сессии ───
 function seedStaffSessions(){
   var base = { venueId: D.venue.id, venueName: D.venue.name, token: 'demo-token-' + Date.now() };
   try{
@@ -50,30 +62,30 @@ function seedStaffSessions(){
     localStorage.setItem('courier_token', base.token);
     localStorage.setItem('waiter_token', base.token);
     localStorage.setItem('staff_token', base.token);
+    localStorage.setItem('qr_demo_mode', '1');
   }catch(e){}
 }
 seedStaffSessions();
 
-// ─── 2. Подмена Supabase db ───
+// ─── 2. Полная подмена Supabase ───
 function patchDb(){
-  if(!window.db) return;
+  if(!window.db || window.__demoDbPatched) return;
+  window.__demoDbPatched = true;
 
-  // Полная подмена auth
   window.db.auth = {
-    getSession: function(){
-      return Promise.resolve({ data: { session: { user: D.user, access_token: 'demo' } }, error: null });
-    },
-    getUser: function(){
-      return Promise.resolve({ data: { user: D.user }, error: null });
-    },
+    getSession: function(){ return Promise.resolve({ data: { session: { user: D.user, access_token: 'demo' } }, error: null }); },
+    getUser: function(){ return Promise.resolve({ data: { user: D.user }, error: null }); },
     signInWithPassword: function(){ return Promise.resolve({ data: { user: D.user, session: { user: D.user } }, error: null }); },
     signUp: function(){ return Promise.resolve({ data: { user: D.user }, error: null }); },
     signOut: function(){ localStorage.removeItem('qr_demo_mode'); location.href='index.html'; return Promise.resolve(); },
     onAuthStateChange: function(cb){ return { data: { subscription: { unsubscribe: function(){} } } }; }
   };
 
-  // Подмена rpc
-  var realRpc = window.db.rpc ? window.db.rpc.bind(window.db) : null;
+  var realRpc = null;
+  if(window.db.rpc && !window.__demoRpcPatched){
+    realRpc = window.db.rpc.bind(window.db);
+    window.__demoRpcPatched = true;
+  }
   window.db.rpc = function(name, args){
     if(name==='staff_login'){
       var type = args && args.p_type;
@@ -92,10 +104,9 @@ function patchDb(){
     if(name==='customer_track_order_json') return Promise.resolve({ data:D.orders[0], error:null });
     if(name==='create_public_order') return Promise.resolve({ data:{ id:'demo-order', order_number:999, status:'new' }, error:null });
     if(realRpc) return realRpc(name, args);
-    return Promise.resolve({ data:null, error:{ message:'demo: '+name } });
+    return Promise.resolve({ data:null, error:null });
   };
 
-  // Подмена from
   window.db.from = function(table){
     function pick(){
       if(table==='profiles') return { data: D.profile, error:null };
@@ -133,12 +144,28 @@ function patchDb(){
   };
 }
 
-// ─── 3. Баннер ───
+// ─── 3. Блокировка requireAuth / safeRedirect / logout ───
+function blockAppFunctions(){
+  if(typeof window.requireAuth === 'function' && !window.__demoAuthPatched){
+    window.__demoAuthPatched = true;
+    window.requireAuth = function(){ return Promise.resolve(D.profile); };
+  }
+  if(typeof window.safeRedirect === 'function' && !window.__demoSafePatched){
+    window.__demoSafePatched = true;
+    window.safeRedirect = function(){};
+  }
+  if(typeof window.logout === 'function' && !window.__demoLogoutPatched){
+    window.__demoLogoutPatched = true;
+    window.logout = function(){ localStorage.removeItem('qr_demo_mode'); window.location.assign = Location.prototype.assign; location.href='index.html'; };
+  }
+}
+
+// ─── 4. Баннер ───
 function showBanner(){
   if(document.getElementById('demo-banner')) return;
   var b = document.createElement('div');
   b.id = 'demo-banner';
-  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100001;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;text-align:center;padding:8px 12px;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.2);font-family:sans-serif';
+  b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:100001;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;text-align:center;padding:8px 12px;font-size:13px;font-weight:700;box-shadow:0 2px 10px rgba(0,0,0,.2)';
   b.innerHTML = '🎮 ДЕМО-РЕЖИМ · <a href="index.html" style="color:#fff;text-decoration:underline" onclick="localStorage.removeItem(\'qr_demo_mode\')">Зарегистрироваться</a> · <a href="#" style="color:#fff;opacity:.8" onclick="localStorage.removeItem(\'qr_demo_mode\');location.reload();return false">✕ выйти</a>';
   document.body.appendChild(b);
 }
@@ -153,13 +180,92 @@ function getVM(){
   return null;
 }
 
-// ─── 4. Авто-вход staff ───
+// ─── 5. ПРИНУДИТЕЛЬНОЕ заполнение Vue-инстанса ───
+function forceFillVue(){
+  var vm = getVM();
+  if(!vm) return false;
+
+  // Базовые поля
+  vm.profile = D.profile;
+  vm.profileName = D.profile.display_name;
+  vm.venue = D.venue;
+  vm.venueName = D.venue.name;
+  vm.myVenues = [D.venue];
+  vm.venues = [D.venue];
+
+  // Данные для manager.html
+  if(isManager){
+    vm.products = D.products;
+    vm.orders = D.orders;
+    vm.cooks = D.cooks;
+    vm.couriers = D.couriers;
+    vm.waiters = D.waiters;
+    vm.tables = D.tables;
+    vm.analytics = D.analytics;
+    vm.revenue = D.analytics.revenue;
+    vm.activeCount = D.orders.filter(function(o){return ['new','cooking','ready','delivery'].indexOf(o.status)!==-1}).length;
+    vm.maxProducts = 100;
+    vm.maxCooks = 10;
+    vm.maxCouriers = 10;
+    vm.maxWaiters = 10;
+    vm.currentPlanName = 'Демо Тариф';
+    vm.subscriptionEnd = D.venue.subscription_end;
+    vm.daysLeft = 30;
+    vm.busy = false;
+    vm.loading = false;
+    vm.loadError = null;
+
+    // Подменяем методы загрузки чтобы не делали запросов
+    if(typeof vm.loadAll === 'function'){
+      vm.loadAll = function(){ return Promise.resolve(); };
+    }
+    if(typeof vm.loadOrders === 'function'){
+      vm.loadOrders = function(){ return Promise.resolve(); };
+    }
+    if(typeof vm.loadProducts === 'function'){
+      vm.loadProducts = function(){ return Promise.resolve(); };
+    }
+    if(typeof vm.loadCooks === 'function'){
+      vm.loadCooks = function(){ return Promise.resolve(); };
+    }
+    if(typeof vm.loadCouriers === 'function'){
+      vm.loadCouriers = function(){ return Promise.resolve(); };
+    }
+    if(typeof vm.loadWaiters === 'function'){
+      vm.loadWaiters = function(){ return Promise.resolve(); };
+    }
+  }
+
+  // Данные для staff
+  if(isStaff){
+    vm.session = { venueId: D.venue.id, venueName: D.venue.name, venueSlug: D.venue.slug };
+    if(path.indexOf('cook')!==-1){ vm.session.cookName = D.session.cookName; vm.cookStats = D.cookStats || {total:34,done:28,avgTime:11,revenue:18400}; }
+    if(path.indexOf('courier')!==-1){ vm.session.courierName = D.session.courierName; vm.courierStats = D.courierStats || {done:12,inProgress:1,total:13,revenue:9800}; }
+    if(path.indexOf('waiter')!==-1){ vm.session.waiterName = D.session.waiterName; vm.waiterStats = D.waiterStats || {served:19,toCourier:6,total:25,revenue:14200}; }
+    vm.orders = D.orders;
+    vm.busy = false;
+    vm.err = '';
+  }
+
+  // Данные для admin
+  if(isAdmin){
+    vm.venues = [D.venue];
+    vm.mrr = 48750;
+    vm.managers = [{ display_name: D.profile.display_name, email: D.profile.email, role: 'admin' }];
+    vm.cooksAll = D.cooks;
+    vm.couriersAll = D.couriers;
+    vm.waitersAll = D.waiters;
+    vm.busy = false;
+  }
+
+  return true;
+}
+
+// ─── 6. Авто-вход staff ───
 function autoStaffLogin(){
-  if(!/(cook|courier|waiter)\.html$/i.test(location.pathname)) return;
+  if(!isStaff) return;
   var tries = 0;
   var timer = setInterval(function(){
-    var vm = getVM();
-    if(vm && vm.session){ clearInterval(timer); return; }
     var inputs = document.querySelectorAll('input');
     var slugInput = null, pinInput = null, loginBtn = null;
     inputs.forEach(function(inp){
@@ -170,59 +276,39 @@ function autoStaffLogin(){
     var btns = document.querySelectorAll('button');
     btns.forEach(function(btn){
       var t = (btn.textContent||'').toLowerCase();
-      if(t.indexOf('войти')!==-1) loginBtn = btn;
+      if(t.indexOf('войти')!==-1 && t.indexOf('проверяем')===-1) loginBtn = btn;
     });
-    if(slugInput && pinInput){
+    if(slugInput && pinInput && !slugInput.value){
       slugInput.value = 'demo-cafe';
       pinInput.value = '1234';
-      slugInput.dispatchEvent(new Event('input', {bubbles:true}));
-      pinInput.dispatchEvent(new Event('input', {bubbles:true}));
-      if(loginBtn) loginBtn.click();
-      clearInterval(timer);
+      try{
+        var e1 = new Event('input', {bubbles:true}); slugInput.dispatchEvent(e1);
+        var e2 = new Event('input', {bubbles:true}); pinInput.dispatchEvent(e2);
+      }catch(e){}
+      if(loginBtn) setTimeout(function(){ loginBtn.click(); }, 100);
     }
     if(++tries > 30) clearInterval(timer);
   }, 300);
 }
 
-// ─── 5. Авто-выбор заведения в manager ───
-function autoSelectVenue(){
-  if(!/manager\.html$/i.test(location.pathname)) return;
-  var tries = 0;
-  var timer = setInterval(function(){
-    var vm = getVM();
-    if(vm && vm.venue){ clearInterval(timer); return; }
-    if(vm){
-      // Принудительно устанавливаем демо-заведение
-      if(!vm.venue){
-        vm.venue = D.venue;
-        vm.myVenues = [D.venue];
-        if(vm.loadAll) vm.loadAll();
-        if(vm.loadOrders) vm.loadOrders();
-        if(vm.loadProducts) vm.loadProducts();
-        if(vm.loadCooks) vm.loadCooks();
-        if(vm.loadCouriers) vm.loadCouriers();
-        if(vm.loadWaiters) vm.loadWaiters();
-        clearInterval(timer);
-        return;
-      }
-    }
-    if(++tries > 40) clearInterval(timer);
-  }, 300);
-}
-
+// ─── 7. Старт ───
 function start(){
   patchDb();
-  blockRedirects();
-  // Повторяем подмену и блокировку пока app.js не загрузится
-  var tries = 0;
-  var timer = setInterval(function(){
-    if(window.db) patchDb();
-    blockRedirects();
-    if(++tries > 60) clearInterval(timer);
-  }, 250);
+  blockAppFunctions();
   showBanner();
+
+  // Постоянно пытаемся подменить и заполнить Vue
+  var tries = 0;
+  var mainTimer = setInterval(function(){
+    patchDb();
+    blockAppFunctions();
+    if(forceFillVue()){
+      console.info('[demo] Vue заполнен успешно');
+    }
+    if(++tries > 100) clearInterval(mainTimer);
+  }, 200);
+
   autoStaffLogin();
-  autoSelectVenue();
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start);
