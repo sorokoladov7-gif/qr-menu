@@ -16,11 +16,7 @@ const oldFrom = real.from.bind(real);
 const oldRpc = real.rpc.bind(real);
 
 function staffToken(){
-  // 1. Пытаемся через StaffAuth (единый модуль)
-  if(window.StaffAuth && window.StaffAuth.token()){
-    return window.StaffAuth.token();
-  }
-  // 2. Fallback: ищем токен в localStorage напрямую
+  if(window.StaffAuth && window.StaffAuth.token()) return window.StaffAuth.token();
   var keys = ['staff_token','cook_token','waiter_token','courier_token'];
   for(var i=0;i<keys.length;i++){
     var t = localStorage.getItem(keys[i]);
@@ -30,20 +26,14 @@ function staffToken(){
 }
 
 function rememberStaffLogin(type, data){
-  // Сохраняем через StaffAuth если доступен
-  if(window.StaffAuth && data){
-    window.StaffAuth.login(type, data);
-  }
-  // Всегда сохраняем токен напрямую в localStorage (для совместимости)
+  if(window.StaffAuth && data) window.StaffAuth.login(type, data);
   if(data && data.token){
     try{
       localStorage.setItem('staff_token', data.token);
-      localStorage.setItem(type + '_token', data.token);
-      localStorage.setItem(type + '_session', JSON.stringify({
-        venueId: data.venueId,
-        venueName: data.venueName,
-        staffName: data.staffName,
-        token: data.token
+      localStorage.setItem(type+'_token', data.token);
+      localStorage.setItem(type+'_session', JSON.stringify({
+        venueId: data.venueId, venueName: data.venueName,
+        staffName: data.staffName, token: data.token
       }));
     }catch(e){}
   }
@@ -52,7 +42,7 @@ function rememberStaffLogin(type, data){
 function resolveQrTable(venueId){
   const token = new URLSearchParams(location.search).get('table');
   if(!token) return Promise.resolve(null);
-  if(window.__qrTable && window.__qrTable.qr_token === token) return Promise.resolve(window.__qrTable);
+  if(window.__qrTable && window.__qrTable.qr_token===token) return Promise.resolve(window.__qrTable);
   let q = oldFrom('venue_tables')
     .select('id,venue_id,table_number,name,qr_token,is_active')
     .eq('qr_token', String(token).trim())
@@ -66,93 +56,80 @@ function resolveQrTable(venueId){
 
 function makeChain(table){
   const state = { action:'select', filters:{}, inFilters:{}, neqFilters:{}, payload:null };
-
   const api = {
-    select:  function(){ state.action='select'; return api; },
-    insert:  function(v){ state.action='insert'; state.payload=v; return api; },
-    update:  function(v){ state.action='update'; state.payload=v; return api; },
-    delete:  function(){ state.action='delete'; return api; },
-    eq:      function(k,v){ state.filters[k]=v; return api; },
-    neq:     function(k,v){ state.neqFilters[k]=v; return api; },
-    in:      function(k,v){ state.inFilters[k]=v; return api; },
-    order:   function(){ return api; },
-    limit:   function(){ return api; },
-    maybeSingle: function(){ return execute(true); },
-    single:  function(){ return execute(true); },
-    then:    function(a,b){ return execute(false).then(a,b); },
-    catch:   function(a){ return execute(false).catch(a); }
+    select:function(){ state.action='select'; return api; },
+    insert:function(v){ state.action='insert'; state.payload=v; return api; },
+    update:function(v){ state.action='update'; state.payload=v; return api; },
+    delete:function(){ state.action='delete'; return api; },
+    eq:function(k,v){ state.filters[k]=v; return api; },
+    neq:function(k,v){ state.neqFilters[k]=v; return api; },
+    in:function(k,v){ state.inFilters[k]=v; return api; },
+    order:function(){ return api; },
+    limit:function(){ return api; },
+    maybeSingle:function(){ return execute(true); },
+    single:function(){ return execute(true); },
+    then:function(a,b){ return execute(false).then(a,b); },
+    catch:function(a){ return execute(false).catch(a); }
   };
 
-  // Клиентская фильтрация neq (для staff-заказов из RPC)
   function applyNeq(rows){
     if(!state.neqFilters || !Object.keys(state.neqFilters).length) return rows;
     return rows.filter(function(row){
-      for(var k in state.neqFilters){
-        if(row[k] === state.neqFilters[k]) return false;
-      }
+      for(var k in state.neqFilters){ if(row[k]===state.neqFilters[k]) return false; }
       return true;
     });
   }
 
   async function execute(single){
-    // 1. Перехват: поиск заведения по slug (форма входа staff)
+    // 1. Поиск заведения по slug
     if(isStaff && table==='venues' && state.action==='select' && state.filters.slug){
       const slug = String(state.filters.slug).trim().toLowerCase();
       localStorage.setItem(staffType+'_login_context', JSON.stringify({slug:slug}));
-      const r = await oldRpc('staff_venue_by_slug', {p_slug: slug});
-      return { data: r.error ? null : r.data, error: r.error || null };
+      const r = await oldRpc('staff_venue_by_slug', {p_slug:slug});
+      return { data: r.error?null:r.data, error: r.error||null };
     }
-
-    // 2. Перехват: вход персонала по PIN
-    if(isStaff && ['cooks','waiters','couriers'].indexOf(table) >= 0
+    // 2. Вход персонала по PIN
+    if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0
        && state.action==='select' && state.filters.venue_id && state.filters.pin){
-      const type = table==='cooks' ? 'cook' : table==='waiters' ? 'waiter' : 'courier';
-      const ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null') || {};
+      const type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+      const ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
       const r = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
       if(!r.error) rememberStaffLogin(type, r.data);
       return {
-        data: r.error ? null : (r.data ? {id:r.data.staffId, name:r.data.staffName, venue_id:r.data.venueId, token:r.data.token} : null),
-        error: r.error || null
+        data: r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),
+        error: r.error||null
       };
     }
-
-    // 3. Перехват: заказы для staff (активные + история)
+    // 3. Заказы для staff
     if(isStaff && table==='orders' && state.action==='select'){
       const token = staffToken();
       if(!token) return { data:[], error:new Error('staff_session_missing') };
-      const historyKey = state.filters.cook_name || state.filters.waiter_name || state.filters.courier_name;
-      const r = await oldRpc(historyKey ? 'staff_history_json' : 'staff_orders_json', {p_token: token});
+      const historyKey = state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;
+      const r = await oldRpc(historyKey?'staff_history_json':'staff_orders_json', {p_token:token});
       if(r.error) return { data:[], error:r.error };
-      let rows = Array.isArray(r.data) ? r.data : [];
+      let rows = Array.isArray(r.data)?r.data:[];
       rows = applyNeq(rows);
-      return { data: single ? (rows[0]||null) : rows, error:null };
+      return { data: single?(rows[0]||null):rows, error:null };
     }
-
-    // 4. Перехват: обновление заказа персоналом
+    // 4. Обновление заказа персоналом
     if(isStaff && table==='orders' && state.action==='update'){
       const token = staffToken();
       if(!token) return { data:null, error:new Error('staff_session_missing') };
       const r = await oldRpc('staff_update_order', {
-        p_token: token,
-        p_order_id: state.filters.id,
+        p_token: token, p_order_id: state.filters.id,
         p_status: state.payload && state.payload.status
       });
       return { data:r.data||null, error:r.error||null };
     }
-
-    // 5. Перехват: трекинг заказа клиента в menu.html
+    // 5. Трекинг заказа клиента
     if(table==='orders' && state.action==='select' && isMenu){
       const venueId = state.filters.venue_id;
       const phone = state.filters.customer_phone || localStorage.getItem('last_phone') || '';
       if(!venueId || !phone) return { data:null, error:new Error('tracking_context_missing') };
-      const r = await oldRpc('customer_track_order_json', {
-        p_venue_id: venueId,
-        p_customer_phone: String(phone).trim()
-      });
-      return { data: single ? (r.data||null) : (r.data ? [r.data] : []), error:r.error||null };
+      const r = await oldRpc('customer_track_order_json', {p_venue_id:venueId, p_customer_phone:String(phone).trim()});
+      return { data: single?(r.data||null):(r.data?[r.data]:[]), error:r.error||null };
     }
-
-    // 6. Перехват: смена статуса заказа клиентом
+    // 6. Смена статуса клиентом
     if(table==='orders' && state.action==='update' && isMenu){
       return oldRpc('customer_change_order_status', {
         p_order_id: state.filters.id,
@@ -160,8 +137,7 @@ function makeChain(table){
         p_status: state.payload && state.payload.status
       });
     }
-
-    // 7. Перехват: создание заказа с привязкой к QR-столу
+    // 7. Создание заказа с QR-столом
     if(table==='orders' && state.action==='insert'){
       let payload = state.payload;
       const venueId = payload && payload.venue_id;
@@ -169,36 +145,29 @@ function makeChain(table){
       if(token && venueId){
         const t = await resolveQrTable(venueId);
         if(t){
-          if(Array.isArray(payload)){
-            payload = payload.map(function(row){ return Object.assign({}, row, {table_id: row.table_id || t.id}); });
-          } else {
-            payload = Object.assign({}, payload, {table_id: payload.table_id || t.id});
-          }
+          if(Array.isArray(payload)) payload = payload.map(function(row){ return Object.assign({},row,{table_id:row.table_id||t.id}); });
+          else payload = Object.assign({},payload,{table_id:payload.table_id||t.id});
         }
       }
       return oldFrom(table).insert(payload);
     }
-
-    // 8. Fallback: реальный Supabase с применением всех фильтров
-    let q = oldFrom(table)[state.action](state.action==='select' ? '*' : state.payload);
-    if(state.action !== 'insert'){
-      for(var fk in state.filters){ q = q.eq(fk, state.filters[fk]); }
-      for(var ik in state.inFilters){ q = q.in(ik, state.inFilters[ik]); }
-      for(var nk in state.neqFilters){ q = q.neq(nk, state.neqFilters[nk]); }
+    // 8. Fallback
+    let q = oldFrom(table)[state.action](state.action==='select'?'*':state.payload);
+    if(state.action!=='insert'){
+      for(var fk in state.filters){ q=q.eq(fk,state.filters[fk]); }
+      for(var ik in state.inFilters){ q=q.in(ik,state.inFilters[ik]); }
+      for(var nk in state.neqFilters){ q=q.neq(nk,state.neqFilters[nk]); }
     }
-    if(single){
-      return state.action==='select' ? q.maybeSingle() : q;
-    }
+    if(single) return state.action==='select'?q.maybeSingle():q;
     return q;
   }
-
   return api;
 }
 
 function rpc(name, args, options){
   if(name==='create_public_order' && args && typeof args==='object'){
     const token = new URLSearchParams(location.search).get('table');
-    if(token) args = Object.assign({}, args, {p_table_token: String(token).trim()});
+    if(token) args = Object.assign({}, args, {p_table_token:String(token).trim()});
   }
   return oldRpc(name, args, options);
 }
@@ -214,7 +183,7 @@ window.db = {
   storage: real.storage
 };
 
-// ─── QR-стол для клиента (menu.html) ───
+// QR-стол для клиента
 async function bootQrTable(){
   if(!isMenu) return;
   const token = new URLSearchParams(location.search).get('table');
@@ -223,10 +192,9 @@ async function bootQrTable(){
   if(!t) return;
   localStorage.setItem('qr_table_id', t.id);
   localStorage.setItem('qr_table_number', String(t.table_number));
-  localStorage.setItem('qr_table_name', t.name || ('Стол '+t.table_number));
+  localStorage.setItem('qr_table_name', t.name||('Стол '+t.table_number));
   renderCustomerTable();
 }
-
 function renderCustomerTable(){
   const t = window.__qrTable;
   if(!t) return;
@@ -234,31 +202,27 @@ function renderCustomerTable(){
   if(!b){
     b = document.createElement('div');
     b.id = 'qr-table-fixed-badge';
-    b.style.cssText = 'position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
+    b.style.cssText = 'position:fixed;top:74px;right:14px;z-index:9999;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
     document.body.appendChild(b);
   }
-  b.textContent = '🪑 ' + (t.name || ('Стол '+t.table_number));
+  b.textContent = '🪑 ' + (t.name||('Стол '+t.table_number));
 }
-
 if(isMenu){
   bootQrTable();
-  let n = 0;
-  const timer = setInterval(function(){
-    renderCustomerTable();
-    if(++n > 30) clearInterval(timer);
-  }, 500);
+  let n=0;
+  const timer=setInterval(function(){ renderCustomerTable(); if(++n>30)clearInterval(timer); },500);
 }
 
-// ─── Поллинг заказов для staff ───
+// Поллинг заказов для staff
 async function loadStaffOrders(){
   if(!isStaff) return;
   const token = staffToken();
   if(!token) return;
-  const r = await oldRpc('staff_orders_json', {p_token: token});
+  const r = await oldRpc('staff_orders_json', {p_token:token});
   if(!r.error && Array.isArray(r.data)) window.__staffTableOrders = r.data;
 }
 
-// ─── Кнопка «Столы» для staff ───
+// Кнопка «Столы» для staff
 function installTableControl(){
   if(!isStaff || document.getElementById('staff-table-control-btn')) return;
   const btn = document.createElement('button');
@@ -273,66 +237,46 @@ function installTableControl(){
 async function showStaffTables(){
   const token = staffToken();
   if(!token){ alert('Сессия сотрудника не найдена. Войдите заново.'); return; }
-  const rpcName = staffType==='cook' ? 'cook_get_table_dashboard' : 'waiter_get_dashboard';
-  const r = await oldRpc(rpcName, {p_token: token});
-  if(r.error){ alert(r.error.message || 'Не удалось загрузить столы'); return; }
-  const payload = r.data || {};
-  const tables = Array.isArray(payload.tables) ? payload.tables : [];
-  const canControl = staffType==='waiter' || payload.can_control_tables === true;
-
+  const rpcName = staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
+  const r = await oldRpc(rpcName, {p_token:token});
+  if(r.error){ alert(r.error.message||'Не удалось загрузить столы'); return; }
+  const payload = r.data||{};
+  const tables = Array.isArray(payload.tables)?payload.tables:[];
+  const canControl = staffType==='waiter'||payload.can_control_tables===true;
   let modal = document.getElementById('staff-table-modal');
   if(modal) modal.remove();
   modal = document.createElement('div');
   modal.id = 'staff-table-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,10,20,.82);backdrop-filter:blur(8px);padding:20px;overflow:auto';
-
   const box = document.createElement('div');
   box.style.cssText = 'max-width:900px;margin:20px auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff';
-
   const head = document.createElement('div');
   head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
   head.innerHTML = '<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer">✕</button>';
   box.appendChild(head);
-
-  const info = document.createElement('div');
-  info.style.cssText = 'color:#94a3b8;font-size:13px;margin-bottom:14px';
-  info.textContent = staffType==='cook'
-    ? (canControl ? 'Официанта нет — столами управляет повар' : 'Есть официант — управление столами передано официанту')
-    : 'Официант управляет посадкой и освобождением столов';
-  box.appendChild(info);
-
   const grid = document.createElement('div');
   grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px';
-
   tables.forEach(function(t){
-    const occupied = t.occupancy_status === 'occupied';
+    const occupied = t.occupancy_status==='occupied';
     const card = document.createElement('div');
     card.style.cssText = 'border:1px solid '+(occupied?'rgba(251,191,36,.45)':'rgba(52,211,153,.35)')+';border-radius:14px;padding:14px;background:rgba(255,255,255,.03)';
-    const actionText = occupied ? 'Освободить стол' : 'Посадить гостя';
     card.innerHTML = '<b style="font-size:17px">'+(t.name||('Стол '+t.table_number))+'</b>'
       + '<div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>'
-      + (t.session ? '<div style="font-size:12px;color:#94a3b8">Заказов: '+(t.session.order_count||0)+' · '+Number(t.session.total_price||0).toLocaleString('ru-RU')+' ₽</div>' : '')
-      + (canControl
-          ? '<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>'
-          : '<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>');
+      + (canControl?'<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+(occupied?'Освободить стол':'Посадить гостя')+'</button>':'<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>');
     const action = card.querySelector('.staff-seat-btn');
     if(action){
       action.onclick = async function(){
         action.disabled = true;
         let rr;
-        if(occupied){
-          rr = await oldRpc(staffType==='cook' ? 'cook_release_table' : 'waiter_release_table', {p_token:token, p_table_id:t.id});
-        } else {
-          rr = await oldRpc(staffType==='cook' ? 'cook_start_table_session' : 'waiter_start_table_session', {p_token:token, p_table_id:t.id});
-        }
-        if(rr.error){ alert(rr.error.message || 'Операция не выполнена'); action.disabled=false; return; }
+        if(occupied) rr = await oldRpc(staffType==='cook'?'cook_release_table':'waiter_release_table', {p_token:token,p_table_id:t.id});
+        else rr = await oldRpc(staffType==='cook'?'cook_start_table_session':'waiter_start_table_session', {p_token:token,p_table_id:t.id});
+        if(rr.error){ alert(rr.error.message||'Операция не выполнена'); action.disabled=false; return; }
         modal.remove();
         showStaffTables();
       };
     }
     grid.appendChild(card);
   });
-
   box.appendChild(grid);
   modal.appendChild(box);
   document.body.appendChild(modal);
@@ -348,18 +292,16 @@ if(isStaff){
 }
 })();
 
-// ─── Динамическая подгрузка модулей дизайна ───
+// Подгрузка модулей дизайна
 (function(){
 'use strict';
 var p = location.pathname.toLowerCase();
 function load(src, key){
   if(document.querySelector('script['+key+']')) return;
   var s = document.createElement('script');
-  s.src = src;
-  s.async = false;
-  s.setAttribute(key, '1');
+  s.src = src; s.async = false; s.setAttribute(key,'1');
   document.head.appendChild(s);
 }
-if(/\/admin\.html$/i.test(p)) load('/js/admin-design-access.js?v=1', 'data-admin-design-access');
-if(/\/menu\.html$/i.test(p))  load('/js/design-runtime.js?v=2', 'data-design-runtime');
+if(/\/admin\.html$/i.test(p)) load('/js/admin-design-access.js?v=1','data-admin-design-access');
+if(/\/menu\.html$/i.test(p))  load('/js/design-runtime.js?v=2','data-design-runtime');
 })();
