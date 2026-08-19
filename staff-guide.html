@@ -1,1 +1,96 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<title>Инструкция — QR-SETKA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh;line-height:1.6}
+.container{max-width:760px;margin:0 auto;padding:24px 16px}
+h1{font-size:26px;margin-bottom:8px}
+.subtitle{color:#94a3b8;margin-bottom:24px}
+.section{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px;margin-bottom:16px}
+.section h2{font-size:18px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.step{display:flex;gap:12px;margin-bottom:12px}
+.step-num{flex-shrink:0;width:28px;height:28px;background:#6366f1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+.step-text{flex:1}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700}
+.b-cook{background:rgba(251,191,36,.2);color:#fcd34d}
+.b-courier{background:rgba(167,139,250,.2);color:#c4b5fd}
+.b-waiter{background:rgba(6,182,212,.2);color:#67e8f9}
+.warn{background:rgba(251,191,36,.1);border-left:3px solid #fbbf24;padding:12px;border-radius:8px;margin:12px 0;font-size:14px}
+.tip{background:rgba(52,211,153,.1);border-left:3px solid #34d399;padding:12px;border-radius:8px;margin:12px 0;font-size:14px}
+.btn{display:inline-block;padding:10px 16px;background:#6366f1;color:#fff;border-radius:10px;text-decoration:none;font-weight:700;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>📖 Как выдать PIN сотруднику</h1>
+<p class="subtitle">Пошаговая инструкция для управляющего заведением</p>
 
+<div class="section">
+<h2>🔐 Что такое PIN и как он хранится</h2>
+<p>PIN — это 4-значный код для входа сотрудника в его кабинет (кухня / курьер / официант). PIN хранится в базе <b>в зашифрованном виде</b> (bcrypt-хеш) — никто, включая администраторов, не может увидеть оригинальный PIN.</p>
+<div class="warn">⚠️ PIN показывается <b>только один раз</b> — при создании сотрудника или при сбросе. Сохраните его или сразу сообщите сотруднику.</div>
+</div>
+
+<div class="section">
+<h2>➕ Шаг 1: Добавить нового сотрудника</h2>
+<div class="step"><div class="step-num">1</div><div class="step-text">Откройте <b>Кабинет управляющего</b> → выберите заведение</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Перейдите на вкладку <span class="badge b-cook">Повара</span>, <span class="badge b-courier">Курьеры</span> или <span class="badge b-waiter">Официанты</span></div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Нажмите <b>«+ Добавить»</b></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Введите <b>имя</b>, телефон (для курьеров/официантов) и <b>PIN из 4 цифр</b> (или нажмите 🎲 для случайного)</div></div>
+<div class="step"><div class="step-num">5</div><div class="step-text">Нажмите <b>«Создать»</b> → появится окно с PIN → <b>сообщите PIN сотруднику</b></div></div>
+<div class="tip">💡 Совет: используйте случайный PIN (кнопка 🎲) — это безопаснее чем «1234» или год рождения.</div>
+</div>
+
+<div class="section">
+<h2>🔄 Шаг 2: Сбросить PIN (если забыли)</h2>
+<div class="step"><div class="step-num">1</div><div class="step-text">Откройте вкладку с нужным сотрудником</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Нажмите кнопку <b>«🔄 PIN»</b> рядом с именем сотрудника</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Подтвердите сброс → появится окно с <b>новым PIN</b></div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Сообщите новый PIN сотруднику. <b>Старый PIN перестаёт работать</b>.</div></div>
+<div class="warn">⚠️ После сброса старый PIN больше не работает. Если сотрудник не успел запомнить новый — сделайте сброс ещё раз.</div>
+</div>
+
+<div class="section">
+<h2>📲 Шаг 3: Как сотрудник входит</h2>
+<div class="step"><div class="step-num">1</div><div class="step-text">Сотрудник открывает свою страницу: <b>cook.html</b> (повар), <b>courier.html</b> (курьер), <b>waiter.html</b> (официант)</div></div>
+<div class="step"><div class="step-num">2</div><div class="step-text">Вводит <b>код заведения</b> (slug — виден в кабинете, кнопка «Копировать код»)</div></div>
+<div class="step"><div class="step-num">3</div><div class="step-text">Вводит свой <b>PIN</b> (4 цифры)</div></div>
+<div class="step"><div class="step-num">4</div><div class="step-text">Нажимает <b>«Войти»</b> → открывается рабочий кабинет</div></div>
+<div class="tip">💡 Совет: скопируйте код заведения кнопкой «Копировать код» и отправьте сотруднику в мессенджер вместе с PIN.</div>
+</div>
+
+<div class="section">
+<h2>📋 Шаг 4: Инструкция для сотрудника (скопируйте)</h2>
+<p style="background:rgba(0,0,0,.3);padding:12px;border-radius:8px;font-family:monospace;font-size:13px">
+Вход для сотрудника:<br>
+1. Откройте сайт: ВАШ_САЙТ/cook.html<br>
+2. Код заведения: ВАШ_SLUG<br>
+3. PIN: ВАШ_PIN<br>
+4. Нажмите «Войти»<br><br>
+Заказы обновляются автоматически.
+</p>
+<button class="btn" onclick="copyTemplate()">📋 Скопировать шаблон</button>
+</div>
+
+<div class="section">
+<h2>🗑 Удаление сотрудника</h2>
+<p>Нажмите <b>«🗑»</b> рядом с именем сотрудника → подтвердите удаление. Сотрудник потеряет доступ. Если нужно вернуть — создайте заново с новым PIN.</p>
+</div>
+
+<a href="manager.html" class="btn">← Вернуться в кабинет</a>
+</div>
+
+<script>
+function copyTemplate(){
+  var text = 'Вход для сотрудника:\n1. Откройте сайт: ' + location.origin + '/cook.html\n2. Код заведения: ВАШ_SLUG\n3. PIN: ВАШ_PIN\n4. Нажмите «Войти»\n\nЗаказы обновляются автоматически.';
+  try{ navigator.clipboard.writeText(text); alert('Шаблон скопирован!'); }
+  catch(e){ prompt('Скопируйте вручную:', text); }
+}
+</script>
+</body>
+</html>
