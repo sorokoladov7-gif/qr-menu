@@ -71,7 +71,12 @@ async function tableById(id,venueId){if(!id)return null;var key=String(id);if(ta
 function label(t){if(!t)return '📦 Без стола';var n=t.table_number!=null?'Стол '+t.table_number:(t.name||'Стол');return '🪑 '+(t.name&&t.name!==n?t.name:n);}
 async function staff(){var x=getVue();if(!x)return;var orders=Array.isArray(x.orders)?x.orders:[];var s=session();var venueId=s&&s.venueId;document.querySelectorAll('.wcard').forEach(async function(card){var no=orderNumberFromCard(card);if(!no)return;var o=orders.find(function(v){return String(v.order_number)===String(no);});if(!o)return;var t=o.table_id?await tableById(o.table_id,venueId):null;var text=label(t);var old=card.querySelector('.qr-table-badge');if(old){old.textContent=text;return;}var badge=document.createElement('div');badge.className='qr-table-badge';badge.textContent=text;var head=card.querySelector('.spread');if(head)head.insertAdjacentElement('afterend',badge);});}
 async function client(){var x=getVue();if(!x||!x.venue)return;var venueId=x.venue.id;var token=new URLSearchParams(location.search).get('table');if(token){var r=await db.from('venue_tables').select('id,table_number,name,venue_id').eq('venue_id',venueId).eq('qr_token',token).maybeSingle();if(!r.error&&r.data){window.__qrTable=r.data;var host=document.querySelector('.hero');if(host&&!document.querySelector('.qr-table-menu')){var b=document.createElement('div');b.className='qr-table-menu qr-table-floating';b.textContent='🪑 '+(r.data.name||('Стол '+r.data.table_number));host.insertAdjacentElement('afterend',b);}}}var tr=x.tracking;if(tr&&tr.id){var t=null;if(tr.table_id)t=await tableById(tr.table_id,venueId);if(!t&&tr.table_number!=null)t={table_number:tr.table_number,name:tr.table_name};var card=document.querySelector('.order-card');if(card){var old=card.querySelector('.qr-table-badge');var b=old||document.createElement('div');b.className='qr-table-badge';b.textContent=label(t);if(!old){var sp=card.querySelector('.spread');if(sp)sp.insertAdjacentElement('afterend',b);}}}}
-function run(){css();var p=location.pathname.toLowerCase();if(p.endsWith('/menu.html')||p.endsWith('menu.html'))client();if(/\/(cook|waiter|courier)\.html$/i.test(p))staff();}
+function run(){
+  css();
+  var p=location.pathname.toLowerCase();
+  // client() убран — бейдж стола в меню обрабатывает config.js bootQrTable
+  if(/(cook|waiter|courier).html$/i.test(p))staff();
+}
 function start(){run();new MutationObserver(run).observe(document.body,{childList:true,subtree:true});setInterval(run,1500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
 
