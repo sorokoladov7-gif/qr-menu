@@ -141,4 +141,144 @@ function render(){
     card.className = 'mhv-card';
     var h = [];
     h.push('<b style="font-size:16px">' + esc(t.name||('Стол '+t.table_number)) + '</b>');
-    h.push('<div class="mhv-muted">№' + t.table_number + ' · '
+    h.push('<div class="mhv-muted">№' + t.table_number + ' · ' + statLabel(t) + '</div>');
+    h.push('<div class="mhv-qr"></div>');
+    h.push('<div class="mhv-row">');
+    h.push('<button class="mhv-btn mhv-primary" data-act="edit">✏️ Изменить</button>');
+    h.push('<button class="mhv-btn mhv-ghost" data-act="reserve">' + (t.occupancy_status==='reserved'?'✖ Снять':'🕐 Резерв') + '</button>');
+    h.push('<button class="mhv-btn mhv-ghost" data-act="qr">🔄 QR</button>');
+    h.push('<button class="mhv-btn mhv-danger" data-act="del">🗑</button>');
+    h.push('</div>');
+    card.innerHTML = h.join('');
+
+    var qrBox = card.querySelector('.mhv-qr');
+    var img = document.createElement('img');
+    img.src = qrImg(t);
+    img.alt = 'QR';
+    qrBox.appendChild(img);
+
+    card.querySelector('[data-act="edit"]').onclick = function(){ editTable(t); };
+    card.querySelector('[data-act="reserve"]').onclick = function(){ reserveTable(t); };
+    card.querySelector('[data-act="qr"]').onclick = function(){ regenQr(t); };
+    card.querySelector('[data-act="del"]').onclick = function(){ removeTable(t); };
+    list.appendChild(card);
+  });
+}
+
+function openCard(t){
+  alert((t.name||('Стол '+t.table_number)) + '\n' + statLabel(t));
+}
+
+function editTable(t){
+  var name = prompt('Название стола:', t.name||('Стол '+t.table_number));
+  if(name===null) return;
+  rpc('manager_upsert_table', {p_venue_id:venue.id, p_table_id:t.id, p_table_number:t.table_number, p_name:name.trim(), p_seats:t.seats||4, p_shape:t.shape||'round', p_pos_x:t.pos_x||80, p_pos_y:t.pos_y||80})
+    .then(function(r){ if(r.error) throw r.error; return load(); })
+    .catch(function(e){ alert('Ошибка: '+(e.message||e)); });
+}
+
+function addTable(){
+  var name = prompt('Название нового стола:', 'Стол '+(tables.length+1));
+  if(name===null) return;
+  rpc('manager_upsert_table', {p_venue_id:venue.id, p_table_id:null, p_table_number:null, p_name:name.trim(), p_seats:4, p_shape:'round', p_pos_x:80, p_pos_y:80+(tables.length*40)})
+    .then(function(r){ if(r.error) throw r.error; return load(); })
+    .catch(function(e){ alert('Ошибка: '+(e.message||e)); });
+}
+
+function reserveTable(t){
+  if(t.occupancy_status==='reserved'){
+    rpc('manager_set_table_status', {p_venue_id:venue.id, p_table_id:t.id, p_status:'free', p_reserved_until:null, p_note:null})
+      .then(function(r){ if(r.error) throw r.error; return load(); })
+      .catch(function(e){ alert('Ошибка: '+(e.message||e)); });
+    return;
+  }
+  var mins = prompt('Зарезервировать на сколько минут?', '60');
+  if(mins===null) return;
+  var until = new Date(Date.now() + Number(mins)*60000).toISOString();
+  rpc('manager_set_table_status', {p_venue_id:venue.id, p_table_id:t.id, p_status:'reserved', p_reserved_until:until, p_note:null})
+    .then(function(r){ if(r.error) throw r.error; return load(); })
+    .catch(function(e){ alert('Ошибка: '+(e.message||e)); });
+}
+
+function regenQr(t){
+  if(!confirm('Старый QR перестанет работать. Создать новый?')) return;
+  rpc('manager_regenerate_table_qr', {p_venue_id:venue.id, p_table_id:t.id})
+    .then(function(r){ if(r.error) throw r.error; return load(); })
+    .catch(function(e){ alert('Ошибка: '+(e.message||e)); });
+}
+
+function removeTable(t){
+  if(!confirm('Удалить '+(t.name||('Стол '+t.table_number))+'?')) return;
+  rpc('manager_delete_table', {p_venue_id:venue.id, p_table_id:t.id})
+    .then(function(r){ if(r.error) throw r.error; return load(); })
+    .catch(function(e){ alert('Ошибка: '+(e.message||e)); });
+}
+
+async function openPanel(){
+  addStyles();
+  venue = null;
+  for(var i=0; i<5; i++){
+    venue = await getVenue();
+    if(venue) break;
+    await new Promise(function(r){ setTimeout(r, 400); });
+  }
+  if(!venue){
+    alert('Не удалось определить заведение. Выберите его в кабинете управляющего.');
+    return;
+  }
+  if(panel) panel.remove();
+  panel = document.createElement('div');
+  panel.className = 'mhv-modal';
+  var h = [];
+  h.push('<div class="mhv-box">');
+  h.push('<div class="mhv-head">');
+  h.push('<div><h2 style="margin:0">🪑 Зал / Столы</h2><div class="mhv-muted">' + esc(venue.name) + '</div></div>');
+  h.push('<div style="display:flex;gap:8px;flex-wrap:wrap">');
+  h.push('<button class="mhv-btn mhv-primary" id="mhv-add">+ Стол</button>');
+  h.push('<button class="mhv-btn mhv-ghost" id="mhv-close">✕ Закрыть</button>');
+  h.push('</div></div>');
+  h.push('<div class="mhv-stats" id="mhv-stats"></div>');
+  h.push('<div class="mhv-plan" id="mhv-plan"></div>');
+  h.push('<div class="mhv-list" id="mhv-list"></div>');
+  h.push('</div>');
+  panel.innerHTML = h.join('');
+  document.body.appendChild(panel);
+  panel.querySelector('#mhv-close').onclick = closePanel;
+  panel.querySelector('#mhv-add').onclick = addTable;
+  panel.onclick = function(e){ if(e.target===panel) closePanel(); };
+  load();
+}
+
+function closePanel(){
+  if(panel) panel.remove();
+  panel = null;
+}
+
+function addButton(){
+  var tabs = [].slice.call(document.querySelectorAll('button, .tab'));
+  var hallTab = tabs.find(function(b){
+    var txt = b.textContent || '';
+    return txt.indexOf('Зал')!==-1 && txt.indexOf('Столы')!==-1;
+  });
+  if(hallTab && !hallTab.__mhvBound){
+    hallTab.__mhvBound = true;
+    hallTab.addEventListener('click', function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      openPanel();
+    }, true);
+    return true;
+  }
+  return false;
+}
+
+function start(){
+  addStyles();
+  addButton();
+  new MutationObserver(function(){ addButton(); }).observe(document.body, {childList:true, subtree:true});
+  [300, 800, 1500, 3000].forEach(function(ms){ setTimeout(addButton, ms); });
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start);
+else start();
+})();
