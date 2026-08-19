@@ -90,21 +90,36 @@ function makeChain(table){
       return { data:r.error?null:r.data, error:r.error||null };
     }
 
-    // 2. Вход персонала по PIN
-    if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
-      var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
-      var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
-      var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
-      if(r2.data && r2.data.error){
-        return { data:null, error:{message: r2.data.error} };
-      }
-      if(r2.error) return { data:null, error:r2.error };
-      rememberStaffLogin(type, r2.data);
-      return {
-        data: r2.data ? {id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token} : null,
-        error: null
-      };
-    }
+    // 2. Перехват: вход персонала по PIN
+if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
+  var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+  var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
+  var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
+  
+  // Обработка ошибок
+  if(r2.data && r2.data.error){
+    return { data:null, error:{message: r2.data.error} };
+  }
+  if(r2.error) return { data:null, error:r2.error };
+  
+  // ПРИНУДИТЕЛЬНО сохраняем токен (даже если rememberStaffLogin не сработал)
+  if(r2.data && r2.data.token){
+    try{
+      localStorage.setItem('staff_token', r2.data.token);
+      localStorage.setItem(type+'_token', r2.data.token);
+      localStorage.setItem(type+'_session', JSON.stringify({
+        venueId: r2.data.venueId, venueName: r2.data.venueName,
+        staffName: r2.data.staffName, token: r2.data.token
+      }));
+    }catch(e){ console.warn('token save error', e); }
+  }
+  
+  rememberStaffLogin(type, r2.data);
+  return {
+    data: r2.data ? {id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token} : null,
+    error: null
+  };
+}
 
     // 3. Заказы для staff
     if(isStaff && table==='orders' && state.action==='select'){
