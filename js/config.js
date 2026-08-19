@@ -1,4 +1,3 @@
-// Browser Supabase client.
 const SUPABASE_URL = 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 const baseDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -6,14 +5,14 @@ window.db = baseDb;
 
 (function(){
 'use strict';
-const path = location.pathname.toLowerCase();
-const isMenu = /\/menu\.html$/i.test(path);
-const staffMatch = path.match(/\/(cook|courier|waiter)\.html$/i);
-const isStaff = !!staffMatch;
-const staffType = isStaff ? staffMatch[1] : null;
-const real = baseDb;
-const oldFrom = real.from.bind(real);
-const oldRpc = real.rpc.bind(real);
+var path = location.pathname.toLowerCase();
+var isMenu = /\/menu\.html$/i.test(path);
+var staffMatch = path.match(/\/(cook|courier|waiter)\.html$/i);
+var isStaff = !!staffMatch;
+var staffType = isStaff ? staffMatch[1] : null;
+var real = baseDb;
+var oldFrom = real.from.bind(real);
+var oldRpc = real.rpc.bind(real);
 
 function staffToken(){
   if(window.StaffAuth && window.StaffAuth.token()) return window.StaffAuth.token();
@@ -40,10 +39,10 @@ function rememberStaffLogin(type, data){
 }
 
 function resolveQrTable(venueId){
-  const token = new URLSearchParams(location.search).get('table');
+  var token = new URLSearchParams(location.search).get('table');
   if(!token) return Promise.resolve(null);
-  if(window.__qrTable && window.__qrTable.qr_token===token) return Promise.resolve(window.__qrTable);
-  let q = oldFrom('venue_tables')
+  if(window.__qrTable && window.__qrTable.qr_token === token) return Promise.resolve(window.__qrTable);
+  var q = oldFrom('venue_tables')
     .select('id,venue_id,table_number,name,qr_token,is_active')
     .eq('qr_token', String(token).trim())
     .eq('is_active', true);
@@ -55,95 +54,88 @@ function resolveQrTable(venueId){
 }
 
 function makeChain(table){
-  const state = { action:'select', filters:{}, inFilters:{}, neqFilters:{}, payload:null };
-  const api = {
-    select:function(){ state.action='select'; return api; },
-    insert:function(v){ state.action='insert'; state.payload=v; return api; },
-    update:function(v){ state.action='update'; state.payload=v; return api; },
-    delete:function(){ state.action='delete'; return api; },
-    eq:function(k,v){ state.filters[k]=v; return api; },
-    neq:function(k,v){ state.neqFilters[k]=v; return api; },
-    in:function(k,v){ state.inFilters[k]=v; return api; },
-    order:function(){ return api; },
-    limit:function(){ return api; },
-    maybeSingle:function(){ return execute(true); },
-    single:function(){ return execute(true); },
-    then:function(a,b){ return execute(false).then(a,b); },
-    catch:function(a){ return execute(false).catch(a); }
+  var state = { action:'select', filters:{}, inFilters:{}, neqFilters:{}, payload:null };
+  var api = {
+    select: function(){ state.action='select'; return api; },
+    insert: function(v){ state.action='insert'; state.payload=v; return api; },
+    update: function(v){ state.action='update'; state.payload=v; return api; },
+    delete: function(){ state.action='delete'; return api; },
+    eq: function(k,v){ state.filters[k]=v; return api; },
+    neq: function(k,v){ state.neqFilters[k]=v; return api; },
+    in: function(k,v){ state.inFilters[k]=v; return api; },
+    order: function(){ return api; },
+    limit: function(){ return api; },
+    maybeSingle: function(){ return execute(true); },
+    single: function(){ return execute(true); },
+    then: function(a,b){ return execute(false).then(a,b); },
+    catch: function(a){ return execute(false).catch(a); }
   };
 
   function applyNeq(rows){
     if(!state.neqFilters || !Object.keys(state.neqFilters).length) return rows;
     return rows.filter(function(row){
-      for(var k in state.neqFilters){ if(row[k]===state.neqFilters[k]) return false; }
+      for(var k in state.neqFilters){
+        if(row[k] === state.neqFilters[k]) return false;
+      }
       return true;
     });
   }
 
   async function execute(single){
-    // 1. Поиск заведения по slug
     if(isStaff && table==='venues' && state.action==='select' && state.filters.slug){
-      const slug = String(state.filters.slug).trim().toLowerCase();
+      var slug = String(state.filters.slug).trim().toLowerCase();
       localStorage.setItem(staffType+'_login_context', JSON.stringify({slug:slug}));
-      const r = await oldRpc('staff_venue_by_slug', {p_slug:slug});
-      return { data: r.error?null:r.data, error: r.error||null };
+      var r = await oldRpc('staff_venue_by_slug', {p_slug:slug});
+      return { data:r.error?null:r.data, error:r.error||null };
     }
-    // 2. Вход персонала по PIN
-    if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0
-       && state.action==='select' && state.filters.venue_id && state.filters.pin){
-      const type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
-      const ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
-      const r = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
-      if(!r.error) rememberStaffLogin(type, r.data);
+    if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
+      var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+      var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
+      var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
+      if(!r2.error) rememberStaffLogin(type, r2.data);
       return {
-        data: r.error?null:(r.data?{id:r.data.staffId,name:r.data.staffName,venue_id:r.data.venueId,token:r.data.token}:null),
-        error: r.error||null
+        data: r2.error?null:(r2.data?{id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token}:null),
+        error: r2.error||null
       };
     }
-    // 3. Заказы для staff
     if(isStaff && table==='orders' && state.action==='select'){
-      const token = staffToken();
+      var token = staffToken();
       if(!token) return { data:[], error:new Error('staff_session_missing') };
-      const historyKey = state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;
-      const r = await oldRpc(historyKey?'staff_history_json':'staff_orders_json', {p_token:token});
-      if(r.error) return { data:[], error:r.error };
-      let rows = Array.isArray(r.data)?r.data:[];
+      var historyKey = state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;
+      var r3 = await oldRpc(historyKey?'staff_history_json':'staff_orders_json', {p_token:token});
+      if(r3.error) return { data:[], error:r3.error };
+      var rows = Array.isArray(r3.data)?r3.data:[];
       rows = applyNeq(rows);
-      return { data: single?(rows[0]||null):rows, error:null };
+      return { data:single?(rows[0]||null):rows, error:null };
     }
-    // 4. Обновление заказа персоналом
     if(isStaff && table==='orders' && state.action==='update'){
-      const token = staffToken();
+      var token = staffToken();
       if(!token) return { data:null, error:new Error('staff_session_missing') };
-      const r = await oldRpc('staff_update_order', {
-        p_token: token, p_order_id: state.filters.id,
-        p_status: state.payload && state.payload.status
+      var r4 = await oldRpc('staff_update_order', {
+        p_token:token, p_order_id:state.filters.id, p_status:state.payload&&state.payload.status
       });
-      return { data:r.data||null, error:r.error||null };
+      return { data:r4.data||null, error:r4.error||null };
     }
-    // 5. Трекинг заказа клиента
     if(table==='orders' && state.action==='select' && isMenu){
-      const venueId = state.filters.venue_id;
-      const phone = state.filters.customer_phone || localStorage.getItem('last_phone') || '';
-      if(!venueId || !phone) return { data:null, error:new Error('tracking_context_missing') };
-      const r = await oldRpc('customer_track_order_json', {p_venue_id:venueId, p_customer_phone:String(phone).trim()});
-      return { data: single?(r.data||null):(r.data?[r.data]:[]), error:r.error||null };
+      var venueId = state.filters.venue_id;
+      var phone = state.filters.customer_phone||localStorage.getItem('last_phone')||'';
+      if(!venueId||!phone) return { data:null, error:new Error('tracking_context_missing') };
+      var r5 = await oldRpc('customer_track_order_json', {p_venue_id:venueId, p_customer_phone:String(phone).trim()});
+      return { data:single?(r5.data||null):(r5.data?[r5.data]:[]), error:r5.error||null };
     }
-    // 6. Смена статуса клиентом
     if(table==='orders' && state.action==='update' && isMenu){
       return oldRpc('customer_change_order_status', {
-        p_order_id: state.filters.id,
-        p_customer_phone: localStorage.getItem('last_phone')||'',
-        p_status: state.payload && state.payload.status
+        p_order_id:state.filters.id,
+        p_customer_phone:localStorage.getItem('last_phone')||'',
+        p_status:state.payload&&state.payload.status
       });
     }
-    // 7. Создание заказа с QR-столом
     if(table==='orders' && state.action==='insert'){
-      let payload = state.payload;
-      const venueId = payload && payload.venue_id;
-      const token = new URLSearchParams(location.search).get('table');
+      var payload = state.payload;
+      var venueId = payload && payload.venue_id;
+      var token = new URLSearchParams(location.search).get('table');
       if(token && venueId){
-        const t = await resolveQrTable(venueId);
+        var t = await resolveQrTable(venueId);
         if(t){
           if(Array.isArray(payload)) payload = payload.map(function(row){ return Object.assign({},row,{table_id:row.table_id||t.id}); });
           else payload = Object.assign({},payload,{table_id:payload.table_id||t.id});
@@ -151,12 +143,11 @@ function makeChain(table){
       }
       return oldFrom(table).insert(payload);
     }
-    // 8. Fallback
-    let q = oldFrom(table)[state.action](state.action==='select'?'*':state.payload);
+    var q = oldFrom(table)[state.action](state.action==='select'?'*':state.payload);
     if(state.action!=='insert'){
-      for(var fk in state.filters){ q=q.eq(fk,state.filters[fk]); }
-      for(var ik in state.inFilters){ q=q.in(ik,state.inFilters[ik]); }
-      for(var nk in state.neqFilters){ q=q.neq(nk,state.neqFilters[nk]); }
+      for(var fk in state.filters){ q = q.eq(fk, state.filters[fk]); }
+      for(var ik in state.inFilters){ q = q.in(ik, state.inFilters[ik]); }
+      for(var nk in state.neqFilters){ q = q.neq(nk, state.neqFilters[nk]); }
     }
     if(single) return state.action==='select'?q.maybeSingle():q;
     return q;
@@ -166,7 +157,7 @@ function makeChain(table){
 
 function rpc(name, args, options){
   if(name==='create_public_order' && args && typeof args==='object'){
-    const token = new URLSearchParams(location.search).get('table');
+    var token = new URLSearchParams(location.search).get('table');
     if(token) args = Object.assign({}, args, {p_table_token:String(token).trim()});
   }
   return oldRpc(name, args, options);
@@ -183,54 +174,50 @@ window.db = {
   storage: real.storage
 };
 
-// QR-стол для клиента
 async function bootQrTable(){
   if(!isMenu) return;
-  const token = new URLSearchParams(location.search).get('table');
+  var token = new URLSearchParams(location.search).get('table');
   if(!token) return;
-  const t = await resolveQrTable(null);
+  var t = await resolveQrTable(null);
   if(!t) return;
   localStorage.setItem('qr_table_id', t.id);
   localStorage.setItem('qr_table_number', String(t.table_number));
   localStorage.setItem('qr_table_name', t.name||('Стол '+t.table_number));
   renderCustomerTable();
 }
+
 function renderCustomerTable(){
-  const t = window.__qrTable;
+  var t = window.__qrTable;
   if(!t) return;
-  let b = document.getElementById('qr-table-fixed-badge');
+  var b = document.getElementById('qr-table-fixed-badge');
   if(!b){
     b = document.createElement('div');
     b.id = 'qr-table-fixed-badge';
-    b.style.cssText = 'position:fixed;top:74px;right:14px;z-index:9999;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
-    document.body.appendChild(b);
+    b.style.cssText = 'position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
+    if(document.body) document.body.appendChild(b);
   }
-  b.textContent = '🪑 ' + (t.name||('Стол '+t.table_number));
-}
-if(isMenu){
-  bootQrTable();
-  let n=0;
-  const timer=setInterval(function(){ renderCustomerTable(); if(++n>30)clearInterval(timer); },500);
+  if(b) b.textContent = '🪑 ' + (t.name||('Стол '+t.table_number));
 }
 
-// Поллинг заказов для staff
+if(isMenu){
+  bootQrTable();
+  var n = 0;
+  var timer = setInterval(function(){ renderCustomerTable(); if(++n>30) clearInterval(timer); }, 500);
+}
+
 async function loadStaffOrders(){
   if(!isStaff) return;
-  const token = staffToken();
+  var token = staffToken();
   if(!token) return;
-  const r = await oldRpc('staff_orders_json', {p_token:token});
+  var r = await oldRpc('staff_orders_json', {p_token:token});
   if(!r.error && Array.isArray(r.data)) window.__staffTableOrders = r.data;
 }
 
-// Кнопка «Столы» для staff
 function installTableControl(){
   if(!isStaff) return;
-  if(!document.body){ // body ещё не создан — ждём
-    setTimeout(installTableControl, 100);
-    return;
-  }
+  if(!document.body){ setTimeout(installTableControl, 100); return; }
   if(document.getElementById('staff-table-control-btn')) return;
-  const btn = document.createElement('button');
+  var btn = document.createElement('button');
   btn.id = 'staff-table-control-btn';
   btn.type = 'button';
   btn.textContent = '🪑 Столы';
@@ -240,41 +227,42 @@ function installTableControl(){
 }
 
 async function showStaffTables(){
-  const token = staffToken();
+  var token = staffToken();
   if(!token){ alert('Сессия сотрудника не найдена. Войдите заново.'); return; }
-  const rpcName = staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
-  const r = await oldRpc(rpcName, {p_token:token});
+  var rpcName = staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
+  var r = await oldRpc(rpcName, {p_token:token});
   if(r.error){ alert(r.error.message||'Не удалось загрузить столы'); return; }
-  const payload = r.data||{};
-  const tables = Array.isArray(payload.tables)?payload.tables:[];
-  const canControl = staffType==='waiter'||payload.can_control_tables===true;
-  let modal = document.getElementById('staff-table-modal');
+  var payload = r.data||{};
+  var tables = Array.isArray(payload.tables)?payload.tables:[];
+  var canControl = staffType==='waiter'||payload.can_control_tables===true;
+  var modal = document.getElementById('staff-table-modal');
   if(modal) modal.remove();
   modal = document.createElement('div');
   modal.id = 'staff-table-modal';
   modal.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(5,10,20,.82);backdrop-filter:blur(8px);padding:20px;overflow:auto';
-  const box = document.createElement('div');
+  var box = document.createElement('div');
   box.style.cssText = 'max-width:900px;margin:20px auto;background:#111827;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;color:#fff';
-  const head = document.createElement('div');
+  var head = document.createElement('div');
   head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
   head.innerHTML = '<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer">✕</button>';
   box.appendChild(head);
-  const grid = document.createElement('div');
+  var grid = document.createElement('div');
   grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px';
   tables.forEach(function(t){
-    const occupied = t.occupancy_status==='occupied';
-    const card = document.createElement('div');
+    var occupied = t.occupancy_status==='occupied';
+    var card = document.createElement('div');
     card.style.cssText = 'border:1px solid '+(occupied?'rgba(251,191,36,.45)':'rgba(52,211,153,.35)')+';border-radius:14px;padding:14px;background:rgba(255,255,255,.03)';
+    var actionText = occupied?'Освободить стол':'Посадить гостя';
     card.innerHTML = '<b style="font-size:17px">'+(t.name||('Стол '+t.table_number))+'</b>'
       + '<div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>'
-      + (canControl?'<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+(occupied?'Освободить стол':'Посадить гостя')+'</button>':'<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>');
-    const action = card.querySelector('.staff-seat-btn');
+      + (canControl?'<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>':'<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>');
+    var action = card.querySelector('.staff-seat-btn');
     if(action){
       action.onclick = async function(){
         action.disabled = true;
-        let rr;
-        if(occupied) rr = await oldRpc(staffType==='cook'?'cook_release_table':'waiter_release_table', {p_token:token,p_table_id:t.id});
-        else rr = await oldRpc(staffType==='cook'?'cook_start_table_session':'waiter_start_table_session', {p_token:token,p_table_id:t.id});
+        var rr;
+        if(occupied) rr = await oldRpc(staffType==='cook'?'cook_release_table':'waiter_release_table', {p_token:token, p_table_id:t.id});
+        else rr = await oldRpc(staffType==='cook'?'cook_start_table_session':'waiter_start_table_session', {p_token:token, p_table_id:t.id});
         if(rr.error){ alert(rr.error.message||'Операция не выполнена'); action.disabled=false; return; }
         modal.remove();
         showStaffTables();
@@ -301,19 +289,20 @@ if(isStaff){
     loadStaffOrders();
     setInterval(loadStaffOrders, 3000);
   }
-  new MutationObserver(installTableControl).observe(document.documentElement, {childList:true, subtree:true});
 }
+})();
 
-// Подгрузка модулей дизайна
 (function(){
 'use strict';
 var p = location.pathname.toLowerCase();
 function load(src, key){
   if(document.querySelector('script['+key+']')) return;
   var s = document.createElement('script');
-  s.src = src; s.async = false; s.setAttribute(key,'1');
+  s.src = src;
+  s.async = false;
+  s.setAttribute(key, '1');
   document.head.appendChild(s);
 }
-if(/\/admin\.html$/i.test(p)) load('/js/admin-design-access.js?v=1','data-admin-design-access');
-if(/\/menu\.html$/i.test(p))  load('/js/design-runtime.js?v=2','data-design-runtime');
+if(/\/admin\.html$/i.test(p)) load('/js/admin-design-access.js?v=1', 'data-admin-design-access');
+if(/\/menu\.html$/i.test(p)) load('/js/design-runtime.js?v=2', 'data-design-runtime');
 })();
