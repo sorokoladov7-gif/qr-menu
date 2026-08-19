@@ -8,7 +8,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="/js/config.js"></script>
-<script src="/js/staff-notifications.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
@@ -38,6 +37,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .order-items{font-size:13px;color:#cbd5e1;line-height:1.7}
 .order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 .empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}
+.table-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:rgba(99,102,241,.2);color:#c7d2fe;font-size:11px;font-weight:700;margin-left:6px}
 </style>
 </head>
 <body>
@@ -69,12 +69,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <h3>🆕 Новые ({{ colNew.length }})</h3>
         <div v-for="o in colNew" :key="o.id" class="order">
           <div class="order-head">
-            <b>№{{ o.order_number }}</b>
+            <b>№{{ o.order_number }}<span v-if="o.table_number||o.table_name" class="table-badge">🪑 {{ o.table_name||('Стол '+o.table_number) }}</span></b>
             <span style="font-size:16px">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span>
           </div>
           <div class="order-items">
-            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
-            <div v-for="a in parseAddons(o)" :key="a.name" style="color:#94a3b8">+ {{ a.name }}</div>
+            <div v-for="(it,idx) in parseItems(o)" :key="idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }} <span v-if="it.price">· {{ fmt(it.price*(it.qty||it.quantity||1)) }} ₽</span></div>
+            <div v-for="(a,idx) in parseAddons(o)" :key="'a'+idx" style="color:#94a3b8">+ {{ a.name||a.addon_name||'Добавка' }}</div>
           </div>
           <div v-if="o.comment" style="color:#fbbf24;font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
           <div class="order-actions">
@@ -89,11 +89,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <h3>🔥 Готовятся ({{ colCooking.length }})</h3>
         <div v-for="o in colCooking" :key="o.id" class="order">
           <div class="order-head">
-            <b>№{{ o.order_number }}</b>
+            <b>№{{ o.order_number }}<span v-if="o.table_number||o.table_name" class="table-badge">🪑 {{ o.table_name||('Стол '+o.table_number) }}</span></b>
             <span style="color:#94a3b8;font-size:12px">👨‍🍳 {{ o.cook_name||'—' }}</span>
           </div>
           <div class="order-items">
-            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
+            <div v-for="(it,idx) in parseItems(o)" :key="idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }}</div>
           </div>
           <div class="order-actions">
             <button class="btn btn-green" @click="setStatus(o,'ready')">Готово ✓</button>
@@ -106,11 +106,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <h3>✅ Выдача ({{ colReady.length }})</h3>
         <div v-for="o in colReady" :key="o.id" class="order">
           <div class="order-head">
-            <b>№{{ o.order_number }}</b>
+            <b>№{{ o.order_number }}<span v-if="o.table_number||o.table_name" class="table-badge">🪑 {{ o.table_name||('Стол '+o.table_number) }}</span></b>
             <span style="color:#94a3b8;font-size:12px">👨‍ {{ o.cook_name||'—' }}</span>
           </div>
           <div class="order-items">
-            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
+            <div v-for="(it,idx) in parseItems(o)" :key="idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }}</div>
           </div>
           <div class="order-actions">
             <button v-if="o.order_type==='delivery'" class="btn btn-primary" @click="setStatus(o,'delivery')">Курьеру 🚗</button>
@@ -168,13 +168,29 @@ createApp({
     colNew(){ return this.orders.filter(o=>o.status==='new'||o.status==='changed'); },
     colCooking(){ return this.orders.filter(o=>o.status==='cooking'); },
     colReady(){ return this.orders.filter(o=>o.status==='ready'); },
-    editTotal(){ return this.editItems.reduce((s,it)=>s+(Number(it.price)||0)*(Number(it.qty)||0),0); }
+    editTotal(){ return this.editItems.reduce((s,it)=>s+(Number(it.price)||0)*(Number(it.qty||it.quantity)||0),0); }
   },
   methods:{
     fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
     fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
-    parseItems(o){ try{ return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){ return o.items||[]; } },
-    parseAddons(o){ try{ return typeof o.addons==='string'?JSON.parse(o.addons):(o.addons||[]); }catch(e){ return o.addons||[]; } },
+    parseItems(o){
+      if(!o.items) return [];
+      if(Array.isArray(o.items)) return o.items;
+      if(typeof o.items === 'string'){
+        try{ return JSON.parse(o.items); }
+        catch(e){ return []; }
+      }
+      return [];
+    },
+    parseAddons(o){
+      if(!o.addons) return [];
+      if(Array.isArray(o.addons)) return o.addons;
+      if(typeof o.addons === 'string'){
+        try{ return JSON.parse(o.addons); }
+        catch(e){ return []; }
+      }
+      return [];
+    },
 
     async login(){
       if(typeof window.db==='undefined'||!window.db.from){ this.err='Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)'; return; }
