@@ -215,8 +215,9 @@ async function loadStaffOrders(){
 
 function installTableControl(){
   if(!isStaff) return;
-  if(!document.body){ setTimeout(installTableControl, 100); return; }
+  if(staffType==='courier') return;  // ← курьеру столы не нужны
   if(document.getElementById('staff-table-control-btn')) return;
+  ...
   var btn = document.createElement('button');
   btn.id = 'staff-table-control-btn';
   btn.type = 'button';
