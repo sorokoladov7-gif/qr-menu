@@ -16,14 +16,12 @@ var oldRpc = real.rpc.bind(real);
 
 function staffToken(){
   if(window.StaffAuth && window.StaffAuth.token()) return window.StaffAuth.token();
-  // Приоритет: токен для текущей роли
-  if(staffType){
-    var roleKey = staffType + '_token';
-    var t = localStorage.getItem(roleKey);
+  var keys = ['staff_token','cook_token','waiter_token','courier_token'];
+  for(var i=0;i<keys.length;i++){
+    var t = localStorage.getItem(keys[i]);
     if(t) return t;
   }
-  // Fallback: общий staff_token
-  return localStorage.getItem('staff_token');
+  return null;
 }
 
 function rememberStaffLogin(type, data){
@@ -84,7 +82,6 @@ function makeChain(table){
   }
 
   async function execute(single){
-    // 1. Поиск заведения по slug
     if(isStaff && table==='venues' && state.action==='select' && state.filters.slug){
       var slug = String(state.filters.slug).trim().toLowerCase();
       localStorage.setItem(staffType+'_login_context', JSON.stringify({slug:slug}));
@@ -92,38 +89,21 @@ function makeChain(table){
       return { data:r.error?null:r.data, error:r.error||null };
     }
 
-    // 2. Перехват: вход персонала по PIN
-if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
-  var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
-  var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
-  var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
-  
-  // Обработка ошибок
-  if(r2.data && r2.data.error){
-    return { data:null, error:{message: r2.data.error} };
-  }
-  if(r2.error) return { data:null, error:r2.error };
-  
-  // ПРИНУДИТЕЛЬНО сохраняем токен (даже если rememberStaffLogin не сработал)
-  if(r2.data && r2.data.token){
-    try{
-      localStorage.setItem('staff_token', r2.data.token);
-      localStorage.setItem(type+'_token', r2.data.token);
-      localStorage.setItem(type+'_session', JSON.stringify({
-        venueId: r2.data.venueId, venueName: r2.data.venueName,
-        staffName: r2.data.staffName, token: r2.data.token
-      }));
-    }catch(e){ console.warn('token save error', e); }
-  }
-  
-  rememberStaffLogin(type, r2.data);
-  return {
-    data: r2.data ? {id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token} : null,
-    error: null
-  };
-}
+    if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
+      var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+      var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
+      var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
+      if(r2.data && r2.data.error){
+        return { data:null, error:{message: r2.data.error} };
+      }
+      if(r2.error) return { data:null, error:r2.error };
+      rememberStaffLogin(type, r2.data);
+      return {
+        data: r2.data ? {id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token} : null,
+        error: null
+      };
+    }
 
-    // 3. Заказы для staff
     if(isStaff && table==='orders' && state.action==='select'){
       var token = staffToken();
       if(!token) return { data:[], error:new Error('staff_session_missing') };
@@ -135,7 +115,6 @@ if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==
       return { data:single?(rows[0]||null):rows, error:null };
     }
 
-    // 4. Обновление заказа персоналом
     if(isStaff && table==='orders' && state.action==='update'){
       var token = staffToken();
       if(!token) return { data:null, error:new Error('staff_session_missing') };
@@ -145,7 +124,6 @@ if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==
       return { data:r4.data||null, error:r4.error||null };
     }
 
-    // 5. Трекинг заказа клиента
     if(table==='orders' && state.action==='select' && isMenu){
       var venueId = state.filters.venue_id;
       var phone = state.filters.customer_phone||localStorage.getItem('last_phone')||'';
@@ -154,7 +132,6 @@ if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==
       return { data:single?(r5.data||null):(r5.data?[r5.data]:[]), error:r5.error||null };
     }
 
-    // 6. Смена статуса клиентом
     if(table==='orders' && state.action==='update' && isMenu){
       return oldRpc('customer_change_order_status', {
         p_order_id:state.filters.id,
@@ -163,7 +140,6 @@ if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==
       });
     }
 
-    // 7. Создание заказа с QR-столом
     if(table==='orders' && state.action==='insert'){
       var payload = state.payload;
       var venueId = payload && payload.venue_id;
@@ -178,7 +154,6 @@ if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==
       return oldFrom(table).insert(payload);
     }
 
-    // 8. Fallback
     var q = oldFrom(table)[state.action](state.action==='select'?'*':state.payload);
     if(state.action!=='insert'){
       for(var fk in state.filters){ q = q.eq(fk, state.filters[fk]); }
@@ -210,7 +185,6 @@ window.db = {
   storage: real.storage
 };
 
-// QR-стол для клиента
 async function bootQrTable(){
   if(!isMenu) return;
   var token = new URLSearchParams(location.search).get('table');
@@ -242,7 +216,6 @@ if(isMenu){
   var timer = setInterval(function(){ renderCustomerTable(); if(++n>30) clearInterval(timer); }, 500);
 }
 
-// Поллинг заказов для staff
 async function loadStaffOrders(){
   if(!isStaff) return;
   var token = staffToken();
@@ -251,7 +224,6 @@ async function loadStaffOrders(){
   if(!r.error && Array.isArray(r.data)) window.__staffTableOrders = r.data;
 }
 
-// Кнопка «Столы» для staff (не для курьера)
 function installTableControl(){
   if(!isStaff) return;
   if(staffType==='courier') return;
@@ -261,7 +233,7 @@ function installTableControl(){
   btn.id = 'staff-table-control-btn';
   btn.type = 'button';
   btn.textContent = '🪑 Столы';
-  btn.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
+  btn.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#6366f1;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
   document.body.appendChild(btn);
   btn.onclick = showStaffTables;
 }
@@ -365,7 +337,6 @@ if(isStaff){
 }
 })();
 
-// Подгрузка модулей дизайна
 (function(){
 'use strict';
 var p = location.pathname.toLowerCase();
