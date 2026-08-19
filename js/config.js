@@ -215,7 +215,8 @@ async function loadStaffOrders(){
 
 function installTableControl(){
   if(!isStaff) return;
-  if(staffType==='courier') return;  // ← курьеру столы не нужны
+  if(staffType==='courier') return;
+  if(!document.body){ setTimeout(installTableControl, 100); return; }
   if(document.getElementById('staff-table-control-btn')) return;
   var btn = document.createElement('button');
   btn.id = 'staff-table-control-btn';
@@ -230,16 +231,16 @@ async function showStaffTables(){
   var token = staffToken();
   if(!token){ alert('Сессия сотрудника не найдена. Войдите заново.'); return; }
   var rpcName = staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
-  const r = await oldRpc(rpcName, {p_token: token});
-if(r.error){
-  var msg = (r.error.message || String(r.error) || '').toLowerCase();
-  if(msg.indexOf('does not exist')!==-1 || msg.indexOf('403')!==-1 || msg.indexOf('not found')!==-1){
-    alert('🪑 Управление столами пока не подключено.\n\nОбратитесь к администратору для активации функции.');
-  } else {
-    alert('Не удалось загрузить столы: ' + (r.error.message || r.error));
+  var r = await oldRpc(rpcName, {p_token:token});
+  if(r.error){
+    var msg = (r.error.message||String(r.error)||'').toLowerCase();
+    if(msg.indexOf('does not exist')!==-1 || msg.indexOf('403')!==-1 || msg.indexOf('not found')!==-1){
+      alert('🪑 Управление столами пока не подключено.\n\nОбратитесь к администратору.');
+    } else {
+      alert('Не удалось загрузить столы: ' + (r.error.message||r.error));
+    }
+    return;
   }
-  return;
-}
   var payload = r.data||{};
   var tables = Array.isArray(payload.tables)?payload.tables:[];
   var canControl = staffType==='waiter'||payload.can_control_tables===true;
