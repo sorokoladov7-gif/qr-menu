@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Демо кабинета — QR-SETKA</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
+.banner{position:sticky;top:0;background:linear-gradient(90deg,#f59e0b,#f97316);color:#fff;text-align:center;padding:8px 12px;font-size:13px;font-weight:700;z-index:1000}
+.banner a{color:#fff;text-decoration:underline;margin:0 6px}
+.container{max-width:1280px;margin:0 auto;padding:16px}
+.head{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:16px;padding:14px 18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px}
+.head h1{font-size:18px;display:flex;align-items:center;gap:8px}
+.head .venue{color:#94a3b8;font-size:13px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px}
+.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font-size:22px;margin-bottom:4px}
+.stat span{color:#94a3b8;font-size:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;padding:8px;background:rgba(255,255,255,.03);border-radius:12px}
+.tab{padding:9px 14px;background:transparent;color:#cbd5e1;border:0;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px}
+.tab.active{background:#6366f1;color:#fff}
+.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;margin-bottom:10px}
+.card-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.card-head b{font-size:15px}
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700}
+.b-new{background:rgba(96,165,250,.2);color:#60a5fa}
+.b-cook{background:rgba(251,191,36,.2);color:#fbbf24}
+.b-ready{background:rgba(52,211,153,.2);color:#34d399}
+.b-dlv{background:rgba(167,139,250,.2);color:#a78bfa}
+.items{font-size:13px;color:#cbd5e1;line-height:1.7}
+.btn{border:0;padding:8px 14px;border-radius:9px;cursor:pointer;font-weight:700;font-size:12px}
+.btn-primary{background:#6366f1;color:#fff}
+.btn-green{background:#047857;color:#fff}
+.btn-ghost{background:rgba(255,255,255,.08);color:#fff}
+.btn-danger{background:#7f1d1d;color:#fff}
+.btn-warn{background:#b45309;color:#fff}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06)}
+th{color:#94a3b8;font-weight:600;font-size:12px;text-transform:uppercase}
+.hall{position:relative;height:420px;background:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1px);background-size:24px 24px;border:1px dashed rgba(255,255,255,.15);border-radius:14px;overflow:auto;margin-bottom:14px}
+.tbl{position:absolute;width:84px;height:84px;border-radius:14px;background:rgba(52,211,153,.16);border:2px solid rgba(52,211,153,.5);color:#6ee7b7;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;font-size:11px;text-align:center}
+.tbl.busy{background:rgba(251,191,36,.16);border-color:rgba(251,191,36,.55);color:#fcd34d}
+.tbl.reserved{background:rgba(99,102,241,.22);border-color:rgba(99,102,241,.55);color:#c7d2fe}
+.tbl b{pointer-events:none}
+.tbl span{pointer-events:none;font-size:10px}
+.empty{text-align:center;color:#64748b;padding:40px 20px}
+@media(max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+
+<div class="banner">
+  🎮 ДЕМО-РЕЖИМ · данные не сохраняются ·
+  <a href="index.html" onclick="localStorage.removeItem('qr_demo_mode')">Зарегистрироваться</a> ·
+  <a href="index.html">← На главную</a>
+</div>
+
+<div class="container">
+  <div class="head">
+    <div>
+      <h1>🏢 Кабинет управляющего</h1>
+      <div class="venue">Демо Кафе «Прованс» · /demo-cafe · Демо Пользователь</div>
+    </div>
+    <div>
+      <button class="btn btn-primary">+ Создать заведение</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><b>48 750 ₽</b><span>Выручка</span></div>
+    <div class="stat"><b>87</b><span>Заказов</span></div>
+    <div class="stat"><b>4</b><span>В работе</span></div>
+    <div class="stat"><b>4 / 100</b><span>Позиций меню</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="orders">📦 Заказы</button>
+    <button class="tab" data-tab="menu">🍔 Меню</button>
+    <button class="tab" data-tab="analytics">📈 Аналитика</button>
+    <button class="tab" data-tab="hall">🪑 Зал / Столы</button>
+    <button class="tab" data-tab="cooks">👨‍🍳 Повара</button>
+    <button class="tab" data-tab="couriers">🚗 Курьеры</button>
+    <button class="tab" data-tab="waiters">🤵 Официанты</button>
+    <button class="tab" data-tab="tariffs">💳 Тарифы</button>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+var DATA = {
+  orders: [
+    {id:'o1',num:101,status:'new',type:'pickup',name:'Анна',phone:'+7 999 000-11-22',addr:null,pay:'cash',total:700,table:1,cook:'—',items:'2× Капучино'},
+    {id:'o2',num:102,status:'cooking',type:'delivery',name:'Сергей',phone:'+7 999 333-44-55',addr:'ул. Ленина, 15',pay:'card',total:870,table:null,cook:'Иван Петров',items:'1× Сырники + 1× Капучино'},
+    {id:'o3',num:103,status:'ready',type:'delivery',name:'Дмитрий',phone:'+7 999 666-77-88',addr:'пр. Мира, 42',pay:'cash',total:520,table:null,cook:'Мария Сидорова',items:'1× Паста Карбонара'},
+    {id:'o4',num:104,status:'delivery',type:'delivery',name:'Екатерина',phone:'+7 999 111-22-33',addr:'ул. Пушкина, 7',pay:'card',total:1250,table:null,cook:'Иван Петров',items:'2× Паста + 1× Чизкейк'}
+  ],
+  menu: [
+    {name:'Капучино',cat:'🥤 Напиток',price:250,on:true},
+    {name:'Сырники со сметаной',cat:'🍳 Завтрак',price:450,on:true},
+    {name:'Чизкейк Нью-Йорк',cat:'🍰 Десерт',price:350,on:true},
+    {name:'Паста Карбонара',cat:'🔥 Горячее',price:520,on:true}
+  ],
+  tables: [
+    {id:1,num:1,name:'Стол 1',status:'busy',x:80,y:80},
+    {id:2,num:2,name:'Стол 2',status:'free',x:220,y:80},
+    {id:3,num:3,name:'Стол 3',status:'reserved',x:80,y:220},
+    {id:4,num:4,name:'Стол 4',status:'free',x:220,y:220},
+    {id:5,num:5,name:'VIP',status:'busy',x:360,y:80}
+  ],
+  cooks: [{name:'Иван Петров',phone:'+7 900 111-22-33',pin:'1234'},{name:'Мария Сидорова',phone:'+7 900 444-55-66',pin:'5678'}],
+  couriers: [{name:'Алексей Козлов',phone:'+7 900 777-88-99',pin:'1111'}],
+  waiters: [{name:'Ольга Новикова',phone:'+7 900 123-45-67',pin:'2222'}]
+};
+
+var tabs = {
+  orders: function(){
+    var h = '<div style="margin-bottom:12px;color:#94a3b8;font-size:13px">Всего: '+DATA.orders.length+' · В работе: '+DATA.orders.filter(function(o){return o.status!=='done'}).length+'</div>';
+    DATA.orders.forEach(function(o){
+      var bc = {new:'b-new',cooking:'b-cook',ready:'b-ready',delivery:'b-dlv'}[o.status]||'b-new';
+      var bn = {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке'}[o.status]||o.status;
+      h += '<div class="card"><div class="card-head"><div><b>№'+o.num+' <span class="badge '+bc+'">'+bn+'</span></b>'+(o.table?' <span style="color:#c7d2fe">· Стол '+o.table+'</span>':'')+'<div style="color:#94a3b8;font-size:12px;margin-top:4px">'+(o.name||'Клиент')+' · '+o.phone+' · '+(o.type==='delivery'?'🚗 '+o.addr:'🏠 Самовывоз')+'</div></div><b>'+o.total.toLocaleString('ru-RU')+' ₽</b></div><div class="items">'+o.items+'</div><div class="actions"><button class="btn btn-primary">В работу</button><button class="btn btn-green">Готово</button><button class="btn btn-ghost">🚗 Курьеру</button><button class="btn btn-danger">Отменить</button></div></div>';
+    });
+    return h;
+  },
+  menu: function(){
+    var h = '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><b>Позиции меню (4/100)</b><button class="btn btn-primary">+ Добавить</button></div>';
+    DATA.menu.forEach(function(p){
+      h += '<div class="card"><div class="card-head"><div><b>'+p.name+'</b><div style="color:#94a3b8;font-size:12px">'+p.cat+'</div></div><div style="display:flex;gap:8px;align-items:center"><b>'+p.price+' ₽</b><span class="badge '+(p.on?'b-ready':'b-new')+'">'+(p.on?'Вкл':'Выкл')+'</span></div></div><div class="actions"><button class="btn btn-primary">✏️ Изменить</button><button class="btn btn-danger">🗑</button></div></div>';
+    });
+    return h;
+  },
+  analytics: function(){
+    return '<div class="stats"><div class="stat"><b>48 750 ₽</b><span>Выручка</span></div><div class="stat"><b>87</b><span>Заказов</span></div><div class="stat"><b>64</b><span>Клиентов</span></div><div class="stat"><b>560 ₽</b><span>Средний чек</span></div><div class="stat"><b>12 мин</b><span>Ср. время готовки</span></div><div class="stat"><b>21</b><span>Повторных</span></div></div><div class="card"><b>🍔 Топ блюд</b><table><tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th></tr><tr><td>Капучино</td><td>42 шт.</td><td>10 500 ₽</td></tr><tr><td>Сырники со сметаной</td><td>28 шт.</td><td>12 600 ₽</td></tr><tr><td>Паста Карбонара</td><td>19 шт.</td><td>9 880 ₽</td></tr><tr><td>Чизкейк Нью-Йорк</td><td>15 шт.</td><td>5 250 ₽</td></tr></table></div><div class="card"><b>🕒 Часы пик</b><div style="margin-top:8px;font-size:13px;color:#cbd5e1">12:00 — 24 заказа<br>13:00 — 19 заказов<br>19:00 — 17 заказов<br>20:00 — 14 заказов</div></div>';
+  },
+  hall: function(){
+    var h = '<div class="stats"><div class="stat"><b>'+DATA.tables.length+'</b><span>Столов</span></div><div class="stat"><b style="color:#fcd34d">'+DATA.tables.filter(function(t){return t.status==='busy'}).length+'</b><span>Занято</span></div><div class="stat"><b style="color:#c7d2fe">'+DATA.tables.filter(function(t){return t.status==='reserved'}).length+'</b><span>Резерв</span></div><div class="stat"><b style="color:#6ee7b7">'+DATA.tables.filter(function(t){return t.status==='free'}).length+'</b><span>Свободно</span></div></div><div style="margin-bottom:10px;display:flex;gap:8px"><button class="btn btn-primary">+ Стол</button><button class="btn btn-ghost">🖨 Печать QR</button></div><div class="hall" id="hall"></div><div style="color:#94a3b8;font-size:12px;text-align:center;margin-top:8px">Перетаскивайте столы мышью или пальцем · Клик — редактировать</div>';
+    return h;
+  },
+  cooks: function(){
+    var h = '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><b>Повара (2/10)</b><button class="btn btn-primary">+ Добавить</button></div><div class="card"><div style="color:#94a3b8;font-size:12px;margin-bottom:10px">🔑 Код заведения: <b>demo-cafe</b></div>';
+    DATA.cooks.forEach(function(c){ h += '<div class="card" style="background:rgba(255,255,255,.02);margin-bottom:8px"><div class="card-head"><div><b>👨‍🍳 '+c.name+'</b><div style="color:#94a3b8;font-size:12px;margin-top:4px">📞 '+c.phone+' · PIN: '+c.pin+'</div></div><div class="actions"><button class="btn btn-ghost">🔄 Сбросить PIN</button><button class="btn btn-danger">🗑</button></div></div></div>'; });
+    return h+'</div>';
+  },
+  couriers: function(){
+    var h = '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><b>Курьеры (1/10)</b><button class="btn btn-primary">+ Добавить</button></div><div class="card"><div style="color:#94a3b8;font-size:12px;margin-bottom:10px">🔑 Код заведения: <b>demo-cafe</b></div>';
+    DATA.couriers.forEach(function(c){ h += '<div class="card" style="background:rgba(255,255,255,.02);margin-bottom:8px"><div class="card-head"><div><b>🚗 '+c.name+'</b><div style="color:#94a3b8;font-size:12px;margin-top:4px">📞 '+c.phone+' · PIN: '+c.pin+'</div></div><div class="actions"><button class="btn btn-ghost">🔄 Сбросить PIN</button><button class="btn btn-danger">🗑</button></div></div></div>'; });
+    return h+'</div>';
+  },
+  waiters: function(){
+    var h = '<div style="display:flex;justify-content:space-between;margin-bottom:12px"><b>Официанты (1/10)</b><button class="btn btn-primary">+ Добавить</button></div><div class="card"><div style="color:#94a3b8;font-size:12px;margin-bottom:10px">🔑 Код заведения: <b>demo-cafe</b></div>';
+    DATA.waiters.forEach(function(w){ h += '<div class="card" style="background:rgba(255,255,255,.02);margin-bottom:8px"><div class="card-head"><div><b>🤵 '+w.name+'</b><div style="color:#94a3b8;font-size:12px;margin-top:4px">📞 '+w.phone+' · PIN: '+w.pin+'</div></div><div class="actions"><button class="btn btn-ghost">🔄 Сбросить PIN</button><button class="btn btn-danger">🗑</button></div></div></div>'; });
+    return h+'</div>';
+  },
+  tariffs: function(){
+    return '<div class="card"><div class="card-head"><div><b>Тариф: Демо Тариф</b><div style="color:#94a3b8;font-size:12px;margin-top:4px">Активен до '+new Date(Date.now()+30*86400000).toLocaleDateString('ru-RU')+'</div></div><span class="badge b-ready">Активен</span></div><div class="stats"><div class="stat"><b>3</b><span>Заведений</span></div><div class="stat"><b>10</b><span>Поваров</span></div><div class="stat"><b>10</b><span>Курьеров</span></div><div class="stat"><b>10</b><span>Официантов</span></div><div class="stat"><b>100</b><span>Позиций меню</span></div></div><div class="actions"><button class="btn btn-primary">Продлить подписку</button><button class="btn btn-ghost">История оплат</button></div></div><div class="card"><b>💳 Оплата по СБП</b><div style="margin-top:10px;color:#cbd5e1;font-size:14px">Переведите 1 990 ₽ на номер:<br><b style="font-size:18px">8 905 320-43-50</b><br>В комментарии: <b>demo-cafe</b></div><button class="btn btn-green" style="margin-top:12px">✓ Я оплатил</button></div>';
+  }
+};
+
+function renderHall(){
+  var hall = document.getElementById('hall');
+  if(!hall) return;
+  hall.innerHTML = '';
+  DATA.tables.forEach(function(t){
+    var el = document.createElement('div');
+    el.className = 'tbl '+(t.status==='busy'?'busy':t.status==='reserved'?'reserved':'');
+    el.style.left = t.x+'px';
+    el.style.top = t.y+'px';
+    el.innerHTML = '<b>'+(t.name||'Стол '+t.num)+'</b><span>'+(t.status==='busy'?'🟡 Занят':t.status==='reserved'?'🕐 Резерв':'🟢 Свободен')+'</span>';
+    var startX,startY,origX=t.x,origY=t.y,moved=false;
+    function down(e){
+      var p = e.touches?e.touches[0]:e;
+      startX=p.clientX;startY=p.clientY;
+      document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
+      document.addEventListener('touchmove',move,{passive:false});document.addEventListener('touchend',up);
+      if(e.touches) e.preventDefault();
+    }
+    function move(e){
+      var p = e.touches?e.touches[0]:e;
+      var dx=p.clientX-startX, dy=p.clientY-startY;
+      if(Math.abs(dx)>4||Math.abs(dy)>4) moved=true;
+      el.style.left=Math.max(5,origX+dx)+'px';
+      el.style.top=Math.max(5,origY+dy)+'px';
+      if(e.touches) e.preventDefault();
+    }
+    function up(){
+      document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);
+      document.removeEventListener('touchmove',move);document.removeEventListener('touchend',up);
+      if(!moved){
+        alert((t.name||'Стол '+t.num)+'\n'+(t.status==='busy'?'🟡 Занят':t.status==='reserved'?'🕐 Резерв':'🟢 Свободен')+'\n\nВ полной версии: изменить форму, кол-во мест, освободить, зарезервировать.');
+      } else {
+        t.x = parseInt(el.style.left);
+        t.y = parseInt(el.style.top);
+      }
+    }
+    el.addEventListener('mousedown',down);
+    el.addEventListener('touchstart',down,{passive:false});
+    hall.appendChild(el);
+  });
+}
+
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(function(t){t.classList.toggle('active',t.dataset.tab===name);});
+  document.getElementById('content').innerHTML = tabs[name]();
+  if(name==='hall') setTimeout(renderHall, 50);
+}
+
+document.querySelectorAll('.tab').forEach(function(t){
+  t.onclick = function(){ switchTab(t.dataset.tab); };
+});
+
+switchTab('orders');
+</script>
+</body>
+</html>
