@@ -224,7 +224,12 @@ async function loadStaffOrders(){
 
 // Кнопка «Столы» для staff
 function installTableControl(){
-  if(!isStaff || document.getElementById('staff-table-control-btn')) return;
+  if(!isStaff) return;
+  if(!document.body){ // body ещё не создан — ждём
+    setTimeout(installTableControl, 100);
+    return;
+  }
+  if(document.getElementById('staff-table-control-btn')) return;
   const btn = document.createElement('button');
   btn.id = 'staff-table-control-btn';
   btn.type = 'button';
@@ -285,12 +290,19 @@ async function showStaffTables(){
 }
 
 if(isStaff){
-  installTableControl();
-  loadStaffOrders();
-  setInterval(loadStaffOrders, 3000);
-  new MutationObserver(installTableControl).observe(document.body, {childList:true, subtree:true});
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', function(){
+      installTableControl();
+      loadStaffOrders();
+      setInterval(loadStaffOrders, 3000);
+    });
+  } else {
+    installTableControl();
+    loadStaffOrders();
+    setInterval(loadStaffOrders, 3000);
+  }
+  new MutationObserver(installTableControl).observe(document.documentElement, {childList:true, subtree:true});
 }
-})();
 
 // Подгрузка модулей дизайна
 (function(){
