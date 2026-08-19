@@ -16,12 +16,14 @@ var oldRpc = real.rpc.bind(real);
 
 function staffToken(){
   if(window.StaffAuth && window.StaffAuth.token()) return window.StaffAuth.token();
-  var keys = ['staff_token','cook_token','waiter_token','courier_token'];
-  for(var i=0;i<keys.length;i++){
-    var t = localStorage.getItem(keys[i]);
+  // Приоритет: токен для текущей роли
+  if(staffType){
+    var roleKey = staffType + '_token';
+    var t = localStorage.getItem(roleKey);
     if(t) return t;
   }
-  return null;
+  // Fallback: общий staff_token
+  return localStorage.getItem('staff_token');
 }
 
 function rememberStaffLogin(type, data){
