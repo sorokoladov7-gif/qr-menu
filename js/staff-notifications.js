@@ -11,45 +11,57 @@ var firstLoad = true;
 var audioCtx = null;
 var permissionAsked = false;
 
-// Запрос разрешения на уведомления при первом взаимодействии
+// Безопасное получение AudioContext (обходит защиту autoplay)
+function getAudioContext() {
+  if (!audioCtx) {
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch (e) {
+      return null;
+    }
+  }
+  // Если браузер приостановил звук, пытаемся возобновить
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(function(){});
+  }
+  return audioCtx;
+}
+
+// Запрос разрешения при первом клике/касании
 function requestPermission(){
   if(permissionAsked) return;
   permissionAsked = true;
   if('Notification' in window && Notification.permission === 'default'){
     Notification.requestPermission();
   }
-  // Разблокировка аудио
-  try{
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var buf = audioCtx.createBuffer(1, 1, 22050);
-    var src = audioCtx.createBufferSource();
-    src.buffer = buf;
-    src.connect(audioCtx.destination);
-    src.start(0);
-  }catch(e){}
+  // Инициализируем звук при первом взаимодействии
+  getAudioContext();
 }
-document.addEventListener('click', requestPermission);
-document.addEventListener('touchstart', requestPermission);
+document.addEventListener('click', requestPermission, {once: true});
+document.addEventListener('touchstart', requestPermission, {once: true});
 
-// Звук нового заказа (генерируется программно)
+// Воспроизведение звука
 function playSound(){
-  try{
-    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var now = audioCtx.currentTime;
-    // Два тона: короткий сигнал
+  var ctx = getAudioContext();
+  if (!ctx) return; // Если звук заблокирован, просто молча выходим
+  
+  try {
+    var now = ctx.currentTime;
     [0, 0.15].forEach(function(offset, i){
-      var osc = audioCtx.createOscillator();
-      var gain = audioCtx.createGain();
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
       osc.type = 'sine';
       osc.frequency.value = i === 0 ? 880 : 1100;
       gain.gain.setValueAtTime(0.3, now + offset);
       gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.12);
       osc.connect(gain);
-      gain.connect(audioCtx.destination);
+      gain.connect(ctx.destination);
       osc.start(now + offset);
       osc.stop(now + offset + 0.15);
     });
-  }catch(e){}
+  } catch(e) {
+    // Игнорируем ошибки звука, чтобы не ломать интерфейс
+  }
 }
 
 // Показ уведомления
@@ -58,7 +70,6 @@ function showNotification(order){
   var title = '🆕 Новый заказ №' + order.order_number;
   var body = typeLabel + ' · ' + (order.customer_name || 'Клиент') + ' · ' + Number(order.total_price || 0).toLocaleString('ru-RU') + ' ₽';
 
-  // Браузерное уведомление
   if('Notification' in window && Notification.permission === 'granted'){
     try{
       var n = new Notification(title, { body: body, tag: 'order-' + order.id, requireInteraction: false });
@@ -66,10 +77,7 @@ function showNotification(order){
     }catch(e){}
   }
 
-  // Звук
   playSound();
-
-  // Визуальный toast на странице
   showToast(title + ' · ' + body);
 }
 
@@ -85,19 +93,16 @@ function showToast(text){
   }, 4000);
 }
 
-// Добавляем CSS анимацию
 (function(){
   var s = document.createElement('style');
   s.textContent = '@keyframes sn-slide{from{transform:translate(-50%,-20px);opacity:0}to{transform:translate(-50%,0);opacity:1}}';
   document.head.appendChild(s);
 })();
 
-// Проверка новых заказов (читает window.__staffTableOrders из config.js)
 function checkOrders(){
   var orders = window.__staffTableOrders;
   if(!orders || !Array.isArray(orders)) return;
 
-  // При первой загрузке — запоминаем все текущие без уведомлений
   if(firstLoad){
     orders.forEach(function(o){ knownIds.add(o.id); });
     firstLoad = false;
@@ -107,7 +112,6 @@ function checkOrders(){
   orders.forEach(function(o){
     if(!knownIds.has(o.id)){
       knownIds.add(o.id);
-      // Уведомляем только о новых и изменённых заказах
       if(o.status === 'new' || o.status === 'changed'){
         showNotification(o);
       }
@@ -115,7 +119,6 @@ function checkOrders(){
   });
 }
 
-// Запускаем проверку каждые 2 секунды
 setInterval(checkOrders, 2000);
 console.info('[notifications] Уведомления о новых заказах активны');
 })();
