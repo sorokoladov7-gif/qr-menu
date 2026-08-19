@@ -88,16 +88,22 @@ function makeChain(table){
       var r = await oldRpc('staff_venue_by_slug', {p_slug:slug});
       return { data:r.error?null:r.data, error:r.error||null };
     }
-    if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
-      var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
-      var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
-      var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
-      if(!r2.error) rememberStaffLogin(type, r2.data);
-      return {
-        data: r2.error?null:(r2.data?{id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token}:null),
-        error: r2.error||null
-      };
-    }
+    // 2. Перехват: вход персонала по PIN
+if(isStaff && ['cooks','waiters','couriers'].indexOf(table)>=0 && state.action==='select' && state.filters.venue_id && state.filters.pin){
+  var type = table==='cooks'?'cook':table==='waiters'?'waiter':'courier';
+  var ctx = JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};
+  var r2 = await oldRpc('staff_login', {p_type:type, p_slug:ctx.slug||'', p_pin:String(state.filters.pin)});
+  // Новая функция возвращает JSON с error, а не exception
+  if(r2.data && r2.data.error){
+    return { data:null, error:{message: r2.data.error} };
+  }
+  if(r2.error) return { data:null, error:r2.error };
+  rememberStaffLogin(type, r2.data);
+  return {
+    data: r2.data ? {id:r2.data.staffId, name:r2.data.staffName, venue_id:r2.data.venueId, token:r2.data.token} : null,
+    error: null
+  };
+}
     if(isStaff && table==='orders' && state.action==='select'){
       var token = staffToken();
       if(!token) return { data:[], error:new Error('staff_session_missing') };
