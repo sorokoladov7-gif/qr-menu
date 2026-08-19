@@ -72,8 +72,9 @@ function install(x,t){
         p_items:items,
         p_addons:addons,
         p_total_price:self.cartTotal,
-        p_table_token:tt
-      });
+p_table_token:tt,
+p_delivery_fee:(self.form.type==='delivery'&&self.deliveryFee!=null)?self.deliveryFee:null
+});
       if(r.error)throw r.error;
       localStorage.setItem('last_phone',phone);
       if(r.data&&r.data.id)localStorage.setItem('last_order_id',r.data.id);
