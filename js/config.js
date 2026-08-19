@@ -16,11 +16,37 @@ const oldFrom = real.from.bind(real);
 const oldRpc = real.rpc.bind(real);
 
 function staffToken(){
-  return window.StaffAuth ? window.StaffAuth.token() : null;
+  // 1. Пытаемся через StaffAuth (единый модуль)
+  if(window.StaffAuth && window.StaffAuth.token()){
+    return window.StaffAuth.token();
+  }
+  // 2. Fallback: ищем токен в localStorage напрямую
+  var keys = ['staff_token','cook_token','waiter_token','courier_token'];
+  for(var i=0;i<keys.length;i++){
+    var t = localStorage.getItem(keys[i]);
+    if(t) return t;
+  }
+  return null;
 }
 
 function rememberStaffLogin(type, data){
-  if(window.StaffAuth && data) window.StaffAuth.login(type, data);
+  // Сохраняем через StaffAuth если доступен
+  if(window.StaffAuth && data){
+    window.StaffAuth.login(type, data);
+  }
+  // Всегда сохраняем токен напрямую в localStorage (для совместимости)
+  if(data && data.token){
+    try{
+      localStorage.setItem('staff_token', data.token);
+      localStorage.setItem(type + '_token', data.token);
+      localStorage.setItem(type + '_session', JSON.stringify({
+        venueId: data.venueId,
+        venueName: data.venueName,
+        staffName: data.staffName,
+        token: data.token
+      }));
+    }catch(e){}
+  }
 }
 
 function resolveQrTable(venueId){
