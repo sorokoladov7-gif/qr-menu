@@ -230,8 +230,16 @@ async function showStaffTables(){
   var token = staffToken();
   if(!token){ alert('Сессия сотрудника не найдена. Войдите заново.'); return; }
   var rpcName = staffType==='cook'?'cook_get_table_dashboard':'waiter_get_dashboard';
-  var r = await oldRpc(rpcName, {p_token:token});
-  if(r.error){ alert(r.error.message||'Не удалось загрузить столы'); return; }
+  const r = await oldRpc(rpcName, {p_token: token});
+if(r.error){
+  var msg = (r.error.message || String(r.error) || '').toLowerCase();
+  if(msg.indexOf('does not exist')!==-1 || msg.indexOf('403')!==-1 || msg.indexOf('not found')!==-1){
+    alert('🪑 Управление столами пока не подключено.\n\nОбратитесь к администратору для активации функции.');
+  } else {
+    alert('Не удалось загрузить столы: ' + (r.error.message || r.error));
+  }
+  return;
+}
   var payload = r.data||{};
   var tables = Array.isArray(payload.tables)?payload.tables:[];
   var canControl = staffType==='waiter'||payload.can_control_tables===true;
