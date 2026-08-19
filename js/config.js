@@ -16,12 +16,12 @@ var oldRpc = real.rpc.bind(real);
 
 function staffToken(){
   if(window.StaffAuth && window.StaffAuth.token()) return window.StaffAuth.token();
-  var keys = ['staff_token','cook_token','waiter_token','courier_token'];
-  for(var i=0;i<keys.length;i++){
-    var t = localStorage.getItem(keys[i]);
+  if(staffType){
+    var roleKey = staffType + '_token';
+    var t = localStorage.getItem(roleKey);
     if(t) return t;
   }
-  return null;
+  return localStorage.getItem('staff_token');
 }
 
 function rememberStaffLogin(type, data){
@@ -233,7 +233,7 @@ function installTableControl(){
   btn.id = 'staff-table-control-btn';
   btn.type = 'button';
   btn.textContent = '🪑 Столы';
-  btn.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#6366f1;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
+  btn.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
   document.body.appendChild(btn);
   btn.onclick = showStaffTables;
 }
