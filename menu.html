@@ -53,7 +53,6 @@
 <div class="wrap">
 <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
 
-<!-- Сообщение об ошибке, если заведение не найдено -->
 <div v-else-if="loadError" class="glass card" style="text-align:center;padding:40px;border-color:#f87171">
   <div style="font-size:40px">⚠️</div>
   <h3>Не удалось загрузить заведение</h3>
@@ -71,7 +70,6 @@
 </div>
 
 <template v-else>
-<!-- Сообщение о заказе за столом -->
 <div v-if="msg && msgType === 'ok'" class="msg ok" style="margin-bottom:12px">{{ msg }}</div>
 
 <div v-if="venue.status!=='active'" class="glass card" style="text-align:center;padding:40px">⏸ Заведение временно не принимает заказы.</div>
@@ -242,8 +240,8 @@
 <script>
 Vue.createApp({
 data:function(){return{
-ready:false, 
-loadError: null,   // ← для отображения ошибок загрузки
+ready:false,
+loadError: null,
 venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:false,
 dishModal:{show:false, product:null, addons:[]},
 form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:''},
@@ -317,11 +315,9 @@ init:function(){
   self.ready = false;
   self.loadError = null;
 
-  // Проверяем, есть ли параметр venue в URL
   var slug = new URLSearchParams(location.search).get('venue');
   var tableParam = new URLSearchParams(location.search).get('table');
 
-  // Если есть slug, загружаем конкретное заведение
   if (slug) {
     db.from('venues').select('*').eq('slug', slug).maybeSingle()
       .then(function(r){
@@ -342,19 +338,16 @@ init:function(){
         }
         self.venue = r.data;
         self.loadVenueSettings(self.venue);
-        // Если есть параметр table, устанавливаем тип "за столом"
         if (tableParam) {
           self.form.type = 'table';
           self.form.table_number = tableParam;
           self.msg = '🪑 Вы заказываете за столом №' + tableParam;
           self.msgType = 'ok';
         }
-        // Загружаем продукты
         return self.loadProducts();
       })
       .then(function(){
         self.ready = true;
-        // Восстанавливаем телефон для отслеживания, если есть
         var last = localStorage.getItem('last_phone');
         if (last && self.venue) {
           self.trackPhone = last;
@@ -367,7 +360,6 @@ init:function(){
         console.error('Ошибка инициализации:', err);
       });
   } else {
-    // Если нет slug – показываем список всех активных заведений
     db.from('venues').select('*').eq('status', 'active')
       .then(function(r){
         if (r.error) {
