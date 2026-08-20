@@ -17,8 +17,9 @@ function loadScript(src,attr,done){
 }
 
 function loadModules(){
-  // Загружаем только manager-hall-view.js (всё остальное уже не нужно)
-  loadScript('/js/manager-hall-view.js?v=3','data-manager-hall-view');
+  loadScript('/js/manager-hall-view.js?v=4','data-manager-hall-view',function(){
+    loadScript('/js/manager-table-create.js?v=1','data-manager-table-create');
+  });
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',loadModules);
