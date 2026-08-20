@@ -134,26 +134,18 @@ createApp({
   methods:{
     fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
     fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
-    
     parseItems(o){
       if(!o.items) return [];
       if(Array.isArray(o.items)) return o.items;
-      if(typeof o.items === 'string'){
-        try{ return JSON.parse(o.items); }
-        catch(e){ return []; }
-      }
+      if(typeof o.items === 'string'){ try{ return JSON.parse(o.items); }catch(e){ return []; } }
       return [];
     },
     parseAddons(o){
       if(!o.addons) return [];
       if(Array.isArray(o.addons)) return o.addons;
-      if(typeof o.addons === 'string'){
-        try{ return JSON.parse(o.addons); }
-        catch(e){ return []; }
-      }
+      if(typeof o.addons === 'string'){ try{ return JSON.parse(o.addons); }catch(e){ return []; } }
       return [];
     },
-
     async login(){
       if(typeof window.db==='undefined'||!window.db.from){ this.err='Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)'; return; }
       this.busy=true; this.err='';
@@ -168,7 +160,6 @@ createApp({
       localStorage.setItem('waiter_session',JSON.stringify(this.session));
       this.busy=false; this.load();
     },
-
     logout(){
       localStorage.removeItem('waiter_session');
       localStorage.removeItem('waiter_token');
@@ -176,7 +167,6 @@ createApp({
       if(window.StaffAuth) window.StaffAuth.clear();
       location.reload();
     },
-
     async load(){
       if(!this.session) return;
       if(typeof window.db==='undefined'||!window.db.from){ setTimeout(()=>this.load(),300); return; }
@@ -192,13 +182,11 @@ createApp({
         this.waiterStats.revenue = h.data.reduce((s,o)=>s+Number(o.total_price||0),0);
       }
     },
-
     async setStatus(o,status){
       const r=await db.from('orders').update({status:status}).eq('id',o.id);
       if(r.error){ alert('Ошибка: '+(r.error.message||r.error)); return; }
       this.load();
     },
-
     restore(){
       const s=localStorage.getItem('waiter_session');
       if(s){ try{ this.session=JSON.parse(s); this.load(); }catch(e){} }
@@ -211,5 +199,6 @@ createApp({
   beforeUnmount(){ if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
 </script>
+<script src="/js/waiter-table-unified.js?v=1"></script>
 </body>
 </html>
