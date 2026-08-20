@@ -86,3 +86,90 @@ function start(){run();new MutationObserver(run).observe(document.body,{childLis
 if(!/\/admin\.html$/i.test(location.pathname))return;
 var s=document.createElement('script');s.src='/js/admin-design-access.js?v=1';s.defer=true;document.head.appendChild(s);
 })();
+
+/* ===== PWA: Service Worker registration and install prompt ===== */
+(function(){
+'use strict';
+
+// Регистрация Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js')
+    .then(function(reg) {
+      console.log('✅ Service Worker registered successfully.');
+    })
+    .catch(function(error) {
+      console.warn('❌ Service Worker registration failed:', error);
+    });
+}
+
+// Обработка beforeinstallprompt (показываем кнопку установки)
+let deferredPrompt;
+
+window.addEventListener('beforeinstallprompt', function(e) {
+  // Предотвращаем автоматическое появление окна установки
+  e.preventDefault();
+  deferredPrompt = e;
+
+  // Создаём кнопку установки
+  var installBtn = document.getElementById('pwa-install-btn');
+  if (!installBtn) {
+    installBtn = document.createElement('button');
+    installBtn.id = 'pwa-install-btn';
+    installBtn.textContent = '📲 Установить приложение';
+    installBtn.style.cssText = [
+      'position:fixed',
+      'bottom:80px',
+      'left:50%',
+      'transform:translateX(-50%)',
+      'z-index:9999',
+      'background:linear-gradient(135deg,#6366f1,#8b5cf6)',
+      'color:#fff',
+      'border:none',
+      'border-radius:12px',
+      'padding:12px 24px',
+      'font-weight:700',
+      'font-size:15px',
+      'box-shadow:0 8px 25px rgba(99,102,241,0.5)',
+      'cursor:pointer',
+      'transition:transform 0.2s',
+      'animation: slideUp 0.4s ease'
+    ].join(';');
+    installBtn.onmouseenter = function() { this.style.transform = 'translateX(-50%) scale(1.02)'; };
+    installBtn.onmouseleave = function() { this.style.transform = 'translateX(-50%) scale(1)'; };
+    installBtn.onclick = function() {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(function(choiceResult) {
+          if (choiceResult.outcome === 'accepted') {
+            console.log('Пользователь установил PWA');
+          } else {
+            console.log('Пользователь отклонил установку');
+          }
+          deferredPrompt = null;
+          installBtn.remove();
+        });
+      }
+    };
+    document.body.appendChild(installBtn);
+
+    // Анимация появления (добавляем в head)
+    var style = document.createElement('style');
+    style.textContent = '@keyframes slideUp { from { transform: translateX(-50%) translateY(30px); opacity:0; } to { transform: translateX(-50%) translateY(0); opacity:1; } }';
+    document.head.appendChild(style);
+  }
+});
+
+// Также можно показывать кнопку, если приложение уже установлено, скрываем её
+window.addEventListener('appinstalled', function() {
+  var btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.remove();
+});
+
+// Если пользователь уже установил, но кнопка всё ещё видна, проверяем display-mode
+if (window.matchMedia('(display-mode: standalone)').matches) {
+  var btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.remove();
+}
+
+})();
+/* ===== END PWA ===== */
