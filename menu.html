@@ -96,11 +96,10 @@ body {
   padding: var(--card-padding);
   text-align: var(--card-text-align);
 }
+/* Восстановление исходного размера картинок товаров */
 .dish img {
-  height: var(--card-image-height);
-  width: 100%;
-  object-fit: cover;
-  border-radius: calc(var(--border-radius) - 4px);
+  height: 130px !important;
+  object-fit: cover !important;
 }
 .dish .body .price-pill {
   display: var(--show-price, block);
