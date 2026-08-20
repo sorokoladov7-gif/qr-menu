@@ -104,7 +104,7 @@ function tableSize(t){
 }
 
 function tableUrl(t){
-  return location.origin + location.pathname.replace(/manager\.html$/i,'menu.html') + '?table=' + encodeURIComponent(t.qr_token||t.id);
+  return location.origin + location.pathname.replace(/manager\.html$/i,'menu.html') + '?venue=' + encodeURIComponent(venue.slug) + '&table=' + encodeURIComponent(t.qr_token||t.id);
 }
 
 function qrImg(t){
