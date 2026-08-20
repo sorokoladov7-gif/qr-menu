@@ -547,6 +547,13 @@
 <div class="field"><label>Имя</label><input v-model.trim="mgrEditModal.name"></div>
 <div class="field"><label>Роль</label><select v-model="mgrEditModal.role">
 <option value="manager">Управляющий</option><option value="admin">Админ</option></select></div>
+<!-- ===== НОВЫЙ ЧЕКБОКС ===== -->
+<div class="field">
+  <label class="checkbox-label" style="background:transparent;padding:0">
+    <input type="checkbox" v-model="mgrEditModal.allow_manage_delivery">
+    Разрешить управление доставкой (стоимость за км, мин. сумма для бесплатной доставки)
+  </label>
+</div>
 <div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveMgrEdit">Сохранить</button>
 <button class="btn btn-ghost" v-on:click="mgrEditModal.show=false">Отмена</button></div>
 </div></div>
@@ -629,12 +636,10 @@ cookForm:{venue_id:'',name:'',phone:''},courierForm:{venue_id:'',name:'',phone:'
 venueEditModal:{show:false,id:null,name:'',description:'',brand_color:'#6366f1',logo_url:'',perms:{addons:true,products:true,prices:true}},
 prodModal:{show:false,venueId:null,venueName:'',list:[],form:{name:'',price:0,category:'main'}},
 addMgrModal:{show:false,name:'',email:'',password:'',role:'manager',err:''},
-mgrEditModal:{show:false,id:null,name:'',role:'manager'},
+mgrEditModal:{show:false,id:null,name:'',role:'manager', allow_manage_delivery: false},  // добавлено
 staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:''},
-
-// Секретный дизайн
-brandClicks:0,
 secretDesignPanel:false,
+brandClicks:0,
 adminDesignTemplate:{brand_color:'#6366f1',button_color:'#8b5cf6',header_color:'#ffffff',font_family:'Plus+Jakarta+Sans'}
 }},
 computed:{
@@ -759,11 +764,9 @@ self.profile=profile;
 if(!profile){self.ready=true;return}
 self.loadAll().then(function(){self.loadGlobalStats();self.ready=true});
 });
-
-// СЛЕДИМ ЗА КЛИКАМИ ПО ЛОГОТИПУ (СЕКРЕТНЫЙ ДОСТУП)
 var self=this;
 this.$watch('brandClicks', function(val){
-  if(val >= 5){
+  if(val >= 5 && self.profile && self.profile.role === 'admin'){
     self.secretDesignPanel = true;
     self.brandClicks = 0;
   }
@@ -810,8 +813,6 @@ var key=dt.toISOString().slice(0,10);if(!dailyMap[key])dailyMap[key]=0;dailyMap[
 });
 var topHours=Object.keys(hours).map(function(h){var nx=parseInt(h)+1;return{h:parseInt(h),label:(h<10?'0'+h:h)+':00–'+(nx<10?'0'+nx:nx)+':00',count:hours[h]}}).sort(function(a,b){return b.count-a.count}).slice(0,5);
 var daily=Object.keys(dailyMap).sort().map(function(k){var dt=new Date(k);return{date:k,label:(dt.getDate()<10?'0':'')+dt.getDate()+'.'+(dt.getMonth()+1<10?'0':'')+(dt.getMonth()+1),count:dailyMap[k]}});
-
-// Подписки
 var totalVenues=self.venues.length;
 var planDist=self.plans.map(function(p){
 var vs=self.venues.filter(function(v){return v.plan===p.id});
@@ -823,8 +824,6 @@ var activeSubs=self.subStats.active;
 var expiredSubs=self.subStats.expired;
 var churnRate=activeSubs+expiredSubs?Math.round(expiredSubs*100/(activeSubs+expiredSubs)):0;
 var arpu=activeSubs?Math.round(self.mrr/activeSubs):0;
-
-// Активность заведений
 var venueActivity=self.venues.map(function(v){
 var vords=os.filter(function(o){return o.venue_id===v.id});
 var vdone=vords.filter(function(o){return o.status==='done'});
@@ -834,8 +833,6 @@ return{id:v.id,name:v.name,orders:vords.length,revenue:vrev,
 lastOrder:last?last.toLocaleDateString('ru-RU')+' '+last.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—',
 subscription_end:v.subscription_end,status:v.status,plan:v.plan};
 }).sort(function(a,b){return b.orders-a.orders});
-
-// Активность управляющих
 var managerActivity=self.managers.map(function(m){
 var vIds=self.links.filter(function(l){return l.manager_id===m.id}).map(function(l){return l.venue_id});
 var mords=os.filter(function(o){return vIds.indexOf(o.venue_id)!==-1});
@@ -844,8 +841,6 @@ var mrev=mdone.reduce(function(s,o){return s+Number(o.total_price||0)},0);
 return{id:m.id,name:m.display_name,email:m.email,venues:vIds.length,orders:mords.length,revenue:mrev,
 lastLogin:m.last_login_at?new Date(m.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(m.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
 }).sort(function(a,b){return b.orders-a.orders});
-
-// Повара
 var cookActivity=self.cooksAll.map(function(c){
 var cords=os.filter(function(o){return o.venue_id===c.venue_id&&o.cook_name===c.name});
 var times=[];cords.forEach(function(o){if(o.cooking_started_at&&o.ready_at){times.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4)}});
@@ -853,23 +848,18 @@ var avg=times.length?Math.round(times.reduce(function(a,b){return a+b},0)/times.
 return{id:c.id,name:c.name,venue:c.venues?c.venues.name:'—',orders:cords.length,avgTime:avg,
 lastLogin:c.last_login_at?new Date(c.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(c.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
 }).sort(function(a,b){return b.orders-a.orders});
-
-// Курьеры
 var courierActivity=self.couriersAll.map(function(c){
 var dords=os.filter(function(o){return o.venue_id===c.venue_id&&o.courier_name===c.name});
 var delivered=dords.filter(function(o){return o.status==='done'}).length;
 return{id:c.id,name:c.name,venue:c.venues?c.venues.name:'—',delivered:delivered,
 lastLogin:c.last_login_at?new Date(c.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(c.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
 }).sort(function(a,b){return b.delivered-a.delivered});
-
-// Официанты
 var waiterActivity=self.waitersAll.map(function(w){
 var words=os.filter(function(o){return o.venue_id===w.venue_id&&o.waiter_name===w.name});
 var served=words.filter(function(o){return o.status==='done'}).length;
 return{id:w.id,name:w.name,venue:w.venues?w.venues.name:'—',served:served,
 lastLogin:w.last_login_at?new Date(w.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(w.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
 }).sort(function(a,b){return b.served-a.served});
-
 self.adminAnalytics={revenue:rev,orders:os.length,clients:clients,repeatClients:repeat,newClients:clients-repeat,
 avgCheck:done.length?Math.round(rev/done.length):0,
 avgCookTime:t.length?Math.round(t.reduce(function(a,b){return a+b},0)/t.length):0,
@@ -977,9 +967,13 @@ self.busy=false;
 if(r.error){self.addMgrModal.err='Ошибка: '+r.error.message;return}
 alert('Аккаунт создан! Передайте данные менеджеру.');
 self.addMgrModal.show=false;self.addMgrModal={show:false,name:'',email:'',password:'',role:'manager',err:''};self.loadAll()})},
-openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name,role:m.role}},
+openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name,role:m.role, allow_manage_delivery: !!m.allow_manage_delivery};},
 saveMgrEdit:function(){var self=this;
-db.from('profiles').update({display_name:self.mgrEditModal.name,role:self.mgrEditModal.role}).eq('id',self.mgrEditModal.id).then(function(){
+db.from('profiles').update({
+display_name:self.mgrEditModal.name,
+role:self.mgrEditModal.role,
+allow_manage_delivery: self.mgrEditModal.allow_manage_delivery
+}).eq('id',self.mgrEditModal.id).then(function(){
 self.mgrEditModal.show=false;self.loadAll()})},
 toggleMgrVenue:function(mid,vid,on){var self=this;
 var p=on?db.from('manager_venues').insert({manager_id:mid,venue_id:vid})
@@ -1038,7 +1032,6 @@ rejectPayment:function(pay){var self=this;
 db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadAll()})},
 logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
 
-// ===== МЕТОДЫ ДИЗАЙНА (СЕКРЕТНЫЕ) =====
 applyAdminDesign:function(v){
 var self=this;
 var settings={
@@ -1074,7 +1067,6 @@ alert('✅ Дизайн применён ко всем заведениям!');
 resetAdminTemplate:function(){
 this.adminDesignTemplate={brand_color:'#6366f1',button_color:'#8b5cf6',header_color:'#ffffff',font_family:'Plus+Jakarta+Sans'};
 }
-// ==================================
 },
 mounted:function(){this.init()}
 }).mount('#app');
