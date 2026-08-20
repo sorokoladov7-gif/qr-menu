@@ -12,38 +12,99 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
 [v-cloak]{display:none}
-.hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
-.hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
-.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.chip{padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);cursor:pointer;font-size:13px;color:#e5e7eb}
-.chip.on{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;font-weight:700}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
-.dish{border-radius:18px;overflow:hidden;transition:.2s}
-.dish:hover{transform:translateY(-3px);border-color:#8b5cf6}
-.dish img{width:100%;height:130px;object-fit:cover;display:block}
-.dish .body{padding:12px}
-.price-pill{display:inline-block;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;padding:5px 12px;border-radius:999px;font-weight:800;font-size:13px;margin:8px 0}
-.add-btn{width:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border:none;color:#fff;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:14px}
-.cartbar,.reorder-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
-.cartbar button,.reorder-bar button{width:100%;border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer}
-.cartbar button{background:linear-gradient(90deg,#f59e0b,#ef4444)}
-.reorder-bar button{background:linear-gradient(90deg,#10b981,#059669)}
-.b-new{background:rgba(96,165,250,.15);color:#93c5fd}.b-cooking{background:rgba(251,191,36,.15);color:#fcd34d}
-.b-ready{background:rgba(52,211,153,.15);color:#6ee7b7}.b-delivery{background:rgba(167,139,250,.15);color:#c4b5fd}
-.b-done{background:rgba(100,116,139,.2);color:#cbd5e1}.b-changed{background:rgba(251,146,60,.15);color:#fdba74}
-.alert-box{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:15px;margin:15px 0}
-.status-big{text-align:center;padding:20px 0 10px;font-size:52px}
-.delivery-calc{margin:10px 0;padding:12px;background:rgba(255,255,255,.05);border-radius:12px}
-.delivery-calc .row{display:flex;gap:8px;flex-wrap:wrap}
-.delivery-calc .btn-calc{background:#6366f1;color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700}
-.delivery-calc .delivery-fee{font-size:18px;color:#6ee7b7;font-weight:700}
-.delivery-calc .retry-btn{background:#f59e0b;color:#000;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700}
+/* CSS-переменные (переопределяются через :style на #app) */
+:root {
+  --brand-color: #6366f1;
+  --button-color: #8b5cf6;
+  --header-color: #ffffff;
+  --bg-color: #0b1120;
+  --card-bg: #141821;
+  --text-color: #eef2f7;
+  --accent-color: #a78bfa;
+  --border-radius: 18px;
+  --button-radius: 12px;
+  --shadow: 8px;
+  --font-size: 16px;
+  --font-family: 'Plus Jakarta Sans', sans-serif;
+}
+body {
+  background: var(--bg-color);
+  color: var(--text-color);
+  font-family: var(--font-family);
+  font-size: var(--font-size);
+  transition: background 0.3s, color 0.3s;
+}
+.hero {
+  border-radius: var(--border-radius);
+  background: linear-gradient(135deg, var(--brand-color), var(--button-color) 55%, var(--accent-color));
+}
+.hero h2, .hero p { color: var(--header-color); }
+.glass {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+  box-shadow: 0 var(--shadow) var(--shadow) rgba(0,0,0,0.3);
+  transition: background 0.3s, box-shadow 0.3s;
+}
+.btn-primary {
+  background: var(--button-color);
+  border-radius: var(--button-radius);
+  color: #fff;
+}
+.btn-ghost {
+  background: rgba(255,255,255,0.08);
+  border-radius: var(--button-radius);
+  color: var(--text-color);
+}
+.btn-green {
+  background: #10b981;
+  border-radius: var(--button-radius);
+  color: #fff;
+}
+.btn-danger {
+  background: #ef4444;
+  border-radius: var(--button-radius);
+  color: #fff;
+}
+.dish {
+  border-radius: var(--border-radius);
+  background: var(--card-bg);
+}
+.dish .body .price-pill {
+  background: linear-gradient(90deg, var(--brand-color), var(--accent-color));
+  border-radius: var(--button-radius);
+}
+.add-btn {
+  background: linear-gradient(90deg, var(--brand-color), var(--button-color));
+  border-radius: var(--button-radius);
+}
+.chip {
+  border-radius: var(--button-radius);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-color);
+}
+.chip.on {
+  background: linear-gradient(90deg, var(--brand-color), var(--button-color));
+  color: #fff;
+}
+.badge {
+  border-radius: var(--button-radius);
+}
+.cartbar button, .reorder-bar button {
+  border-radius: var(--button-radius);
+}
+.topbar {
+  background: var(--bg-color);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.modal .glass.box {
+  background: var(--card-bg);
+  border-radius: var(--border-radius);
+}
 </style>
 </head>
 <body>
-<div class="glow" style="width:45vw;height:45vw;background:rgba(139,92,246,.16);top:-100px;left:-100px"></div>
-<div id="app" v-cloak>
-<div class="topbar">
+<div id="app" v-cloak :style="appStyle">
+<div class="topbar" :style="topbarStyle">
 <div class="brand">
 <img v-if="venue&&venue.logo_url" v-bind:src="venue.logo_url" style="width:38px;height:38px;border-radius:12px;object-fit:cover" alt="">
 <div v-else class="logo" v-bind:style="venue&&venue.brand_color?{background:venue.brand_color}:{}">🍔</div>
@@ -246,14 +307,27 @@ calculatedDeliveryFee: null,
 deliveryDistance: 0,
 deliveryCalcBusy: false,
 deliveryCalcError: '',
-// Кешируем настройки заведения
 venueLat: null,
 venueLng: null,
 deliveryRatePerKm: 50,
 deliveryMinOrderFree: 0,
 deliveryBaseFee: 50,
-// Для отмены запроса
-abortController: null
+abortController: null,
+// ===== ДИЗАЙН =====
+design: {
+  brand_color: '#6366f1',
+  button_color: '#8b5cf6',
+  header_color: '#ffffff',
+  font_family: 'Plus+Jakarta+Sans',
+  background_color: '#0b1120',
+  card_background: '#141821',
+  text_color: '#eef2f7',
+  accent_color: '#a78bfa',
+  border_radius: 18,
+  button_radius: 12,
+  shadow: 8,
+  font_size: 16
+}
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -271,7 +345,28 @@ cartTotalWithDelivery:function(){
   return total;
 },
 dishTotal:function(){if(!this.dishModal.product)return 0;var s=Number(this.dishModal.product.price)||0;this.dishModal.addons.forEach(function(a){s+=a.price*a.qty});return s},
-hasAddons:function(){return this.products.some(function(p){return p.category==='addon'})}
+hasAddons:function(){return this.products.some(function(p){return p.category==='addon'})},
+// ===== СТИЛИ ДЛЯ ПРИМЕНЕНИЯ ДИЗАЙНА =====
+appStyle:function(){
+  var d=this.design;
+  return {
+    '--brand-color': d.brand_color,
+    '--button-color': d.button_color,
+    '--header-color': d.header_color,
+    '--bg-color': d.background_color,
+    '--card-bg': d.card_background,
+    '--text-color': d.text_color,
+    '--accent-color': d.accent_color,
+    '--border-radius': d.border_radius+'px',
+    '--button-radius': d.button_radius+'px',
+    '--shadow': d.shadow+'px',
+    '--font-size': d.font_size+'px',
+    '--font-family': d.font_family+', sans-serif'
+  };
+},
+topbarStyle:function(){
+  return { background: this.design.background_color + 'cc' };
+}
 },
 methods:{
 fmt:function(v){return window.fmt(v)},
@@ -280,6 +375,43 @@ statusName:function(s){return window.statusName(s)},
 statusColor:function(s){return window.statusColor(s)},
 statusEmoji:function(s){return{new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
 statusHint:function(s){return{new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''},
+
+// ===== ЗАГРУЗКА ДИЗАЙНА =====
+loadDesign:function(){
+  if(this.venue && this.venue.design_settings){
+    var ds = this.venue.design_settings;
+    this.design = {
+      brand_color: ds.brand_color || '#6366f1',
+      button_color: ds.button_color || '#8b5cf6',
+      header_color: ds.header_color || '#ffffff',
+      font_family: ds.font_family || 'Plus+Jakarta+Sans',
+      background_color: ds.background_color || '#0b1120',
+      card_background: ds.card_background || '#141821',
+      text_color: ds.text_color || '#eef2f7',
+      accent_color: ds.accent_color || '#a78bfa',
+      border_radius: ds.border_radius != null ? ds.border_radius : 18,
+      button_radius: ds.button_radius != null ? ds.button_radius : 12,
+      shadow: ds.shadow != null ? ds.shadow : 8,
+      font_size: ds.font_size != null ? ds.font_size : 16
+    };
+  } else {
+    // Сброс к дефолтным, если дизайн не задан
+    this.design = {
+      brand_color: '#6366f1',
+      button_color: '#8b5cf6',
+      header_color: '#ffffff',
+      font_family: 'Plus+Jakarta+Sans',
+      background_color: '#0b1120',
+      card_background: '#141821',
+      text_color: '#eef2f7',
+      accent_color: '#a78bfa',
+      border_radius: 18,
+      button_radius: 12,
+      shadow: 8,
+      font_size: 16
+    };
+  }
+},
 
 setOrderType:function(type){
   this.form.type = type;
@@ -294,32 +426,26 @@ setOrderType:function(type){
   }
 },
 
-// ===== РАСЧЁТ ДОСТАВКИ С ТАЙМАУТОМ И ПОВТОРОМ =====
 calcDeliveryFee:function(){
   var self = this;
   if(!this.form.address.trim()){
     this.deliveryCalcError = 'Введите адрес';
     return;
   }
-
-  // Отменяем предыдущий запрос, если был
   if(this.abortController) {
     this.abortController.abort();
     this.abortController = null;
   }
-
   this.deliveryCalcBusy = true;
   this.deliveryCalcError = '';
   this.calculatedDeliveryFee = null;
 
-  // Используем кешированные настройки заведения (загружены при выборе заведения)
   if(!this.venueLat || !this.venueLng){
     this.deliveryCalcError = 'Координаты заведения не заданы. Обратитесь к администратору.';
     this.deliveryCalcBusy = false;
     return;
   }
 
-  // Создаём AbortController с таймаутом 10 секунд
   var controller = new AbortController();
   this.abortController = controller;
   var timeoutId = setTimeout(function() {
@@ -357,7 +483,6 @@ calcDeliveryFee:function(){
     var distance = R * c;
     self.deliveryDistance = Math.round(distance * 100) / 100;
 
-    // Расчёт с тарифами
     var rate = self.deliveryRatePerKm;
     var base = self.deliveryBaseFee;
     var minFree = self.deliveryMinOrderFree;
@@ -375,7 +500,6 @@ calcDeliveryFee:function(){
   .catch(function(err){
     clearTimeout(timeoutId);
     if(err.name === 'AbortError') {
-      // Таймаут уже обработан выше, но на всякий случай
       if(!self.deliveryCalcError) {
         self.deliveryCalcError = 'Превышено время ожидания. Попробуйте ещё раз.';
       }
@@ -399,6 +523,7 @@ init:function(){
   var p=slug?db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){
       self.venue=r.data;
       self.loadVenueSettings(self.venue);
+      self.loadDesign(); // загружаем дизайн
     })
     :db.from('venues').select('*').eq('status','active').then(function(r){self.venues=r.data||[]});
   p.then(function(){if(self.venue)return self.loadProducts()}).finally(function(){self.ready=true});
@@ -411,6 +536,7 @@ init:function(){
 selectVenue:function(v){
   this.venue=v;
   this.loadVenueSettings(v);
+  this.loadDesign(); // загружаем дизайн при выборе
   this.loadProducts();
 },
 loadVenueSettings:function(v){
