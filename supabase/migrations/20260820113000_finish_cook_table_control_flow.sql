@@ -1,0 +1,3 @@
+-- Finish cook table control flow. Runtime migration is applied to Supabase production.
+-- Adds cook_reserve_table and canonical cook_get_table_dashboard reservation metadata.
+-- Control remains gated by staff_can_control_tables(): cook may control tables only when venue has no waiter.
