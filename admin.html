@@ -74,7 +74,7 @@
 <button v-bind:class="{on:tab==='plans'}" v-on:click="tab='plans'">💳 Тарифы и оплаты</button>
 </div>
 
-<!-- СТАТИСТИКА -->
+<!-- ===================== СТАТИСТИКА ===================== -->
 <div v-if="tab==='stats'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Статистика сети</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
@@ -92,7 +92,7 @@
 <tr v-if="!globalStats.venueStats.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
 </div>
 
-<!-- ПОДПИСКИ -->
+<!-- ===================== ПОДПИСКИ ===================== -->
 <div v-if="tab==='subs'">
 <h3 style="margin:0 0 14px">📈 Аналитика по подпискам</h3>
 <div class="analytics-grid">
@@ -118,7 +118,7 @@
 <tr v-if="!venueSubs.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет заведений</td></tr></table></div>
 </div>
 
-<!-- АНАЛИТИКА -->
+<!-- ===================== АНАЛИТИКА ===================== -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">📈 Полная аналитика платформы</h3>
 <select v-model="adminAnalyticsPeriod" v-on:change="loadAdminAnalytics" style="width:auto">
@@ -205,7 +205,7 @@
 </div>
 </div>
 
-<!-- АКТИВНОСТЬ -->
+<!-- ===================== АКТИВНОСТЬ ===================== -->
 <div v-if="tab==='activity'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность персонала и заведений</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
@@ -243,7 +243,7 @@
 <tr v-if="!waiterActivity.length"><td colspan="4" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
 </div>
 
-<!-- ЗАВЕДЕНИЯ -->
+<!-- ===================== ЗАВЕДЕНИЯ ===================== -->
 <div v-if="tab==='venues'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Заведения</h3>
 <button class="btn btn-primary btn-sm" v-on:click="showModal=true">+ Создать</button></div>
@@ -266,7 +266,7 @@
 <p v-if="!venues.length" class="muted" style="padding:14px">Заведений нет.</p></div>
 </div>
 
-<!-- УПРАВЛЯЮЩИЕ -->
+<!-- ===================== УПРАВЛЯЮЩИЕ (право на дизайн) ===================== -->
 <div v-if="tab==='managers'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Управляющие</h3>
 <button class="btn btn-primary btn-sm" v-on:click="addMgrModal.show=true">+ Добавить управляющего</button></div>
@@ -285,7 +285,7 @@
 <p v-if="!managers.length" class="muted" style="padding:14px">Нет управляющих.</p></div>
 </div>
 
-<!-- ПОВАРА -->
+<!-- ===================== ПОВАРА ===================== -->
 <div v-if="tab==='cooks'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <select v-model="cookForm.venue_id" style="flex:1">
@@ -305,7 +305,7 @@
 <p v-if="!cooksAll.length" class="muted" style="padding:14px">Нет поваров.</p></div>
 </div>
 
-<!-- КУРЬЕРЫ -->
+<!-- ===================== КУРЬЕРЫ ===================== -->
 <div v-if="tab==='couriers'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <select v-model="courierForm.venue_id" style="flex:1">
@@ -325,7 +325,7 @@
 <p v-if="!couriersAll.length" class="muted" style="padding:14px">Нет курьеров.</p></div>
 </div>
 
-<!-- ОФИЦИАНТЫ -->
+<!-- ===================== ОФИЦИАНТЫ ===================== -->
 <div v-if="tab==='waiters'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <select v-model="waiterForm.venue_id" style="flex:1">
@@ -345,7 +345,7 @@
 <p v-if="!waitersAll.length" class="muted" style="padding:14px">Нет официантов.</p></div>
 </div>
 
-<!-- ТАРИФЫ И ОПЛАТЫ -->
+<!-- ===================== ТАРИФЫ И ОПЛАТЫ ===================== -->
 <div v-if="tab==='plans'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">⚙️ Конструктор тарифов</h3>
 <button class="btn btn-primary btn-sm" v-on:click="createPlan">+ Создать тариф</button></div>
@@ -387,7 +387,9 @@
 </template>
 </div>
 
-<!-- МОДАЛКИ -->
+<!-- ===================== МОДАЛКИ ===================== -->
+
+<!-- НОВОЕ ЗАВЕДЕНИЕ -->
 <div v-if="showModal" class="modal" v-on:click.self="showModal=false"><div class="glass box">
 <h3 style="margin-top:0">Новое заведение</h3>
 <div class="field"><label>Название</label><input v-model.trim="nform.name"></div>
@@ -398,6 +400,7 @@
 <div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
 </div></div>
 
+<!-- НАСТРОЙКИ ЗАВЕДЕНИЯ -->
 <div v-if="venueEditModal.show" class="modal" v-on:click.self="venueEditModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">⚙️ Заведение: {{ venueEditModal.name }}</h3>
 <div class="field"><label>Логотип</label>
@@ -419,6 +422,7 @@
 <button class="btn btn-ghost" v-on:click="venueEditModal.show=false">Отмена</button></div>
 </div></div>
 
+<!-- МЕНЮ ЗАВЕДЕНИЯ -->
 <div v-if="prodModal.show" class="modal" v-on:click.self="prodModal.show=false"><div class="glass box" style="max-width:700px">
 <h3 style="margin-top:0">🍔 Меню: {{ prodModal.venueName }}</h3>
 <div v-for="p in prodModal.list" v-bind:key="p.id" class="row" style="margin-bottom:10px;align-items:stretch">
@@ -467,6 +471,7 @@
 <button class="btn btn-ghost" style="margin-top:8px" v-on:click="prodModal.show=false">Закрыть</button>
 </div></div>
 
+<!-- ДОБАВИТЬ УПРАВЛЯЮЩЕГО -->
 <div v-if="addMgrModal.show" class="modal" v-on:click.self="addMgrModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Новый управляющий</h3>
 <div class="field"><label>Имя</label><input v-model.trim="addMgrModal.name"></div>
@@ -480,6 +485,7 @@
 <div v-if="addMgrModal.err" class="msg error" style="margin-top:10px">{{ addMgrModal.err }}</div>
 </div></div>
 
+<!-- РЕДАКТИРОВАТЬ УПРАВЛЯЮЩЕГО (с правом на дизайн) -->
 <div v-if="mgrEditModal.show" class="modal" v-on:click.self="mgrEditModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Редактировать: {{ mgrEditModal.name }}</h3>
 <div class="field"><label>Имя</label><input v-model.trim="mgrEditModal.name"></div>
@@ -501,6 +507,7 @@
 <button class="btn btn-ghost" v-on:click="mgrEditModal.show=false">Отмена</button></div>
 </div></div>
 
+<!-- РЕДАКТИРОВАТЬ ПЕРСОНАЛ -->
 <div v-if="staffEditModal.show" class="modal" v-on:click.self="staffEditModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Редактировать: {{ staffEditModal.name }}</h3>
 <div class="field"><label>Заведение</label>
@@ -513,15 +520,16 @@
 <button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- ===== РАСШИРЕННАЯ ПАНЕЛЬ ДИЗАЙНА ===== -->
+<!-- ===================== ПРОФЕССИОНАЛЬНАЯ ПАНЕЛЬ ДИЗАЙНА ===================== -->
 <div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
   <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
-    <h3 style="margin-top:0">🎨 Расширенная панель управления дизайном</h3>
-    <p class="muted" style="font-size:12px;margin-bottom:14px">Вы можете применить единый стиль ко всем заведениям или к каждому отдельно.</p>
+    <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:14px">Настройте внешний вид всех заведений или выборочно. Все параметры сохраняются в БД и применяются динамически.</p>
 
     <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
-      <h4>Шаблон дизайна</h4>
-      <!-- Группы настроек (все как в предыдущей версии) -->
+      <h4>Шаблон дизайна (глобальный)</h4>
+      
+      <!-- 1. Основные цвета -->
       <div class="design-group">
         <h4>🎨 Основные цвета</h4>
         <div class="design-grid">
@@ -535,11 +543,134 @@
           <div class="design-field"><label>Цвет границ</label><input v-model="adminDesignTemplate.border_color" type="color"></div>
         </div>
       </div>
-      <div class="design-group"><h4>🖼️ Фон</h4><div class="design-grid">...</div></div>
-      <div class="design-group"><h4>🔤 Типографика</h4><div class="design-grid">...</div></div>
-      <div class="design-group"><h4>🃏 Карточки товаров</h4><div class="design-grid">...</div></div>
-      <div class="design-group"><h4>🔘 Кнопки</h4><div class="design-grid">...</div></div>
-      <div class="design-group"><h4>⚙️ Дополнительно</h4><div class="design-grid">...</div></div>
+
+      <!-- 2. Фон -->
+      <div class="design-group">
+        <h4>🖼️ Фон</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Градиент (цвет 1)</label><input v-model="adminDesignTemplate.gradient_start" type="color"></div>
+          <div class="design-field"><label>Градиент (цвет 2)</label><input v-model="adminDesignTemplate.gradient_end" type="color"></div>
+          <div class="design-field"><label>Направление градиента</label>
+            <select v-model="adminDesignTemplate.gradient_direction">
+              <option value="to right">→ вправо</option>
+              <option value="to left">← влево</option>
+              <option value="to bottom">↓ вниз</option>
+              <option value="to top">↑ вверх</option>
+              <option value="135deg">↘ диагональ</option>
+              <option value="45deg">↗ диагональ</option>
+            </select>
+          </div>
+          <div class="design-field"><label>Фоновое изображение (URL)</label>
+            <input v-model="adminDesignTemplate.background_image" placeholder="https://example.com/bg.jpg">
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px">
+              <span>📤 Загрузить</span>
+              <input type="file" accept="image/*" v-on:change="uploadBgImage" style="display:none">
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Типографика -->
+      <div class="design-group">
+        <h4>🔤 Типографика</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Шрифт</label>
+            <select v-model="adminDesignTemplate.font_family">
+              <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
+              <option value="Inter">Inter</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Oswald">Oswald</option>
+            </select>
+          </div>
+          <div class="design-field"><label>Размер шрифта (px)</label><input v-model.number="adminDesignTemplate.font_size" type="number" min="12" max="24"></div>
+          <div class="design-field"><label>Жирность заголовков</label>
+            <select v-model="adminDesignTemplate.heading_weight">
+              <option value="400">400</option>
+              <option value="600">600</option>
+              <option value="700">700</option>
+              <option value="800">800</option>
+            </select>
+          </div>
+          <div class="design-field"><label>Жирность текста</label>
+            <select v-model="adminDesignTemplate.body_weight">
+              <option value="300">300</option>
+              <option value="400">400</option>
+              <option value="500">500</option>
+              <option value="600">600</option>
+            </select>
+          </div>
+          <div class="design-field"><label>Межстрочный интервал</label>
+            <select v-model="adminDesignTemplate.line_height">
+              <option value="1.4">1.4</option>
+              <option value="1.6">1.6</option>
+              <option value="1.8">1.8</option>
+              <option value="2.0">2.0</option>
+            </select>
+          </div>
+          <div class="design-field"><label>Межбуквенный интервал (px)</label><input v-model.number="adminDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5"></div>
+        </div>
+      </div>
+
+      <!-- 4. Карточки товаров -->
+      <div class="design-group">
+        <h4>🃏 Карточки товаров</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Внутренний отступ (px)</label><input v-model.number="adminDesignTemplate.card_padding" type="number" min="4" max="24"></div>
+          <div class="design-field"><label>Высота изображения (px)</label><input v-model.number="adminDesignTemplate.card_image_height" type="number" min="80" max="300"></div>
+          <div class="design-field"><label>Выравнивание текста</label>
+            <select v-model="adminDesignTemplate.card_text_align">
+              <option value="left">Слева</option>
+              <option value="center">По центру</option>
+            </select>
+          </div>
+          <div class="design-field" style="display:flex;gap:12px;align-items:center">
+            <label><input type="checkbox" v-model="adminDesignTemplate.show_description"> Показывать описание</label>
+            <label><input type="checkbox" v-model="adminDesignTemplate.show_price"> Показывать цену</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Кнопки -->
+      <div class="design-group">
+        <h4>🔘 Кнопки</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Цвет текста кнопок</label><input v-model="adminDesignTemplate.button_text_color" type="color"></div>
+          <div class="design-field"><label>Жирность текста</label>
+            <select v-model="adminDesignTemplate.button_weight">
+              <option value="400">400</option>
+              <option value="600">600</option>
+              <option value="700">700</option>
+            </select>
+          </div>
+          <div class="design-field"><label>Эффект при наведении</label>
+            <select v-model="adminDesignTemplate.button_hover">
+              <option value="scale">Увеличение</option>
+              <option value="shadow">Тень</option>
+              <option value="none">Без эффекта</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6. Дополнительно -->
+      <div class="design-group">
+        <h4>⚙️ Дополнительно</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Толщина границ (px)</label><input v-model.number="adminDesignTemplate.border_width" type="number" min="0" max="4"></div>
+          <div class="design-field"><label>Скругление карточек (px)</label><input v-model.number="adminDesignTemplate.border_radius" type="number" min="0" max="30"></div>
+          <div class="design-field"><label>Скругление кнопок (px)</label><input v-model.number="adminDesignTemplate.button_radius" type="number" min="0" max="30"></div>
+          <div class="design-field"><label>Тень (px)</label><input v-model.number="adminDesignTemplate.shadow" type="number" min="0" max="20"></div>
+          <div class="design-field"><label>Скорость анимации (s)</label>
+            <select v-model="adminDesignTemplate.transition_speed">
+              <option value="0.1">0.1</option>
+              <option value="0.2">0.2</option>
+              <option value="0.3">0.3</option>
+              <option value="0.5">0.5</option>
+            </select>
+          </div>
+        </div>
+      </div>
 
       <div class="row" style="margin-top:16px;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary btn-sm" v-on:click="applyDesignToAll">✅ Применить ко всем заведениям</button>
@@ -550,7 +681,7 @@
     <h4>Текущие настройки заведений</h4>
     <div class="tblwrap">
       <table class="tbl">
-        <tr><th>Заведение</th><th>Цвет градиента</th><th>Цвет кнопок</th><th>Шрифт</th><th>Действие</th></tr>
+        <tr><th>Заведение</th><th>Брендовый цвет</th><th>Цвет кнопок</th><th>Шрифт</th><th>Действие</th></tr>
         <tr v-for="v in venues" v-bind:key="v.id">
           <td><b>{{ v.name }}</b></td>
           <td><span v-bind:style="{display:'inline-block',width:'30px',height:'30px',borderRadius:'6px',background:v.design_settings?.brand_color||'#6366f1'}"></span></td>
@@ -563,6 +694,7 @@
     <button class="btn btn-ghost" style="margin-top:14px" v-on:click="secretDesignPanel=false">Закрыть</button>
   </div>
 </div>
+<!-- ============================================== -->
 
 </div>
 <script src="js/config.js"></script>
@@ -743,7 +875,6 @@ self.profile=profile;
 if(!profile){self.ready=true;return}
 self.loadAll().then(function(){self.loadGlobalStats();self.ready=true});
 });
-var self=this;
 this.$watch('brandClicks', function(val){
   if(val >= 5 && self.profile && self.profile.role === 'admin'){
     self.secretDesignPanel = true;
@@ -1012,7 +1143,7 @@ rejectPayment:function(pay){var self=this;
 db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadAll()})},
 logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
 
-// ===== МЕТОДЫ ДИЗАЙНА =====
+// ===== МЕТОДЫ ПРОФЕССИОНАЛЬНОГО ДИЗАЙНА =====
 uploadBgImage:function(ev){
   var self=this;
   var f=ev.target.files[0];
