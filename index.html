@@ -41,14 +41,13 @@
 
 <script>
 function startDemo(page){
-  // Для автономных демо-файлов НЕ ставим qr_demo_mode
-  // чтобы не активировать демо-режим в реальных страницах
-  if(page === 'manager-demo.html'){
-    location.href = page;
-  } else {
-    localStorage.setItem('qr_demo_mode','1');
-    location.href = page;
+  // Для демо-режима устанавливаем флаг и переходим
+  localStorage.setItem('qr_demo_mode', '1');
+  // Для страниц персонала также сохраняем тип, чтобы demo-mode.js корректно подхватил
+  if (page === 'cook.html' || page === 'courier.html' || page === 'waiter.html') {
+    localStorage.setItem('demo_staff_type', page.replace('.html', ''));
   }
+  location.href = page;
 }
 </script>
 
