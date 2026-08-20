@@ -3,12 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍🍳</text></svg>">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👨‍</text></svg>">
 <title>Кухня — QR-SETKA</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="/js/config.js"></script>
-<script src="/js/staff-notifications.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
@@ -74,7 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <span style="font-size:16px">{{ o.order_type==='delivery'?'🚗':'🏠' }}</span>
           </div>
           <div class="order-items">
-            <div v-for="(it,idx) in parseItems(o)" :key="idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }} <span v-if="it.price">· {{ fmt(it.price*(it.qty||it.quantity||1)) }} ₽</span></div>
+            <div v-for="(it,idx) in parseItems(o)" :key="'i'+idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }} <span v-if="it.price">· {{ fmt(it.price*(it.qty||it.quantity||1)) }} ₽</span></div>
             <div v-for="(a,idx) in parseAddons(o)" :key="'a'+idx" style="color:#94a3b8">+ {{ a.name||a.addon_name||'Добавка' }}</div>
           </div>
           <div v-if="o.comment" style="color:#fbbf24;font-size:12px;margin-top:6px">💬 {{ o.comment }}</div>
@@ -87,14 +86,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
 
       <div class="col">
-        <h3>🔥 Готовятся ({{ colCooking.length }})</h3>
+        <h3> Готовятся ({{ colCooking.length }})</h3>
         <div v-for="o in colCooking" :key="o.id" class="order">
           <div class="order-head">
             <b>№{{ o.order_number }}<span v-if="o.table_number||o.table_name" class="table-badge">🪑 {{ o.table_name||('Стол '+o.table_number) }}</span></b>
-            <span style="color:#94a3b8;font-size:12px">👨‍🍳 {{ o.cook_name||'—' }}</span>
+            <span style="color:#94a3b8;font-size:12px">‍🍳 {{ o.cook_name||'—' }}</span>
           </div>
           <div class="order-items">
-            <div v-for="(it,idx) in parseItems(o)" :key="idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }}</div>
+            <div v-for="(it,idx) in parseItems(o)" :key="'i'+idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }}</div>
           </div>
           <div class="order-actions">
             <button class="btn btn-green" @click="setStatus(o,'ready')">Готово ✓</button>
@@ -108,10 +107,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div v-for="o in colReady" :key="o.id" class="order">
           <div class="order-head">
             <b>№{{ o.order_number }}<span v-if="o.table_number||o.table_name" class="table-badge">🪑 {{ o.table_name||('Стол '+o.table_number) }}</span></b>
-            <span style="color:#94a3b8;font-size:12px">👨‍ {{ o.cook_name||'—' }}</span>
+            <span style="color:#94a3b8;font-size:12px">‍ {{ o.cook_name||'—' }}</span>
           </div>
           <div class="order-items">
-            <div v-for="(it,idx) in parseItems(o)" :key="idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }}</div>
+            <div v-for="(it,idx) in parseItems(o)" :key="'i'+idx">{{ it.qty||it.quantity||1 }}x {{ it.name||it.product_name||'Товар' }}</div>
           </div>
           <div class="order-actions">
             <button v-if="o.order_type==='delivery'" class="btn btn-primary" @click="setStatus(o,'delivery')">Курьеру 🚗</button>
@@ -174,6 +173,7 @@ createApp({
   methods:{
     fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
     fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
+    
     parseItems(o){
       if(!o.items) return [];
       if(Array.isArray(o.items)) return o.items;
