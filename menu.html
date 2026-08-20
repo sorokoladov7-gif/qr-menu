@@ -11,7 +11,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
-/* все стили такие же, как в предыдущей версии, можно скопировать из предыдущего ответа */
 [v-cloak]{display:none}
 .hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 .hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
@@ -147,7 +146,6 @@
 </template>
 </div>
 
-<!-- МОДАЛКИ такие же как и в предыдущем меню, можно скопировать из предыдущего ответа -->
 <!-- Dish modal -->
 <div v-if="dishModal.show" class="modal" v-on:click.self="dishModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">{{ dishModal.product.name }}</h3>
@@ -174,7 +172,6 @@
 <div class="field" style="margin-top:14px"><label>Имя</label><input v-model="form.name"></div>
 <div class="field"><label>Телефон *</label><input v-model="form.phone" type="tel" placeholder="+7 900 000-00-00"></div>
 
-<!-- Выбор типа получения -->
 <div class="field"><label>Как получить</label>
 <div class="row" style="flex-wrap:wrap;gap:6px">
   <button class="btn" v-bind:class="form.type==='pickup'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('pickup')">🏠 Самовывоз</button>
@@ -203,8 +200,8 @@
     </div>
     <div style="font-size:12px;color:#94a3b8;margin-top:4px">
       * Стоимость рассчитана по настройкам заведения.
-      <span v-if="venue.delivery_min_order_free && venue.delivery_min_order_free > 0 && cartTotal >= venue.delivery_min_order_free">
-        (бесплатно, т.к. сумма заказа >= {{ fmt(venue.delivery_min_order_free) }} ₽)
+      <span v-if="deliveryMinOrderFree && deliveryMinOrderFree > 0 && cartTotal >= deliveryMinOrderFree">
+        (бесплатно, т.к. сумма заказа >= {{ fmt(deliveryMinOrderFree) }} ₽)
       </span>
     </div>
   </div>
@@ -247,7 +244,7 @@ deliveryCalcBusy: false,
 deliveryCalcError: '',
 venueLat: null,
 venueLng: null,
-// Настройки доставки из заведения
+// Настройки доставки (будут обновляться при расчёте)
 deliveryRatePerKm: 50,
 deliveryMinOrderFree: 0,
 deliveryBaseFee: 50
@@ -287,62 +284,79 @@ setOrderType:function(type){
   }
 },
 
+// ===== ОБНОВЛЁННЫЙ МЕТОД РАСЧЁТА ДОСТАВКИ =====
 calcDeliveryFee:function(){
   var self = this;
   if(!this.form.address.trim()){
     this.deliveryCalcError = 'Введите адрес';
     return;
   }
-  if(!this.venueLat || !this.venueLng){
-    this.deliveryCalcError = 'Координаты заведения не заданы. Обратитесь к администратору.';
-    return;
-  }
+
+  // Сначала загружаем актуальные настройки заведения из базы
   this.deliveryCalcBusy = true;
   this.deliveryCalcError = '';
   this.calculatedDeliveryFee = null;
 
-  var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(this.form.address.trim()) + '&format=json&limit=1';
-  fetch(url, {
-    headers: { 'User-Agent': 'QR-Menu-App/1.0' }
-  })
-  .then(function(res){ return res.json(); })
-  .then(function(data){
-    if(!data || !data.length){
-      throw new Error('Адрес не найден');
-    }
-    var lat = parseFloat(data[0].lat);
-    var lon = parseFloat(data[0].lon);
-    if(isNaN(lat) || isNaN(lon)){
-      throw new Error('Не удалось определить координаты');
-    }
-    var R = 6371;
-    var dLat = (lat - self.venueLat) * Math.PI / 180;
-    var dLon = (lon - self.venueLng) * Math.PI / 180;
-    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(self.venueLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    var distance = R * c;
-    self.deliveryDistance = Math.round(distance * 100) / 100;
+  db.from('venues').select('lat, lng, delivery_rate_per_km, delivery_min_order_free, delivery_base_fee')
+    .eq('id', this.venue.id)
+    .maybeSingle()
+    .then(function(res){
+      if(res.error) throw res.error;
+      if(!res.data) throw new Error('Заведение не найдено');
 
-    // Расчёт стоимости с учётом настроек заведения
-    var rate = self.deliveryRatePerKm || 50;
-    var base = self.deliveryBaseFee || 50;
-    var minFree = self.deliveryMinOrderFree || 0;
-    var fee = distance * rate + base;
-    if (minFree > 0 && self.cartTotal >= minFree) {
-      fee = 0;
-    } else {
-      if (fee < 0) fee = 0;
-    }
-    self.calculatedDeliveryFee = Math.round(fee);
-    self.deliveryCalcBusy = false;
-  })
-  .catch(function(err){
-    self.deliveryCalcError = 'Ошибка: ' + err.message;
-    self.deliveryCalcBusy = false;
-    self.calculatedDeliveryFee = null;
-  });
+      // Обновляем локальные настройки из свежих данных
+      self.venueLat = res.data.lat ? parseFloat(res.data.lat) : null;
+      self.venueLng = res.data.lng ? parseFloat(res.data.lng) : null;
+      self.deliveryRatePerKm = res.data.delivery_rate_per_km != null ? parseFloat(res.data.delivery_rate_per_km) : 50;
+      self.deliveryMinOrderFree = res.data.delivery_min_order_free != null ? parseFloat(res.data.delivery_min_order_free) : 0;
+      self.deliveryBaseFee = res.data.delivery_base_fee != null ? parseFloat(res.data.delivery_base_fee) : 50;
+
+      if(!self.venueLat || !self.venueLng){
+        throw new Error('Координаты заведения не заданы. Обратитесь к администратору.');
+      }
+
+      // Теперь выполняем геокодирование адреса
+      var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(self.form.address.trim()) + '&format=json&limit=1';
+      return fetch(url, { headers: { 'User-Agent': 'QR-Menu-App/1.0' } });
+    })
+    .then(function(response){ return response.json(); })
+    .then(function(data){
+      if(!data || !data.length){
+        throw new Error('Адрес не найден');
+      }
+      var lat = parseFloat(data[0].lat);
+      var lon = parseFloat(data[0].lon);
+      if(isNaN(lat) || isNaN(lon)){
+        throw new Error('Не удалось определить координаты');
+      }
+      var R = 6371;
+      var dLat = (lat - self.venueLat) * Math.PI / 180;
+      var dLon = (lon - self.venueLng) * Math.PI / 180;
+      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(self.venueLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      var distance = R * c;
+      self.deliveryDistance = Math.round(distance * 100) / 100;
+
+      // Расчёт с обновлёнными тарифами
+      var rate = self.deliveryRatePerKm;
+      var base = self.deliveryBaseFee;
+      var minFree = self.deliveryMinOrderFree;
+      var fee = distance * rate + base;
+      if (minFree > 0 && self.cartTotal >= minFree) {
+        fee = 0;
+      } else {
+        if (fee < 0) fee = 0;
+      }
+      self.calculatedDeliveryFee = Math.round(fee);
+      self.deliveryCalcBusy = false;
+    })
+    .catch(function(err){
+      self.deliveryCalcError = 'Ошибка: ' + err.message;
+      self.deliveryCalcBusy = false;
+      self.calculatedDeliveryFee = null;
+    });
 },
 
 goToTracking:function(){
@@ -404,6 +418,7 @@ checkout:function(){
 
   if(self.form.type === 'delivery'){
     if(!self.form.address.trim()){ self.msg='Укажите адрес доставки'; return; }
+    // Если доставка не рассчитана, предлагаем рассчитать (или пересчитываем автоматически)
     if(self.calculatedDeliveryFee === null){
       self.msg='Рассчитайте стоимость доставки';
       return;
