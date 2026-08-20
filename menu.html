@@ -37,6 +37,7 @@
 .delivery-calc .row{display:flex;gap:8px;flex-wrap:wrap}
 .delivery-calc .btn-calc{background:#6366f1;color:#fff;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700}
 .delivery-calc .delivery-fee{font-size:18px;color:#6ee7b7;font-weight:700}
+.delivery-calc .retry-btn{background:#f59e0b;color:#000;border:0;padding:8px 14px;border-radius:8px;cursor:pointer;font-weight:700}
 </style>
 </head>
 <body>
@@ -205,7 +206,10 @@
       </span>
     </div>
   </div>
-  <div v-if="deliveryCalcError" style="color:#f87171;font-size:12px;margin-top:4px">{{ deliveryCalcError }}</div>
+  <div v-if="deliveryCalcError" style="color:#f87171;font-size:12px;margin-top:4px">
+    {{ deliveryCalcError }}
+    <button class="btn retry-btn btn-sm" v-on:click="calcDeliveryFee" style="margin-left:8px">🔄 Повторить</button>
+  </div>
 </div>
 
 <div class="field"><label>Комментарий</label><textarea v-model="form.comment" rows="2"></textarea></div>
@@ -242,12 +246,14 @@ calculatedDeliveryFee: null,
 deliveryDistance: 0,
 deliveryCalcBusy: false,
 deliveryCalcError: '',
+// Кешируем настройки заведения
 venueLat: null,
 venueLng: null,
-// Настройки доставки (будут обновляться при расчёте)
 deliveryRatePerKm: 50,
 deliveryMinOrderFree: 0,
-deliveryBaseFee: 50
+deliveryBaseFee: 50,
+// Для отмены запроса
+abortController: null
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -281,10 +287,14 @@ setOrderType:function(type){
     this.calculatedDeliveryFee = null;
     this.deliveryDistance = 0;
     this.deliveryCalcError = '';
+    if(this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
+    }
   }
 },
 
-// ===== ОБНОВЛЁННЫЙ МЕТОД РАСЧЁТА ДОСТАВКИ =====
+// ===== РАСЧЁТ ДОСТАВКИ С ТАЙМАУТОМ И ПОВТОРОМ =====
 calcDeliveryFee:function(){
   var self = this;
   if(!this.form.address.trim()){
@@ -292,71 +302,89 @@ calcDeliveryFee:function(){
     return;
   }
 
-  // Сначала загружаем актуальные настройки заведения из базы
+  // Отменяем предыдущий запрос, если был
+  if(this.abortController) {
+    this.abortController.abort();
+    this.abortController = null;
+  }
+
   this.deliveryCalcBusy = true;
   this.deliveryCalcError = '';
   this.calculatedDeliveryFee = null;
 
-  db.from('venues').select('lat, lng, delivery_rate_per_km, delivery_min_order_free, delivery_base_fee')
-    .eq('id', this.venue.id)
-    .maybeSingle()
-    .then(function(res){
-      if(res.error) throw res.error;
-      if(!res.data) throw new Error('Заведение не найдено');
+  // Используем кешированные настройки заведения (загружены при выборе заведения)
+  if(!this.venueLat || !this.venueLng){
+    this.deliveryCalcError = 'Координаты заведения не заданы. Обратитесь к администратору.';
+    this.deliveryCalcBusy = false;
+    return;
+  }
 
-      // Обновляем локальные настройки из свежих данных
-      self.venueLat = res.data.lat ? parseFloat(res.data.lat) : null;
-      self.venueLng = res.data.lng ? parseFloat(res.data.lng) : null;
-      self.deliveryRatePerKm = res.data.delivery_rate_per_km != null ? parseFloat(res.data.delivery_rate_per_km) : 50;
-      self.deliveryMinOrderFree = res.data.delivery_min_order_free != null ? parseFloat(res.data.delivery_min_order_free) : 0;
-      self.deliveryBaseFee = res.data.delivery_base_fee != null ? parseFloat(res.data.delivery_base_fee) : 50;
+  // Создаём AbortController с таймаутом 10 секунд
+  var controller = new AbortController();
+  this.abortController = controller;
+  var timeoutId = setTimeout(function() {
+    controller.abort();
+    self.deliveryCalcBusy = false;
+    self.deliveryCalcError = 'Превышено время ожидания ответа от сервиса геокодирования. Попробуйте позже.';
+  }, 10000);
 
-      if(!self.venueLat || !self.venueLng){
-        throw new Error('Координаты заведения не заданы. Обратитесь к администратору.');
-      }
+  var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(this.form.address.trim()) + '&format=json&limit=1';
+  fetch(url, {
+    headers: { 'User-Agent': 'QR-Menu-App/1.0' },
+    signal: controller.signal
+  })
+  .then(function(response){
+    clearTimeout(timeoutId);
+    if(!response.ok) throw new Error('Сервис геокодирования недоступен (код '+response.status+')');
+    return response.json();
+  })
+  .then(function(data){
+    if(!data || !data.length){
+      throw new Error('Адрес не найден');
+    }
+    var lat = parseFloat(data[0].lat);
+    var lon = parseFloat(data[0].lon);
+    if(isNaN(lat) || isNaN(lon)){
+      throw new Error('Не удалось определить координаты');
+    }
+    var R = 6371;
+    var dLat = (lat - self.venueLat) * Math.PI / 180;
+    var dLon = (lon - self.venueLng) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(self.venueLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    var distance = R * c;
+    self.deliveryDistance = Math.round(distance * 100) / 100;
 
-      // Теперь выполняем геокодирование адреса
-      var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(self.form.address.trim()) + '&format=json&limit=1';
-      return fetch(url, { headers: { 'User-Agent': 'QR-Menu-App/1.0' } });
-    })
-    .then(function(response){ return response.json(); })
-    .then(function(data){
-      if(!data || !data.length){
-        throw new Error('Адрес не найден');
+    // Расчёт с тарифами
+    var rate = self.deliveryRatePerKm;
+    var base = self.deliveryBaseFee;
+    var minFree = self.deliveryMinOrderFree;
+    var fee = distance * rate + base;
+    if (minFree > 0 && self.cartTotal >= minFree) {
+      fee = 0;
+    } else {
+      if (fee < 0) fee = 0;
+    }
+    self.calculatedDeliveryFee = Math.round(fee);
+    self.deliveryCalcBusy = false;
+    self.deliveryCalcError = '';
+    self.abortController = null;
+  })
+  .catch(function(err){
+    clearTimeout(timeoutId);
+    if(err.name === 'AbortError') {
+      // Таймаут уже обработан выше, но на всякий случай
+      if(!self.deliveryCalcError) {
+        self.deliveryCalcError = 'Превышено время ожидания. Попробуйте ещё раз.';
       }
-      var lat = parseFloat(data[0].lat);
-      var lon = parseFloat(data[0].lon);
-      if(isNaN(lat) || isNaN(lon)){
-        throw new Error('Не удалось определить координаты');
-      }
-      var R = 6371;
-      var dLat = (lat - self.venueLat) * Math.PI / 180;
-      var dLon = (lon - self.venueLng) * Math.PI / 180;
-      var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-              Math.cos(self.venueLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
-              Math.sin(dLon/2) * Math.sin(dLon/2);
-      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-      var distance = R * c;
-      self.deliveryDistance = Math.round(distance * 100) / 100;
-
-      // Расчёт с обновлёнными тарифами
-      var rate = self.deliveryRatePerKm;
-      var base = self.deliveryBaseFee;
-      var minFree = self.deliveryMinOrderFree;
-      var fee = distance * rate + base;
-      if (minFree > 0 && self.cartTotal >= minFree) {
-        fee = 0;
-      } else {
-        if (fee < 0) fee = 0;
-      }
-      self.calculatedDeliveryFee = Math.round(fee);
-      self.deliveryCalcBusy = false;
-    })
-    .catch(function(err){
+    } else {
       self.deliveryCalcError = 'Ошибка: ' + err.message;
-      self.deliveryCalcBusy = false;
-      self.calculatedDeliveryFee = null;
-    });
+    }
+    self.deliveryCalcBusy = false;
+    self.abortController = null;
+  });
 },
 
 goToTracking:function(){
@@ -370,13 +398,7 @@ init:function(){
   var slug=new URLSearchParams(location.search).get('venue');
   var p=slug?db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){
       self.venue=r.data;
-      if(self.venue){
-        self.venueLat = self.venue.lat ? parseFloat(self.venue.lat) : null;
-        self.venueLng = self.venue.lng ? parseFloat(self.venue.lng) : null;
-        self.deliveryRatePerKm = self.venue.delivery_rate_per_km != null ? parseFloat(self.venue.delivery_rate_per_km) : 50;
-        self.deliveryMinOrderFree = self.venue.delivery_min_order_free != null ? parseFloat(self.venue.delivery_min_order_free) : 0;
-        self.deliveryBaseFee = self.venue.delivery_base_fee != null ? parseFloat(self.venue.delivery_base_fee) : 50;
-      }
+      self.loadVenueSettings(self.venue);
     })
     :db.from('venues').select('*').eq('status','active').then(function(r){self.venues=r.data||[]});
   p.then(function(){if(self.venue)return self.loadProducts()}).finally(function(){self.ready=true});
@@ -388,12 +410,16 @@ init:function(){
 },
 selectVenue:function(v){
   this.venue=v;
+  this.loadVenueSettings(v);
+  this.loadProducts();
+},
+loadVenueSettings:function(v){
+  if(!v) return;
   this.venueLat = v.lat ? parseFloat(v.lat) : null;
   this.venueLng = v.lng ? parseFloat(v.lng) : null;
   this.deliveryRatePerKm = v.delivery_rate_per_km != null ? parseFloat(v.delivery_rate_per_km) : 50;
   this.deliveryMinOrderFree = v.delivery_min_order_free != null ? parseFloat(v.delivery_min_order_free) : 0;
   this.deliveryBaseFee = v.delivery_base_fee != null ? parseFloat(v.delivery_base_fee) : 50;
-  this.loadProducts();
 },
 loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){self.products=r.data||[]})},
 addonsFor:function(p){return this.products.filter(function(a){if(a.category!=='addon')return false;var at=a.applies_to||'all';return at==='all'||at.indexOf(p.category)!==-1})},
@@ -418,7 +444,6 @@ checkout:function(){
 
   if(self.form.type === 'delivery'){
     if(!self.form.address.trim()){ self.msg='Укажите адрес доставки'; return; }
-    // Если доставка не рассчитана, предлагаем рассчитать (или пересчитываем автоматически)
     if(self.calculatedDeliveryFee === null){
       self.msg='Рассчитайте стоимость доставки';
       return;
@@ -548,7 +573,7 @@ watch: {
 }
 },
 mounted:function(){this.init()},
-beforeUnmount:function(){if(this.trackTimer)clearInterval(this.trackTimer)}
+beforeUnmount:function(){if(this.trackTimer)clearInterval(this.trackTimer); if(this.abortController) this.abortController.abort();}
 }).mount('#app');
 </script>
 </body>
