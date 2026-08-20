@@ -12,7 +12,6 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
 [v-cloak]{display:none}
-/* CSS-переменные (переопределяются через :style на #app) */
 :root {
   --brand-color: #6366f1;
   --button-color: #8b5cf6;
@@ -151,7 +150,6 @@ body {
   border-radius: var(--border-radius);
   padding: var(--card-padding);
 }
-/* Мобильная адаптация */
 @media (max-width: 480px) {
   .grid { grid-template-columns: 1fr 1fr; }
   .chips .chip { font-size: 12px; padding: 6px 10px; }
@@ -177,7 +175,6 @@ body {
 </div>
 <div class="wrap">
 <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
-
 <div v-else-if="!venue">
 <div class="hero"><h2>🍽 Где хотите заказать?</h2><p>Выберите заведение из списка</p></div>
 <div v-for="v in venues" v-bind:key="v.id" class="glass menu-item" style="margin-bottom:10px">
@@ -186,27 +183,25 @@ body {
 </div>
 <p v-if="!venues.length" class="muted">Нет активных заведений.</p>
 </div>
-
 <template v-else>
 <div v-if="venue.status!=='active'" class="glass card" style="text-align:center;padding:40px">⏸ Заведение временно не принимает заказы.</div>
-
 <template v-else-if="view==='menu'">
 <div class="hero" v-bind:style="{'--brand':venue.brand_color||'#6366f1'}">
 <h2>{{ venue.name }}</h2><p>{{ venue.description||'Свежее, вкусное, с огоньком 🔥' }}</p>
 </div>
 <div class="chips">
-  <button class="chip" v-bind:class="{on:cat==='all'}" v-on:click="cat='all'">✨ Всё меню</button>
-  <button class="chip" v-bind:class="{on:cat==='main'}" v-on:click="cat='main'">🍽 Блюда</button>
-  <button class="chip" v-bind:class="{on:cat==='breakfast'}" v-on:click="cat='breakfast'">🍳 Завтраки</button>
-  <button class="chip" v-bind:class="{on:cat==='salad'}" v-on:click="cat='salad'">🥗 Салаты</button>
-  <button class="chip" v-bind:class="{on:cat==='soup'}" v-on:click="cat='soup'">🍲 Супы</button>
-  <button class="chip" v-bind:class="{on:cat==='hot'}" v-on:click="cat='hot'">🔥 Горячее</button>
-  <button class="chip" v-bind:class="{on:cat==='bbq'}" v-on:click="cat='bbq'">🥩 Гриль</button>
-  <button class="chip" v-bind:class="{on:cat==='snack'}" v-on:click="cat='snack'">🥨 Закуски</button>
-  <button class="chip" v-bind:class="{on:cat==='dessert'}" v-on:click="cat='dessert'">🍰 Десерты</button>
-  <button class="chip" v-bind:class="{on:cat==='drink'}" v-on:click="cat='drink'">🥤 Напитки</button>
-  <button class="chip" v-bind:class="{on:cat==='sauce'}" v-on:click="cat='sauce'">🌶 Соусы</button>
-  <button class="chip" v-bind:class="{on:cat==='addon'}" v-on:click="cat='addon'" v-if="hasAddons">🧂 Дополнительно</button>
+<button class="chip" v-bind:class="{on:cat==='all'}" v-on:click="cat='all'">✨ Всё меню</button>
+<button class="chip" v-bind:class="{on:cat==='main'}" v-on:click="cat='main'">🍽 Блюда</button>
+<button class="chip" v-bind:class="{on:cat==='breakfast'}" v-on:click="cat='breakfast'">🍳 Завтраки</button>
+<button class="chip" v-bind:class="{on:cat==='salad'}" v-on:click="cat='salad'">🥗 Салаты</button>
+<button class="chip" v-bind:class="{on:cat==='soup'}" v-on:click="cat='soup'">🍲 Супы</button>
+<button class="chip" v-bind:class="{on:cat==='hot'}" v-on:click="cat='hot'">🔥 Горячее</button>
+<button class="chip" v-bind:class="{on:cat==='bbq'}" v-on:click="cat='bbq'">🥩 Гриль</button>
+<button class="chip" v-bind:class="{on:cat==='snack'}" v-on:click="cat='snack'">🥨 Закуски</button>
+<button class="chip" v-bind:class="{on:cat==='dessert'}" v-on:click="cat='dessert'">🍰 Десерты</button>
+<button class="chip" v-bind:class="{on:cat==='drink'}" v-on:click="cat='drink'">🥤 Напитки</button>
+<button class="chip" v-bind:class="{on:cat==='sauce'}" v-on:click="cat='sauce'">🌶 Соусы</button>
+<button class="chip" v-bind:class="{on:cat==='addon'}" v-on:click="cat='addon'" v-if="hasAddons">🧂 Дополнительно</button>
 </div>
 <div class="grid">
 <div v-for="p in filtered" v-bind:key="p.id" class="glass dish">
@@ -224,7 +219,6 @@ body {
 <button v-on:click="showCart=true">🛒 Оформить · {{ fmt(cartTotal) }} ₽</button>
 </div>
 </template>
-
 <template v-else>
 <div class="glass card" style="margin-bottom:14px">
 <h3 style="margin-top:0">📦 Отследить заказ</h3>
@@ -293,55 +287,50 @@ body {
 </div>
 <div class="field" style="margin-top:14px"><label>Имя</label><input v-model="form.name"></div>
 <div class="field"><label>Телефон *</label><input v-model="form.phone" type="tel" placeholder="+7 900 000-00-00"></div>
-
 <div class="field"><label>Как получить</label>
 <div class="row" style="flex-wrap:wrap;gap:6px">
-  <button class="btn" v-bind:class="form.type==='pickup'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('pickup')">🏠 Самовывоз</button>
-  <button class="btn" v-bind:class="form.type==='table'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('table')">🪑 За столом</button>
-  <button class="btn" v-bind:class="form.type==='delivery'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('delivery')">🚗 Доставка</button>
+<button class="btn" v-bind:class="form.type==='pickup'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('pickup')">🏠 Самовывоз</button>
+<button class="btn" v-bind:class="form.type==='table'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('table')">🪑 За столом</button>
+<button class="btn" v-bind:class="form.type==='delivery'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('delivery')">🚗 Доставка</button>
 </div>
 </div>
-
 <div v-if="form.type==='table'" class="field">
-  <label>Номер стола *</label>
-  <input v-model="form.table_number" placeholder="Например: 5">
+<label>Номер стола *</label>
+<input v-model="form.table_number" placeholder="Например: 5">
 </div>
-
 <div v-if="form.type==='delivery'" class="field">
-  <label>Адрес доставки *</label>
-  <div class="row">
-    <input v-model="form.address" placeholder="Улица, дом, квартира" style="flex:1">
-    <button class="btn btn-primary btn-sm" v-on:click="calcDeliveryFee" :disabled="!form.address.trim()||deliveryCalcBusy">
-      {{ deliveryCalcBusy ? '⏳' : '📏 Рассчитать' }}
-    </button>
-  </div>
-  <div class="delivery-calc" v-if="calculatedDeliveryFee !== null">
-    <div class="row" style="justify-content:space-between;align-items:center">
-      <span>Расстояние: <b>{{ deliveryDistance }} км</b></span>
-      <span>Доставка: <span class="delivery-fee">{{ fmt(calculatedDeliveryFee) }} ₽</span></span>
-    </div>
-    <div style="font-size:12px;color:#94a3b8;margin-top:4px">
-      * Стоимость рассчитана по настройкам заведения.
-      <span v-if="deliveryMinOrderFree && deliveryMinOrderFree > 0 && cartTotal >= deliveryMinOrderFree">
-        (бесплатно, т.к. сумма заказа >= {{ fmt(deliveryMinOrderFree) }} ₽)
-      </span>
-    </div>
-  </div>
-  <div v-if="deliveryCalcError" style="color:#f87171;font-size:12px;margin-top:4px">
-    {{ deliveryCalcError }}
-    <button class="btn retry-btn btn-sm" v-on:click="calcDeliveryFee" style="margin-left:8px">🔄 Повторить</button>
-  </div>
+<label>Адрес доставки *</label>
+<div class="row">
+<input v-model="form.address" placeholder="Улица, дом, квартира" style="flex:1">
+<button class="btn btn-primary btn-sm" v-on:click="calcDeliveryFee" :disabled="!form.address.trim()||deliveryCalcBusy">
+{{ deliveryCalcBusy ? '⏳' : '📏 Рассчитать' }}
+</button>
 </div>
-
+<div class="delivery-calc" v-if="calculatedDeliveryFee !== null">
+<div class="row" style="justify-content:space-between;align-items:center">
+<span>Расстояние: <b>{{ deliveryDistance }} км</b></span>
+<span>Доставка: <span class="delivery-fee">{{ fmt(calculatedDeliveryFee) }} ₽</span></span>
+</div>
+<div style="font-size:12px;color:#94a3b8;margin-top:4px">
+* Стоимость рассчитана по настройкам заведения.
+<span v-if="deliveryMinOrderFree && deliveryMinOrderFree > 0 && cartTotal >= deliveryMinOrderFree">
+(бесплатно, т.к. сумма заказа >= {{ fmt(deliveryMinOrderFree) }} ₽)
+</span>
+</div>
+</div>
+<div v-if="deliveryCalcError" style="color:#f87171;font-size:12px;margin-top:4px">
+{{ deliveryCalcError }}
+<button class="btn retry-btn btn-sm" v-on:click="calcDeliveryFee" style="margin-left:8px">🔄 Повторить</button>
+</div>
+</div>
 <div class="field"><label>Комментарий</label><textarea v-model="form.comment" rows="2"></textarea></div>
 <div class="field"><label>Оплата</label><div class="row">
 <button class="btn" v-bind:class="form.pay==='cash'?'btn-green':'btn-ghost'" style="flex:1" v-on:click="form.pay='cash'">💵 Наличными</button>
 <button class="btn" v-bind:class="form.pay==='card'?'btn-primary':'btn-ghost'" style="flex:1" v-on:click="form.pay='card'">💳 Картой</button>
 </div></div>
-
 <div class="spread" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
-  <span class="muted">Итого:</span>
-  <b style="font-size:18px">{{ fmt(cartTotalWithDelivery) }} ₽</b>
+<span class="muted">Итого:</span>
+<b style="font-size:18px">{{ fmt(cartTotalWithDelivery) }} ₽</b>
 </div>
 <button class="btn btn-primary" style="width:100%;margin-top:14px" v-on:click="checkout" v-bind:disabled="busy">{{ busy?'Оформляем...':'✅ Подтвердить заказ' }}</button>
 <div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
@@ -373,7 +362,6 @@ deliveryRatePerKm: 50,
 deliveryMinOrderFree: 0,
 deliveryBaseFee: 50,
 abortController: null,
-// ===== ДИЗАЙН =====
 design: {
   brand_color: '#6366f1',
   button_color: '#8b5cf6',
@@ -425,7 +413,6 @@ cartTotalWithDelivery:function(){
 },
 dishTotal:function(){if(!this.dishModal.product)return 0;var s=Number(this.dishModal.product.price)||0;this.dishModal.addons.forEach(function(a){s+=a.price*a.qty});return s},
 hasAddons:function(){return this.products.some(function(p){return p.category==='addon'})},
-// ===== СТИЛИ ДЛЯ ПРИМЕНЕНИЯ ДИЗАЙНА =====
 appStyle:function(){
   var d=this.design;
   var bg = d.background_image ? 'url('+d.background_image+')' : 'none';
@@ -476,8 +463,6 @@ statusName:function(s){return window.statusName(s)},
 statusColor:function(s){return window.statusColor(s)},
 statusEmoji:function(s){return{new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
 statusHint:function(s){return{new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''},
-
-// ===== ЗАГРУЗКА ДИЗАЙНА =====
 loadDesign:function(){
   if(this.venue && this.venue.design_settings){
     var ds = this.venue.design_settings;
@@ -515,10 +500,9 @@ loadDesign:function(){
       transition_speed: ds.transition_speed != null ? ds.transition_speed : 0.2
     };
   } else {
-    this.design = { /* дефолтный объект */ }; // можно скопировать из data
+    // дефолтный объект уже есть в data
   }
 },
-
 setOrderType:function(type){
   this.form.type = type;
   if(type !== 'delivery'){
@@ -531,12 +515,92 @@ setOrderType:function(type){
     }
   }
 },
-
 calcDeliveryFee:function(){
-  // ... код остаётся без изменений, использует this.deliveryRatePerKm и т.д.
+  var self = this;
+  if(!this.form.address.trim()){
+    this.deliveryCalcError = 'Введите адрес';
+    return;
+  }
+  if(this.abortController) {
+    this.abortController.abort();
+    this.abortController = null;
+  }
+  this.deliveryCalcBusy = true;
+  this.deliveryCalcError = '';
+  this.calculatedDeliveryFee = null;
+  if(!this.venueLat || !this.venueLng){
+    this.deliveryCalcError = 'Координаты заведения не заданы. Обратитесь к администратору.';
+    this.deliveryCalcBusy = false;
+    return;
+  }
+  var controller = new AbortController();
+  this.abortController = controller;
+  var timeoutId = setTimeout(function() {
+    controller.abort();
+    self.deliveryCalcBusy = false;
+    self.deliveryCalcError = 'Превышено время ожидания ответа от сервиса геокодирования. Попробуйте позже.';
+  }, 10000);
+  var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(this.form.address.trim()) + '&format=json&limit=1';
+  fetch(url, {
+    headers: { 'User-Agent': 'QR-Menu-App/1.0' },
+    signal: controller.signal
+  })
+  .then(function(response){
+    clearTimeout(timeoutId);
+    if(!response.ok) throw new Error('Сервис геокодирования недоступен (код '+response.status+')');
+    return response.json();
+  })
+  .then(function(data){
+    if(!data || !data.length){
+      throw new Error('Адрес не найден');
+    }
+    var lat = parseFloat(data[0].lat);
+    var lon = parseFloat(data[0].lon);
+    if(isNaN(lat) || isNaN(lon)){
+      throw new Error('Не удалось определить координаты');
+    }
+    var R = 6371;
+    var dLat = (lat - self.venueLat) * Math.PI / 180;
+    var dLon = (lon - self.venueLng) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+            Math.cos(self.venueLat * Math.PI / 180) * Math.cos(lat * Math.PI / 180) *
+            Math.sin(dLon/2) * Math.sin(dLon/2);
+    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    var distance = R * c;
+    self.deliveryDistance = Math.round(distance * 100) / 100;
+    var rate = self.deliveryRatePerKm;
+    var base = self.deliveryBaseFee;
+    var minFree = self.deliveryMinOrderFree;
+    var fee = distance * rate + base;
+    if (minFree > 0 && self.cartTotal >= minFree) {
+      fee = 0;
+    } else {
+      if (fee < 0) fee = 0;
+    }
+    self.calculatedDeliveryFee = Math.round(fee);
+    self.deliveryCalcBusy = false;
+    self.deliveryCalcError = '';
+    self.abortController = null;
+  })
+  .catch(function(err){
+    clearTimeout(timeoutId);
+    if(err.name === 'AbortError') {
+      if(!self.deliveryCalcError) {
+        self.deliveryCalcError = 'Превышено время ожидания. Попробуйте ещё раз.';
+      }
+    } else {
+      self.deliveryCalcError = 'Ошибка: ' + err.message;
+    }
+    self.deliveryCalcBusy = false;
+    self.abortController = null;
+  });
 },
-
-goToTracking:function(){ /* ... */ },
+goToTracking:function(){
+  var last=localStorage.getItem('last_phone')||'';
+  this.view='tracking';
+  if(last){this.trackPhone=last;this.trackOrder()}
+  this.startTrackingTimer();
+},
 init:function(){
   var self=this;
   var slug=new URLSearchParams(location.search).get('venue');
@@ -559,20 +623,153 @@ selectVenue:function(v){
   this.loadDesign();
   this.loadProducts();
 },
-loadVenueSettings:function(v){ /* ... */ },
-loadProducts:function(){ /* ... */ },
-addonsFor:function(p){ /* ... */ },
-openDish:function(p){ /* ... */ },
-decDishAddon:function(a){ /* ... */ },
-addDishToCart:function(){ /* ... */ },
-dec:function(i){ /* ... */ },
-checkout:function(){ /* ... */ },
-startTrackingTimer:function(){ /* ... */ },
-trackOrder:function(){ /* ... */ },
-confirmChanged:function(){ /* ... */ },
-revertOrder:function(){ /* ... */ }
+loadVenueSettings:function(v){
+  if(!v) return;
+  this.venueLat = v.lat ? parseFloat(v.lat) : null;
+  this.venueLng = v.lng ? parseFloat(v.lng) : null;
+  this.deliveryRatePerKm = v.delivery_rate_per_km != null ? parseFloat(v.delivery_rate_per_km) : 50;
+  this.deliveryMinOrderFree = v.delivery_min_order_free != null ? parseFloat(v.delivery_min_order_free) : 0;
+  this.deliveryBaseFee = v.delivery_base_fee != null ? parseFloat(v.delivery_base_fee) : 50;
 },
-watch: { /* ... */ },
+loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){self.products=r.data||[]})},
+addonsFor:function(p){return this.products.filter(function(a){if(a.category!=='addon')return false;var at=a.applies_to||'all';return at==='all'||at.indexOf(p.category)!==-1})},
+openDish:function(p){var list=this.addonsFor(p);
+if(!list.length){this.cart.push({id:p.id,name:p.name,price:Number(p.price)||0,qty:1,addons:[]});return}
+this.dishModal={show:true,product:p,addons:list.map(function(a){return{id:a.id,name:a.name,price:Number(a.price)||0,qty:0}})}},
+decDishAddon:function(a){if(a.qty>0)a.qty--},
+addDishToCart:function(){var m=this.dishModal;
+var adds=m.addons.filter(function(a){return a.qty>0}).map(function(a){return{id:a.id,name:a.name,price:a.price,qty:a.qty}});
+var f=this.cart.find(function(i){return i.id===m.product.id});
+if(f){f.qty++;adds.forEach(function(a){var ex=f.addons.find(function(x){return x.id===a.id});if(ex){ex.qty+=a.qty}else f.addons.push(a)})}
+else this.cart.push({id:m.product.id,name:m.product.name,price:Number(m.product.price)||0,qty:1,addons:adds});
+this.dishModal.show=false},
+dec:function(i){if(i.qty>1){i.qty--}else{this.cart.splice(this.cart.indexOf(i),1)}},
+checkout:function(){
+  var self = this;
+  self.msg = '';
+  var phone = self.norm(self.form.phone);
+  if(!phone){ self.msg='Укажите телефон'; return; }
+  if(self.form.type === 'delivery'){
+    if(!self.form.address.trim()){ self.msg='Укажите адрес доставки'; return; }
+    if(self.calculatedDeliveryFee === null){
+      self.msg='Рассчитайте стоимость доставки';
+      return;
+    }
+    if(self.calculatedDeliveryFee < 0){
+      self.msg='Стоимость доставки не может быть отрицательной';
+      return;
+    }
+  } else if(self.form.type === 'table'){
+    if(!self.form.table_number.trim()){ self.msg='Укажите номер стола'; return; }
+  }
+  if(!self.cart.length){ self.msg='Корзина пустая'; return; }
+  if(!self.venue || !self.venue.id){ self.msg='Не удалось определить заведение'; return; }
+  self.busy = true;
+  var itemRows = self.cart.map(function(i){
+    return { product_id:i.id, qty:Number(i.qty)||1 };
+  });
+  var addonRows = [];
+  self.cart.forEach(function(i){
+    (i.addons||[]).forEach(function(a){
+      if((Number(a.qty)||0)>0){
+        addonRows.push({ id:a.id, qty:Number(a.qty)||1, item_name:i.name });
+      }
+    });
+  });
+  var total = Number(self.cartTotalWithDelivery) || 0;
+  var deliveryFee = self.form.type === 'delivery' ? (self.calculatedDeliveryFee || 0) : 0;
+  var tableToken = self.form.type === 'table' ? self.form.table_number.trim() : null;
+  db.rpc('create_public_order',{
+    p_venue_id: self.venue.id,
+    p_order_type: self.form.type,
+    p_customer_name: self.form.name || null,
+    p_customer_phone: phone,
+    p_delivery_address: self.form.type === 'delivery' ? self.form.address.trim() : null,
+    p_comment: self.form.comment || null,
+    p_payment_method: self.form.pay || 'cash',
+    p_items: itemRows,
+    p_addons: addonRows,
+    p_total_price: total,
+    p_table_token: tableToken,
+    p_delivery_fee: deliveryFee
+  }).then(function(r){
+    if(r.error) throw r.error;
+    var order = r.data;
+    if(!order || !order.id) throw new Error('Сервер не вернул созданный заказ');
+    localStorage.setItem('last_phone', phone);
+    self.cart = [];
+    self.showCart = false;
+    self.view = 'tracking';
+    self.trackPhone = phone;
+    self.previousStatus = '';
+    self.startTrackingTimer();
+    return self.trackOrder();
+  }).catch(function(e){
+    console.error('create_public_order error:', e);
+    var message = e && e.message ? e.message : 'Не удалось оформить заказ';
+    var errors = {
+      venue_not_found:'Заведение временно недоступно',
+      invalid_order_type:'Неверный тип заказа',
+      customer_phone_required:'Укажите номер телефона',
+      order_items_required:'Добавьте хотя бы один товар',
+      delivery_address_required:'Укажите адрес доставки',
+      invalid_item_quantity:'Неверное количество товара',
+      product_not_available:'Один из товаров больше недоступен',
+      invalid_addon_quantity:'Неверное количество дополнения',
+      addon_not_available:'Одно из дополнений больше недоступно',
+      invalid_total_price:'Изменились цены товаров. Обновите корзину и попробуйте снова'
+    };
+    self.msg = 'Ошибка: ' + (errors[message] || message);
+  }).finally(function(){ self.busy = false; });
+},
+startTrackingTimer: function(){
+  if(this.trackTimer) clearInterval(this.trackTimer);
+  var self=this;
+  this.trackTimer = setInterval(function(){
+    if(self.view === 'tracking' && self.trackPhone){
+      self.trackOrder();
+    }
+  }, 5000);
+},
+trackOrder:function(){
+  var self=this;
+  var phone=self.norm(self.trackPhone);
+  if(!phone) return Promise.resolve();
+  self.trackSearched=true;
+  return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
+    .eq('venue_id',self.venue.id).eq('customer_phone',phone)
+    .order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){
+      var newData = r.data || null;
+      if(newData){
+        if(self.previousStatus !== newData.status){
+          self.previousStatus = newData.status;
+          self.$nextTick(function(){
+            self.tracking = JSON.parse(JSON.stringify(newData));
+            try {
+              var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
+              audio.play();
+            } catch(e) {}
+          });
+        } else {
+          self.tracking = newData;
+        }
+      } else {
+        self.tracking = null;
+      }
+    });
+},
+confirmChanged:function(){var self=this;db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){self.trackOrder()})},
+revertOrder:function(){var self=this;db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){self.trackOrder();self.view='menu'})}
+},
+watch: {
+'view': function(newVal) {
+  if(newVal !== 'tracking' && this.trackTimer) {
+    clearInterval(this.trackTimer);
+    this.trackTimer = null;
+    this.previousStatus = '';
+  }
+}
+},
 mounted:function(){this.init()},
 beforeUnmount:function(){if(this.trackTimer)clearInterval(this.trackTimer); if(this.abortController) this.abortController.abort();}
 }).mount('#app');
