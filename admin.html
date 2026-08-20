@@ -30,6 +30,11 @@
 .kpi{padding:14px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
 .kpi .n{font-size:22px;font-weight:800}.kpi .l{font-size:12px;color:#9ca3af;margin-top:4px}
 .thumb-sm{width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid rgba(255,255,255,.15);position:relative;overflow:hidden;cursor:pointer;background:rgba(255,255,255,.05)}
+.design-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:10px 0}
+.design-field label{font-size:12px;color:#9ca3af;display:block;margin-bottom:4px}
+.design-field input[type="color"], .design-field input[type="text"], .design-field input[type="number"], .design-field select{width:100%;padding:6px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:13px}
+.design-field input[type="color"]{height:44px;padding:4px}
+.design-field input[type="number"]{width:100%}
 </style>
 </head>
 <body>
@@ -541,17 +546,22 @@
 <div v-if="addMgrModal.err" class="msg error" style="margin-top:10px">{{ addMgrModal.err }}</div>
 </div></div>
 
-<!-- РЕДАКТИРОВАТЬ УПРАВЛЯЮЩЕГО -->
+<!-- РЕДАКТИРОВАТЬ УПРАВЛЯЮЩЕГО (с добавлением права на дизайн) -->
 <div v-if="mgrEditModal.show" class="modal" v-on:click.self="mgrEditModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Редактировать: {{ mgrEditModal.name }}</h3>
 <div class="field"><label>Имя</label><input v-model.trim="mgrEditModal.name"></div>
 <div class="field"><label>Роль</label><select v-model="mgrEditModal.role">
 <option value="manager">Управляющий</option><option value="admin">Админ</option></select></div>
-<!-- ===== НОВЫЙ ЧЕКБОКС ===== -->
 <div class="field">
   <label class="checkbox-label" style="background:transparent;padding:0">
     <input type="checkbox" v-model="mgrEditModal.allow_manage_delivery">
     Разрешить управление доставкой (стоимость за км, мин. сумма для бесплатной доставки)
+  </label>
+</div>
+<div class="field">
+  <label class="checkbox-label" style="background:transparent;padding:0">
+    <input type="checkbox" v-model="mgrEditModal.allow_manage_design">
+    Разрешить управление дизайном (цвета, шрифты, стили)
   </label>
 </div>
 <div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveMgrEdit">Сохранить</button>
@@ -571,20 +581,24 @@
 <button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- ===== СЕКРЕТНАЯ ПАНЕЛЬ ДИЗАЙНА ДЛЯ АДМИНА ===== -->
+<!-- ===== РАСШИРЕННАЯ СЕКРЕТНАЯ ПАНЕЛЬ ДИЗАЙНА ===== -->
 <div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
-  <div class="glass box" style="max-width:900px;max-height:90vh;overflow-y:auto">
-    <h3 style="margin-top:0">🎨 Секретная панель управления дизайном</h3>
-    <p class="muted" style="font-size:12px;margin-bottom:14px">Вы можете применить единый стиль к любому заведению.</p>
+  <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
+    <h3 style="margin-top:0">🎨 Расширенная панель управления дизайном</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:14px">Вы можете настроить единый стиль и применить ко всем заведениям.</p>
 
     <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
       <h4>Шаблон дизайна (применить ко всем)</h4>
-      <div class="row" style="flex-wrap:wrap">
-        <div class="field" style="flex:1;min-width:140px"><label>Цвет градиента</label><input v-model="adminDesignTemplate.brand_color" type="color" style="height:44px;padding:4px"></div>
-        <div class="field" style="flex:1;min-width:140px"><label>Цвет кнопок</label><input v-model="adminDesignTemplate.button_color" type="color" style="height:44px;padding:4px"></div>
-        <div class="field" style="flex:1;min-width:140px"><label>Цвет заголовка</label><input v-model="adminDesignTemplate.header_color" type="color" style="height:44px;padding:4px"></div>
-        <div class="field" style="flex:1;min-width:160px"><label>Шрифт</label>
-          <select v-model="adminDesignTemplate.font_family" style="width:auto">
+      <div class="design-grid">
+        <div class="design-field"><label>Основной цвет (брендовый)</label><input v-model="adminDesignTemplate.brand_color" type="color"></div>
+        <div class="design-field"><label>Цвет кнопок</label><input v-model="adminDesignTemplate.button_color" type="color"></div>
+        <div class="design-field"><label>Цвет заголовков</label><input v-model="adminDesignTemplate.header_color" type="color"></div>
+        <div class="design-field"><label>Цвет фона страницы</label><input v-model="adminDesignTemplate.background_color" type="color"></div>
+        <div class="design-field"><label>Цвет фона карточек</label><input v-model="adminDesignTemplate.card_background" type="color"></div>
+        <div class="design-field"><label>Цвет текста</label><input v-model="adminDesignTemplate.text_color" type="color"></div>
+        <div class="design-field"><label>Цвет акцентов (ссылки, иконки)</label><input v-model="adminDesignTemplate.accent_color" type="color"></div>
+        <div class="design-field"><label>Шрифт</label>
+          <select v-model="adminDesignTemplate.font_family">
             <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
             <option value="Inter">Inter</option>
             <option value="Roboto">Roboto</option>
@@ -592,6 +606,10 @@
             <option value="Oswald">Oswald</option>
           </select>
         </div>
+        <div class="design-field"><label>Скругление карточек (px)</label><input v-model.number="adminDesignTemplate.border_radius" type="number" min="0" max="30"></div>
+        <div class="design-field"><label>Скругление кнопок (px)</label><input v-model.number="adminDesignTemplate.button_radius" type="number" min="0" max="30"></div>
+        <div class="design-field"><label>Тень карточек (px)</label><input v-model.number="adminDesignTemplate.shadow" type="number" min="0" max="20"></div>
+        <div class="design-field"><label>Базовый размер шрифта (px)</label><input v-model.number="adminDesignTemplate.font_size" type="number" min="12" max="20"></div>
       </div>
       <div class="row" style="margin-top:8px">
         <button class="btn btn-primary btn-sm" v-on:click="applyDesignToAll">✅ Применить ко всем заведениям</button>
@@ -636,11 +654,24 @@ cookForm:{venue_id:'',name:'',phone:''},courierForm:{venue_id:'',name:'',phone:'
 venueEditModal:{show:false,id:null,name:'',description:'',brand_color:'#6366f1',logo_url:'',perms:{addons:true,products:true,prices:true}},
 prodModal:{show:false,venueId:null,venueName:'',list:[],form:{name:'',price:0,category:'main'}},
 addMgrModal:{show:false,name:'',email:'',password:'',role:'manager',err:''},
-mgrEditModal:{show:false,id:null,name:'',role:'manager', allow_manage_delivery: false},  // добавлено
+mgrEditModal:{show:false,id:null,name:'',role:'manager', allow_manage_delivery: false, allow_manage_design: false},
 staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:''},
 secretDesignPanel:false,
 brandClicks:0,
-adminDesignTemplate:{brand_color:'#6366f1',button_color:'#8b5cf6',header_color:'#ffffff',font_family:'Plus+Jakarta+Sans'}
+adminDesignTemplate:{
+  brand_color:'#6366f1',
+  button_color:'#8b5cf6',
+  header_color:'#ffffff',
+  font_family:'Plus+Jakarta+Sans',
+  background_color:'#0b1120',
+  card_background:'#141821',
+  text_color:'#eef2f7',
+  accent_color:'#a78bfa',
+  border_radius:18,
+  button_radius:12,
+  shadow:8,
+  font_size:16
+}
 }},
 computed:{
 mrr:function(){var self=this;return this.venues.filter(function(v){return v.status==='active'}).reduce(function(s,v){var p=self.plans.find(function(x){return x.id===v.plan});return s+(p?Number(p.price):0)},0)},
@@ -967,12 +998,13 @@ self.busy=false;
 if(r.error){self.addMgrModal.err='Ошибка: '+r.error.message;return}
 alert('Аккаунт создан! Передайте данные менеджеру.');
 self.addMgrModal.show=false;self.addMgrModal={show:false,name:'',email:'',password:'',role:'manager',err:''};self.loadAll()})},
-openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name,role:m.role, allow_manage_delivery: !!m.allow_manage_delivery};},
+openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name,role:m.role, allow_manage_delivery: !!m.allow_manage_delivery, allow_manage_design: !!m.allow_manage_design};},
 saveMgrEdit:function(){var self=this;
 db.from('profiles').update({
 display_name:self.mgrEditModal.name,
 role:self.mgrEditModal.role,
-allow_manage_delivery: self.mgrEditModal.allow_manage_delivery
+allow_manage_delivery: self.mgrEditModal.allow_manage_delivery,
+allow_manage_design: self.mgrEditModal.allow_manage_design
 }).eq('id',self.mgrEditModal.id).then(function(){
 self.mgrEditModal.show=false;self.loadAll()})},
 toggleMgrVenue:function(mid,vid,on){var self=this;
@@ -1032,14 +1064,23 @@ rejectPayment:function(pay){var self=this;
 db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadAll()})},
 logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
 
+// ===== МЕТОДЫ ДИЗАЙНА =====
 applyAdminDesign:function(v){
 var self=this;
 var settings={
-logo_url: v.logo_url || null,
-brand_color: self.adminDesignTemplate.brand_color,
-font_family: self.adminDesignTemplate.font_family,
-button_color: self.adminDesignTemplate.button_color,
-header_color: self.adminDesignTemplate.header_color
+  logo_url: v.logo_url || null,
+  brand_color: self.adminDesignTemplate.brand_color,
+  button_color: self.adminDesignTemplate.button_color,
+  header_color: self.adminDesignTemplate.header_color,
+  font_family: self.adminDesignTemplate.font_family,
+  background_color: self.adminDesignTemplate.background_color,
+  card_background: self.adminDesignTemplate.card_background,
+  text_color: self.adminDesignTemplate.text_color,
+  accent_color: self.adminDesignTemplate.accent_color,
+  border_radius: self.adminDesignTemplate.border_radius,
+  button_radius: self.adminDesignTemplate.button_radius,
+  shadow: self.adminDesignTemplate.shadow,
+  font_size: self.adminDesignTemplate.font_size
 };
 db.from('venues').update({design_settings:settings}).eq('id',v.id).then(function(){
 self.loadAll();
@@ -1051,11 +1092,19 @@ if(!confirm('Применить этот шаблон дизайна ко ВСЕ
 var self=this;
 var updates = self.venues.map(function(v){
 var settings={
-logo_url: v.logo_url || null,
-brand_color: self.adminDesignTemplate.brand_color,
-font_family: self.adminDesignTemplate.font_family,
-button_color: self.adminDesignTemplate.button_color,
-header_color: self.adminDesignTemplate.header_color
+  logo_url: v.logo_url || null,
+  brand_color: self.adminDesignTemplate.brand_color,
+  button_color: self.adminDesignTemplate.button_color,
+  header_color: self.adminDesignTemplate.header_color,
+  font_family: self.adminDesignTemplate.font_family,
+  background_color: self.adminDesignTemplate.background_color,
+  card_background: self.adminDesignTemplate.card_background,
+  text_color: self.adminDesignTemplate.text_color,
+  accent_color: self.adminDesignTemplate.accent_color,
+  border_radius: self.adminDesignTemplate.border_radius,
+  button_radius: self.adminDesignTemplate.button_radius,
+  shadow: self.adminDesignTemplate.shadow,
+  font_size: self.adminDesignTemplate.font_size
 };
 return db.from('venues').update({design_settings:settings}).eq('id',v.id);
 });
@@ -1065,7 +1114,20 @@ alert('✅ Дизайн применён ко всем заведениям!');
 });
 },
 resetAdminTemplate:function(){
-this.adminDesignTemplate={brand_color:'#6366f1',button_color:'#8b5cf6',header_color:'#ffffff',font_family:'Plus+Jakarta+Sans'};
+this.adminDesignTemplate={
+  brand_color:'#6366f1',
+  button_color:'#8b5cf6',
+  header_color:'#ffffff',
+  font_family:'Plus+Jakarta+Sans',
+  background_color:'#0b1120',
+  card_background:'#141821',
+  text_color:'#eef2f7',
+  accent_color:'#a78bfa',
+  border_radius:18,
+  button_radius:12,
+  shadow:8,
+  font_size:16
+};
 }
 },
 mounted:function(){this.init()}
