@@ -71,7 +71,7 @@ function patchDb(){
       if(table==='manager_venues') return { data:[{ venue_id:D.venue.id, manager_id:'demo-user', venues:D.venue }], error:null };
       if(table==='products') return { data:D.products, error:null };
       if(table==='orders') return { data:D.orders, error:null };
-      if(table==='venue_tables') return { data:D.tables, error:null };
+      if(table==='tables') return { data:D.tables, error:null };
       if(table==='cooks') return { data:D.cooks, error:null };
       if(table==='couriers') return { data:D.couriers, error:null };
       if(table==='waiters') return { data:D.waiters, error:null };
@@ -102,26 +102,19 @@ function patchDb(){
 }
 
 // ─── 2. Безопасная блокировка редиректов ───
-// НЕ трогаем location.assign/replace/href — они read-only в современных браузерах
-// Вместо этого подменяем глобальные функции app.js + history API
 function blockRedirects(){
-  // Подменяем safeRedirect (определена в app.js)
   if(typeof window.safeRedirect === 'function' && !window.__demoSafePatched){
     window.__demoSafePatched = true;
     window.safeRedirect = function(){ /* ничего не делаем в демо */ };
   }
-  // Подменяем requireAuth
   if(typeof window.requireAuth === 'function' && !window.__demoAuthPatched){
     window.__demoAuthPatched = true;
     window.requireAuth = function(){ return Promise.resolve(D.profile); };
   }
-  // Подменяем logout
   if(typeof window.logout === 'function' && !window.__demoLogoutPatched){
     window.__demoLogoutPatched = true;
     window.logout = function(){ localStorage.removeItem('qr_demo_mode'); location.href='index.html'; };
   }
-
-  // Перехватываем history API (эти методы НЕ read-only)
   if(!window.__demoHistoryPatched){
     window.__demoHistoryPatched = true;
     try{
@@ -232,6 +225,7 @@ function forceFillVue(){
 // ─── 5. Авто-вход staff ───
 function autoStaffLogin(){
   if(!isStaff) return;
+  // Для демо-режима автоматически заполняем поля и нажимаем кнопку входа
   var tries = 0;
   var timer = setInterval(function(){
     var inputs = document.querySelectorAll('input');
