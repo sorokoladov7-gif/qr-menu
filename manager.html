@@ -109,6 +109,7 @@
 <button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
+<!-- Вкладка Меню -->
 <div v-if="tab==='menu'">
 <div class="spread" style="margin-bottom:14px"><h3>Позиции меню</h3>
 <button class="btn btn-primary btn-sm" v-on:click="openAdd" v-bind:disabled="busy">+ Добавить</button></div>
@@ -128,6 +129,7 @@
 <p v-if="!products.length" class="muted">Меню пустое.</p>
 </div>
 
+<!-- Вкладка Заказы -->
 <div v-if="tab==='orders'">
 <div v-for="o in orders" v-bind:key="o.id" class="glass order-card" v-bind:style="{borderTopColor:statusColor(o.status)}">
 <div class="spread">
@@ -152,13 +154,13 @@
 <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
 </div>
 
+<!-- Вкладка Аналитика -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px">
 <h3>Аналитика заведения</h3>
 <select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto">
 <option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="all">Всё время</option></select>
 </div>
-
 <div class="analytics-grid">
 <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
 <div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.orders }}</div><div class="lbl">Заказов</div></div>
@@ -167,7 +169,6 @@
 <div class="glass stat"><div class="num" style="color:#f472b6">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. время готовки</div></div>
 <div class="glass stat"><div class="num" style="color:#6ee7b7">{{ analytics.repeatClients }}</div><div class="lbl">Повторных клиентов</div></div>
 </div>
-
 <div class="glass card" style="margin-bottom:14px">
 <h4 style="margin:0 0 14px">📅 Динамика заказов по дням</h4>
 <div v-if="analytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:120px;overflow-x:auto">
@@ -179,7 +180,6 @@
 </div>
 <p v-else class="muted">Нет данных за период.</p>
 </div>
-
 <div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
 <div class="glass card" style="flex:2;min-width:280px">
 <h4 style="margin:0 0 10px">🍔 Топ-10 блюд</h4>
@@ -195,7 +195,6 @@
 </ul>
 </div>
 </div>
-
 <div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
 <div class="glass card" style="flex:1;min-width:220px">
 <h4 style="margin:0 0 10px">🏠 Тип получения</h4>
@@ -223,7 +222,6 @@
 </ul>
 </div>
 </div>
-
 <div class="glass card" style="margin-bottom:14px">
 <h4 style="margin:0 0 10px">👨‍🍳 Повара (скорость и нагрузка)</h4>
 <table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время готовки</th></tr>
@@ -231,7 +229,6 @@
 <td><b v-bind:style="{color:c.avg<=10?'#6ee7b7':c.avg<=20?'#fcd34d':'#fca5a5'}">{{ c.avg }} мин</b></td></tr>
 <tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr></table>
 </div>
-
 <div class="row" style="align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
 <div class="glass card" style="flex:1;min-width:260px">
 <h4 style="margin:0 0 10px">🚗 Курьеры (доставки)</h4>
@@ -246,8 +243,6 @@
 <tr v-if="!analytics.waiters.length"><td colspan="2" class="muted">Нет выдач</td></tr></table>
 </div>
 </div>
-
-<!-- 📊 ПРОИЗВОДИТЕЛЬНОСТЬ ПЕРСОНАЛА -->
 <div class="glass card">
 <div class="spread" style="margin-bottom:12px">
 <h4 style="margin:0">📊 Производительность персонала</h4>
@@ -287,10 +282,15 @@
 </div>
 </div>
 </div>
-
 </div>
 
-<!-- ПОВАРА -->
+<!-- Вкладка Зал / Столы (оставлена как есть) -->
+<div v-if="tab==='hall'">
+<!-- Здесь подключается скрипт manager-hall.js, который рендерит схему -->
+<div id="hall-container"></div>
+</div>
+
+<!-- Вкладка Повара -->
 <div v-if="tab==='staff'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button>
@@ -308,7 +308,7 @@
 <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
 </div>
 
-<!-- КУРЬЕРЫ -->
+<!-- Вкладка Курьеры -->
 <div v-if="tab==='couriers'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button>
@@ -327,7 +327,7 @@
 <p v-if="!couriers.length" class="muted">Добавьте курьеров — они будут доставлять заказы.</p>
 </div>
 
-<!-- ОФИЦИАНТЫ -->
+<!-- Вкладка Официанты -->
 <div v-if="tab==='waiters'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button>
@@ -346,6 +346,7 @@
 <p v-if="!waiters.length" class="muted">Добавьте официантов — они будут выдавать заказы.</p>
 </div>
 
+<!-- Вкладка Тарифы -->
 <div v-if="tab==='billing'">
 <div class="glass card" style="margin-bottom:16px;text-align:center">
 <h3>Тариф: {{ currentPlanName }}</h3>
@@ -378,7 +379,7 @@
 </div>
 </div>
 
-<!-- ===== ВКЛАДКА НАСТРОЙКИ С АВТООПРЕДЕЛЕНИЕМ КООРДИНАТ ===== -->
+<!-- ===== ВКЛАДКА НАСТРОЙКИ (исправлена) ===== -->
 <div v-if="tab==='settings'" class="glass card" style="max-width:700px">
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
@@ -391,9 +392,24 @@
 <input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
 
-<!-- НОВЫЕ ПОЛЯ ДЛЯ ДОСТАВКИ С АВТОГЕОКОДИНГОМ -->
-<div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
+<!-- ===== НАСТРОЙКИ ДОСТАВКИ (доступны только если у менеджера есть право allow_manage_delivery) ===== -->
+<div v-if="profile && profile.allow_manage_delivery" style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
   <h4 style="margin:0 0 10px">🚗 Настройки доставки</h4>
+  <div class="field"><label>Стоимость доставки за 1 км (₽)</label>
+    <input v-model.number="vform.delivery_rate_per_km" type="number" min="0" step="1">
+  </div>
+  <div class="field"><label>Минимальная сумма заказа для бесплатной доставки (₽)</label>
+    <input v-model.number="vform.delivery_min_order_free" type="number" min="0" step="100">
+  </div>
+  <div class="field"><label>Базовая надбавка (₽)</label>
+    <input v-model.number="vform.delivery_base_fee" type="number" min="0" step="10">
+  </div>
+  <p class="muted" style="font-size:12px;margin-top:4px">Если сумма заказа >= минимальной, доставка бесплатна. Иначе рассчитывается: (расстояние × стоимость_за_км + базовая).</p>
+</div>
+
+<!-- ===== ГЕОКОДИНГ (адрес и координаты) ===== -->
+<div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
+  <h4 style="margin:0 0 10px">📍 Адрес и координаты</h4>
   <div class="field">
     <label>Физический адрес заведения</label>
     <div class="row">
@@ -408,34 +424,16 @@
     <div class="field" style="flex:1"><label>Долгота (lng)</label><input v-model.number="vform.lng" type="number" step="0.0000001" placeholder="37.6173"></div>
   </div>
   <div v-if="geocodeError" style="color:#f87171;font-size:12px;margin-top:4px">{{ geocodeError }}</div>
-  <p class="muted" style="font-size:12px;margin-top:4px">Укажите координаты заведения для расчёта стоимости доставки. Нажмите «Определить координаты», чтобы заполнить их автоматически по адресу.</p>
+  <p class="muted" style="font-size:12px;margin-top:4px">Координаты используются для расчёта стоимости доставки.</p>
 </div>
 
-<!-- УПРАВЛЕНИЕ СТОЛАМИ -->
-<div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
-  <div class="spread"><h4 style="margin:0">🪑 Управление столами</h4>
-    <button class="btn btn-primary btn-sm" v-on:click="addTable">+ Добавить стол</button>
-  </div>
-  <div v-if="tables.length" class="tblwrap" style="margin-top:10px">
-    <table class="tbl">
-      <tr><th>Номер</th><th>Название</th><th>Статус</th><th>Координаты X/Y</th><th></th></tr>
-      <tr v-for="t in tables" v-bind:key="t.id">
-        <td><input v-model.number="t.number" style="width:60px" @change="saveTable(t)"></td>
-        <td><input v-model="t.name" placeholder="Стол 1" @change="saveTable(t)"></td>
-        <td><span class="badge" :class="t.status==='free'?'b-ready':t.status==='busy'?'b-cooking':'b-delivery'">{{ t.status }}</span></td>
-        <td><input v-model.number="t.x" style="width:50px" @change="saveTable(t)"> x <input v-model.number="t.y" style="width:50px" @change="saveTable(t)"></td>
-        <td><button class="btn btn-danger btn-sm" v-on:click="deleteTable(t)">🗑</button></td>
-      </tr>
-    </table>
-  </div>
-  <p v-else class="muted" style="margin-top:10px">Столы не добавлены. Добавьте стол для заказов «за столом».</p>
-</div>
+<!-- Управление столами УДАЛЕНО — оно вынесено в отдельную вкладку "Зал / Столы" -->
 
 <button class="btn btn-primary" v-on:click="saveVenue" :disabled="busy">{{ busy ? 'Сохранение...' : 'Сохранить настройки' }}</button>
 <div v-if="msg" class="msg" :class="msgType" style="margin-top:14px">{{ msg }}</div>
 </div>
 
-<!-- QR-код -->
+<!-- QR-код (вынесен за пределы вкладки настроек, но в рамках заведения) -->
 <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
 <label>QR-код для клиентов</label>
 <div class="row"><img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
@@ -449,7 +447,7 @@
 </template>
 </div>
 
-<!-- МОДАЛКА СОЗДАНИЯ ЗАВЕДЕНИЯ -->
+<!-- МОДАЛКИ (создание заведения, редактирование блюда, создание сотрудника) -->
 <div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false"><div class="glass box" style="max-width:760px;width:95%">
 <h3 style="margin-bottom:4px">Новое заведение</h3>
 <p class="muted" style="margin-top:0">Выберите готовый шаблон меню. Товары, цены и описания будут добавлены автоматически — после создания их можно полностью изменить.</p>
@@ -475,7 +473,6 @@
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
-<!-- МОДАЛКА РЕДАКТИРОВАНИЯ БЛЮДА -->
 <div v-if="showModal" class="modal" v-on:click.self="closeModal"><div class="glass box">
 <h3>{{ modalTitle }}</h3>
 <div class="field"><label>Название *</label><input v-model.trim="pform.name"></div>
@@ -505,7 +502,6 @@
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
-<!-- МОДАЛКА СОЗДАНИЯ СОТРУДНИКА -->
 <div v-if="createStaffModal" class="modal" v-on:click.self="createStaffModal=false">
 <div class="glass box" style="max-width:440px">
 <h3 style="margin-bottom:4px">Новый {{ createStaffType==='cook'?'повар':createStaffType==='courier'?'курьер':'официант' }}</h3>
@@ -628,8 +624,8 @@ analyticsPeriod:'7',
 analytics:{revenue:0,orders:0,clients:0,avgCheck:0,avgCookTime:0,newClients:0,repeatClients:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],daily:[],cooks:[],couriers:[],waiters:[]},
 subscriptionEnd:null, isBlocked:false, payPlan:null, myPayments:[],
 DEFAULT_IMG:window.DEFAULT_IMG,
+// Столы загружаются в loadTables, но не используются в настройках
 tables: [],
-// ===== НОВЫЕ ПОЛЯ ДЛЯ ГЕОКОДИНГА =====
 geocodeBusy: false,
 geocodeError: ''
 };
@@ -748,7 +744,10 @@ brand_color:v.brand_color,
 logo_url:v.logo_url||'',
 address:v.address||'',
 lat:v.lat ? parseFloat(v.lat) : null,
-lng:v.lng ? parseFloat(v.lng) : null
+lng:v.lng ? parseFloat(v.lng) : null,
+delivery_rate_per_km: v.delivery_rate_per_km != null ? parseFloat(v.delivery_rate_per_km) : 50,
+delivery_min_order_free: v.delivery_min_order_free != null ? parseFloat(v.delivery_min_order_free) : 0,
+delivery_base_fee: v.delivery_base_fee != null ? parseFloat(v.delivery_base_fee) : 50
 };
 this.geocodeError='';
 if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else{this.isBlocked=false}
@@ -773,7 +772,7 @@ self.tables=r.data||[];
 });
 },
 
-// ===== НОВЫЙ МЕТОД ДЛЯ ГЕОКОДИНГА =====
+// ===== ГЕОКОДИНГ =====
 geocodeVenueAddress:function(){
 var self=this;
 if(!this.vform.address || !this.vform.address.trim()){
@@ -804,45 +803,6 @@ self.showToast('Координаты определены: ' + self.vform.lat + 
 .catch(function(err){
 self.geocodeError = 'Ошибка: ' + err.message;
 self.geocodeBusy = false;
-});
-},
-
-addTable:function(){
-var self=this;
-var maxNum = this.tables.reduce(function(max, t){ return Math.max(max, t.number||0); }, 0) + 1;
-var newTable = {
-venue_id: this.venue.id,
-number: maxNum,
-name: 'Стол '+maxNum,
-status: 'free',
-x: 100 + Math.random()*200,
-y: 100 + Math.random()*200
-};
-db.from('tables').insert(newTable).select().single().then(function(r){
-if(r.error){ self.showToast('Ошибка: '+r.error.message, 'error'); return; }
-self.tables.push(r.data);
-self.showToast('Стол добавлен');
-});
-},
-saveTable:function(t){
-var self=this;
-db.from('tables').update({
-number: t.number,
-name: t.name,
-x: t.x,
-y: t.y,
-status: t.status
-}).eq('id',t.id).then(function(r){
-if(r.error) self.showToast('Ошибка сохранения', 'error');
-});
-},
-deleteTable:function(t){
-var self=this;
-if(!confirm('Удалить стол "'+t.name+'"?')) return;
-db.from('tables').delete().eq('id',t.id).then(function(r){
-if(r.error){ self.showToast('Ошибка удаления', 'error'); return; }
-self.tables = self.tables.filter(function(item){ return item.id !== t.id; });
-self.showToast('Стол удалён');
 });
 },
 
@@ -1127,7 +1087,10 @@ brand_color:this.vform.brand_color,
 logo_url:this.vform.logo_url||null,
 address:this.vform.address||null,
 lat: this.vform.lat ? parseFloat(this.vform.lat) : null,
-lng: this.vform.lng ? parseFloat(this.vform.lng) : null
+lng: this.vform.lng ? parseFloat(this.vform.lng) : null,
+delivery_rate_per_km: this.vform.delivery_rate_per_km != null ? parseFloat(this.vform.delivery_rate_per_km) : 50,
+delivery_min_order_free: this.vform.delivery_min_order_free != null ? parseFloat(this.vform.delivery_min_order_free) : 0,
+delivery_base_fee: this.vform.delivery_base_fee != null ? parseFloat(this.vform.delivery_base_fee) : 50
 }).eq('id',this.venue.id).then(function(r){
 if(r.error) throw r.error;
 return db.from('venues').select('*').eq('id',self.venue.id).maybeSingle();
