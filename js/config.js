@@ -185,6 +185,7 @@ window.db = {
   storage: real.storage
 };
 
+// Загрузка QR-стола и бейджа
 async function bootQrTable(){
   if(!isMenu) return;
   var token = new URLSearchParams(location.search).get('table');
@@ -216,6 +217,7 @@ if(isMenu){
   var timer = setInterval(function(){ renderCustomerTable(); if(++n>30) clearInterval(timer); }, 500);
 }
 
+// Панель управления столами для персонала
 async function loadStaffOrders(){
   if(!isStaff) return;
   var token = staffToken();
@@ -241,7 +243,7 @@ function installTableControl(){
 async function showStaffTables(){
   var token = staffToken();
   if(!token){ alert('Сессия сотрудника не найдена. Войдите заново.'); return; }
-  var rpcName = staffType==='cook' ? 'cook_get_table_dashboard' : 'waiter_get_dashboard';
+  var rpcName = staffType==='cook' ? 'cook_get_table_dashboard' : 'waiter_get_table_dashboard';
   var r = await oldRpc(rpcName, {p_token:token});
   if(r.error){
     var msg = (r.error.message||String(r.error)||'').toLowerCase();
@@ -291,7 +293,11 @@ async function showStaffTables(){
       html += '<div style="font-size:12px;color:#94a3b8">Заказов: '+(t.session.order_count||0)+' · '+Number(t.session.total_price||0).toLocaleString('ru-RU')+' ₽</div>';
     }
     if(canControl){
-      html += '<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>';
+      // Для официанта: если стол занят, добавить кнопку "Добавить заказ"
+      if(occupied && staffType==='waiter'){
+        html += '<button class="staff-add-order-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:#6366f1;color:#fff;font-weight:700;cursor:pointer">➕ Добавить заказ</button>';
+      }
+      html += '<button class="staff-seat-btn" style="width:100%;margin-top:6px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>';
     } else {
       html += '<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>';
     }
@@ -312,6 +318,14 @@ async function showStaffTables(){
         showStaffTables();
       };
     }
+    // Кнопка "Добавить заказ" для официанта
+    var addOrderBtn = card.querySelector('.staff-add-order-btn');
+    if(addOrderBtn){
+      addOrderBtn.onclick = function(){
+        // Открываем модалку с меню для добавления заказа к столу
+        openAddOrderModal(t.id, t.name, token);
+      };
+    }
     grid.appendChild(card);
   });
 
@@ -320,6 +334,96 @@ async function showStaffTables(){
   document.body.appendChild(modal);
   modal.onclick = function(e){ if(e.target===modal) modal.remove(); };
   box.querySelector('#staff-table-close').onclick = function(){ modal.remove(); };
+}
+
+// Модалка добавления заказа к столу (для официанта)
+function openAddOrderModal(tableId, tableName, token){
+  // Загружаем продукты заведения
+  var venueId = JSON.parse(localStorage.getItem(staffType+'_session') || '{}').venueId;
+  if(!venueId) { alert('Не удалось определить заведение'); return; }
+  oldFrom('products').select('*').eq('venue_id', venueId).eq('is_available', true).order('category').then(function(r){
+    if(r.error){ alert('Ошибка загрузки меню'); return; }
+    var products = r.data || [];
+    // Создаём модалку с выбором блюд
+    var modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(5,10,20,.85);backdrop-filter:blur(6px);padding:20px;overflow:auto';
+    var box = document.createElement('div');
+    box.style.cssText = 'max-width:600px;margin:20px auto;background:#1e293b;border-radius:20px;padding:20px;color:#fff';
+    box.innerHTML = '<h3 style="margin-top:0">➕ Добавить заказ к столу '+tableName+'</h3>';
+    var form = document.createElement('div');
+    form.innerHTML = `
+      <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#94a3b8">Имя клиента</label><input id="add-order-name" style="width:100%;padding:8px;border-radius:8px;background:#0f172a;border:1px solid #334155;color:#fff" placeholder="Введите имя"></div>
+      <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#94a3b8">Телефон</label><input id="add-order-phone" style="width:100%;padding:8px;border-radius:8px;background:#0f172a;border:1px solid #334155;color:#fff" placeholder="+7 900 000-00-00"></div>
+      <div style="margin-bottom:10px"><label style="display:block;font-size:12px;color:#94a3b8">Выберите блюда</label></div>
+      <div id="add-order-items-container"></div>
+      <div style="margin-top:10px"><button id="add-order-submit" style="width:100%;border:0;border-radius:10px;padding:12px;background:#6366f1;color:#fff;font-weight:700;cursor:pointer">✅ Отправить заказ</button></div>
+    `;
+    box.appendChild(form);
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+
+    var container = document.getElementById('add-order-items-container');
+    var items = []; // массив {product_id, name, price, qty}
+    products.forEach(function(p){
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+      var nameSpan = document.createElement('span');
+      nameSpan.style.flex = '1';
+      nameSpan.textContent = p.name + ' ('+p.price+' ₽)';
+      var qtyInput = document.createElement('input');
+      qtyInput.type = 'number';
+      qtyInput.min = 0;
+      qtyInput.value = 0;
+      qtyInput.style.width = '60px';
+      qtyInput.style.background = '#0f172a';
+      qtyInput.style.border = '1px solid #334155';
+      qtyInput.style.color = '#fff';
+      qtyInput.style.borderRadius = '4px';
+      qtyInput.style.padding = '4px';
+      qtyInput.onchange = function(){
+        var idx = items.findIndex(function(it){ return it.product_id === p.id; });
+        var qty = parseInt(this.value) || 0;
+        if(qty > 0){
+          if(idx === -1) items.push({product_id:p.id, name:p.name, price:p.price, qty:qty});
+          else items[idx].qty = qty;
+        } else {
+          if(idx !== -1) items.splice(idx, 1);
+        }
+      };
+      row.appendChild(nameSpan);
+      row.appendChild(qtyInput);
+      container.appendChild(row);
+    });
+
+    var submitBtn = document.getElementById('add-order-submit');
+    submitBtn.onclick = function(){
+      var name = document.getElementById('add-order-name').value.trim();
+      var phone = document.getElementById('add-order-phone').value.trim();
+      if(!name || !phone){ alert('Заполните имя и телефон'); return; }
+      var itemsToSend = items.filter(function(it){ return it.qty > 0; });
+      if(itemsToSend.length === 0){ alert('Выберите хотя бы одно блюдо'); return; }
+      // Отправляем RPC
+      var payload = {
+        p_token: token,
+        p_table_id: tableId,
+        p_customer_name: name,
+        p_customer_phone: phone,
+        p_items: itemsToSend.map(function(it){ return {product_id: it.product_id, qty: it.qty}; }),
+        p_addons: [], // пока без добавок
+        p_payment_method: 'cash'
+      };
+      oldRpc('waiter_add_order_to_table', payload).then(function(r){
+        if(r.error){ alert('Ошибка: '+ (r.error.message||r.error)); return; }
+        alert('✅ Заказ №'+r.data.order_number+' добавлен!');
+        modal.remove();
+        // Обновляем столы
+        showStaffTables();
+      }).catch(function(e){ alert('Ошибка: '+e.message); });
+    };
+
+    // Закрыть по клику вне
+    modal.onclick = function(e){ if(e.target===modal) modal.remove(); };
+  });
 }
 
 if(isStaff){
