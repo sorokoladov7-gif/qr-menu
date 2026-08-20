@@ -150,7 +150,7 @@ createApp({
       if(v.error||!v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
       const r=await db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin);
       if(r.error||!r.data){ this.err='Неверный PIN'; this.busy=false; return; }
-      this.session={courierName:r.data.name,venueId:v.data.id,venueName:v.data.name};
+      this.session={courierName:r.data.name, venueId:v.data.id, venueName:v.data.name};
       localStorage.setItem('courier_session',JSON.stringify(this.session));
       this.busy=false; this.load();
     },
@@ -166,16 +166,17 @@ createApp({
     async load(){
       if(!this.session) return;
       if(typeof window.db==='undefined'||!window.db.from){ setTimeout(()=>this.load(),300); return; }
-      const r=await db.from('orders').select('*');
+      const r = await db.from('orders').select('*');
       if(r.error) return;
-      this.orders=Array.isArray(r.data)?r.data:[];
-      const h=await db.from('orders').select('*').eq('courier_name',this.session.courierName);
+      this.orders = Array.isArray(r.data)?r.data:[];
+      // История курьера
+      const h = await db.from('orders').select('*').eq('courier_name', this.session.courierName).neq('status', 'cancelled');
       if(!h.error&&Array.isArray(h.data)){
-        this.history=h.data.filter(o=>o.status==='done').slice(0,10);
-        this.courierStats.done=h.data.filter(o=>o.status==='done').length;
-        this.courierStats.total=h.data.length;
-        this.courierStats.inProgress=this.colDelivery.length;
-        this.courierStats.revenue=h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
+        this.history = h.data.filter(o=>o.status==='done').slice(0,10);
+        this.courierStats.done = h.data.filter(o=>o.status==='done').length;
+        this.courierStats.total = h.data.length;
+        this.courierStats.inProgress = this.colDelivery.length;
+        this.courierStats.revenue = h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
       }
     },
 
