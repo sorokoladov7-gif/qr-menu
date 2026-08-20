@@ -41,13 +41,13 @@
 
 <script>
 function startDemo(page){
-  // Для демо-режима устанавливаем флаг и переходим
-  localStorage.setItem('qr_demo_mode', '1');
-  // Для страниц персонала также сохраняем тип, чтобы demo-mode.js корректно подхватил
-  if (page === 'cook.html' || page === 'courier.html' || page === 'waiter.html') {
-    localStorage.setItem('demo_staff_type', page.replace('.html', ''));
+  if(page === 'manager-demo.html'){
+    location.href = page;
+  } else {
+    // Добавляем параметр demo=1, чтобы demo-mode.js активировался
+    var separator = page.indexOf('?') === -1 ? '?' : '&';
+    location.href = page + separator + 'demo=1';
   }
-  location.href = page;
 }
 </script>
 
