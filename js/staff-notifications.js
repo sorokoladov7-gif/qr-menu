@@ -14,37 +14,29 @@ var permissionAsked = false;
 // Безопасное получение AudioContext (обходит защиту autoplay)
 function getAudioContext() {
   if (!audioCtx) {
-    try {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-      return null;
-    }
+    try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } 
+    catch (e) { return null; }
   }
-  // Если браузер приостановил звук, пытаемся возобновить
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume().catch(function(){});
-  }
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(function(){});
   return audioCtx;
 }
 
-// Запрос разрешения при первом клике/касании
+// Запрос разрешения и инициализация звука при первом клике
 function requestPermission(){
   if(permissionAsked) return;
   permissionAsked = true;
   if('Notification' in window && Notification.permission === 'default'){
     Notification.requestPermission();
   }
-  // Инициализируем звук при первом взаимодействии
   getAudioContext();
 }
 document.addEventListener('click', requestPermission, {once: true});
 document.addEventListener('touchstart', requestPermission, {once: true});
 
-// Воспроизведение звука
+// Воспроизведение звука (двойной сигнал)
 function playSound(){
   var ctx = getAudioContext();
-  if (!ctx) return; // Если звук заблокирован, просто молча выходим
-  
+  if (!ctx) return; 
   try {
     var now = ctx.currentTime;
     [0, 0.15].forEach(function(offset, i){
@@ -54,14 +46,10 @@ function playSound(){
       osc.frequency.value = i === 0 ? 880 : 1100;
       gain.gain.setValueAtTime(0.3, now + offset);
       gain.gain.exponentialRampToValueAtTime(0.01, now + offset + 0.12);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now + offset);
-      osc.stop(now + offset + 0.15);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now + offset); osc.stop(now + offset + 0.15);
     });
-  } catch(e) {
-    // Игнорируем ошибки звука, чтобы не ломать интерфейс
-  }
+  } catch(e) {}
 }
 
 // Показ уведомления
@@ -87,8 +75,7 @@ function showToast(text){
   t.textContent = text;
   document.body.appendChild(t);
   setTimeout(function(){
-    t.style.opacity = '0';
-    t.style.transition = 'opacity .3s';
+    t.style.opacity = '0'; t.style.transition = 'opacity .3s';
     setTimeout(function(){ t.remove(); }, 300);
   }, 4000);
 }
@@ -99,6 +86,7 @@ function showToast(text){
   document.head.appendChild(s);
 })();
 
+// Проверка новых заказов (читает данные из config.js)
 function checkOrders(){
   var orders = window.__staffTableOrders;
   if(!orders || !Array.isArray(orders)) return;
