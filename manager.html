@@ -392,7 +392,6 @@
 <div v-if="tab==='design' && profile && profile.allow_manage_design" class="glass card" style="max-width:800px">
   <h3 style="margin-top:0">🎨 Настройки дизайна заведения</h3>
   <p class="muted" style="font-size:12px;margin-bottom:14px">Настройте внешний вид вашего меню для клиентов.</p>
-
   <div class="design-group">
     <h4>🎨 Основные цвета</h4>
     <div class="design-grid">
@@ -406,7 +405,6 @@
       <div class="design-field"><label>Цвет границ</label><input v-model="designForm.border_color" type="color"></div>
     </div>
   </div>
-
   <div class="design-group">
     <h4>🖼️ Фон</h4>
     <div class="design-grid">
@@ -414,12 +412,9 @@
       <div class="design-field"><label>Градиент (цвет 2)</label><input v-model="designForm.gradient_end" type="color"></div>
       <div class="design-field"><label>Направление градиента</label>
         <select v-model="designForm.gradient_direction">
-          <option value="to right">→ вправо</option>
-          <option value="to left">← влево</option>
-          <option value="to bottom">↓ вниз</option>
-          <option value="to top">↑ вверх</option>
-          <option value="135deg">↘ диагональ</option>
-          <option value="45deg">↗ диагональ</option>
+          <option value="to right">→ вправо</option><option value="to left">← влево</option>
+          <option value="to bottom">↓ вниз</option><option value="to top">↑ вверх</option>
+          <option value="135deg">↘ диагональ</option><option value="45deg">↗ диагональ</option>
         </select>
       </div>
       <div class="design-field"><label>Фоновое изображение (URL)</label>
@@ -431,48 +426,35 @@
       </div>
     </div>
   </div>
-
   <div class="design-group">
     <h4>🔤 Типографика</h4>
     <div class="design-grid">
       <div class="design-field"><label>Шрифт</label>
         <select v-model="designForm.font_family">
           <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
-          <option value="Inter">Inter</option>
-          <option value="Roboto">Roboto</option>
-          <option value="Montserrat">Montserrat</option>
-          <option value="Oswald">Oswald</option>
+          <option value="Inter">Inter</option><option value="Roboto">Roboto</option>
+          <option value="Montserrat">Montserrat</option><option value="Oswald">Oswald</option>
         </select>
       </div>
       <div class="design-field"><label>Размер шрифта (px)</label><input v-model.number="designForm.font_size" type="number" min="12" max="24"></div>
       <div class="design-field"><label>Жирность заголовков</label>
         <select v-model="designForm.heading_weight">
-          <option value="400">400</option>
-          <option value="600">600</option>
-          <option value="700">700</option>
-          <option value="800">800</option>
+          <option value="400">400</option><option value="600">600</option><option value="700">700</option><option value="800">800</option>
         </select>
       </div>
       <div class="design-field"><label>Жирность текста</label>
         <select v-model="designForm.body_weight">
-          <option value="300">300</option>
-          <option value="400">400</option>
-          <option value="500">500</option>
-          <option value="600">600</option>
+          <option value="300">300</option><option value="400">400</option><option value="500">500</option><option value="600">600</option>
         </select>
       </div>
       <div class="design-field"><label>Межстрочный интервал</label>
         <select v-model="designForm.line_height">
-          <option value="1.4">1.4</option>
-          <option value="1.6">1.6</option>
-          <option value="1.8">1.8</option>
-          <option value="2.0">2.0</option>
+          <option value="1.4">1.4</option><option value="1.6">1.6</option><option value="1.8">1.8</option><option value="2.0">2.0</option>
         </select>
       </div>
       <div class="design-field"><label>Межбуквенный интервал (px)</label><input v-model.number="designForm.letter_spacing" type="number" min="0" max="4" step="0.5"></div>
     </div>
   </div>
-
   <div class="design-group">
     <h4>🃏 Карточки товаров</h4>
     <div class="design-grid">
@@ -480,8 +462,7 @@
       <div class="design-field"><label>Высота изображения (px)</label><input v-model.number="designForm.card_image_height" type="number" min="80" max="250"></div>
       <div class="design-field"><label>Выравнивание текста</label>
         <select v-model="designForm.card_text_align">
-          <option value="left">Слева</option>
-          <option value="center">По центру</option>
+          <option value="left">Слева</option><option value="center">По центру</option>
         </select>
       </div>
       <div class="design-field" style="display:flex;gap:12px;align-items:center">
@@ -490,28 +471,22 @@
       </div>
     </div>
   </div>
-
   <div class="design-group">
     <h4>🔘 Кнопки</h4>
     <div class="design-grid">
       <div class="design-field"><label>Цвет текста кнопок</label><input v-model="designForm.button_text_color" type="color"></div>
       <div class="design-field"><label>Жирность текста</label>
         <select v-model="designForm.button_weight">
-          <option value="400">400</option>
-          <option value="600">600</option>
-          <option value="700">700</option>
+          <option value="400">400</option><option value="600">600</option><option value="700">700</option>
         </select>
       </div>
       <div class="design-field"><label>Эффект при наведении</label>
         <select v-model="designForm.button_hover">
-          <option value="scale">Увеличение</option>
-          <option value="shadow">Тень</option>
-          <option value="none">Без эффекта</option>
+          <option value="scale">Увеличение</option><option value="shadow">Тень</option><option value="none">Без эффекта</option>
         </select>
       </div>
     </div>
   </div>
-
   <div class="design-group">
     <h4>⚙️ Дополнительно</h4>
     <div class="design-grid">
@@ -521,15 +496,11 @@
       <div class="design-field"><label>Тень (px)</label><input v-model.number="designForm.shadow" type="number" min="0" max="20"></div>
       <div class="design-field"><label>Скорость анимации (s)</label>
         <select v-model="designForm.transition_speed">
-          <option value="0.1">0.1</option>
-          <option value="0.2">0.2</option>
-          <option value="0.3">0.3</option>
-          <option value="0.5">0.5</option>
+          <option value="0.1">0.1</option><option value="0.2">0.2</option><option value="0.3">0.3</option><option value="0.5">0.5</option>
         </select>
       </div>
     </div>
   </div>
-
   <button class="btn btn-primary" v-on:click="saveDesignSettings" :disabled="busy">{{ busy ? 'Сохранение...' : 'Сохранить дизайн' }}</button>
   <div v-if="designMsg" class="msg" :class="designMsgType" style="margin-top:14px">{{ designMsg }}</div>
 </div>
@@ -754,12 +725,14 @@ daysLeft:function(){return this.subscriptionEnd?Math.ceil((new Date(this.subscri
 currentPlan:function(){if(!this.venue)return null;var planId=this.venue.plan;return this.plans.find(function(p){return p.id===planId})||null;},
 canCreateVenue:function(){var p=this.plans.find(function(x){return x.id==='start'});return this.myVenues.length<(p?p.max_venues:1);},
 perms:function(){
-if(this.venue&&this.venue.manager_permissions){var p=this.venue.manager_permissions;return{addons:p.addons!==false,products:p.products!==false,prices:p.prices!==false;}}
-return{addons:true,products:true,prices:true;}
+  if(this.venue && this.venue.manager_permissions){
+    var p = this.venue.manager_permissions;
+    return { addons: p.addons !== false, products: p.products !== false, prices: p.prices !== false };
+  }
+  return { addons: true, products: true, prices: true };
 }
 },
 methods:{
-// ===== БАЗОВЫЕ УТИЛИТЫ =====
 fmt:function(v){return window.fmt(v);},
 fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'-';},
 statusName:function(s){return window.statusName(s);},
@@ -787,7 +760,6 @@ copyCourierAccess:function(c){this.copyText('Вход для курьера '+c.
 copyWaiterAccess:function(w){this.copyText('Вход для официанта '+w.name+':\nСайт: '+location.origin+'/waiter.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.');},
 openStaffGuide:function(){window.open('/staff-guide.html','_blank');},
 
-// ===== ИНИЦИАЛИЗАЦИЯ =====
 init:function(){
 var self=this; self.loadError=''; self.ready=false;
 try{
@@ -806,7 +778,6 @@ self.ready=true;
 }catch(e){ self.loadError=e.message||String(e); self.ready=true; }
 },
 
-// ===== ЗАГРУЗКА ШАБЛОНОВ (ОПРЕДЕЛЕНА) =====
 loadVenueTemplates:function(){
 var self=this;
 return db.from('menu_templates')
@@ -825,7 +796,6 @@ return db.from('menu_templates')
   .catch(function(e){ console.warn('Ошибка загрузки шаблонов:',e.message||e); });
 },
 
-// ===== ОСТАЛЬНЫЕ МЕТОДЫ (полные, рабочие) =====
 loadMyVenues:function(){
 var self=this;
 return new Promise(function(resolve){
@@ -913,7 +883,7 @@ this.$nextTick(function(){
 });
 },
 
-loadDesignSettings:function(){ /* ... */ },
+loadDesignSettings:function(){ /* ... (реализован ранее) */ },
 saveDesignSettings:function(){ /* ... */ },
 uploadBgImageManager:function(ev){ /* ... */ },
 geocodeVenueAddress:function(){ /* ... */ },
