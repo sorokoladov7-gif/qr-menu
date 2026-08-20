@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <style>
+/* все стили такие же, как в предыдущей версии, можно скопировать из предыдущего ответа */
 [v-cloak]{display:none}
 .hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 .hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
@@ -146,6 +147,8 @@
 </template>
 </div>
 
+<!-- МОДАЛКИ такие же как и в предыдущем меню, можно скопировать из предыдущего ответа -->
+<!-- Dish modal -->
 <div v-if="dishModal.show" class="modal" v-on:click.self="dishModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">{{ dishModal.product.name }}</h3>
 <div class="muted" style="font-size:13px">{{ dishModal.product.description }}</div>
@@ -158,6 +161,7 @@
 <button class="btn btn-primary" style="width:100%;margin-top:12px" v-on:click="addDishToCart">+ В корзину · {{ fmt(dishTotal) }} ₽</button>
 </div></div>
 
+<!-- Cart modal -->
 <div v-if="showCart" class="modal" v-on:click.self="showCart=false"><div class="glass box">
 <h3 style="margin-top:0">🛒 Корзина</h3>
 <div v-for="i in cart" v-bind:key="i.id" style="margin-bottom:10px">
@@ -170,7 +174,7 @@
 <div class="field" style="margin-top:14px"><label>Имя</label><input v-model="form.name"></div>
 <div class="field"><label>Телефон *</label><input v-model="form.phone" type="tel" placeholder="+7 900 000-00-00"></div>
 
-<!-- ===== НОВЫЙ БЛОК ВЫБОРА СПОСОБА ПОЛУЧЕНИЯ ===== -->
+<!-- Выбор типа получения -->
 <div class="field"><label>Как получить</label>
 <div class="row" style="flex-wrap:wrap;gap:6px">
   <button class="btn" v-bind:class="form.type==='pickup'?'btn-primary':'btn-ghost'" style="flex:1;min-width:100px" v-on:click="setOrderType('pickup')">🏠 Самовывоз</button>
@@ -179,13 +183,11 @@
 </div>
 </div>
 
-<!-- Поле для стола (только при 'table') -->
 <div v-if="form.type==='table'" class="field">
   <label>Номер стола *</label>
   <input v-model="form.table_number" placeholder="Например: 5">
 </div>
 
-<!-- Блок доставки -->
 <div v-if="form.type==='delivery'" class="field">
   <label>Адрес доставки *</label>
   <div class="row">
@@ -199,7 +201,12 @@
       <span>Расстояние: <b>{{ deliveryDistance }} км</b></span>
       <span>Доставка: <span class="delivery-fee">{{ fmt(calculatedDeliveryFee) }} ₽</span></span>
     </div>
-    <div style="font-size:12px;color:#94a3b8;margin-top:4px">* Минимальная сумма 100 ₽, тариф 50 ₽/км</div>
+    <div style="font-size:12px;color:#94a3b8;margin-top:4px">
+      * Стоимость рассчитана по настройкам заведения.
+      <span v-if="venue.delivery_min_order_free && venue.delivery_min_order_free > 0 && cartTotal >= venue.delivery_min_order_free">
+        (бесплатно, т.к. сумма заказа >= {{ fmt(venue.delivery_min_order_free) }} ₽)
+      </span>
+    </div>
   </div>
   <div v-if="deliveryCalcError" style="color:#f87171;font-size:12px;margin-top:4px">{{ deliveryCalcError }}</div>
 </div>
@@ -210,7 +217,6 @@
 <button class="btn" v-bind:class="form.pay==='card'?'btn-primary':'btn-ghost'" style="flex:1" v-on:click="form.pay='card'">💳 Картой</button>
 </div></div>
 
-<!-- Итог с учётом доставки -->
 <div class="spread" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
   <span class="muted">Итого:</span>
   <b style="font-size:18px">{{ fmt(cartTotalWithDelivery) }} ₽</b>
@@ -219,35 +225,32 @@
 <div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
 </div></div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="/js/config.js"></script>
 <script src="/js/demo-data.js"></script>
 <script src="/js/demo-mode.js"></script>
 <script src="/js/app.js"></script>
 <script>
-var DELIVERY_RATE_PER_KM = 50;  // руб за км
-var DELIVERY_MIN_FEE = 100;     // минимальная стоимость доставки
-var DELIVERY_BASE_FEE = 50;     // базовая надбавка
-
 Vue.createApp({
 data:function(){return{
 ready:false, venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:false,
 dishModal:{show:false, product:null, addons:[]},
-form:{
-  name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash',
-  table_number:''  // для заказа за столом
-},
+form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:''},
 msg:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
 DEFAULT_IMG:window.DEFAULT_IMG,
 trackTimer:null,
 previousStatus:'',
-// Новые поля для доставки
 calculatedDeliveryFee: null,
 deliveryDistance: 0,
 deliveryCalcBusy: false,
 deliveryCalcError: '',
 venueLat: null,
-venueLng: null
+venueLng: null,
+// Настройки доставки из заведения
+deliveryRatePerKm: 50,
+deliveryMinOrderFree: 0,
+deliveryBaseFee: 50
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -277,7 +280,6 @@ statusHint:function(s){return{new:'Мы получили заказ и скор�
 
 setOrderType:function(type){
   this.form.type = type;
-  // Сбрасываем расчёт доставки при смене типа
   if(type !== 'delivery'){
     this.calculatedDeliveryFee = null;
     this.deliveryDistance = 0;
@@ -285,7 +287,6 @@ setOrderType:function(type){
   }
 },
 
-// Расчёт стоимости доставки через геокодинг
 calcDeliveryFee:function(){
   var self = this;
   if(!this.form.address.trim()){
@@ -300,7 +301,6 @@ calcDeliveryFee:function(){
   this.deliveryCalcError = '';
   this.calculatedDeliveryFee = null;
 
-  // Геокодируем адрес через Nominatim (бесплатно, без ключа)
   var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(this.form.address.trim()) + '&format=json&limit=1';
   fetch(url, {
     headers: { 'User-Agent': 'QR-Menu-App/1.0' }
@@ -315,8 +315,7 @@ calcDeliveryFee:function(){
     if(isNaN(lat) || isNaN(lon)){
       throw new Error('Не удалось определить координаты');
     }
-    // Расчёт расстояния по формуле гаверсинусов
-    var R = 6371; // радиус Земли в км
+    var R = 6371;
     var dLat = (lat - self.venueLat) * Math.PI / 180;
     var dLon = (lon - self.venueLng) * Math.PI / 180;
     var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -324,18 +323,24 @@ calcDeliveryFee:function(){
             Math.sin(dLon/2) * Math.sin(dLon/2);
     var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     var distance = R * c;
-    self.deliveryDistance = Math.round(distance * 100) / 100; // округляем до 2 знаков
+    self.deliveryDistance = Math.round(distance * 100) / 100;
 
-    // Стоимость = расстояние * тариф + базовая, но не ниже минимальной
-    var fee = distance * DELIVERY_RATE_PER_KM + DELIVERY_BASE_FEE;
-    if(fee < DELIVERY_MIN_FEE) fee = DELIVERY_MIN_FEE;
+    // Расчёт стоимости с учётом настроек заведения
+    var rate = self.deliveryRatePerKm || 50;
+    var base = self.deliveryBaseFee || 50;
+    var minFree = self.deliveryMinOrderFree || 0;
+    var fee = distance * rate + base;
+    if (minFree > 0 && self.cartTotal >= minFree) {
+      fee = 0;
+    } else {
+      if (fee < 0) fee = 0;
+    }
     self.calculatedDeliveryFee = Math.round(fee);
     self.deliveryCalcBusy = false;
   })
   .catch(function(err){
     self.deliveryCalcError = 'Ошибка: ' + err.message;
     self.deliveryCalcBusy = false;
-    // Если не удалось рассчитать, предлагаем ввести вручную (или оставляем null)
     self.calculatedDeliveryFee = null;
   });
 },
@@ -351,10 +356,12 @@ init:function(){
   var slug=new URLSearchParams(location.search).get('venue');
   var p=slug?db.from('venues').select('*').eq('slug',slug).maybeSingle().then(function(r){
       self.venue=r.data;
-      // Загружаем координаты заведения, если есть
       if(self.venue){
         self.venueLat = self.venue.lat ? parseFloat(self.venue.lat) : null;
         self.venueLng = self.venue.lng ? parseFloat(self.venue.lng) : null;
+        self.deliveryRatePerKm = self.venue.delivery_rate_per_km != null ? parseFloat(self.venue.delivery_rate_per_km) : 50;
+        self.deliveryMinOrderFree = self.venue.delivery_min_order_free != null ? parseFloat(self.venue.delivery_min_order_free) : 0;
+        self.deliveryBaseFee = self.venue.delivery_base_fee != null ? parseFloat(self.venue.delivery_base_fee) : 50;
       }
     })
     :db.from('venues').select('*').eq('status','active').then(function(r){self.venues=r.data||[]});
@@ -369,6 +376,9 @@ selectVenue:function(v){
   this.venue=v;
   this.venueLat = v.lat ? parseFloat(v.lat) : null;
   this.venueLng = v.lng ? parseFloat(v.lng) : null;
+  this.deliveryRatePerKm = v.delivery_rate_per_km != null ? parseFloat(v.delivery_rate_per_km) : 50;
+  this.deliveryMinOrderFree = v.delivery_min_order_free != null ? parseFloat(v.delivery_min_order_free) : 0;
+  this.deliveryBaseFee = v.delivery_base_fee != null ? parseFloat(v.delivery_base_fee) : 50;
   this.loadProducts();
 },
 loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){self.products=r.data||[]})},
@@ -392,16 +402,14 @@ checkout:function(){
   var phone = self.norm(self.form.phone);
   if(!phone){ self.msg='Укажите телефон'; return; }
 
-  // Валидация в зависимости от типа
   if(self.form.type === 'delivery'){
     if(!self.form.address.trim()){ self.msg='Укажите адрес доставки'; return; }
     if(self.calculatedDeliveryFee === null){
-      // Если стоимость не рассчитана, предлагаем рассчитать или ввести вручную
-      self.msg='Рассчитайте стоимость доставки или введите её вручную (пока не реализовано)';
+      self.msg='Рассчитайте стоимость доставки';
       return;
     }
-    if(self.calculatedDeliveryFee <= 0){
-      self.msg='Стоимость доставки должна быть положительной';
+    if(self.calculatedDeliveryFee < 0){
+      self.msg='Стоимость доставки не может быть отрицательной';
       return;
     }
   } else if(self.form.type === 'table'){
@@ -427,15 +435,12 @@ checkout:function(){
   });
 
   var total = Number(self.cartTotalWithDelivery) || 0;
-
-  // Определяем p_order_type: pickup, table, delivery
-  var orderType = self.form.type; // 'pickup', 'table', 'delivery'
-  var tableToken = self.form.type === 'table' ? self.form.table_number.trim() : null;
   var deliveryFee = self.form.type === 'delivery' ? (self.calculatedDeliveryFee || 0) : 0;
+  var tableToken = self.form.type === 'table' ? self.form.table_number.trim() : null;
 
   db.rpc('create_public_order',{
     p_venue_id: self.venue.id,
-    p_order_type: orderType,
+    p_order_type: self.form.type,
     p_customer_name: self.form.name || null,
     p_customer_phone: phone,
     p_delivery_address: self.form.type === 'delivery' ? self.form.address.trim() : null,
@@ -444,7 +449,7 @@ checkout:function(){
     p_items: itemRows,
     p_addons: addonRows,
     p_total_price: total,
-    p_table_token: tableToken,   // для заказа за столом передаём номер стола
+    p_table_token: tableToken,
     p_delivery_fee: deliveryFee
   }).then(function(r){
     if(r.error) throw r.error;
