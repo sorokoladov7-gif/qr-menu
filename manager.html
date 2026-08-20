@@ -37,6 +37,11 @@
 .template-preview{max-height:180px;overflow:auto;border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px;margin:8px 0 14px}
 .template-preview-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
 .template-preview-row:last-child{border-bottom:0}
+.design-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:10px 0}
+.design-field label{font-size:12px;color:#9ca3af;display:block;margin-bottom:4px}
+.design-field input[type="color"], .design-field input[type="text"], .design-field input[type="number"], .design-field select{width:100%;padding:6px 10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:#fff;font-size:13px}
+.design-field input[type="color"]{height:44px;padding:4px}
+.design-field input[type="number"]{width:100%}
 </style>
 </head>
 <body>
@@ -106,6 +111,8 @@
 <button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
+<!-- Новая вкладка Дизайн (доступна, если есть право allow_manage_design) -->
+<button v-if="profile && profile.allow_manage_design" v-bind:class="{on:tab==='design'}" v-on:click="tab='design'; loadDesignSettings()">🎨 Дизайн</button>
 <button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
@@ -379,7 +386,7 @@
 </div>
 </div>
 
-<!-- ===== ВКЛАДКА НАСТРОЙКИ (исправлена) ===== -->
+<!-- Вкладка Настройки (без дизайна) -->
 <div v-if="tab==='settings'" class="glass card" style="max-width:700px">
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
@@ -392,7 +399,7 @@
 <input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
 
-<!-- ===== НАСТРОЙКИ ДОСТАВКИ (доступны только если у менеджера есть право allow_manage_delivery) ===== -->
+<!-- НАСТРОЙКИ ДОСТАВКИ (доступны только если у менеджера есть право allow_manage_delivery) -->
 <div v-if="profile && profile.allow_manage_delivery" style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
   <h4 style="margin:0 0 10px">🚗 Настройки доставки</h4>
   <div class="field"><label>Стоимость доставки за 1 км (₽)</label>
@@ -407,7 +414,7 @@
   <p class="muted" style="font-size:12px;margin-top:4px">Если сумма заказа >= минимальной, доставка бесплатна. Иначе рассчитывается: (расстояние × стоимость_за_км + базовая).</p>
 </div>
 
-<!-- ===== ГЕОКОДИНГ (адрес и координаты) ===== -->
+<!-- ГЕОКОДИНГ -->
 <div style="border-top:1px solid rgba(255,255,255,.08);margin:16px 0;padding-top:16px">
   <h4 style="margin:0 0 10px">📍 Адрес и координаты</h4>
   <div class="field">
@@ -427,13 +434,41 @@
   <p class="muted" style="font-size:12px;margin-top:4px">Координаты используются для расчёта стоимости доставки.</p>
 </div>
 
-<!-- Управление столами УДАЛЕНО — оно вынесено в отдельную вкладку "Зал / Столы" -->
-
 <button class="btn btn-primary" v-on:click="saveVenue" :disabled="busy">{{ busy ? 'Сохранение...' : 'Сохранить настройки' }}</button>
 <div v-if="msg" class="msg" :class="msgType" style="margin-top:14px">{{ msg }}</div>
 </div>
 
-<!-- QR-код (вынесен за пределы вкладки настроек, но в рамках заведения) -->
+<!-- Вкладка Дизайн (доступна, если есть право allow_manage_design) -->
+<div v-if="tab==='design' && profile && profile.allow_manage_design" class="glass card" style="max-width:800px">
+  <h3 style="margin-top:0">🎨 Настройки дизайна заведения</h3>
+  <p class="muted" style="font-size:12px;margin-bottom:14px">Настройте внешний вид вашего меню для клиентов.</p>
+  <div class="design-grid">
+    <div class="design-field"><label>Основной цвет (брендовый)</label><input v-model="designForm.brand_color" type="color"></div>
+    <div class="design-field"><label>Цвет кнопок</label><input v-model="designForm.button_color" type="color"></div>
+    <div class="design-field"><label>Цвет заголовков</label><input v-model="designForm.header_color" type="color"></div>
+    <div class="design-field"><label>Цвет фона страницы</label><input v-model="designForm.background_color" type="color"></div>
+    <div class="design-field"><label>Цвет фона карточек</label><input v-model="designForm.card_background" type="color"></div>
+    <div class="design-field"><label>Цвет текста</label><input v-model="designForm.text_color" type="color"></div>
+    <div class="design-field"><label>Цвет акцентов (ссылки, иконки)</label><input v-model="designForm.accent_color" type="color"></div>
+    <div class="design-field"><label>Шрифт</label>
+      <select v-model="designForm.font_family">
+        <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
+        <option value="Inter">Inter</option>
+        <option value="Roboto">Roboto</option>
+        <option value="Montserrat">Montserrat</option>
+        <option value="Oswald">Oswald</option>
+      </select>
+    </div>
+    <div class="design-field"><label>Скругление карточек (px)</label><input v-model.number="designForm.border_radius" type="number" min="0" max="30"></div>
+    <div class="design-field"><label>Скругление кнопок (px)</label><input v-model.number="designForm.button_radius" type="number" min="0" max="30"></div>
+    <div class="design-field"><label>Тень карточек (px)</label><input v-model.number="designForm.shadow" type="number" min="0" max="20"></div>
+    <div class="design-field"><label>Базовый размер шрифта (px)</label><input v-model.number="designForm.font_size" type="number" min="12" max="20"></div>
+  </div>
+  <button class="btn btn-primary" v-on:click="saveDesignSettings" :disabled="busy">{{ busy ? 'Сохранение...' : 'Сохранить дизайн' }}</button>
+  <div v-if="designMsg" class="msg" :class="designMsgType" style="margin-top:14px">{{ designMsg }}</div>
+</div>
+
+<!-- QR-код -->
 <div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
 <label>QR-код для клиентов</label>
 <div class="row"><img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
@@ -448,6 +483,8 @@
 </div>
 
 <!-- МОДАЛКИ (создание заведения, редактирование блюда, создание сотрудника) -->
+<!-- ... (оставляем как в предыдущей версии) ... -->
+
 <div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false"><div class="glass box" style="max-width:760px;width:95%">
 <h3 style="margin-bottom:4px">Новое заведение</h3>
 <p class="muted" style="margin-top:0">Выберите готовый шаблон меню. Товары, цены и описания будут добавлены автоматически — после создания их можно полностью изменить.</p>
@@ -624,10 +661,25 @@ analyticsPeriod:'7',
 analytics:{revenue:0,orders:0,clients:0,avgCheck:0,avgCookTime:0,newClients:0,repeatClients:0,topItems:[],topAddons:[],typeStats:{pickup:0,delivery:0},payStats:{cash:0,card:0},topHours:[],daily:[],cooks:[],couriers:[],waiters:[]},
 subscriptionEnd:null, isBlocked:false, payPlan:null, myPayments:[],
 DEFAULT_IMG:window.DEFAULT_IMG,
-// Столы загружаются в loadTables, но не используются в настройках
 tables: [],
 geocodeBusy: false,
-geocodeError: ''
+geocodeError: '',
+// Дизайн
+designForm: {
+  brand_color:'#6366f1',
+  button_color:'#8b5cf6',
+  header_color:'#ffffff',
+  font_family:'Plus+Jakarta+Sans',
+  background_color:'#0b1120',
+  card_background:'#141821',
+  text_color:'#eef2f7',
+  accent_color:'#a78bfa',
+  border_radius:18,
+  button_radius:12,
+  shadow:8,
+  font_size:16
+},
+designMsg:'', designMsgType:''
 };
 },
 computed:{
@@ -750,6 +802,8 @@ delivery_min_order_free: v.delivery_min_order_free != null ? parseFloat(v.delive
 delivery_base_fee: v.delivery_base_fee != null ? parseFloat(v.delivery_base_fee) : 50
 };
 this.geocodeError='';
+// Загружаем настройки дизайна
+this.loadDesignSettings();
 if(this.isExpired(v)){this.isBlocked=true;this.tab='billing'}else{this.isBlocked=false}
 Promise.all([this.loadProducts(),this.loadOrders(),this.loadCooks(),this.loadCouriers(),this.loadWaiters(),this.loadPayments(),this.loadTables()]).then(function(){
 self.loadStaffAnalytics();
@@ -772,7 +826,60 @@ self.tables=r.data||[];
 });
 },
 
-// ===== ГЕОКОДИНГ =====
+// ===== ДИЗАЙН =====
+loadDesignSettings:function(){
+if(!this.venue) return;
+var ds = this.venue.design_settings || {};
+this.designForm = {
+  brand_color: ds.brand_color || '#6366f1',
+  button_color: ds.button_color || '#8b5cf6',
+  header_color: ds.header_color || '#ffffff',
+  font_family: ds.font_family || 'Plus+Jakarta+Sans',
+  background_color: ds.background_color || '#0b1120',
+  card_background: ds.card_background || '#141821',
+  text_color: ds.text_color || '#eef2f7',
+  accent_color: ds.accent_color || '#a78bfa',
+  border_radius: ds.border_radius != null ? ds.border_radius : 18,
+  button_radius: ds.button_radius != null ? ds.button_radius : 12,
+  shadow: ds.shadow != null ? ds.shadow : 8,
+  font_size: ds.font_size != null ? ds.font_size : 16
+};
+},
+saveDesignSettings:function(){
+var self=this;
+this.busy=true;
+this.designMsg='';
+var settings = {
+  brand_color: this.designForm.brand_color,
+  button_color: this.designForm.button_color,
+  header_color: this.designForm.header_color,
+  font_family: this.designForm.font_family,
+  background_color: this.designForm.background_color,
+  card_background: this.designForm.card_background,
+  text_color: this.designForm.text_color,
+  accent_color: this.designForm.accent_color,
+  border_radius: this.designForm.border_radius,
+  button_radius: this.designForm.button_radius,
+  shadow: this.designForm.shadow,
+  font_size: this.designForm.font_size
+};
+db.from('venues').update({design_settings: settings}).eq('id', this.venue.id).then(function(r){
+self.busy=false;
+if(r.error){self.designMsg='Ошибка: '+r.error.message; self.designMsgType='error'; return}
+self.designMsg='Дизайн сохранён!';
+self.designMsgType='ok';
+self.showToast('Дизайн обновлён');
+// Обновляем venue в памяти
+db.from('venues').select('*').eq('id', self.venue.id).maybeSingle().then(function(res){
+if(res.data) self.venue = res.data;
+});
+}).catch(function(e){
+self.busy=false;
+self.designMsg='Ошибка: '+e.message;
+self.designMsgType='error';
+});
+},
+
 geocodeVenueAddress:function(){
 var self=this;
 if(!this.vform.address || !this.vform.address.trim()){
