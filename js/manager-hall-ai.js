@@ -2,13 +2,31 @@
 'use strict';
 
 function getAppProxy(){
-  var root=document.getElementById('app');
-  return root && root.__vueParentComponent ? root.__vueParentComponent.proxy : null;
+  try{
+    var root=document.getElementById('app');
+    if(root && root.__vueParentComponent) return root.__vueParentComponent.proxy || null;
+  }catch(e){}
+  return null;
+}
+
+function readVenueFromParent(){
+  try{
+    if(window.parent && window.parent !== window){
+      var parentApp=window.parent.document && window.parent.document.getElementById('app');
+      if(parentApp && parentApp.__vueParentComponent){
+        var p=parentApp.__vueParentComponent.proxy;
+        if(p && p.venue && p.venue.id) return String(p.venue.id);
+      }
+    }
+  }catch(e){}
+  return '';
 }
 
 function venueId(){
   var proxy=getAppProxy();
   var id=(proxy && proxy.venue && proxy.venue.id) ? String(proxy.venue.id) : '';
+  if(id) return id;
+  id=readVenueFromParent();
   if(id) return id;
   try{id=new URLSearchParams(location.search).get('venue')||'';}catch(e){}
   if(id) return id;
@@ -58,6 +76,17 @@ function createPanel(type){
     ? 'hall.html'+(id?'?venue='+encodeURIComponent(id):'')
     : 'admin-permissions.html'+(id?'?venue='+encodeURIComponent(id):'');
 
+  frame.addEventListener('load',function(){
+    var current=syncVenueContext();
+    if(current){
+      try{frame.contentWindow.postMessage({type:'manager-venue-context',venue_id:current},location.origin);}catch(e){}
+      var target=type==='hall'?'hall.html':'admin-permissions.html';
+      if(frame.src.indexOf('venue=')===-1){
+        frame.src=target+'?venue='+encodeURIComponent(current);
+      }
+    }
+  });
+
   var head=document.createElement('div');
   head.className='spread';
   head.style.marginBottom='12px';
@@ -74,13 +103,22 @@ function createPanel(type){
 }
 
 function setActiveTab(type){
-  syncVenueContext();
+  var id=syncVenueContext();
   var proxy=getAppProxy();
   if(proxy){
     try{proxy.tab=type; if(type==='analytics' && typeof proxy.loadAnalytics==='function') proxy.loadAnalytics();}catch(e){}
   }
   var hall=createPanel('hall');
   var permissions=createPanel('permissions');
+  [hall,permissions].forEach(function(panel){
+    var frame=panel.querySelector('iframe');
+    if(frame && id){
+      var target=panel.id.indexOf('hall')!==-1?'hall.html':'admin-permissions.html';
+      var src=target+'?venue='+encodeURIComponent(id);
+      if(frame.src !== location.origin+'/'+src && frame.getAttribute('src') !== src) frame.src=src;
+      try{frame.contentWindow.postMessage({type:'manager-venue-context',venue_id:id},location.origin);}catch(e){}
+    }
+  });
   hall.style.display=type==='hall'?'block':'none';
   permissions.style.display=type==='permissions'?'block':'none';
   document.querySelectorAll('.tabs button').forEach(function(b){
@@ -148,17 +186,27 @@ function bind(){
     }
   },true);
 
+  window.addEventListener('message',function(e){
+    if(e.origin!==location.origin || !e.data || e.data.type!=='manager-venue-context') return;
+    if(e.data.venue_id) localStorage.setItem('manager_venue_id',String(e.data.venue_id));
+  });
+
   var observer=new MutationObserver(function(){
     addPermissionsTab();
-    syncVenueContext();
+    var id=syncVenueContext();
     var active=document.querySelector('.tabs button.on');
-    if(active){
+    if(active && id){
       var text=(active.textContent||'').trim();
       if(text.includes('Зал')){var h=createPanel('hall');h.style.display='block';}
       if(text.includes('Права')){var p=createPanel('permissions');p.style.display='block';}
     }
   });
   observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+
+  setTimeout(function(){
+    var id=syncVenueContext();
+    if(id) localStorage.setItem('manager_venue_id',id);
+  },500);
 }
 
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind); else bind();
