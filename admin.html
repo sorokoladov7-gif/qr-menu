@@ -117,7 +117,7 @@
 <tr v-if="!venueSubs.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет заведений</td></tr></table></div>
 </div>
 
-<!-- ===================== АНАЛИТИКА ===================== -->
+<!-- ===================== АНАЛИТИКА (убраны график, топы и часы пик) ===================== -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">📈 Полная аналитика платформы</h3>
 <select v-model="adminAnalyticsPeriod" v-on:change="loadAdminAnalytics" style="width:auto">
@@ -147,40 +147,6 @@
 <div class="bar"><div class="bar-fill" v-bind:style="{width:p.percent+'%'}"></div></div>
 </div>
 <p v-if="!adminAnalytics.planDist.length" class="muted">Нет тарифов</p>
-</div>
-<div class="glass card" style="margin-bottom:14px">
-<h4 style="margin:0 0 14px">📅 Динамика заказов по дням (вся сеть)</h4>
-<div v-if="adminAnalytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:140px;overflow-x:auto;padding-bottom:8px">
-<div v-for="d in adminAnalytics.daily" v-bind:key="d.date" style="display:flex;flex-direction:column;align-items:center;min-width:32px">
-<div style="background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:20px" v-bind:style="{height:(d.count/adminMaxDaily*100)+'px'}"></div>
-<div class="muted" style="font-size:10px;margin-top:4px">{{ d.label }}</div>
-<div style="font-size:11px;color:#a5b4fc">{{ d.count }}</div>
-</div>
-</div>
-<p v-else class="muted">Нет данных за период.</p>
-</div>
-<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
-<div class="glass card" style="flex:2;min-width:280px">
-<h4 style="margin:0 0 10px">🔥 Топ-15 блюд по всей сети</h4>
-<table class="tbl" style="min-width:auto"><tr><th>Блюдо</th><th>Продано</th><th>Выручка</th></tr>
-<tr v-for="i in adminAnalytics.topItems" v-bind:key="i.name"><td><b>{{ i.name }}</b></td>
-<td>{{ i.count }} шт.</td><td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td></tr>
-<tr v-if="!adminAnalytics.topItems.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
-</div>
-<div class="glass card" style="flex:1;min-width:220px">
-<h4 style="margin:0 0 10px">🧂 Топ добавок по сети</h4>
-<ul class="top-list">
-<li v-for="a in adminAnalytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }}</b></li>
-<li v-if="!adminAnalytics.topAddons.length" class="muted">Нет данных</li>
-</ul>
-</div>
-<div class="glass card" style="flex:1;min-width:220px">
-<h4 style="margin:0 0 10px">🕒 Часы пик (сеть)</h4>
-<ul class="top-list">
-<li v-for="h in adminAnalytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }}</b></li>
-<li v-if="!adminAnalytics.topHours.length" class="muted">Нет данных</li>
-</ul>
-</div>
 </div>
 <div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
 <div class="glass card" style="flex:1;min-width:220px">
