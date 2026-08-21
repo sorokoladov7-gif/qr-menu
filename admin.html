@@ -37,6 +37,9 @@
 .design-field input[type="number"]{width:100%}
 .design-group{margin-top:16px;border-top:1px solid rgba(255,255,255,.08);padding-top:16px}
 .design-group h4{font-size:14px;color:#cbd5e1;margin:0 0 10px}
+.loading-orders{display:flex;align-items:center;gap:10px;padding:20px;color:#9ca3af;font-size:14px}
+.loading-orders .spinner{width:24px;height:24px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -62,16 +65,16 @@
 <div class="glass stat" style="border-color:#67e8f9"><div class="num">{{ waitersAll.length }}</div><div class="lbl">Официантов</div></div>
 </div>
 <div class="tabs" style="margin-bottom:18px">
-<button v-bind:class="{on:tab==='stats'}" v-on:click="tab='stats';loadGlobalStats()">📊 Статистика</button>
-<button v-bind:class="{on:tab==='subs'}" v-on:click="tab='subs'">📈 Подписки</button>
-<button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAdminAnalytics()">📈 Аналитика</button>
-<button v-bind:class="{on:tab==='venues'}" v-on:click="tab='venues'">🏢 Заведения</button>
-<button v-bind:class="{on:tab==='activity'}" v-on:click="tab='activity'">👥 Активность</button>
-<button v-bind:class="{on:tab==='managers'}" v-on:click="tab='managers'">👤 Управляющие</button>
-<button v-bind:class="{on:tab==='cooks'}" v-on:click="tab='cooks'">👨‍ Повара</button>
-<button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
-<button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
-<button v-bind:class="{on:tab==='plans'}" v-on:click="tab='plans'">💳 Тарифы и оплаты</button>
+<button v-bind:class="{on:tab==='stats'}" v-on:click="switchTab('stats')">📊 Статистика</button>
+<button v-bind:class="{on:tab==='subs'}" v-on:click="switchTab('subs')">📈 Подписки</button>
+<button v-bind:class="{on:tab==='analytics'}" v-on:click="switchTab('analytics')">📈 Аналитика</button>
+<button v-bind:class="{on:tab==='venues'}" v-on:click="switchTab('venues')">🏢 Заведения</button>
+<button v-bind:class="{on:tab==='activity'}" v-on:click="switchTab('activity')">👥 Активность</button>
+<button v-bind:class="{on:tab==='managers'}" v-on:click="switchTab('managers')">👤 Управляющие</button>
+<button v-bind:class="{on:tab==='cooks'}" v-on:click="switchTab('cooks')">👨‍🍳 Повара</button>
+<button v-bind:class="{on:tab==='couriers'}" v-on:click="switchTab('couriers')">🚗 Курьеры</button>
+<button v-bind:class="{on:tab==='waiters'}" v-on:click="switchTab('waiters')">🤵 Официанты</button>
+<button v-bind:class="{on:tab==='plans'}" v-on:click="switchTab('plans')">💳 Тарифы и оплаты</button>
 </div>
 
 <!-- ===================== СТАТИСТИКА ===================== -->
@@ -109,7 +112,8 @@
 <td style="color:#34d399"><b>{{ fmt(p.mrr) }} ₽</b></td></tr>
 <tr v-if="!planStats.length"><td colspan="5" class="muted" style="text-align:center;padding:20px">Нет тарифов</td></tr></table></div>
 <div class="glass card tblwrap"><h4 style="margin:0 0 14px">🏢 Подписки по заведениям</h4>
-<table class="tbl"><tr><th>Заведение</th><th>Тариф</th><th>Статус</th><th>Действует до</th><th>Заказов всего</th><th>Выручка всего</th></tr>
+<div v-if="ordersLoading" class="loading-orders"><div class="spinner"></div> Загрузка данных заказов…</div>
+<table v-else class="tbl"><tr><th>Заведение</th><th>Тариф</th><th>Статус</th><th>Действует до</th><th>Заказов всего</th><th>Выручка всего</th></tr>
 <tr v-for="s in venueSubs" v-bind:key="s.id"><td><b>{{ s.name }}</b><div class="muted" style="font-size:12px">/{{ s.slug }}</div></td>
 <td>{{ s.planName }}</td>
 <td><span class="badge" v-bind:class="subClass(s)">{{ subLabel(s) }}</span></td>
@@ -210,6 +214,8 @@
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность персонала и заведений</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
 <option value="7">За 7 дней</option><option value="30">За 30 дней</option><option value="all">За всё время</option></select></div>
+<div v-if="ordersLoading" class="loading-orders"><div class="spinner"></div> Загрузка данных заказов…</div>
+<template v-else>
 <div class="glass card tblwrap" style="margin-bottom:14px"><h4 style="margin:0 0 14px">🏢 Активность заведений (заказы)</h4>
 <table class="tbl"><tr><th>Заведение</th><th>Заказов за период</th><th>Выручка за период</th><th>Последний заказ</th><th>Поваров</th><th>Курьеров</th><th>Официантов</th></tr>
 <tr v-for="v in venueActivity" v-bind:key="v.id"><td><b>{{ v.name }}</b></td>
@@ -241,6 +247,7 @@
 <td>{{ w.served }}</td>
 <td class="muted" style="font-size:12px">{{ w.lastLogin }}</td></tr>
 <tr v-if="!waiterActivity.length"><td colspan="4" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
+</template>
 </div>
 
 <!-- ===================== ЗАВЕДЕНИЯ ===================== -->
@@ -266,7 +273,7 @@
 <p v-if="!venues.length" class="muted" style="padding:14px">Заведений нет.</p></div>
 </div>
 
-<!-- ===================== УПРАВЛЯЮЩИЕ (право на дизайн) ===================== -->
+<!-- ===================== УПРАВЛЯЮЩИЕ ===================== -->
 <div v-if="tab==='managers'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Управляющие</h3>
 <button class="btn btn-primary btn-sm" v-on:click="addMgrModal.show=true">+ Добавить управляющего</button></div>
@@ -297,7 +304,7 @@
 </div></div>
 <div class="glass card tblwrap"><table class="tbl">
 <tr><th>Повар</th><th>Заведение</th><th>Телефон</th><th>PIN</th><th>Действия</th></tr>
-<tr v-for="c in cooksAll" v-bind:key="c.id"><td>👨‍ {{ c.name }}</td>
+<tr v-for="c in cooksAll" v-bind:key="c.id"><td>👨‍🍳 {{ c.name }}</td>
 <td>{{ c.venues?c.venues.name:'—' }}</td><td class="muted">{{ c.phone||'—' }}</td><td><b style="color:#a5b4fc">{{ c.pin }}</b></td>
 <td style="white-space:nowrap">
 <button class="btn btn-ghost btn-sm" v-on:click="openStaffEdit('cooks',c)">✏️</button>
@@ -485,7 +492,7 @@
 <div v-if="addMgrModal.err" class="msg error" style="margin-top:10px">{{ addMgrModal.err }}</div>
 </div></div>
 
-<!-- РЕДАКТИРОВАТЬ УПРАВЛЯЮЩЕГО (с правом на дизайн) -->
+<!-- РЕДАКТИРОВАТЬ УПРАВЛЯЮЩЕГО -->
 <div v-if="mgrEditModal.show" class="modal" v-on:click.self="mgrEditModal.show=false"><div class="glass box">
 <h3 style="margin-top:0">Редактировать: {{ mgrEditModal.name }}</h3>
 <div class="field"><label>Имя</label><input v-model.trim="mgrEditModal.name"></div>
@@ -520,7 +527,7 @@
 <button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- ===================== ПРОФЕССИОНАЛЬНАЯ ПАНЕЛЬ ДИЗАЙНА ===================== -->
+<!-- ===================== ПАНЕЛЬ ДИЗАЙНА ===================== -->
 <div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
   <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
     <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
@@ -528,8 +535,7 @@
 
     <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
       <h4>Шаблон дизайна (глобальный)</h4>
-      
-      <!-- 1. Основные цвета -->
+
       <div class="design-group">
         <h4>🎨 Основные цвета</h4>
         <div class="design-grid">
@@ -544,7 +550,6 @@
         </div>
       </div>
 
-      <!-- 2. Фон -->
       <div class="design-group">
         <h4>🖼️ Фон</h4>
         <div class="design-grid">
@@ -570,7 +575,6 @@
         </div>
       </div>
 
-      <!-- 3. Типографика -->
       <div class="design-group">
         <h4>🔤 Типографика</h4>
         <div class="design-grid">
@@ -612,7 +616,6 @@
         </div>
       </div>
 
-      <!-- 4. Карточки товаров -->
       <div class="design-group">
         <h4>🃏 Карточки товаров</h4>
         <div class="design-grid">
@@ -631,7 +634,6 @@
         </div>
       </div>
 
-      <!-- 5. Кнопки -->
       <div class="design-group">
         <h4>🔘 Кнопки</h4>
         <div class="design-grid">
@@ -653,7 +655,6 @@
         </div>
       </div>
 
-      <!-- 6. Дополнительно -->
       <div class="design-group">
         <h4>⚙️ Дополнительно</h4>
         <div class="design-grid">
@@ -719,6 +720,8 @@ mgrEditModal:{show:false,id:null,name:'',role:'manager', allow_manage_delivery: 
 staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:''},
 secretDesignPanel:false,
 brandClicks:0,
+ordersLoaded:false,
+ordersLoading:false,
 adminDesignTemplate:{
   brand_color:'#6366f1',
   button_color:'#8b5cf6',
@@ -768,17 +771,6 @@ if(sub&&sub.status==='trialing')trial++;}
 return{active:act,trial:trial,expired:expired,expiringSoon:expiring}},
 adminMaxDaily:function(){var mx=1;this.adminAnalytics.daily.forEach(function(d){if(d.count>mx)mx=d.count});return mx},
 pendingPayments:function(){return this.payments.filter(function(p){return p.status==='pending'})},
-subStats:function(){var self=this;var now=new Date();
-var total=this.venues.length,active=0,trial=0,expired=0;
-this.venues.forEach(function(v){
-if(!v.subscription_end){expired++;return}
-var e=new Date(v.subscription_end);
-if(e<now){expired++}
-else{active++;
-var sub=self.subscriptions.find(function(s){return s.venue_id===v.id});
-if(sub&&sub.status==='trialing')trial++;}
-});
-return{total:total,active:active,trial:trial,expired:expired}},
 planStats:function(){var self=this;
 return this.plans.map(function(p){
 var vs=self.venues.filter(function(v){return v.plan===p.id});
@@ -869,20 +861,34 @@ subClass:function(v){if(!v.subscription_end)return'b-off';var e=new Date(v.subsc
 subLabel:function(v){if(!v.subscription_end)return'Нет';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'Истекла':d<=3?'Осталось '+Math.ceil(d)+' дн':'Активна'},
 isAssigned:function(m,v){return this.links.some(function(l){return l.manager_id===m&&l.venue_id===v})},
 
+switchTab:function(t){
+this.tab=t;
+if((t==='activity'||t==='subs')&&!this.ordersLoaded&&!this.ordersLoading){
+this.loadOrders();
+}
+},
+
 init:function(){var self=this;
 requireAuth(['admin']).then(function(profile){
 self.profile=profile;
 if(!profile){self.ready=true;return}
-self.loadAll().then(function(){self.loadGlobalStats();self.ready=true});
+self.loadBaseData().then(function(){
+self.loadGlobalStats();
+self.ready=true;
+if(self.tab==='activity'||self.tab==='subs'){
+self.loadOrders();
+}
+});
 });
 this.$watch('brandClicks', function(val){
-  if(val >= 5 && self.profile && self.profile.role === 'admin'){
-    self.secretDesignPanel = true;
-    self.brandClicks = 0;
-  }
+if(val>=5&&self.profile&&self.profile.role==='admin'){
+self.secretDesignPanel=true;
+self.brandClicks=0;
+}
 });
 },
-loadAll:function(){var self=this;
+
+loadBaseData:function(){var self=this;
 return Promise.all([
 db.from('venues').select('*').order('created_at'),
 db.from('profiles').select('*').in('role',['manager','admin']).order('email'),
@@ -892,32 +898,73 @@ db.from('waiters').select('*,venues(name)'),
 db.from('manager_venues').select('*'),
 db.from('plans').select('*').order('price'),
 db.from('payments').select('*,venues(name),profiles(display_name)').order('created_at',{ascending:false}),
-db.from('orders').select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone').limit(5000),
 db.from('subscriptions').select('*')
 ]).then(function(r){
-self.venues=r[0].data||[];self.managers=r[1].data||[];self.cooksAll=r[2].data||[];
-self.couriersAll=r[3].data||[];self.waitersAll=r[4].data||[];self.links=r[5].data||[];
-self.plans=r[6].data||[];self.payments=r[7].data||[];
-self.ordersAll=r[8].data||[];self.subscriptions=r[9].data||[];
+self.venues=r[0].data||[];
+self.managers=r[1].data||[];
+self.cooksAll=r[2].data||[];
+self.couriersAll=r[3].data||[];
+self.waitersAll=r[4].data||[];
+self.links=r[5].data||[];
+self.plans=r[6].data||[];
+self.payments=r[7].data||[];
+self.subscriptions=r[8].data||[];
+});
+},
+
+loadOrders:function(force){
+var self=this;
+if(self.ordersLoading)return;
+if(self.ordersLoaded&&!force)return;
+self.ordersLoading=true;
+var limit=800;
+db.from('orders')
+.select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone')
+.order('created_at',{ascending:false})
+.limit(limit)
+.then(function(r){
+self.ordersAll=(r.data||[]).reverse();
+self.ordersLoaded=true;
+self.ordersLoading=false;
+}).catch(function(){
+self.ordersLoading=false;
+});
+},
+
+loadGlobalStats:function(){var self=this;
+var q=db.from('orders').select('venue_id,total_price,customer_phone,cooking_started_at,ready_at,venues(name)').eq('status','done');
+if(self.statsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(self.statsPeriod));q=q.gte('created_at',d.toISOString())}
+q.then(function(r){var orders=r.data||[];var rev=0,ph={},m={};
+orders.forEach(function(o){rev+=Number(o.total_price||0);if(o.customer_phone)ph[o.customer_phone.replace(/[^\d]/g,'')]=1;
+if(!m[o.venue_id])m[o.venue_id]={id:o.venue_id,name:o.venues?o.venues.name:'—',revenue:0,orders:0,clients:{},t:[]};
+m[o.venue_id].revenue+=Number(o.total_price||0);m[o.venue_id].orders++;
+if(o.customer_phone)m[o.venue_id].clients[o.customer_phone.replace(/[^\d]/g,'')]=1;
+if(o.cooking_started_at&&o.ready_at)m[o.venue_id].t.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4)});
+self.globalStats={revenue:rev,orders:orders.length,clients:Object.keys(ph).length,
+venueStats:Object.values(m).map(function(v){return{id:v.id,name:v.name,revenue:v.revenue,orders:v.orders,clients:Object.keys(v.clients).length,
+avgCheck:v.orders?Math.round(v.revenue/v.orders):0,avgCookTime:v.t.length?Math.round(v.t.reduce(function(a,b){return a+b},0)/v.t.length):0}}).sort(function(a,b){return b.revenue-a.revenue})};
 })},
 adminTypePercent:function(t){var s=this.adminAnalytics;var tot=s.pickup+s.delivery;return tot?Math.round(s[t]*100/tot):0},
 adminPayPercent:function(p){var s=this.adminAnalytics;var tot=s.cash+s.card;return tot?Math.round(s[p]*100/tot):0},
+
 loadAdminAnalytics:function(){var self=this;
-var q=db.from('orders').select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone,items:order_items(*),addons:order_addons(*)').neq('status','cancelled');
-if(this.adminAnalyticsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(this.adminAnalyticsPeriod));q=q.gte('created_at',d.toISOString())}
-q.then(function(r){var os=r.data||[];
+var period=this.adminAnalyticsPeriod;
+var dateFilter='';
+if(period!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(period));dateFilter='&gte=created_at,'+d.toISOString()}
+var baseUrl=db.from('orders').select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone')
+.neq('status','cancelled');
+if(period!=='all'){var d2=new Date();d2.setDate(d2.getDate()-parseInt(period));baseUrl=baseUrl.gte('created_at',d2.toISOString())}
+baseUrl.then(function(r){var os=r.data||[];
 var done=os.filter(function(o){return o.status==='done'});
 var rev=0;done.forEach(function(o){rev+=Number(o.total_price||0)});
 var phoneCount={};os.forEach(function(o){if(o.customer_phone){var p=o.customer_phone.replace(/[^\d]/g,'');phoneCount[p]=(phoneCount[p]||0)+1}});
 var clients=Object.keys(phoneCount).length;var repeat=0;Object.keys(phoneCount).forEach(function(p){if(phoneCount[p]>1)repeat++});
-var t=[];var im={};var am={};var hours={};var dailyMap={};
+var t=[];var hours={};var dailyMap={};
 var pickup=0,delivery=0,cash=0,card=0;
 os.forEach(function(o){
 if(o.order_type==='delivery')delivery++;else pickup++;
 if(o.payment_method==='card')card++;else cash++;
 if(o.cooking_started_at&&o.ready_at){t.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4)}
-(o.items||[]).forEach(function(it){if(!im[it.name])im[it.name]={name:it.name,count:0,revenue:0};im[it.name].count+=it.qty;im[it.name].revenue+=it.qty*Number(it.price||0)});
-(o.addons||[]).forEach(function(a){if(!am[a.name])am[a.name]={name:a.name,count:0};am[a.name].count++});
 if(o.created_at){var dt=new Date(o.created_at);var hr=dt.getHours();hours[hr]=(hours[hr]||0)+1;
 var key=dt.toISOString().slice(0,10);if(!dailyMap[key])dailyMap[key]=0;dailyMap[key]++}
 });
@@ -974,25 +1021,23 @@ self.adminAnalytics={revenue:rev,orders:os.length,clients:clients,repeatClients:
 avgCheck:done.length?Math.round(rev/done.length):0,
 avgCookTime:t.length?Math.round(t.reduce(function(a,b){return a+b},0)/t.length):0,
 pickup:pickup,delivery:delivery,cash:cash,card:card,
-topItems:Object.keys(im).map(function(k){return im[k]}).sort(function(a,b){return b.count-a.count}).slice(0,15),
-topAddons:Object.keys(am).map(function(k){return am[k]}).sort(function(a,b){return b.count-a.count}).slice(0,10),
-topHours:topHours,daily:daily,
+topItems:[],topAddons:[],topHours:topHours,daily:daily,
 mrr:self.mrr,arpu:arpu,churnRate:churnRate,trialConversion:0,planDist:planDist,
 venueActivity:venueActivity,managerActivity:managerActivity,
 cookActivity:cookActivity,courierActivity:courierActivity,waiterActivity:waiterActivity};
-})},
-loadGlobalStats:function(){var self=this;
-var q=db.from('orders').select('venue_id,total_price,customer_phone,cooking_started_at,ready_at,venues(name)').eq('status','done');
-if(self.statsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(self.statsPeriod));q=q.gte('created_at',d.toISOString())}
-q.then(function(r){var orders=r.data||[];var rev=0,ph={},m={};
-orders.forEach(function(o){rev+=Number(o.total_price||0);if(o.customer_phone)ph[o.customer_phone.replace(/[^\d]/g,'')]=1;
-if(!m[o.venue_id])m[o.venue_id]={id:o.venue_id,name:o.venues?o.venues.name:'—',revenue:0,orders:0,clients:{},t:[]};
-m[o.venue_id].revenue+=Number(o.total_price||0);m[o.venue_id].orders++;
-if(o.customer_phone)m[o.venue_id].clients[o.customer_phone.replace(/[^\d]/g,'')]=1;
-if(o.cooking_started_at&&o.ready_at)m[o.venue_id].t.push((new Date(o.ready_at)-new Date(o.cooking_started_at))/6e4)});
-self.globalStats={revenue:rev,orders:orders.length,clients:Object.keys(ph).length,
-venueStats:Object.values(m).map(function(v){return{id:v.id,name:v.name,revenue:v.revenue,orders:v.orders,clients:Object.keys(v.clients).length,
-avgCheck:v.orders?Math.round(v.revenue/v.orders):0,avgCookTime:v.t.length?Math.round(v.t.reduce(function(a,b){return a+b},0)/v.t.length):0}}).sort(function(a,b){return b.revenue-a.revenue})};
+
+// === ТОП БЛЮД (агрегация через order_items) ===
+var itemsQ=db.from('order_items').select('name,sum(qty) as count,sum(qty*price) as revenue');
+if(period!=='all'){var d3=new Date();d3.setDate(d3.getDate()-parseInt(period));itemsQ=itemsQ.gte('created_at',d3.toISOString())}
+itemsQ.group('name').order('count',{ascending:false}).limit(15).then(function(ir){
+if(ir.data)self.adminAnalytics.topItems=ir.data.map(function(x){return{name:x.name,count:Number(x.count)||0,revenue:Number(x.revenue)||0}});
+});
+// === ТОП ДОБАВОК ===
+var addQ=db.from('order_addons').select('name,count(*) as count');
+if(period!=='all'){var d4=new Date();d4.setDate(d4.getDate()-parseInt(period));addQ=addQ.gte('created_at',d4.toISOString())}
+addQ.group('name').order('count',{ascending:false}).limit(10).then(function(ar){
+if(ar.data)self.adminAnalytics.topAddons=ar.data.map(function(x){return{name:x.name,count:Number(x.count)||0}});
+});
 })},
 
 openVenueEdit:function(v){
@@ -1003,7 +1048,7 @@ perms:{addons:mp.addons!==false,products:mp.products!==false,prices:mp.prices!==
 saveVenueEdit:function(){var self=this;
 db.from('venues').update({name:self.venueEditModal.name,description:self.venueEditModal.description,
 brand_color:self.venueEditModal.brand_color,logo_url:self.venueEditModal.logo_url||null,manager_permissions:self.venueEditModal.perms}).eq('id',self.venueEditModal.id).then(function(){
-self.venueEditModal.show=false;self.loadAll()})},
+self.venueEditModal.show=false;self.loadBaseData()})},
 uploadVenueLogo:function(ev){var self=this;var f=ev.target.files[0];if(!f)return;
 self.resizeImage(f,512,.9).then(function(blob){
 var fn='logos/'+self.venueEditModal.id+'/'+Date.now()+'.jpg';
@@ -1053,22 +1098,22 @@ self.busy=true;var end=new Date();end.setDate(end.getDate()+3);
 db.from('venues').insert({name:self.nform.name,slug:self.nform.slug.toLowerCase(),plan:self.nform.plan,subscription_end:end.toISOString()}).select().single().then(function(r){
 if(r.error){self.msg='Ошибка: '+r.error.message;self.busy=false;return}
 return db.from('subscriptions').insert({venue_id:r.data.id,plan_id:self.nform.plan,status:'trialing',current_period_end:end.toISOString()});
-}).then(function(){self.busy=false;self.showModal=false;self.nform={name:'',slug:'',plan:'start'};self.loadAll()})},
+}).then(function(){self.busy=false;self.showModal=false;self.nform={name:'',slug:'',plan:'start'};self.loadBaseData()})},
 changePlan:function(v,plan){var self=this;
 db.from('venues').update({plan:plan}).eq('id',v.id).then(function(){
 return db.from('subscriptions').update({plan_id:plan}).eq('venue_id',v.id);
-}).then(function(){self.loadAll()})},
+}).then(function(){self.loadBaseData()})},
 extendSub:function(v){var self=this;
 var e=v.subscription_end&&new Date(v.subscription_end)>new Date()?new Date(v.subscription_end):new Date();
 e.setDate(e.getDate()+30);
 db.from('venues').update({subscription_end:e.toISOString(),status:'active'}).eq('id',v.id).then(function(){
 return db.from('subscriptions').update({current_period_end:e.toISOString(),status:'active'}).eq('venue_id',v.id);
-}).then(function(){self.loadAll()})},
+}).then(function(){self.loadBaseData()})},
 toggleStatus:function(v){var self=this;
-db.from('venues').update({status:v.status==='active'?'paused':'active'}).eq('id',v.id).then(function(){self.loadAll()})},
+db.from('venues').update({status:v.status==='active'?'paused':'active'}).eq('id',v.id).then(function(){self.loadBaseData()})},
 delVenue:function(v){var self=this;
 if(!confirm('Удалить заведение "'+v.name+'" и все его данные?'))return;
-db.from('venues').delete().eq('id',v.id).then(function(){self.loadAll()})},
+db.from('venues').delete().eq('id',v.id).then(function(){self.loadBaseData()})},
 
 addManager:function(){var self=this;self.busy=true;self.addMgrModal.err='';
 var temp=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,storageKey:'admin-temp',autoRefreshToken:false,detectSessionInUrl:false}});
@@ -1076,7 +1121,7 @@ temp.auth.signUp({email:self.addMgrModal.email,password:self.addMgrModal.passwor
 self.busy=false;
 if(r.error){self.addMgrModal.err='Ошибка: '+r.error.message;return}
 alert('Аккаунт создан! Передайте данные менеджеру.');
-self.addMgrModal.show=false;self.addMgrModal={show:false,name:'',email:'',password:'',role:'manager',err:''};self.loadAll()})},
+self.addMgrModal.show=false;self.addMgrModal={show:false,name:'',email:'',password:'',role:'manager',err:''};self.loadBaseData()})},
 openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name,role:m.role, allow_manage_delivery: !!m.allow_manage_delivery, allow_manage_design: !!m.allow_manage_design};},
 saveMgrEdit:function(){var self=this;
 db.from('profiles').update({
@@ -1085,52 +1130,52 @@ role:self.mgrEditModal.role,
 allow_manage_delivery: self.mgrEditModal.allow_manage_delivery,
 allow_manage_design: self.mgrEditModal.allow_manage_design
 }).eq('id',self.mgrEditModal.id).then(function(){
-self.mgrEditModal.show=false;self.loadAll()})},
+self.mgrEditModal.show=false;self.loadBaseData()})},
 toggleMgrVenue:function(mid,vid,on){var self=this;
 var p=on?db.from('manager_venues').insert({manager_id:mid,venue_id:vid})
 :db.from('manager_venues').delete().eq('manager_id',mid).eq('venue_id',vid);
-p.then(function(){self.loadAll()})},
+p.then(function(){self.loadBaseData()})},
 delManager:function(m){var self=this;
 if(!confirm('Удалить управляющего '+m.display_name+'?'))return;
 db.from('manager_venues').delete().eq('manager_id',m.id).then(function(){
 return db.from('profiles').delete().eq('id',m.id);
-}).then(function(){self.loadAll()})},
+}).then(function(){self.loadBaseData()})},
 
 genPin:function(list){var pin,a=0;do{pin=String(Math.floor(1000+Math.random()*9000));a++}while(list.some(function(c){return c.pin===pin})&&a<10);return pin},
 addCookAdmin:function(){var self=this;var pin=this.genPin(self.cooksAll);
 db.from('cooks').insert({venue_id:self.cookForm.venue_id,name:self.cookForm.name,phone:self.cookForm.phone||null,pin:pin}).then(function(){
 alert('Повар добавлен! PIN: '+pin);
-self.cookForm={venue_id:'',name:'',phone:''};self.loadAll()})},
+self.cookForm={venue_id:'',name:'',phone:''};self.loadBaseData()})},
 delCook:function(c){var self=this;
 if(!confirm('Удалить повара '+c.name+'?'))return;
-db.from('cooks').delete().eq('id',c.id).then(function(){self.loadAll()})},
+db.from('cooks').delete().eq('id',c.id).then(function(){self.loadBaseData()})},
 addCourierAdmin:function(){var self=this;var pin=this.genPin(self.couriersAll);
 db.from('couriers').insert({venue_id:self.courierForm.venue_id,name:self.courierForm.name,phone:self.courierForm.phone||null,pin:pin}).then(function(){
 alert('Курьер добавлен! PIN: '+pin);
-self.courierForm={venue_id:'',name:'',phone:''};self.loadAll()})},
+self.courierForm={venue_id:'',name:'',phone:''};self.loadBaseData()})},
 delCourier:function(c){var self=this;
 if(!confirm('Удалить курьера '+c.name+'?'))return;
-db.from('couriers').delete().eq('id',c.id).then(function(){self.loadAll()})},
+db.from('couriers').delete().eq('id',c.id).then(function(){self.loadBaseData()})},
 addWaiterAdmin:function(){var self=this;var pin=this.genPin(self.waitersAll);
 db.from('waiters').insert({venue_id:self.waiterForm.venue_id,name:self.waiterForm.name,phone:self.waiterForm.phone||null,pin:pin}).then(function(){
 alert('Официант добавлен! PIN: '+pin);
-self.waiterForm={venue_id:'',name:'',phone:''};self.loadAll()})},
+self.waiterForm={venue_id:'',name:'',phone:''};self.loadBaseData()})},
 delWaiter:function(w){var self=this;
 if(!confirm('Удалить официанта '+w.name+'?'))return;
-db.from('waiters').delete().eq('id',w.id).then(function(){self.loadAll()})},
+db.from('waiters').delete().eq('id',w.id).then(function(){self.loadBaseData()})},
 openStaffEdit:function(table,obj){
 this.staffEditModal={show:true,table:table,id:obj.id,venue_id:obj.venue_id,name:obj.name,phone:obj.phone||'',pin:obj.pin}},
 saveStaffEdit:function(){var self=this;var m=this.staffEditModal;
 db.from(m.table).update({venue_id:m.venue_id,name:m.name,phone:m.phone||null,pin:m.pin}).eq('id',m.id).then(function(){
-self.staffEditModal.show=false;self.loadAll()})},
+self.staffEditModal.show=false;self.loadBaseData()})},
 
 createPlan:function(){var self=this;
-db.from('plans').insert({id:'custom_'+Date.now(),name:'Персональный тариф',price:0,max_venues:1,max_cooks:5,max_couriers:10,max_waiters:10,max_products:50}).then(function(){self.loadAll()})},
+db.from('plans').insert({id:'custom_'+Date.now(),name:'Персональный тариф',price:0,max_venues:1,max_cooks:5,max_couriers:10,max_waiters:10,max_products:50}).then(function(){self.loadBaseData()})},
 delPlan:function(p){var self=this;
 var used=self.venues.some(function(v){return v.plan===p.id});
 if(used){alert('Тариф назначен заведениям — сначала переведите их на другой.');return}
 if(!confirm('Удалить тариф «'+p.name+'»?'))return;
-db.from('plans').delete().eq('id',p.id).then(function(){self.loadAll()})},
+db.from('plans').delete().eq('id',p.id).then(function(){self.loadBaseData()})},
 savePlan:function(p){
 db.from('plans').update({name:p.name,price:Number(p.price)||0,max_venues:+p.max_venues,max_cooks:+p.max_cooks,max_couriers:+p.max_couriers||0,max_waiters:+p.max_waiters||0,max_products:+p.max_products}).eq('id',p.id).then(function(){
 alert('Тариф «'+p.name+'» сохранён')})},
@@ -1138,116 +1183,115 @@ confirmPayment:function(pay){var self=this;
 var end=new Date();end.setMonth(end.getMonth()+1);
 db.from('venues').update({plan:pay.plan_id,subscription_end:end.toISOString(),status:'active'}).eq('id',pay.venue_id).then(function(){
 return db.from('subscriptions').update({plan_id:pay.plan_id,status:'active',current_period_end:end.toISOString()}).eq('venue_id',pay.venue_id);
-}).then(function(){return db.from('payments').update({status:'confirmed'}).eq('id',pay.id)}).then(function(){self.loadAll()})},
+}).then(function(){return db.from('payments').update({status:'confirmed'}).eq('id',pay.id)}).then(function(){self.loadBaseData()})},
 rejectPayment:function(pay){var self=this;
-db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadAll()})},
+db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadBaseData()})},
 logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
 
-// ===== МЕТОДЫ ПРОФЕССИОНАЛЬНОГО ДИЗАЙНА =====
 uploadBgImage:function(ev){
-  var self=this;
-  var f=ev.target.files[0];
-  if(!f)return;
-  self.resizeImage(f, 1920, 0.8).then(function(blob){
-    var fn='bg/'+Date.now()+'.jpg';
-    return db.storage.from('menu-images').upload(fn, blob, {cacheControl:'3600', upsert:true, contentType:'image/jpeg'}).then(function(r){
-      if(r.error) throw r.error;
-      self.adminDesignTemplate.background_image = db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
-      alert('Фоновое изображение загружено!');
-    });
-  }).catch(function(e){ alert('Ошибка: '+e.message); });
+var self=this;
+var f=ev.target.files[0];
+if(!f)return;
+self.resizeImage(f,1920,0.8).then(function(blob){
+var fn='bg/'+Date.now()+'.jpg';
+return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
+if(r.error)throw r.error;
+self.adminDesignTemplate.background_image=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
+alert('Фоновое изображение загружено!');
+});
+}).catch(function(e){alert('Ошибка: '+e.message);});
 },
 applyDesignToVenue:function(v){
-  var self=this;
-  if(!confirm('Применить текущий шаблон дизайна к заведению "'+v.name+'"?')) return;
-  var settings=this.getDesignSettings();
-  db.from('venues').update({design_settings:settings}).eq('id',v.id).then(function(){
-    self.loadAll();
-    alert('✅ Дизайн применён к заведению "'+v.name+'"');
-  });
+var self=this;
+if(!confirm('Применить текущий шаблон дизайна к заведению "'+v.name+'"?'))return;
+var settings=this.getDesignSettings();
+db.from('venues').update({design_settings:settings}).eq('id',v.id).then(function(){
+self.loadBaseData();
+alert('✅ Дизайн применён к заведению "'+v.name+'"');
+});
 },
 applyDesignToAll:function(){
-  if(!confirm('Применить этот шаблон дизайна ко ВСЕМ заведениям?')) return;
-  var self=this;
-  var settings=this.getDesignSettings();
-  var updates = self.venues.map(function(v){
-    return db.from('venues').update({design_settings:settings}).eq('id',v.id);
-  });
-  Promise.all(updates).then(function(){
-    self.loadAll();
-    alert('✅ Дизайн применён ко всем заведениям!');
-  });
+if(!confirm('Применить этот шаблон дизайна ко ВСЕМ заведениям?'))return;
+var self=this;
+var settings=this.getDesignSettings();
+var updates=self.venues.map(function(v){
+return db.from('venues').update({design_settings:settings}).eq('id',v.id);
+});
+Promise.all(updates).then(function(){
+self.loadBaseData();
+alert('✅ Дизайн применён ко всем заведениям!');
+});
 },
 getDesignSettings:function(){
-  var t=this.adminDesignTemplate;
-  return {
-    brand_color: t.brand_color,
-    button_color: t.button_color,
-    header_color: t.header_color,
-    font_family: t.font_family,
-    background_color: t.background_color,
-    card_background: t.card_background,
-    text_color: t.text_color,
-    accent_color: t.accent_color,
-    border_color: t.border_color,
-    border_radius: t.border_radius,
-    button_radius: t.button_radius,
-    shadow: t.shadow,
-    font_size: t.font_size,
-    heading_weight: t.heading_weight,
-    body_weight: t.body_weight,
-    line_height: t.line_height,
-    letter_spacing: t.letter_spacing,
-    gradient_start: t.gradient_start,
-    gradient_end: t.gradient_end,
-    gradient_direction: t.gradient_direction,
-    background_image: t.background_image,
-    card_padding: t.card_padding,
-    card_image_height: t.card_image_height,
-    card_text_align: t.card_text_align,
-    show_description: t.show_description,
-    show_price: t.show_price,
-    button_text_color: t.button_text_color,
-    button_weight: t.button_weight,
-    button_hover: t.button_hover,
-    border_width: t.border_width,
-    transition_speed: t.transition_speed
-  };
+var t=this.adminDesignTemplate;
+return{
+brand_color:t.brand_color,
+button_color:t.button_color,
+header_color:t.header_color,
+font_family:t.font_family,
+background_color:t.background_color,
+card_background:t.card_background,
+text_color:t.text_color,
+accent_color:t.accent_color,
+border_color:t.border_color,
+border_radius:t.border_radius,
+button_radius:t.button_radius,
+shadow:t.shadow,
+font_size:t.font_size,
+heading_weight:t.heading_weight,
+body_weight:t.body_weight,
+line_height:t.line_height,
+letter_spacing:t.letter_spacing,
+gradient_start:t.gradient_start,
+gradient_end:t.gradient_end,
+gradient_direction:t.gradient_direction,
+background_image:t.background_image,
+card_padding:t.card_padding,
+card_image_height:t.card_image_height,
+card_text_align:t.card_text_align,
+show_description:t.show_description,
+show_price:t.show_price,
+button_text_color:t.button_text_color,
+button_weight:t.button_weight,
+button_hover:t.button_hover,
+border_width:t.border_width,
+transition_speed:t.transition_speed
+};
 },
 resetAdminTemplate:function(){
-  this.adminDesignTemplate={
-    brand_color:'#6366f1',
-    button_color:'#8b5cf6',
-    header_color:'#ffffff',
-    font_family:'Plus+Jakarta+Sans',
-    background_color:'#0b1120',
-    card_background:'#141821',
-    text_color:'#eef2f7',
-    accent_color:'#a78bfa',
-    border_color:'#29303d',
-    border_radius:18,
-    button_radius:12,
-    shadow:8,
-    font_size:16,
-    heading_weight:700,
-    body_weight:400,
-    line_height:1.6,
-    letter_spacing:0,
-    gradient_start:'#0b1120',
-    gradient_end:'#0b1120',
-    gradient_direction:'to right',
-    background_image:'',
-    card_padding:12,
-    card_image_height:130,
-    card_text_align:'left',
-    show_description:true,
-    show_price:true,
-    button_text_color:'#ffffff',
-    button_weight:700,
-    button_hover:'scale',
-    border_width:1,
-    transition_speed:0.2
-  };
+this.adminDesignTemplate={
+brand_color:'#6366f1',
+button_color:'#8b5cf6',
+header_color:'#ffffff',
+font_family:'Plus+Jakarta+Sans',
+background_color:'#0b1120',
+card_background:'#141821',
+text_color:'#eef2f7',
+accent_color:'#a78bfa',
+border_color:'#29303d',
+border_radius:18,
+button_radius:12,
+shadow:8,
+font_size:16,
+heading_weight:700,
+body_weight:400,
+line_height:1.6,
+letter_spacing:0,
+gradient_start:'#0b1120',
+gradient_end:'#0b1120',
+gradient_direction:'to right',
+background_image:'',
+card_padding:12,
+card_image_height:130,
+card_text_align:'left',
+show_description:true,
+show_price:true,
+button_text_color:'#ffffff',
+button_weight:700,
+button_hover:'scale',
+border_width:1,
+transition_speed:0.2
+};
 }
 },
 mounted:function(){this.init()}
