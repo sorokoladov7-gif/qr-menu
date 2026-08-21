@@ -319,38 +319,45 @@ init:function(){
   var tableParam = new URLSearchParams(location.search).get('table');
   var tokenParam = new URLSearchParams(location.search).get('token');
 
-  if (slug) {
-    db.from('venues').select('*').eq('slug', slug).maybeSingle()
+ if (slug) {
+    db.rpc('public_venue_by_slug', { p_slug: slug })
       .then(function(r){
         if (r.error) {
           self.loadError = 'Ошибка загрузки заведения: ' + r.error.message;
           self.ready = true;
           return;
         }
+
         if (!r.data) {
           self.loadError = 'Заведение с кодом "' + slug + '" не найдено. Проверьте ссылку.';
           self.ready = true;
           return;
         }
+
         if (r.data.status !== 'active') {
           self.loadError = 'Заведение "' + r.data.name + '" временно недоступно.';
           self.ready = true;
           return;
         }
+
         self.venue = r.data;
         self.loadVenueSettings(self.venue);
+
         if (tableParam) {
-    self.form.type = 'table';
-    self.form.table_number = tableParam;
-    self.form.table_token = tokenParam || '';
-    self.msg = '🪑 Вы заказываете за столом №' + tableParam;
-    self.msgType = 'ok';
-}
+          self.form.type = 'table';
+          self.form.table_number = tableParam;
+          self.form.table_token = tokenParam || '';
+          self.msg = '🪑 Вы заказываете за столом №' + tableParam;
+          self.msgType = 'ok';
+        }
+
         return self.loadProducts();
       })
       .then(function(){
         self.ready = true;
+
         var last = localStorage.getItem('last_phone');
+
         if (last && self.venue) {
           self.trackPhone = last;
           self.goToTracking();
@@ -361,6 +368,7 @@ init:function(){
         self.ready = true;
         console.error('Ошибка инициализации:', err);
       });
+
   } else {
     db.from('venues').select('*').eq('status', 'active')
       .then(function(r){
@@ -369,6 +377,7 @@ init:function(){
           self.ready = true;
           return;
         }
+
         self.venues = r.data || [];
         self.ready = true;
       })
@@ -379,7 +388,6 @@ init:function(){
       });
   }
 },
-
 selectVenue:function(v){
   this.venue=v;
   this.loadVenueSettings(v);
