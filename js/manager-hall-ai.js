@@ -7,10 +7,17 @@ function getAppProxy(){
 }
 
 function venueId(){
-  var id=localStorage.getItem('manager_venue_id')||'';
-  if(!id){
-    try{id=new URLSearchParams(location.search).get('venue')||'';}catch(e){}
-  }
+  var proxy=getAppProxy();
+  var id=(proxy && proxy.venue && proxy.venue.id) ? String(proxy.venue.id) : '';
+  if(id) return id;
+  try{id=new URLSearchParams(location.search).get('venue')||'';}catch(e){}
+  if(id) return id;
+  return localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId')||'';
+}
+
+function syncVenueContext(){
+  var id=venueId();
+  if(id) localStorage.setItem('manager_venue_id',id);
   return id;
 }
 
@@ -36,6 +43,7 @@ function ensureStyles(){
 function createPanel(type){
   var existing=document.getElementById('manager-integrated-'+type);
   if(existing) return existing;
+  var id=syncVenueContext();
   var panel=document.createElement('div');
   panel.id='manager-integrated-'+type;
   panel.className='glass card manager-integrated-panel';
@@ -47,8 +55,8 @@ function createPanel(type){
   frame.setAttribute('allow','geolocation');
   frame.title=type==='hall'?'Управление залом':'Права управляющего';
   frame.src=type==='hall'
-    ? 'hall.html'+(venueId()?'?venue='+encodeURIComponent(venueId()):'')
-    : 'admin-permissions.html'+(venueId()?'?venue='+encodeURIComponent(venueId()):'');
+    ? 'hall.html'+(id?'?venue='+encodeURIComponent(id):'')
+    : 'admin-permissions.html'+(id?'?venue='+encodeURIComponent(id):'');
 
   var head=document.createElement('div');
   head.className='spread';
@@ -66,6 +74,7 @@ function createPanel(type){
 }
 
 function setActiveTab(type){
+  syncVenueContext();
   var proxy=getAppProxy();
   if(proxy){
     try{proxy.tab=type; if(type==='analytics' && typeof proxy.loadAnalytics==='function') proxy.loadAnalytics();}catch(e){}
@@ -109,6 +118,7 @@ function addPermissionsTab(){
 function bind(){
   ensureStyles();
   addPermissionsTab();
+  syncVenueContext();
   if(document.getElementById('manager-integrated-listener')) return;
   var marker=document.createElement('span');
   marker.id='manager-integrated-listener';
@@ -140,6 +150,7 @@ function bind(){
 
   var observer=new MutationObserver(function(){
     addPermissionsTab();
+    syncVenueContext();
     var active=document.querySelector('.tabs button.on');
     if(active){
       var text=(active.textContent||'').trim();
