@@ -754,13 +754,22 @@ Vue.createApp({
       });
     },
 
-    selectVenueTemplate: function(id) {
-      var t = this.venueTemplates.find(function(x){return x.id===id;});
-      if(!t) return;
-      this.newVenueForm.template = id;
-      if(!this.newVenueForm.name) this.newVenueForm.name = t.name;
-      if(!this.newVenueForm.slug) this.newVenueForm.slug = id;
-    },
+    selectVenue(v) {
+    this.venue = v;
+
+    try {
+        localStorage.setItem('manager_venue_id', v.id);
+        localStorage.setItem('selectedVenueId', v.id);
+    } catch (e) {}
+
+    window.__managerSelectedVenue = v;
+
+    if (window.__managerVue) {
+        window.__managerVue.venue = v;
+    }
+
+    this.tab = 'menu';
+}
 
     createVenue: function() {
       var self=this; self.formError='';
