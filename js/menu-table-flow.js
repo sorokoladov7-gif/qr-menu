@@ -12,7 +12,7 @@ function getVM(){
   }catch(e){}
   return null;
 }
-function token(){return new URLSearchParams(location.search).get('table')||'';}
+function token(){return new URLSearchParams(location.search).get('token')||'';}
 function tableText(t){return t?(t.name||('Стол '+t.table_number)):'';}
 
 async function loadTable(v){
