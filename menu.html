@@ -328,19 +328,21 @@ init:function(){
           return;
         }
 
-        if (!r.data) {
-          self.loadError = 'Заведение с кодом "' + slug + '" не найдено. Проверьте ссылку.';
-          self.ready = true;
-          return;
-        }
+       var venueData = Array.isArray(r.data) ? r.data[0] : r.data;
 
-        if (r.data.status !== 'active') {
-          self.loadError = 'Заведение "' + r.data.name + '" временно недоступно.';
-          self.ready = true;
-          return;
-        }
+if (!venueData) {
+  self.loadError = 'Заведение с кодом "' + slug + '" не найдено. Проверьте ссылку.';
+  self.ready = true;
+  return;
+}
 
-        self.venue = r.data;
+if (venueData.status !== 'active') {
+  self.loadError = 'Заведение "' + (venueData.name || slug) + '" временно недоступно.';
+  self.ready = true;
+  return;
+}
+
+self.venue = venueData;
         self.loadVenueSettings(self.venue);
 
         if (tableParam) {
