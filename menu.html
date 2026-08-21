@@ -432,10 +432,11 @@ checkout:function(){
         return;
     }
 
-    if(!self.form.table_token.trim()){
+       if(!self.form.table_token.trim()){
         self.msg='QR-код стола недействителен. Откройте меню заново по QR-коду стола.';
         return;
     }
+  }
 
   if(!self.cart.length){ self.msg='Корзина пустая'; return; }
   if(!self.venue || !self.venue.id){ self.msg='Не удалось определить заведение'; return; }
