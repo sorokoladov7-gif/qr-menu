@@ -77,17 +77,12 @@
 <button v-bind:class="{on:tab==='plans'}" v-on:click="switchTab('plans')">💳 Тарифы и оплаты</button>
 </div>
 
-<!-- ===================== СТАТИСТИКА ===================== -->
+<!-- ===================== СТАТИСТИКА (только рейтинг заведений) ===================== -->
 <div v-if="tab==='stats'">
-<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Статистика сети</h3>
+<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">🏆 Рейтинг заведений</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
 <option value="7">За 7 дней</option><option value="30">За 30 дней</option><option value="all">За всё время</option></select></div>
-<div class="analytics-grid">
-<div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(globalStats.revenue) }} ₽</div><div class="lbl">Выручка заведений</div></div>
-<div class="glass stat"><div class="num" style="color:#60a5fa">{{ globalStats.orders }}</div><div class="lbl">Заказов</div></div>
-<div class="glass stat"><div class="num" style="color:#fbbf24">{{ globalStats.clients }}</div><div class="lbl">Клиентов</div></div>
-</div>
-<div class="glass card tblwrap"><h4 style="margin:0 0 14px">🏆 Рейтинг заведений</h4>
+<div class="glass card tblwrap">
 <table class="tbl"><tr><th>Заведение</th><th>Выручка</th><th>Заказов</th><th>Клиентов</th><th>Ср.чек</th><th>Ср.время</th></tr>
 <tr v-for="v in globalStats.venueStats" v-bind:key="v.id"><td><b>{{ v.name }}</b></td>
 <td style="color:#34d399"><b>{{ fmt(v.revenue) }} ₽</b></td><td>{{ v.orders }}</td><td>{{ v.clients }}</td>
