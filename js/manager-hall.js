@@ -17,7 +17,31 @@ async function fetchTables(){var r=await rpc('manager_table_board',{p_venue_id:S
 async function load(){try{S.tables=await fetchTables();render()}catch(e){var b=S.root&&S.root.querySelector('#qmh-board');if(b)b.innerHTML='<div style="padding:40px;color:#fecaca"><b>Не удалось загрузить столы</b><div>'+esc(e.message||e)+'</div></div>'}}
 function render(){var r=S.root;if(!r)return;var b=r.querySelector('#qmh-board'),c=r.querySelector('#qmh-cards'),st=r.querySelector('#qmh-stats');b.innerHTML='';c.innerHTML='';var f=0,o=0,z=0;S.tables.forEach(function(t){if(si(t)[1]==='free')f++;else if(si(t)[1]==='occupied')o++;else z++});st.innerHTML='<div class="qmh-stat"><b>'+S.tables.length+'</b><div class="qmh-small">Всего</div></div><div class="qmh-stat"><b>'+f+'</b><div class="qmh-small">Свободно</div></div><div class="qmh-stat"><b>'+o+'</b><div class="qmh-small">Занято</div></div><div class="qmh-stat"><b>'+z+'</b><div class="qmh-small">Резерв</div></div>';if(!S.tables.length)b.innerHTML='<div style="padding:80px;text-align:center;color:#94a3b8">Столов пока нет.<br><br>Нажмите «＋ Добавить стол».</div>';S.tables.forEach(function(t){var q=si(t),e=document.createElement('div');e.className='qmh-table qmh-'+t.shape+' '+q[1];e.style.left=t.x+'px';e.style.top=t.y+'px';e.innerHTML='<div>Стол '+esc(t.number)+'</div><div>'+esc(t.name||('Стол '+t.number))+'</div><div class="qmh-small">'+t.guests+'/'+t.seats+' мест</div>';drag(e,t);b.appendChild(e);var card=document.createElement('div');card.className='qmh-card';card.innerHTML='<b>Стол '+esc(t.number)+'</b><div style="margin:6px 0"><strong>'+q[0]+'</strong> · '+t.seats+' мест</div><div class="qmh-small">Гостей: '+t.guests+' · Открытых заказов: '+t.orders+' · Заказов сессии: '+t.allOrders+' · '+t.total.toLocaleString('ru-RU')+' ₽</div><div class="qmh-card-actions"><button class="qmh-btn" data-control>Управление</button><button class="qmh-btn" data-edit>✏️ Редактировать</button></div>'+(t.qr?'<div class="qmh-small" style="margin-top:8px">QR закреплён за столом</div>':'');card.querySelector('[data-control]').onclick=function(){control(t)};card.querySelector('[data-edit]').onclick=function(){edit(t)};c.appendChild(card)});b.style.transform='scale('+S.zoom+')';qrCards()}
 function drag(e,t){e.onpointerdown=function(ev){var sx=ev.clientX,sy=ev.clientY,ox=t.x,oy=t.y,moved=false;e.setPointerCapture(ev.pointerId);e.onpointermove=function(me){var dx=(me.clientX-sx)/S.zoom,dy=(me.clientY-sy)/S.zoom;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;t.x=Math.max(10,Math.min(1300,ox+dx));t.y=Math.max(10,Math.min(650,oy+dy));e.style.left=t.x+'px';e.style.top=t.y+'px'};e.onpointerup=function(){e.onpointermove=null;if(moved){var p=rpc('manager_move_table',{p_venue_id:S.venue.id,p_table_id:t.id,p_x:Math.round(t.x),p_y:Math.round(t.y)});S.moves.push(p);p.then(function(){S.moves=S.moves.filter(function(x){return x!==p})}).catch(function(err){S.moves=S.moves.filter(function(x){return x!==p});console.error('[QR Hall] move failed',err)})}else control(t)}}}
-async function refresh(){if(S.busy)return;S.busy=true;var b=S.root.querySelector('#qmh-refresh');b.disabled=true;try{if(S.moves.length)await Promise.all(S.moves.slice());await load()}finally{S.busy=false;b.disabled=false}}
+async function refresh(){
+    if(S.busy)return;
+
+    S.busy=true;
+
+    var b=S.root&&S.root.querySelector('#qmh-refresh');
+
+    if(b){
+        b.disabled=true;
+    }
+
+    try{
+        if(S.moves.length){
+            await Promise.all(S.moves.slice());
+        }
+
+        await load();
+    }finally{
+        S.busy=false;
+
+        if(b){
+            b.disabled=false;
+        }
+    }
+}
 async function nextNumber(){var r=await rpc('manager_next_table_number',{p_venue_id:S.venue.id});if(r.error)throw new Error(r.error.message||'Не удалось определить номер');return Number(r.data)}
 async function create(a){var n=await nextNumber(),r=await rpc('manager_create_table',{p_venue_id:S.venue.id,p_number:n,p_name:a.name,p_shape:a.shape,p_seats:a.seats,p_x:a.x,p_y:a.y});if(r.error&&String(r.error.message).indexOf('table_number_exists')>=0){n=await nextNumber();r=await rpc('manager_create_table',{p_venue_id:S.venue.id,p_number:n,p_name:a.name,p_shape:a.shape,p_seats:a.seats,p_x:a.x,p_y:a.y})}return r}
 function modal(h){var m=document.createElement('div');m.className='qmh-modal';m.innerHTML=h;document.body.appendChild(m);return m}
