@@ -754,20 +754,47 @@ Vue.createApp({
       });
     },
 
-    selectVenue(v) {
+  selectVenue(v) {
+    if (!v || !v.id) return;
+
+    // 1. Закрываем уже открытый зал, чтобы старые столы
+    //    не остались в DOM после переключения заведения.
+    try {
+        if (window.QRManagerHall && typeof window.QRManagerHall.close === 'function') {
+            window.QRManagerHall.close();
+        }
+    } catch (e) {
+        console.warn('[Manager] Hall close:', e);
+    }
+
+    // 2. Устанавливаем НОВОЕ выбранное заведение
     this.venue = v;
 
+    // 3. Синхронизируем сохранённый ID.
     try {
-        localStorage.setItem('manager_venue_id', v.id);
-        localStorage.setItem('selectedVenueId', v.id);
-    } catch (e) {}
+        localStorage.setItem('manager_venue_id', String(v.id));
+        localStorage.setItem('selectedVenueId', String(v.id));
+    } catch (e) {
+        console.warn('[Manager] venue storage:', e);
+    }
 
+    // 4. Синхронизируем глобальное состояние.
     window.__managerSelectedVenue = v;
 
-    if (window.__managerVue) {
+    if (window.__managerVue && window.__managerVue !== this) {
         window.__managerVue.venue = v;
     }
 
+    // 5. Сохраняем также объект текущего заведения.
+    //    Hall сможет проверить его перед загрузкой столов.
+    window.__managerCurrentVenue = {
+        id: v.id,
+        name: v.name || '',
+        slug: v.slug || '',
+        logo_url: v.logo_url || null
+    };
+
+    // 6. Возвращаемся в меню выбранного заведения.
     this.tab = 'menu';
 }
 
