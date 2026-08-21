@@ -39,7 +39,7 @@ function rememberStaffLogin(type, data){
 }
 
 function resolveQrTable(venueId){
-  var token = new URLSearchParams(location.search).get('table');
+  var token = new URLSearchParams(location.search).get('token');
   if(!token) return Promise.resolve(null);
   if(window.__qrTable && window.__qrTable.qr_token === token) return Promise.resolve(window.__qrTable);
   var q = oldFrom('venue_tables')
