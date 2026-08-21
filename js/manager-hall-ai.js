@@ -4,6 +4,17 @@
   if(window.__QR_MANAGER_HALL_LAUNCHER__) return;
   window.__QR_MANAGER_HALL_LAUNCHER__ = true;
 
+  function loadScript(src, attr, next){
+    if(document.querySelector('script['+attr+']')){if(next)next();return;}
+    var s=document.createElement('script');
+    s.src=src;
+    s.async=false;
+    s.setAttribute(attr,'1');
+    s.onload=function(){if(next)next();};
+    s.onerror=function(){console.error('[QR Hall] failed to load '+src);};
+    document.head.appendChild(s);
+  }
+
   function captureVueApp(app){
     if(!app || !app.mount || app.__qrHallWrapped) return app;
     app.__qrHallWrapped = true;
@@ -22,6 +33,7 @@
           };
           try{
             if(instance.proxy.venue && instance.proxy.venue.id){
+              window.__managerSelectedVenue=instance.proxy.venue;
               localStorage.setItem('manager_venue_id', instance.proxy.venue.id);
               localStorage.setItem('selectedVenueId', instance.proxy.venue.id);
             }
@@ -43,15 +55,11 @@
   }
 
   function loadCreateFix(){
-    if(document.querySelector('script[data-qr-hall-create-fix]')) return;
-    var fix=document.createElement('script');
-    fix.src='/js/manager-hall-create-fix.js?v=1';
-    fix.async=false;
-    fix.setAttribute('data-qr-hall-create-fix','1');
-    fix.onerror=function(){console.error('[QR Hall] table creation fix failed to load');};
-    document.head.appendChild(fix);
+    loadScript('/js/manager-hall-create-fix.js?v=2','data-qr-hall-create-fix',loadEnhancements);
   }
-
+  function loadEnhancements(){
+    loadScript('/js/manager-hall-enhancements.js?v=1','data-qr-hall-enhancements');
+  }
   function boot(){
     if(window.QRManagerHall && window.QRManagerHall.open){
       loadCreateFix();
@@ -62,7 +70,7 @@
       return;
     }
     var s=document.createElement('script');
-    s.src='/js/manager-hall-direct.js?v=9';
+    s.src='/js/manager-hall-direct.js?v=10';
     s.async=false;
     s.setAttribute('data-qr-hall-direct','1');
     s.onload=loadCreateFix;
