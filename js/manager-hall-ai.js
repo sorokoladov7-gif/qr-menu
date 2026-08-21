@@ -1,40 +1,17 @@
-/* QR Menu — manager hall bootstrap. Captures the real Vue manager instance before mount. */
+/* QR Menu — compatibility bootstrap. Hall logic lives only in manager-hall.js. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_HALL_LAUNCHER__) return;
-  window.__QR_MANAGER_HALL_LAUNCHER__=true;
-  function loadScript(src,attr,next){
-    if(document.querySelector('script['+attr+']')){if(next)next();return;}
-    var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(attr,'1');s.onload=function(){if(next)next()};s.onerror=function(){console.error('[QR Hall] failed to load '+src)};document.head.appendChild(s);
+  if(window.__QR_MANAGER_HALL_BOOTSTRAP__) return;
+  window.__QR_MANAGER_HALL_BOOTSTRAP__=true;
+  function load(){
+    if(window.QRManagerHall&&window.QRManagerHall.open)return;
+    if(document.querySelector('script[data-manager-hall-single]'))return;
+    var s=document.createElement('script');
+    s.src='/js/manager-hall.js?v=1';
+    s.async=false;
+    s.setAttribute('data-manager-hall-single','1');
+    s.onerror=function(){console.error('[QR Hall] failed to load manager-hall.js')};
+    document.head.appendChild(s);
   }
-  function captureVueApp(app){
-    if(!app||!app.mount||app.__qrHallWrapped)return app;
-    app.__qrHallWrapped=true;
-    var originalMount=app.mount;
-    app.mount=function(){
-      var result=originalMount.apply(this,arguments);
-      try{
-        var root=document.getElementById('app'),instance=root&&root.__vue_app__&&root.__vue_app__._instance;
-        if(!instance&&this._instance)instance=this._instance;
-        if(instance&&instance.proxy){
-          window.__managerVue=instance.proxy;
-          window.__managerVenue=function(){var p=window.__managerVue;return p&&p.venue?p.venue:null};
-          try{if(instance.proxy.venue&&instance.proxy.venue.id){window.__managerSelectedVenue=instance.proxy.venue;localStorage.setItem('manager_venue_id',instance.proxy.venue.id);localStorage.setItem('selectedVenueId',instance.proxy.venue.id)}}catch(e){}
-        }
-      }catch(e){console.error('[QR Hall] Vue capture failed',e)}
-      return result;
-    };
-    return app;
-  }
-  if(window.Vue&&typeof window.Vue.createApp==='function'){var originalCreateApp=window.Vue.createApp;window.Vue.createApp=function(){return captureVueApp(originalCreateApp.apply(this,arguments))}}
-  function loadFinalFix(){loadScript('/js/manager-hall-final-fix.js?v=3','data-qr-hall-final-fix',loadCreateFix)}
-  function loadCreateFix(){loadScript('/js/manager-hall-create-fix.js?v=3','data-qr-hall-create-fix',loadEnhancements)}
-  function loadEnhancements(){loadScript('/js/manager-hall-enhancements.js?v=3','data-qr-hall-enhancements',loadEditDelete)}
-  function loadEditDelete(){loadScript('/js/manager-hall-edit-delete.js?v=2','data-qr-hall-edit-delete')}
-  function boot(){
-    if(window.QRManagerHall&&window.QRManagerHall.open){loadFinalFix();return}
-    if(document.querySelector('script[data-qr-hall-direct]')){loadFinalFix();return}
-    var s=document.createElement('script');s.src='/js/manager-hall-direct.js?v=11';s.async=false;s.setAttribute('data-qr-hall-direct','1');s.onload=loadFinalFix;s.onerror=function(){console.error('[QR Hall] direct module failed to load')};document.head.appendChild(s)
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();
 })();
