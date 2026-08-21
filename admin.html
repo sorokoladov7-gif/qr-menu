@@ -1026,13 +1026,11 @@ mrr:self.mrr,arpu:arpu,churnRate:churnRate,trialConversion:0,planDist:planDist,
 venueActivity:venueActivity,managerActivity:managerActivity,
 cookActivity:cookActivity,courierActivity:courierActivity,waiterActivity:waiterActivity};
 
-// === ТОП БЛЮД (агрегация через order_items) ===
 var itemsQ=db.from('order_items').select('name,sum(qty) as count,sum(qty*price) as revenue');
 if(period!=='all'){var d3=new Date();d3.setDate(d3.getDate()-parseInt(period));itemsQ=itemsQ.gte('created_at',d3.toISOString())}
 itemsQ.group('name').order('count',{ascending:false}).limit(15).then(function(ir){
 if(ir.data)self.adminAnalytics.topItems=ir.data.map(function(x){return{name:x.name,count:Number(x.count)||0,revenue:Number(x.revenue)||0}});
 });
-// === ТОП ДОБАВОК ===
 var addQ=db.from('order_addons').select('name,count(*) as count');
 if(period!=='all'){var d4=new Date();d4.setDate(d4.getDate()-parseInt(period));addQ=addQ.gte('created_at',d4.toISOString())}
 addQ.group('name').order('count',{ascending:false}).limit(10).then(function(ar){
