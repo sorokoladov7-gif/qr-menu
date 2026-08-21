@@ -15,12 +15,12 @@
 <div id="app"></div>
 <script>
 const db=window.db;
-const state={token:localStorage.getItem('waiter_token')||'',session:null,orders:[],tables:[],products:[],busy:false,tab:localStorage.getItem('waiter_tab')||'overview'};
+const state={token:localStorage.getItem('staff_token')||'',session:null,orders:[],tables:[],products:[],busy:false,tab:localStorage.getItem('waiter_tab')||'overview'};
 const app=document.getElementById('app');
 const money=n=>Number(n||0).toLocaleString('ru-RU');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function save(r){state.token=r.token;state.session={venueId:r.venueId,venueName:r.venueName,staffName:r.staffName};localStorage.setItem('waiter_token',r.token);localStorage.setItem('staff_token',r.token);localStorage.setItem('waiter_session',JSON.stringify(state.session));}
-function logout(){['waiter_token','staff_token','waiter_session','waiter_tab'].forEach(k=>localStorage.removeItem(k));location.reload();}
+function save(r){state.token=r.token;state.session={venueId:r.venueId,venueName:r.venueName,staffName:r.staffName};localStorage.setItem('staff_token',r.token);localStorage.setItem('waiter_session',JSON.stringify(state.session));}
+function logout(){['staff_token','waiter_session','waiter_tab'].forEach(k=>localStorage.removeItem(k));location.reload();}
 function setTab(t){state.tab=t;localStorage.setItem('waiter_tab',t);render();}
 async function login(){state.busy=true;renderLogin();const r=await db.rpc('staff_login',{p_type:'waiter',p_slug:document.getElementById('slug').value.trim(),p_pin:document.getElementById('pin').value.trim()});state.busy=false;if(r.error||!r.data||r.data.error){renderLogin(r.error?.message||r.data?.error||'Неверные данные');return}save(r.data);state.tab='overview';load();}
 async function load(){if(!state.token)return;const [o,t,p]=await Promise.all([db.rpc('staff_orders_json',{p_token:state.token}),db.rpc('staff_table_board',{p_token:state.token}),db.from('products').select('id,name,price,category,is_available').eq('venue_id',state.session.venueId).eq('is_available',true).neq('category','addon')]);if(o.error){logout();return}state.orders=Array.isArray(o.data)?o.data:[];state.tables=Array.isArray(t.data?.tables)?t.data.tables:[];state.products=p.data||[];render();}
