@@ -1,19 +1,31 @@
 (function(){
 'use strict';
 
+function proxyFromElement(el){
+  try{
+    if(!el) return null;
+    if(el.__vueParentComponent && el.__vueParentComponent.proxy) return el.__vueParentComponent.proxy;
+    if(el.__vueParentComponent && el.__vueParentComponent.parent && el.__vueParentComponent.parent.proxy) return el.__vueParentComponent.parent.proxy;
+  }catch(e){}
+  return null;
+}
 function rootProxy(root){
   try{
     if(!root) return null;
     if(root.__vue_app__ && root.__vue_app__._instance && root.__vue_app__._instance.proxy) return root.__vue_app__._instance.proxy;
     if(root.__vueParentComponent && root.__vueParentComponent.proxy) return root.__vueParentComponent.proxy;
-  }catch(e){}
-  return null;
+    var candidate=document.querySelector('#app .tabs button, #app .venue-card');
+    return proxyFromElement(candidate);
+  }catch(e){return null;}
 }
 function getAppProxy(){return rootProxy(document.getElementById('app'));}
 function readVenueFromParent(){
   try{
     if(window.parent && window.parent!==window){
       var p=rootProxy(window.parent.document.getElementById('app'));
+      if(p && p.venue && p.venue.id) return String(p.venue.id);
+      var el=window.parent.document.querySelector('#app .tabs button, #app .venue-card');
+      p=proxyFromElement(el);
       if(p && p.venue && p.venue.id) return String(p.venue.id);
     }
   }catch(e){}
@@ -27,7 +39,11 @@ function venueId(){
   if(id)return id;
   return localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId')||'';
 }
-function syncVenueContext(){var id=venueId();if(id)localStorage.setItem('manager_venue_id',id);return id;}
+function syncVenueContext(){
+  var id=venueId();
+  if(id)localStorage.setItem('manager_venue_id',id);
+  return id;
+}
 function ensureStyles(){
   if(document.getElementById('manager-integrated-tabs-style'))return;
   var s=document.createElement('style');s.id='manager-integrated-tabs-style';s.textContent=`
@@ -41,25 +57,59 @@ function createPanel(type){
   var id=syncVenueContext(),panel=document.createElement('div');panel.id='manager-integrated-'+type;panel.className='glass card manager-integrated-panel';panel.style.display='none';
   var frame=document.createElement('iframe');frame.className='manager-integrated-frame';frame.setAttribute('loading','lazy');frame.setAttribute('allow','geolocation');frame.title=type==='hall'?'Управление залом':'Права управляющего';
   frame.src=type==='hall'?'hall.html'+(id?'?venue='+encodeURIComponent(id):''):'admin-permissions.html'+(id?'?venue='+encodeURIComponent(id):'');
-  frame.addEventListener('load',function(){var current=syncVenueContext();if(current){try{frame.contentWindow.postMessage({type:'manager-venue-context',venue_id:current},location.origin);}catch(e){}var target=type==='hall'?'hall.html':'admin-permissions.html';if(frame.src.indexOf('venue=')===-1)frame.src=target+'?venue='+encodeURIComponent(current);}});
+  frame.addEventListener('load',function(){
+    var current=syncVenueContext();
+    if(current){
+      try{frame.contentWindow.postMessage({type:'manager-venue-context',venue_id:current},location.origin);}catch(e){}
+      var target=type==='hall'?'hall.html':'admin-permissions.html';
+      var expected=target+'?venue='+encodeURIComponent(current);
+      if(frame.src!==new URL(expected,location.href).href) frame.src=expected;
+    }
+  });
   var head=document.createElement('div');head.className='spread';head.style.marginBottom='12px';head.innerHTML=type==='hall'?'<div><h3 style="margin:0">🪑 Зал и столы</h3><div class="muted" style="font-size:12px;margin-top:4px">Перетаскивание столов, резерв, посадка, освобождение и QR.</div></div>':'<div><h3 style="margin:0">🔐 Права управляющего</h3><div class="muted" style="font-size:12px;margin-top:4px">Разрешения на меню, цены, доставку, дизайн и данные заведения.</div></div>';
   panel.appendChild(head);panel.appendChild(frame);var anchor=document.querySelector('.tabs');if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(panel,anchor.nextSibling);else document.querySelector('#app .wrap')?.appendChild(panel);return panel;
 }
 function setActiveTab(type){
-  var id=syncVenueContext(),proxy=getAppProxy();if(proxy){try{proxy.tab=type;if(type==='analytics'&&typeof proxy.loadAnalytics==='function')proxy.loadAnalytics();}catch(e){}}
+  var proxy=getAppProxy();
+  var id=(proxy&&proxy.venue&&proxy.venue.id)?String(proxy.venue.id):syncVenueContext();
+  if(proxy){try{proxy.tab=type;if(type==='analytics'&&typeof proxy.loadAnalytics==='function')proxy.loadAnalytics();}catch(e){}}
+  if(id)localStorage.setItem('manager_venue_id',id);
   var hall=createPanel('hall'),permissions=createPanel('permissions');
-  [hall,permissions].forEach(function(panel){var frame=panel.querySelector('iframe');if(frame&&id){var target=panel.id.indexOf('hall')!==-1?'hall.html':'admin-permissions.html';frame.src=target+'?venue='+encodeURIComponent(id);try{frame.contentWindow.postMessage({type:'manager-venue-context',venue_id:id},location.origin);}catch(e){}}});
-  hall.style.display=type==='hall'?'block':'none';permissions.style.display=type==='permissions'?'block':'none';document.querySelectorAll('.tabs button').forEach(function(b){var t=b.getAttribute('data-manager-tab');if(t)b.classList.toggle('on',t===type);});
+  [hall,permissions].forEach(function(panel){var frame=panel.querySelector('iframe');if(frame&&id){var target=panel.id.indexOf('hall')!==-1?'hall.html':'admin-permissions.html';var expected=target+'?venue='+encodeURIComponent(id);frame.src=new URL(expected,location.href).href;try{frame.contentWindow.postMessage({type:'manager-venue-context',venue_id:id},location.origin);}catch(e){}}});
+  hall.style.display=type==='hall'?'block':'none';permissions.style.display=type==='permissions'?'block':'none';
+}
+function captureVenueFromClick(e){
+  var card=e.target.closest && e.target.closest('.venue-card');
+  if(!card)return;
+  setTimeout(function(){
+    var p=proxyFromElement(card);
+    var id=(p&&p.venue&&p.venue.id)?String(p.venue.id):'';
+    if(!id){
+      var root=getAppProxy();
+      id=(root&&root.venue&&root.venue.id)?String(root.venue.id):'';
+    }
+    if(id)localStorage.setItem('manager_venue_id',id);
+  },0);
 }
 function addPermissionsTab(){
   var tabs=document.querySelector('.tabs');if(!tabs||tabs.querySelector('[data-manager-tab="permissions"]'))return;var btn=document.createElement('button');btn.type='button';btn.textContent='🔐 Права';btn.setAttribute('data-manager-tab','permissions');btn.addEventListener('click',function(e){e.preventDefault();setActiveTab('permissions');},true);tabs.appendChild(btn);
   tabs.querySelectorAll('button').forEach(function(b){if(!b.hasAttribute('data-manager-tab')){var txt=(b.textContent||'').trim();if(txt.includes('Меню'))b.setAttribute('data-manager-tab','menu');else if(txt.includes('Заказы'))b.setAttribute('data-manager-tab','orders');else if(txt.includes('Аналитика'))b.setAttribute('data-manager-tab','analytics');else if(txt.includes('Зал'))b.setAttribute('data-manager-tab','hall');else if(txt.includes('Повара'))b.setAttribute('data-manager-tab','staff');else if(txt.includes('Курьеры'))b.setAttribute('data-manager-tab','couriers');else if(txt.includes('Официанты'))b.setAttribute('data-manager-tab','waiters');else if(txt.includes('Тарифы'))b.setAttribute('data-manager-tab','billing');else if(txt.includes('Настройки'))b.setAttribute('data-manager-tab','settings');}});
 }
 function bind(){
-  ensureStyles();addPermissionsTab();syncVenueContext();if(document.getElementById('manager-integrated-listener'))return;var marker=document.createElement('span');marker.id='manager-integrated-listener';marker.style.display='none';document.body.appendChild(marker);
-  document.addEventListener('click',function(e){var btn=e.target.closest('.tabs button');if(!btn)return;var text=(btn.textContent||'').trim(),type=btn.getAttribute('data-manager-tab');if(!type&&text.includes('Зал'))type='hall';if(!type&&text.includes('Права'))type='permissions';if(type==='hall'||type==='permissions'){e.preventDefault();e.stopImmediatePropagation();setActiveTab(type);return;}if(type){var h=document.getElementById('manager-integrated-hall'),p=document.getElementById('manager-integrated-permissions');if(h)h.style.display='none';if(p)p.style.display='none';}},true);
+  ensureStyles();addPermissionsTab();syncVenueContext();
+  if(document.getElementById('manager-integrated-listener'))return;
+  var marker=document.createElement('span');marker.id='manager-integrated-listener';marker.style.display='none';document.body.appendChild(marker);
+  document.addEventListener('click',function(e){
+    captureVenueFromClick(e);
+    var btn=e.target.closest('.tabs button');if(!btn)return;
+    var text=(btn.textContent||'').trim(),type=btn.getAttribute('data-manager-tab');
+    if(!type&&text.includes('Зал'))type='hall';if(!type&&text.includes('Права'))type='permissions';
+    if(type==='hall'||type==='permissions'){e.preventDefault();e.stopImmediatePropagation();setActiveTab(type);return;}
+    if(type){var h=document.getElementById('manager-integrated-hall'),p=document.getElementById('manager-integrated-permissions');if(h)h.style.display='none';if(p)p.style.display='none';}
+  },true);
   window.addEventListener('message',function(e){if(e.origin===location.origin&&e.data&&e.data.type==='manager-venue-context'&&e.data.venue_id)localStorage.setItem('manager_venue_id',String(e.data.venue_id));});
-  var observer=new MutationObserver(function(){addPermissionsTab();syncVenueContext();});observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});setInterval(syncVenueContext,1000);
+  var observer=new MutationObserver(function(){addPermissionsTab();syncVenueContext();});observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+  setInterval(syncVenueContext,1000);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
