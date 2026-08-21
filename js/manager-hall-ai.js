@@ -1,21 +1,154 @@
 (function(){
 'use strict';
-function mount(){
-  if(document.getElementById('manager-hall-listener')) return;
-  var marker=document.createElement('span'); marker.id='manager-hall-listener'; marker.style.display='none'; document.body.appendChild(marker);
-  document.addEventListener('click',function(e){
-    var btn=e.target.closest('[data-manager-hall-tab]'); if(!btn)return;
-    e.preventDefault();
-    var old=document.getElementById('manager-hall-overlay'); if(old)old.remove();
-    var venueId=localStorage.getItem('manager_venue_id')||'';
-    var overlay=document.createElement('div'); overlay.id='manager-hall-overlay';
-    overlay.style.cssText='position:fixed;inset:0;z-index:10000;background:#0b1120;padding:12px;display:flex;flex-direction:column;gap:8px';
-    var bar=document.createElement('div'); bar.style.cssText='display:flex;justify-content:space-between;align-items:center;color:#fff';
-    bar.innerHTML='<b>🪑 Управление залом</b><button id="manager-hall-close" style="border:0;border-radius:10px;padding:9px 13px;background:#ffffff12;color:#fff;cursor:pointer">Закрыть</button>';
-    var frame=document.createElement('iframe'); frame.src='hall.html'+(venueId?'?venue='+encodeURIComponent(venueId):''); frame.style.cssText='flex:1;width:100%;border:1px solid #ffffff12;border-radius:16px;background:#0b1120'; frame.setAttribute('allow','geolocation');
-    overlay.appendChild(bar); overlay.appendChild(frame); document.body.appendChild(overlay);
-    document.getElementById('manager-hall-close').onclick=function(){overlay.remove()};
-  },true);
+
+function getAppProxy(){
+  var root=document.getElementById('app');
+  return root && root.__vueParentComponent ? root.__vueParentComponent.proxy : null;
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
+
+function venueId(){
+  var id=localStorage.getItem('manager_venue_id')||'';
+  if(!id){
+    try{id=new URLSearchParams(location.search).get('venue')||'';}catch(e){}
+  }
+  return id;
+}
+
+function ensureStyles(){
+  if(document.getElementById('manager-integrated-tabs-style')) return;
+  var s=document.createElement('style');
+  s.id='manager-integrated-tabs-style';
+  s.textContent=`
+    .manager-integrated-panel{margin-top:0;min-height:620px}
+    .manager-integrated-frame{width:100%;height:calc(100vh - 245px);min-height:620px;border:1px solid rgba(255,255,255,.08);border-radius:18px;background:#0b1120;display:block}
+    .manager-tab-group{display:flex;gap:8px;flex-wrap:wrap}
+    .manager-tab-more{position:relative}
+    @media(max-width:720px){
+      .manager-integrated-frame{height:calc(100vh - 255px);min-height:540px;border-radius:14px}
+      .tabs{overflow-x:auto;flex-wrap:nowrap!important;scrollbar-width:none}
+      .tabs::-webkit-scrollbar{display:none}
+      .tabs button{white-space:nowrap}
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+function createPanel(type){
+  var existing=document.getElementById('manager-integrated-'+type);
+  if(existing) return existing;
+  var panel=document.createElement('div');
+  panel.id='manager-integrated-'+type;
+  panel.className='glass card manager-integrated-panel';
+  panel.style.display='none';
+
+  var frame=document.createElement('iframe');
+  frame.className='manager-integrated-frame';
+  frame.setAttribute('loading','lazy');
+  frame.setAttribute('allow','geolocation');
+  frame.title=type==='hall'?'Управление залом':'Права управляющего';
+  frame.src=type==='hall'
+    ? 'hall.html'+(venueId()?'?venue='+encodeURIComponent(venueId()):'')
+    : 'admin-permissions.html'+(venueId()?'?venue='+encodeURIComponent(venueId()):'');
+
+  var head=document.createElement('div');
+  head.className='spread';
+  head.style.marginBottom='12px';
+  head.innerHTML=type==='hall'
+    ? '<div><h3 style="margin:0">🪑 Зал и столы</h3><div class="muted" style="font-size:12px;margin-top:4px">Перетаскивание столов, резерв, посадка, освобождение и QR.</div></div>'
+    : '<div><h3 style="margin:0">🔐 Права управляющего</h3><div class="muted" style="font-size:12px;margin-top:4px">Разрешения на меню, цены, доставку, дизайн и данные заведения.</div></div>';
+  panel.appendChild(head);
+  panel.appendChild(frame);
+
+  var anchor=document.querySelector('.tabs');
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(panel,anchor.nextSibling);
+  else document.querySelector('#app .wrap')?.appendChild(panel);
+  return panel;
+}
+
+function setActiveTab(type){
+  var proxy=getAppProxy();
+  if(proxy){
+    try{proxy.tab=type; if(type==='analytics' && typeof proxy.loadAnalytics==='function') proxy.loadAnalytics();}catch(e){}
+  }
+  var hall=createPanel('hall');
+  var permissions=createPanel('permissions');
+  hall.style.display=type==='hall'?'block':'none';
+  permissions.style.display=type==='permissions'?'block':'none';
+  document.querySelectorAll('.tabs button').forEach(function(b){
+    var t=b.getAttribute('data-manager-tab');
+    if(t) b.classList.toggle('on',t===type);
+  });
+}
+
+function addPermissionsTab(){
+  var tabs=document.querySelector('.tabs');
+  if(!tabs || tabs.querySelector('[data-manager-tab="permissions"]')) return;
+  var btn=document.createElement('button');
+  btn.type='button';
+  btn.textContent='🔐 Права';
+  btn.setAttribute('data-manager-tab','permissions');
+  btn.addEventListener('click',function(e){e.preventDefault();setActiveTab('permissions');},true);
+  tabs.appendChild(btn);
+
+  tabs.querySelectorAll('button').forEach(function(b){
+    if(!b.hasAttribute('data-manager-tab')){
+      var txt=(b.textContent||'').trim();
+      if(txt.includes('Меню')) b.setAttribute('data-manager-tab','menu');
+      else if(txt.includes('Заказы')) b.setAttribute('data-manager-tab','orders');
+      else if(txt.includes('Аналитика')) b.setAttribute('data-manager-tab','analytics');
+      else if(txt.includes('Зал')) b.setAttribute('data-manager-tab','hall');
+      else if(txt.includes('Повара')) b.setAttribute('data-manager-tab','staff');
+      else if(txt.includes('Курьеры')) b.setAttribute('data-manager-tab','couriers');
+      else if(txt.includes('Официанты')) b.setAttribute('data-manager-tab','waiters');
+      else if(txt.includes('Тарифы')) b.setAttribute('data-manager-tab','billing');
+      else if(txt.includes('Настройки')) b.setAttribute('data-manager-tab','settings');
+    }
+  });
+}
+
+function bind(){
+  ensureStyles();
+  addPermissionsTab();
+  if(document.getElementById('manager-integrated-listener')) return;
+  var marker=document.createElement('span');
+  marker.id='manager-integrated-listener';
+  marker.style.display='none';
+  document.body.appendChild(marker);
+
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('.tabs button');
+    if(!btn) return;
+    var text=(btn.textContent||'').trim();
+    var type=btn.getAttribute('data-manager-tab');
+    if(!type && text.includes('Зал')) type='hall';
+    if(!type && text.includes('Права')) type='permissions';
+
+    if(type==='hall' || type==='permissions'){
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setActiveTab(type);
+      return;
+    }
+
+    if(type){
+      var h=document.getElementById('manager-integrated-hall');
+      var p=document.getElementById('manager-integrated-permissions');
+      if(h) h.style.display='none';
+      if(p) p.style.display='none';
+    }
+  },true);
+
+  var observer=new MutationObserver(function(){
+    addPermissionsTab();
+    var active=document.querySelector('.tabs button.on');
+    if(active){
+      var text=(active.textContent||'').trim();
+      if(text.includes('Зал')){var h=createPanel('hall');h.style.display='block';}
+      if(text.includes('Права')){var p=createPanel('permissions');p.style.display='block';}
+    }
+  });
+  observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+}
+
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind); else bind();
 })();
