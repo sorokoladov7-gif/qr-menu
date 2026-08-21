@@ -1,7 +1,7 @@
 /* QR Menu — manager hall bootstrap. Captures the real Vue manager instance before mount. */
 (function(){
   'use strict';
-  if (window.__QR_MANAGER_HALL_LAUNCHER__) return;
+  if(window.__QR_MANAGER_HALL_LAUNCHER__) return;
   window.__QR_MANAGER_HALL_LAUNCHER__ = true;
 
   function captureVueApp(app){
@@ -42,13 +42,30 @@
     };
   }
 
+  function loadCreateFix(){
+    if(document.querySelector('script[data-qr-hall-create-fix]')) return;
+    var fix=document.createElement('script');
+    fix.src='/js/manager-hall-create-fix.js?v=1';
+    fix.async=false;
+    fix.setAttribute('data-qr-hall-create-fix','1');
+    fix.onerror=function(){console.error('[QR Hall] table creation fix failed to load');};
+    document.head.appendChild(fix);
+  }
+
   function boot(){
-    if(window.QRManagerHall && window.QRManagerHall.open) return;
-    if(document.querySelector('script[data-qr-hall-direct]')) return;
+    if(window.QRManagerHall && window.QRManagerHall.open){
+      loadCreateFix();
+      return;
+    }
+    if(document.querySelector('script[data-qr-hall-direct]')){
+      loadCreateFix();
+      return;
+    }
     var s=document.createElement('script');
-    s.src='/js/manager-hall-direct.js?v=8';
+    s.src='/js/manager-hall-direct.js?v=9';
     s.async=false;
     s.setAttribute('data-qr-hall-direct','1');
+    s.onload=loadCreateFix;
     s.onerror=function(){console.error('[QR Hall] direct module failed to load');};
     document.head.appendChild(s);
   }
