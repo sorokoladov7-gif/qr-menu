@@ -40,17 +40,45 @@
 .loading-orders{display:flex;align-items:center;gap:10px;padding:20px;color:#9ca3af;font-size:14px}
 .loading-orders .spinner{width:24px;height:24px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* Улучшенные подсказки в панели дизайна */
+.design-field .hint {
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.design-field .color-preview {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.1);
+  margin-left: 8px;
+  vertical-align: middle;
+}
 </style>
 </head>
 <body>
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
 <div class="topbar">
-<div class="brand" @click="brandClicks++" style="cursor:pointer">
-  <div class="logo">⚙️</div><span>Админ-панель</span>
-</div>
-<div class="row"><span class="muted" style="font-size:13px">{{ profile?profile.email:'' }}</span>
-<button class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button></div>
+  <div class="brand" style="display:flex;align-items:center;gap:8px;">
+    <div class="logo">⚙️</div>
+    <span>Админ-панель</span>
+    <!-- Скрытая кнопка настроек дизайна (только для админов) -->
+    <button v-if="profile && profile.role === 'admin'" 
+            class="btn btn-ghost btn-sm" 
+            style="padding:4px 8px; font-size:16px; opacity:0.5; transition:opacity 0.2s;"
+            @click="openDesignPanel"
+            title="Настройки дизайна (только для администраторов)">
+      ⚙️
+    </button>
+  </div>
+  <div class="row">
+    <span class="muted" style="font-size:13px">{{ profile?profile.email:'' }}</span>
+    <button class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button>
+  </div>
 </div>
 <div class="wrap">
 <div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
@@ -170,7 +198,7 @@
 </div>
 </div>
 
-<!-- ===================== АКТИВНОСТЬ (только заведения и управляющие) ===================== -->
+<!-- ===================== АКТИВНОСТЬ ===================== -->
 <div v-if="tab==='activity'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность заведений и управляющих</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
@@ -470,35 +498,82 @@
 <button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- ===================== ПАНЕЛЬ ДИЗАЙНА ===================== -->
+<!-- ===================== ПАНЕЛЬ ДИЗАЙНА (улучшенная) ===================== -->
 <div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
   <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
     <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
-    <p class="muted" style="font-size:12px;margin-bottom:14px">Настройте внешний вид всех заведений или выборочно. Все параметры сохраняются в БД и применяются динамически.</p>
+    <p class="muted" style="font-size:12px;margin-bottom:14px">
+      Здесь вы можете настроить внешний вид всех заведений или выборочно. 
+      Изменения применяются мгновенно после сохранения. 
+      Ниже — пояснения, что именно меняет каждый параметр.
+    </p>
 
     <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
       <h4>Шаблон дизайна (глобальный)</h4>
 
+      <!-- 1. Основные цвета -->
       <div class="design-group">
         <h4>🎨 Основные цвета</h4>
         <div class="design-grid">
-          <div class="design-field"><label>Брендовый цвет</label><input v-model="adminDesignTemplate.brand_color" type="color"></div>
-          <div class="design-field"><label>Цвет кнопок</label><input v-model="adminDesignTemplate.button_color" type="color"></div>
-          <div class="design-field"><label>Цвет заголовков</label><input v-model="adminDesignTemplate.header_color" type="color"></div>
-          <div class="design-field"><label>Цвет фона страницы</label><input v-model="adminDesignTemplate.background_color" type="color"></div>
-          <div class="design-field"><label>Цвет фона карточек</label><input v-model="adminDesignTemplate.card_background" type="color"></div>
-          <div class="design-field"><label>Цвет текста</label><input v-model="adminDesignTemplate.text_color" type="color"></div>
-          <div class="design-field"><label>Цвет акцентов</label><input v-model="adminDesignTemplate.accent_color" type="color"></div>
-          <div class="design-field"><label>Цвет границ</label><input v-model="adminDesignTemplate.border_color" type="color"></div>
+          <div class="design-field">
+            <label>Брендовый цвет <span class="color-preview" v-bind:style="{background:adminDesignTemplate.brand_color}"></span></label>
+            <input v-model="adminDesignTemplate.brand_color" type="color">
+            <div class="hint">Главный цвет заведения. Используется для кнопок, заголовков, акцентных элементов. Пример: если выбрать синий, все кнопки «Заказать» станут синими.</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет кнопок <span class="color-preview" v-bind:style="{background:adminDesignTemplate.button_color}"></span></label>
+            <input v-model="adminDesignTemplate.button_color" type="color">
+            <div class="hint">Цвет фона для всех кнопок действия (добавить в корзину, оформить заказ и т.д.).</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет заголовков <span class="color-preview" v-bind:style="{background:adminDesignTemplate.header_color}"></span></label>
+            <input v-model="adminDesignTemplate.header_color" type="color">
+            <div class="hint">Цвет всех крупных заголовков (названия блюд, разделов меню).</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет фона страницы <span class="color-preview" v-bind:style="{background:adminDesignTemplate.background_color}"></span></label>
+            <input v-model="adminDesignTemplate.background_color" type="color">
+            <div class="hint">Фон всей страницы заведения. Влияет на восприятие контента.</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет фона карточек <span class="color-preview" v-bind:style="{background:adminDesignTemplate.card_background}"></span></label>
+            <input v-model="adminDesignTemplate.card_background" type="color">
+            <div class="hint">Фон карточек товаров (блюд и напитков).</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет текста <span class="color-preview" v-bind:style="{background:adminDesignTemplate.text_color}"></span></label>
+            <input v-model="adminDesignTemplate.text_color" type="color">
+            <div class="hint">Основной цвет текста на странице (описания, цены).</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет акцентов <span class="color-preview" v-bind:style="{background:adminDesignTemplate.accent_color}"></span></label>
+            <input v-model="adminDesignTemplate.accent_color" type="color">
+            <div class="hint">Дополнительный акцентный цвет (например, для иконок, выделения специальных предложений).</div>
+          </div>
+          <div class="design-field">
+            <label>Цвет границ <span class="color-preview" v-bind:style="{background:adminDesignTemplate.border_color}"></span></label>
+            <input v-model="adminDesignTemplate.border_color" type="color">
+            <div class="hint">Цвет рамок и разделителей между элементами.</div>
+          </div>
         </div>
       </div>
 
+      <!-- 2. Фон -->
       <div class="design-group">
-        <h4>🖼️ Фон</h4>
+        <h4>🖼️ Фон (градиент и изображение)</h4>
         <div class="design-grid">
-          <div class="design-field"><label>Градиент (цвет 1)</label><input v-model="adminDesignTemplate.gradient_start" type="color"></div>
-          <div class="design-field"><label>Градиент (цвет 2)</label><input v-model="adminDesignTemplate.gradient_end" type="color"></div>
-          <div class="design-field"><label>Направление градиента</label>
+          <div class="design-field">
+            <label>Градиент (цвет 1) <span class="color-preview" v-bind:style="{background:adminDesignTemplate.gradient_start}"></span></label>
+            <input v-model="adminDesignTemplate.gradient_start" type="color">
+            <div class="hint">Первый цвет градиента фона (если используется градиент вместо сплошного цвета).</div>
+          </div>
+          <div class="design-field">
+            <label>Градиент (цвет 2) <span class="color-preview" v-bind:style="{background:adminDesignTemplate.gradient_end}"></span></label>
+            <input v-model="adminDesignTemplate.gradient_end" type="color">
+            <div class="hint">Второй цвет градиента.</div>
+          </div>
+          <div class="design-field">
+            <label>Направление градиента</label>
             <select v-model="adminDesignTemplate.gradient_direction">
               <option value="to right">→ вправо</option>
               <option value="to left">← влево</option>
@@ -507,21 +582,26 @@
               <option value="135deg">↘ диагональ</option>
               <option value="45deg">↗ диагональ</option>
             </select>
+            <div class="hint">Как будет располагаться градиент: горизонтально, вертикально или по диагонали.</div>
           </div>
-          <div class="design-field"><label>Фоновое изображение (URL)</label>
+          <div class="design-field">
+            <label>Фоновое изображение (URL)</label>
             <input v-model="adminDesignTemplate.background_image" placeholder="https://example.com/bg.jpg">
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px">
               <span>📤 Загрузить</span>
               <input type="file" accept="image/*" v-on:change="uploadBgImage" style="display:none">
             </label>
+            <div class="hint">Если указать ссылку на изображение, оно станет фоном страницы (поверх градиента).</div>
           </div>
         </div>
       </div>
 
+      <!-- 3. Типографика -->
       <div class="design-group">
-        <h4>🔤 Типографика</h4>
+        <h4>🔤 Типографика (шрифты и размеры)</h4>
         <div class="design-grid">
-          <div class="design-field"><label>Шрифт</label>
+          <div class="design-field">
+            <label>Шрифт</label>
             <select v-model="adminDesignTemplate.font_family">
               <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
               <option value="Inter">Inter</option>
@@ -529,100 +609,157 @@
               <option value="Montserrat">Montserrat</option>
               <option value="Oswald">Oswald</option>
             </select>
+            <div class="hint">Выберите шрифт для всего текста на сайте заведения.</div>
           </div>
-          <div class="design-field"><label>Размер шрифта (px)</label><input v-model.number="adminDesignTemplate.font_size" type="number" min="12" max="24"></div>
-          <div class="design-field"><label>Жирность заголовков</label>
+          <div class="design-field">
+            <label>Размер шрифта (px)</label>
+            <input v-model.number="adminDesignTemplate.font_size" type="number" min="12" max="24">
+            <div class="hint">Базовый размер текста. Влияет на читаемость.</div>
+          </div>
+          <div class="design-field">
+            <label>Жирность заголовков</label>
             <select v-model="adminDesignTemplate.heading_weight">
-              <option value="400">400</option>
-              <option value="600">600</option>
-              <option value="700">700</option>
-              <option value="800">800</option>
+              <option value="400">400 (обычный)</option>
+              <option value="600">600 (полужирный)</option>
+              <option value="700">700 (жирный)</option>
+              <option value="800">800 (очень жирный)</option>
             </select>
+            <div class="hint">Насыщенность шрифта для названий блюд и разделов.</div>
           </div>
-          <div class="design-field"><label>Жирность текста</label>
+          <div class="design-field">
+            <label>Жирность текста</label>
             <select v-model="adminDesignTemplate.body_weight">
-              <option value="300">300</option>
-              <option value="400">400</option>
-              <option value="500">500</option>
-              <option value="600">600</option>
+              <option value="300">300 (лёгкий)</option>
+              <option value="400">400 (обычный)</option>
+              <option value="500">500 (средний)</option>
+              <option value="600">600 (полужирный)</option>
             </select>
+            <div class="hint">Насыщенность основного текста (описания, цены).</div>
           </div>
-          <div class="design-field"><label>Межстрочный интервал</label>
+          <div class="design-field">
+            <label>Межстрочный интервал</label>
             <select v-model="adminDesignTemplate.line_height">
-              <option value="1.4">1.4</option>
-              <option value="1.6">1.6</option>
-              <option value="1.8">1.8</option>
-              <option value="2.0">2.0</option>
+              <option value="1.4">1.4 (уплотнённый)</option>
+              <option value="1.6">1.6 (стандартный)</option>
+              <option value="1.8">1.8 (разреженный)</option>
+              <option value="2.0">2.0 (очень разреженный)</option>
             </select>
+            <div class="hint">Расстояние между строками текста. Больше — легче читать.</div>
           </div>
-          <div class="design-field"><label>Межбуквенный интервал (px)</label><input v-model.number="adminDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5"></div>
+          <div class="design-field">
+            <label>Межбуквенный интервал (px)</label>
+            <input v-model.number="adminDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5">
+            <div class="hint">Расстояние между буквами. Может сделать текст более «воздушным».</div>
+          </div>
         </div>
       </div>
 
+      <!-- 4. Карточки товаров -->
       <div class="design-group">
-        <h4>🃏 Карточки товаров</h4>
+        <h4>🃏 Карточки товаров (блюд и напитков)</h4>
         <div class="design-grid">
-          <div class="design-field"><label>Внутренний отступ (px)</label><input v-model.number="adminDesignTemplate.card_padding" type="number" min="4" max="24"></div>
-          <div class="design-field"><label>Высота изображения (px)</label><input v-model.number="adminDesignTemplate.card_image_height" type="number" min="80" max="300"></div>
-          <div class="design-field"><label>Выравнивание текста</label>
+          <div class="design-field">
+            <label>Внутренний отступ (px)</label>
+            <input v-model.number="adminDesignTemplate.card_padding" type="number" min="4" max="24">
+            <div class="hint">Расстояние от края карточки до содержимого. Больше — «воздушнее».</div>
+          </div>
+          <div class="design-field">
+            <label>Высота изображения (px)</label>
+            <input v-model.number="adminDesignTemplate.card_image_height" type="number" min="80" max="300">
+            <div class="hint">Высота фото блюда в карточке. Ширина подстроится автоматически.</div>
+          </div>
+          <div class="design-field">
+            <label>Выравнивание текста</label>
             <select v-model="adminDesignTemplate.card_text_align">
               <option value="left">Слева</option>
               <option value="center">По центру</option>
             </select>
+            <div class="hint">Как выравнивать название и описание внутри карточки.</div>
           </div>
-          <div class="design-field" style="display:flex;gap:12px;align-items:center">
+          <div class="design-field" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
             <label><input type="checkbox" v-model="adminDesignTemplate.show_description"> Показывать описание</label>
             <label><input type="checkbox" v-model="adminDesignTemplate.show_price"> Показывать цену</label>
+            <div class="hint" style="width:100%">Включите, чтобы отображать эти поля на карточке.</div>
           </div>
         </div>
       </div>
 
+      <!-- 5. Кнопки -->
       <div class="design-group">
         <h4>🔘 Кнопки</h4>
         <div class="design-grid">
-          <div class="design-field"><label>Цвет текста кнопок</label><input v-model="adminDesignTemplate.button_text_color" type="color"></div>
-          <div class="design-field"><label>Жирность текста</label>
+          <div class="design-field">
+            <label>Цвет текста кнопок <span class="color-preview" v-bind:style="{background:adminDesignTemplate.button_text_color}"></span></label>
+            <input v-model="adminDesignTemplate.button_text_color" type="color">
+            <div class="hint">Цвет текста на кнопках.</div>
+          </div>
+          <div class="design-field">
+            <label>Жирность текста кнопок</label>
             <select v-model="adminDesignTemplate.button_weight">
               <option value="400">400</option>
               <option value="600">600</option>
               <option value="700">700</option>
             </select>
+            <div class="hint">Насыщенность шрифта на кнопках.</div>
           </div>
-          <div class="design-field"><label>Эффект при наведении</label>
+          <div class="design-field">
+            <label>Эффект при наведении</label>
             <select v-model="adminDesignTemplate.button_hover">
-              <option value="scale">Увеличение</option>
-              <option value="shadow">Тень</option>
+              <option value="scale">Увеличение (легкое увеличение размера)</option>
+              <option value="shadow">Тень (появление тени)</option>
               <option value="none">Без эффекта</option>
             </select>
+            <div class="hint">Как кнопка реагирует на наведение курсора.</div>
           </div>
         </div>
       </div>
 
+      <!-- 6. Дополнительно -->
       <div class="design-group">
-        <h4>⚙️ Дополнительно</h4>
+        <h4>⚙️ Дополнительно (рамки, тени, анимация)</h4>
         <div class="design-grid">
-          <div class="design-field"><label>Толщина границ (px)</label><input v-model.number="adminDesignTemplate.border_width" type="number" min="0" max="4"></div>
-          <div class="design-field"><label>Скругление карточек (px)</label><input v-model.number="adminDesignTemplate.border_radius" type="number" min="0" max="30"></div>
-          <div class="design-field"><label>Скругление кнопок (px)</label><input v-model.number="adminDesignTemplate.button_radius" type="number" min="0" max="30"></div>
-          <div class="design-field"><label>Тень (px)</label><input v-model.number="adminDesignTemplate.shadow" type="number" min="0" max="20"></div>
-          <div class="design-field"><label>Скорость анимации (s)</label>
+          <div class="design-field">
+            <label>Толщина границ (px)</label>
+            <input v-model.number="adminDesignTemplate.border_width" type="number" min="0" max="4">
+            <div class="hint">Толщина рамок вокруг карточек, кнопок и других элементов.</div>
+          </div>
+          <div class="design-field">
+            <label>Скругление карточек (px)</label>
+            <input v-model.number="adminDesignTemplate.border_radius" type="number" min="0" max="30">
+            <div class="hint">Закругление углов у карточек товаров. Больше — более «мягкий» вид.</div>
+          </div>
+          <div class="design-field">
+            <label>Скругление кнопок (px)</label>
+            <input v-model.number="adminDesignTemplate.button_radius" type="number" min="0" max="30">
+            <div class="hint">Закругление углов кнопок.</div>
+          </div>
+          <div class="design-field">
+            <label>Тень (px)</label>
+            <input v-model.number="adminDesignTemplate.shadow" type="number" min="0" max="20">
+            <div class="hint">Размер тени у карточек и кнопок. 0 — тени нет.</div>
+          </div>
+          <div class="design-field">
+            <label>Скорость анимации (s)</label>
             <select v-model="adminDesignTemplate.transition_speed">
-              <option value="0.1">0.1</option>
-              <option value="0.2">0.2</option>
-              <option value="0.3">0.3</option>
-              <option value="0.5">0.5</option>
+              <option value="0.1">0.1 (очень быстро)</option>
+              <option value="0.2">0.2 (быстро)</option>
+              <option value="0.3">0.3 (средне)</option>
+              <option value="0.5">0.5 (медленно)</option>
             </select>
+            <div class="hint">Время, за которое происходят анимации (наведение, появление).</div>
           </div>
         </div>
       </div>
 
       <div class="row" style="margin-top:16px;flex-wrap:wrap;gap:8px">
         <button class="btn btn-primary btn-sm" v-on:click="applyDesignToAll">✅ Применить ко всем заведениям</button>
-        <button class="btn btn-ghost btn-sm" v-on:click="resetAdminTemplate">↺ Сбросить шаблон</button>
+        <button class="btn btn-ghost btn-sm" v-on:click="resetAdminTemplate">↺ Сбросить шаблон (вернуть стандартные настройки)</button>
+        <button class="btn btn-ghost btn-sm" v-on:click="secretDesignPanel=false">✖ Закрыть</button>
       </div>
     </div>
 
     <h4>Текущие настройки заведений</h4>
+    <p class="muted" style="font-size:12px;">Ниже показаны активные настройки для каждого заведения. Вы можете применить текущий шаблон к выбранному заведению кнопкой «Применить шаблон».</p>
     <div class="tblwrap">
       <table class="tbl">
         <tr><th>Заведение</th><th>Брендовый цвет</th><th>Цвет кнопок</th><th>Шрифт</th><th>Действие</th></tr>
@@ -635,7 +772,6 @@
         </tr>
       </table>
     </div>
-    <button class="btn btn-ghost" style="margin-top:14px" v-on:click="secretDesignPanel=false">Закрыть</button>
   </div>
 </div>
 <!-- ============================================== -->
@@ -662,7 +798,6 @@ addMgrModal:{show:false,name:'',email:'',password:'',role:'manager',err:''},
 mgrEditModal:{show:false,id:null,name:'',role:'manager', allow_manage_delivery: false, allow_manage_design: false},
 staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:''},
 secretDesignPanel:false,
-brandClicks:0,
 ordersLoaded:false,
 ordersLoading:false,
 adminDesignTemplate:{
@@ -811,6 +946,10 @@ this.loadOrders();
 }
 },
 
+openDesignPanel:function(){
+  this.secretDesignPanel = true;
+},
+
 init:function(){var self=this;
 requireAuth(['admin']).then(function(profile){
 self.profile=profile;
@@ -822,12 +961,6 @@ if(self.tab==='activity'||self.tab==='subs'){
 self.loadOrders();
 }
 });
-});
-this.$watch('brandClicks', function(val){
-if(val>=5&&self.profile&&self.profile.role==='admin'){
-self.secretDesignPanel=true;
-self.brandClicks=0;
-}
 });
 },
 
