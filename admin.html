@@ -133,6 +133,96 @@
 <button v-bind:class="{on:tab==='couriers'}" v-on:click="switchTab('couriers')">🚗 Курьеры</button>
 <button v-bind:class="{on:tab==='waiters'}" v-on:click="switchTab('waiters')">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='plans'}" v-on:click="switchTab('plans')">💳 Тарифы и оплаты</button>
+<button v-bind:class="{on:tab==='templates'}" v-on:click="switchTab('templates')">🍽️ Шаблоны заведений</button>
+</div>
+
+<!-- ===================== ШАБЛОНЫ ЗАВЕДЕНИЙ ===================== -->
+<div v-if="tab==='templates'">
+
+  <div class="spread" style="margin-bottom:14px">
+    <div>
+      <h3 style="margin:0">🍽️ Шаблоны заведений</h3>
+      <div class="muted" style="margin-top:4px;font-size:13px">
+        Управление шаблонами меню для новых заведений
+      </div>
+    </div>
+
+    <a
+      href="admin_templates.html"
+      class="btn btn-primary"
+      target="_self"
+    >
+      ✏️ Открыть редактор
+    </a>
+  </div>
+
+  <div class="glass card">
+
+    <div style="
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+      gap:12px;
+      margin-bottom:18px;
+    ">
+
+      <div class="kpi">
+        <div class="n">11</div>
+        <div class="l">Шаблонов в системе</div>
+      </div>
+
+      <div class="kpi">
+        <div class="n">11</div>
+        <div class="l">Готовых ниш</div>
+      </div>
+
+      <div class="kpi">
+        <div class="n">25–150</div>
+        <div class="l">Позиций в шаблонах</div>
+      </div>
+
+    </div>
+
+    <div style="
+      padding:16px;
+      border-radius:12px;
+      background:rgba(99,102,241,.08);
+      border:1px solid rgba(99,102,241,.18);
+    ">
+
+      <div style="font-weight:700;margin-bottom:6px">
+        Редактор шаблонов 2.0
+      </div>
+
+      <div class="muted" style="font-size:13px;line-height:1.6">
+        Здесь администратор может управлять готовыми шаблонами заведений:
+        изменять название, нишу, масштаб, товары, категории, цены и изображения.
+      </div>
+
+      <div class="muted" style="
+        font-size:12px;
+        margin-top:10px;
+        line-height:1.5;
+      ">
+        Изменения шаблона применяются только при создании новых заведений.
+        Существующие заведения и их меню не изменяются.
+      </div>
+
+    </div>
+
+    <div style="margin-top:16px;text-align:right">
+
+      <a
+        href="admin_templates.html"
+        class="btn btn-primary"
+        target="_self"
+      >
+        🍽️ Управлять шаблонами
+      </a>
+
+    </div>
+
+  </div>
+
 </div>
 
 <!-- ===================== СТАТИСТИКА ===================== -->
