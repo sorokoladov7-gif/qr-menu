@@ -44,24 +44,14 @@
   async function resolveVenue() {
     var selected = vueVenue();
     if (selected && selected.id) return selected;
-
     var client = db();
     if (!client) return null;
-
     var saved = null;
-    try {
-      saved = localStorage.getItem('manager_venue_id') || localStorage.getItem('selectedVenueId');
-    } catch (e) {}
-
+    try { saved = localStorage.getItem('manager_venue_id') || localStorage.getItem('selectedVenueId'); } catch (e) {}
     if (!saved) return null;
-
     var query;
-    if (isUuid(saved)) {
-      query = await client.from('venues').select('id,name,slug,logo_url').eq('id', saved).maybeSingle();
-    } else {
-      query = await client.from('venues').select('id,name,slug,logo_url').eq('slug', saved).maybeSingle();
-    }
-
+    if (isUuid(saved)) query = await client.from('venues').select('id,name,slug,logo_url').eq('id', saved).maybeSingle();
+    else query = await client.from('venues').select('id,name,slug,logo_url').eq('slug', saved).maybeSingle();
     if (!query.error && query.data && query.data.id) return query.data;
     console.error('[QR Hall] venue lookup failed', query.error || 'not found');
     return null;
@@ -75,17 +65,8 @@
     document.head.appendChild(style);
   }
 
-  function closeHall() {
-    if (state.root) {
-      state.root.remove();
-      state.root = null;
-    }
-  }
-
-  function applyZoom() {
-    var board = state.root && state.root.querySelector('#qmh-board');
-    if (board) board.style.transform = 'scale(' + state.zoom + ')';
-  }
+  function closeHall() { if (state.root) { state.root.remove(); state.root = null; } }
+  function applyZoom() { var board = state.root && state.root.querySelector('#qmh-board'); if (board) board.style.transform = 'scale(' + state.zoom + ')'; }
 
   function openHall(venue) {
     if (!venue || !venue.id) return;
@@ -93,13 +74,11 @@
     state.zoom = 1;
     if (state.root) state.root.remove();
     addStyles();
-
     var root = document.createElement('div');
     root.id = 'qr-manager-hall-final';
     state.root = root;
     root.innerHTML = '<div class="qmh-in"><div class="qmh-head"><div><h2 style="margin:0">🪑 План зала</h2><div class="qmh-small">' + esc(venue.name || 'Заведение') + '</div></div><div class="qmh-actions"><button class="qmh-btn qmh-primary" id="qmh-add">＋ Добавить стол</button><button class="qmh-btn" id="qmh-refresh">↻ Обновить</button><button class="qmh-btn" id="qmh-minus">−</button><button class="qmh-btn" id="qmh-plus">＋</button><button class="qmh-btn" id="qmh-close">Закрыть</button></div></div><div class="qmh-stats" id="qmh-stats"></div><div class="qmh-board-wrap"><div class="qmh-board" id="qmh-board"></div></div><h3>Столы и QR-коды</h3><div class="qmh-cards" id="qmh-cards"></div></div>';
     document.body.appendChild(root);
-
     root.querySelector('#qmh-close').onclick = closeHall;
     root.querySelector('#qmh-add').onclick = function () { editForm(null); };
     root.querySelector('#qmh-refresh').onclick = loadTables;
@@ -109,118 +88,73 @@
   }
 
   function normalizeTable(table) {
-    return {
-      id: table.id,
-      number: table.table_number == null ? table.number : table.table_number,
-      name: table.name || '',
-      shape: ['round', 'square', 'rectangle'].indexOf(table.shape) >= 0 ? table.shape : 'round',
-      seats: Number(table.seats || 4),
-      x: Number(table.pos_x == null ? (table.x == null ? 80 : table.x) : table.pos_x),
-      y: Number(table.pos_y == null ? (table.y == null ? 80 : table.y) : table.pos_y),
-      qr: table.qr_token || '',
-      status: table.occupancy_status || table.status || 'free',
-      guests: Number(table.guest_count == null ? (table.session_guest_count || 0) : table.guest_count),
-      orders: Number(table.open_order_count == null ? (table.order_count || 0) : table.order_count),
-      total: Number(table.total_amount || 0)
-    };
+    return { id: table.id, number: table.table_number == null ? table.number : table.table_number, name: table.name || '', shape: ['round','square','rectangle'].indexOf(table.shape) >= 0 ? table.shape : 'round', seats: Number(table.seats || 4), x: Number(table.pos_x == null ? (table.x == null ? 80 : table.x) : table.pos_x), y: Number(table.pos_y == null ? (table.y == null ? 80 : table.y) : table.pos_y), qr: table.qr_token || '', status: table.occupancy_status || table.status || 'free', guests: Number(table.guest_count == null ? (table.session_guest_count || 0) : table.guest_count), orders: Number(table.open_order_count == null ? (table.order_count || 0) : table.open_order_count), total: Number(table.total_amount || 0) };
   }
-
-  function tableStatus(table) {
-    if (table.status === 'occupied') return ['Занят', 'occupied'];
-    if (table.status === 'reserved') return ['Резерв', 'reserved'];
-    return ['Свободен', 'free'];
-  }
+  function tableStatus(table) { if (table.status === 'occupied') return ['Занят','occupied']; if (table.status === 'reserved') return ['Резерв','reserved']; return ['Свободен','free']; }
 
   async function loadTables() {
     if (!state.root || !state.venue) return;
     var result = await rpc('manager_table_board', { p_venue_id: state.venue.id });
-    if (result.error) {
-      renderError(result.error.message);
-      return;
-    }
+    if (result.error) { renderError(result.error.message); return; }
     var rows = Array.isArray(result.data) ? result.data : ((result.data && result.data.tables) || []);
     state.tables = rows.map(normalizeTable);
     renderTables();
   }
 
-  function renderError(message) {
-    var board = state.root && state.root.querySelector('#qmh-board');
-    if (board) board.innerHTML = '<div style="padding:40px;color:#fecaca"><b>Не удалось загрузить столы</b><div style="margin-top:8px">' + esc(message) + '</div></div>';
-  }
+  function renderError(message) { var board = state.root && state.root.querySelector('#qmh-board'); if (board) board.innerHTML = '<div style="padding:40px;color:#fecaca"><b>Не удалось загрузить столы</b><div style="margin-top:8px">' + esc(message) + '</div></div>'; }
 
   function renderTables() {
-    var root = state.root;
-    if (!root) return;
-    var board = root.querySelector('#qmh-board');
-    var cards = root.querySelector('#qmh-cards');
-    var stats = root.querySelector('#qmh-stats');
-    board.innerHTML = '';
-    cards.innerHTML = '';
-
+    var root = state.root; if (!root) return;
+    var board = root.querySelector('#qmh-board'); var cards = root.querySelector('#qmh-cards'); var stats = root.querySelector('#qmh-stats');
+    board.innerHTML = ''; cards.innerHTML = '';
     var free = 0, occupied = 0, reserved = 0;
-    state.tables.forEach(function (table) {
-      var current = tableStatus(table)[1];
-      if (current === 'free') free += 1;
-      else if (current === 'occupied') occupied += 1;
-      else reserved += 1;
-    });
-
+    state.tables.forEach(function (table) { var current = tableStatus(table)[1]; if (current === 'free') free += 1; else if (current === 'occupied') occupied += 1; else reserved += 1; });
     stats.innerHTML = '<div class="qmh-stat"><b>' + state.tables.length + '</b><div class="qmh-small">Всего столов</div></div><div class="qmh-stat"><b>' + free + '</b><div class="qmh-small">Свободно</div></div><div class="qmh-stat"><b>' + occupied + '</b><div class="qmh-small">Занято</div></div><div class="qmh-stat"><b>' + reserved + '</b><div class="qmh-small">Резерв</div></div>';
-
     if (!state.tables.length) board.innerHTML = '<div style="padding:80px;text-align:center;color:#94a3b8">Столов пока нет.<br><br>Нажмите «＋ Добавить стол».</div>';
-
     state.tables.forEach(function (table) {
-      var element = document.createElement('div');
-      element.className = 'qmh-table qmh-' + table.shape + ' ' + tableStatus(table)[1];
-      element.style.left = table.x + 'px';
-      element.style.top = table.y + 'px';
-      element.innerHTML = '<div>№' + esc(table.number) + '</div><div>' + esc(table.name || ('Стол ' + table.number)) + '</div><div class="qmh-small">' + table.guests + '/' + table.seats + ' мест</div>';
-      dragTable(element, table);
-      element.ondblclick = function () { editForm(table); };
-      board.appendChild(element);
-
-      var card = document.createElement('div');
-      card.className = 'qmh-card';
-      card.innerHTML = '<b>Стол №' + esc(table.number) + '</b><div style="margin:6px 0">' + tableStatus(table)[0] + ' · ' + table.seats + ' мест</div><div class="qmh-small">Гостей: ' + table.guests + ' · Заказов: ' + table.orders + ' · ' + table.total.toLocaleString('ru-RU') + ' ₽</div><button class="qmh-btn" data-edit>✏️ Редактировать</button><div class="qmh-small" style="margin-top:8px">' + (table.qr ? 'QR закреплён за столом' : 'QR ещё не создан') + '</div>';
-      card.querySelector('[data-edit]').onclick = function () { editForm(table); };
-      cards.appendChild(card);
+      var element = document.createElement('div'); element.className = 'qmh-table qmh-' + table.shape + ' ' + tableStatus(table)[1]; element.style.left = table.x + 'px'; element.style.top = table.y + 'px'; element.innerHTML = '<div>№' + esc(table.number) + '</div><div>' + esc(table.name || ('Стол ' + table.number)) + '</div><div class="qmh-small">' + table.guests + '/' + table.seats + ' мест</div>'; dragTable(element, table); element.ondblclick = function () { editForm(table); }; board.appendChild(element);
+      var card = document.createElement('div'); card.className = 'qmh-card'; card.innerHTML = '<b>Стол №' + esc(table.number) + '</b><div style="margin:6px 0">' + tableStatus(table)[0] + ' · ' + table.seats + ' мест</div><div class="qmh-small">Гостей: ' + table.guests + ' · Заказов: ' + table.orders + ' · ' + table.total.toLocaleString('ru-RU') + ' ₽</div><button class="qmh-btn" data-edit>✏️ Редактировать</button><div class="qmh-small" style="margin-top:8px">' + (table.qr ? 'QR закреплён за столом' : 'QR ещё не создан') + '</div>'; card.querySelector('[data-edit]').onclick = function () { editForm(table); }; cards.appendChild(card);
     });
     applyZoom();
   }
 
   function dragTable(element, table) {
     element.onpointerdown = function (event) {
-      var startX = event.clientX;
-      var startY = event.clientY;
-      var originalX = table.x;
-      var originalY = table.y;
-      var moved = false;
+      var startX = event.clientX, startY = event.clientY, originalX = table.x, originalY = table.y, moved = false;
       element.setPointerCapture(event.pointerId);
-      element.onpointermove = function (moveEvent) {
-        var dx = (moveEvent.clientX - startX) / state.zoom;
-        var dy = (moveEvent.clientY - startY) / state.zoom;
-        if (Math.abs(dx) + Math.abs(dy) > 3) moved = true;
-        table.x = Math.max(10, Math.min(1300, originalX + dx));
-        table.y = Math.max(10, Math.min(650, originalY + dy));
-        element.style.left = table.x + 'px';
-        element.style.top = table.y + 'px';
-      };
-      element.onpointerup = function () {
-        element.onpointermove = null;
-        if (moved) rpc('manager_move_table', { p_venue_id: state.venue.id, p_table_id: table.id, p_x: Math.round(table.x), p_y: Math.round(table.y) });
-      };
+      element.onpointermove = function (moveEvent) { var dx = (moveEvent.clientX - startX) / state.zoom, dy = (moveEvent.clientY - startY) / state.zoom; if (Math.abs(dx) + Math.abs(dy) > 3) moved = true; table.x = Math.max(10, Math.min(1300, originalX + dx)); table.y = Math.max(10, Math.min(650, originalY + dy)); element.style.left = table.x + 'px'; element.style.top = table.y + 'px'; };
+      element.onpointerup = function () { element.onpointermove = null; if (moved) rpc('manager_move_table', { p_venue_id: state.venue.id, p_table_id: table.id, p_x: Math.round(table.x), p_y: Math.round(table.y) }); };
     };
   }
 
-  function editForm(table) {
+  async function refreshBeforeCreate() {
+    var result = await rpc('manager_table_board', { p_venue_id: state.venue.id });
+    if (result.error) throw new Error(result.error.message || 'Не удалось обновить список столов');
+    var rows = Array.isArray(result.data) ? result.data : ((result.data && result.data.tables) || []);
+    state.tables = rows.map(normalizeTable);
     var used = {};
-    state.tables.forEach(function (item) { used[Number(item.number)] = true; });
-    var nextNumber = 1;
-    while (used[nextNumber]) nextNumber += 1;
-    var data = table || { number: nextNumber, name: 'Стол ' + nextNumber, shape: 'round', seats: 4 };
+    state.tables.forEach(function (item) { var number = Number(item.number); if (Number.isFinite(number) && number > 0) used[number] = true; });
+    var next = 1;
+    while (used[next]) next += 1;
+    return next;
+  }
 
-    var modal = document.createElement('div');
-    modal.className = 'qmh-modal';
+  async function createTableWithRetry(args) {
+    var number = await refreshBeforeCreate();
+    for (var attempt = 0; attempt < 3; attempt += 1) {
+      var result = await rpc('manager_create_table', { p_venue_id: state.venue.id, p_number: number, p_name: args.name, p_shape: args.shape, p_seats: args.seats, p_x: args.x, p_y: args.y });
+      if (!result.error) return result;
+      if (String(result.error.message || '').indexOf('table_number_exists') === -1) return result;
+      number = await refreshBeforeCreate();
+    }
+    return { error: { message: 'Не удалось подобрать свободный номер стола. Обновите список столов.' } };
+  }
+
+  function editForm(table) {
+    var nextNumber = 1;
+    if (!table) { state.tables.forEach(function (item) { var number = Number(item.number); if (number >= nextNumber) nextNumber = number + 1; }); }
+    var data = table || { number: nextNumber, name: 'Стол ' + nextNumber, shape: 'round', seats: 4 };
+    var modal = document.createElement('div'); modal.className = 'qmh-modal';
     modal.innerHTML = '<div class="qmh-box"><h2 style="margin-top:0">' + (table ? 'Редактировать стол' : 'Добавить стол') + '</h2><div class="qmh-field"><label>Номер</label><input id="qmn" type="number" min="1" value="' + esc(data.number) + '"></div><div class="qmh-field"><label>Название</label><input id="qmx" value="' + esc(data.name) + '"></div><div class="qmh-field"><label>Форма</label><select id="qms"><option value="round">Круглый</option><option value="square">Квадратный</option><option value="rectangle">Прямоугольный</option></select></div><div class="qmh-field"><label>Мест</label><input id="qmt" type="number" min="1" value="' + esc(data.seats) + '"></div><div class="qmh-error" id="qme"></div><button class="qmh-btn" id="qmc">Отмена</button> <button class="qmh-btn qmh-primary" id="qmo">' + (table ? 'Сохранить' : 'Создать стол') + '</button></div>';
     document.body.appendChild(modal);
     modal.querySelector('#qms').value = data.shape;
@@ -228,39 +162,22 @@
     modal.querySelector('#qmo').onclick = async function () {
       if (state.busy) return;
       state.busy = true;
-      var args = {
-        p_venue_id: state.venue.id,
-        p_number: Number(modal.querySelector('#qmn').value),
-        p_name: modal.querySelector('#qmx').value.trim() || null,
-        p_shape: modal.querySelector('#qms').value,
-        p_seats: Number(modal.querySelector('#qmt').value)
-      };
+      var number = Number(modal.querySelector('#qmn').value);
+      var args = { number: number, name: modal.querySelector('#qmx').value.trim() || null, shape: modal.querySelector('#qms').value, seats: Number(modal.querySelector('#qmt').value), x: 100 + (state.tables.length % 5) * 180, y: 100 + Math.floor(state.tables.length / 5) * 130 };
+      if (!Number.isInteger(number) || number < 1 || !Number.isInteger(args.seats) || args.seats < 1) { state.busy = false; var validation = modal.querySelector('#qme'); validation.textContent = 'Номер и количество мест должны быть целыми числами больше нуля.'; validation.style.display = 'block'; return; }
       var result;
-      if (table) {
-        result = await rpc('manager_update_table', { p_table_id: table.id, p_venue_id: args.p_venue_id, p_number: args.p_number, p_name: args.p_name, p_shape: args.p_shape, p_seats: args.p_seats, p_active: true });
-      } else {
-        result = await rpc('manager_create_table', { p_venue_id: args.p_venue_id, p_number: args.p_number, p_name: args.p_name, p_shape: args.p_shape, p_seats: args.p_seats, p_x: 100 + (state.tables.length % 5) * 180, p_y: 100 + Math.floor(state.tables.length / 5) * 130 });
-      }
+      try {
+        if (table) result = await rpc('manager_update_table', { p_table_id: table.id, p_venue_id: state.venue.id, p_number: number, p_name: args.name, p_shape: args.shape, p_seats: args.seats, p_active: true });
+        else result = await createTableWithRetry(args);
+      } catch (error) { result = { error: { message: error.message || 'Ошибка создания стола' } }; }
       state.busy = false;
-      if (result.error) {
-        var errorBox = modal.querySelector('#qme');
-        errorBox.textContent = result.error.message || 'Ошибка';
-        errorBox.style.display = 'block';
-        return;
-      }
+      if (result.error) { var errorBox = modal.querySelector('#qme'); errorBox.textContent = result.error.message || 'Ошибка'; errorBox.style.display = 'block'; return; }
       modal.remove();
-      loadTables();
+      await loadTables();
     };
   }
 
-  async function onHallClick() {
-    var venue = await resolveVenue();
-    if (!venue) {
-      console.error('[QR Hall] cannot resolve selected venue');
-      return;
-    }
-    openHall(venue);
-  }
+  async function onHallClick() { var venue = await resolveVenue(); if (!venue) { console.error('[QR Hall] cannot resolve selected venue'); return; } openHall(venue); }
 
   function install() {
     document.addEventListener('click', function (event) {
