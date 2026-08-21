@@ -77,7 +77,7 @@
 <button v-bind:class="{on:tab==='plans'}" v-on:click="switchTab('plans')">💳 Тарифы и оплаты</button>
 </div>
 
-<!-- ===================== СТАТИСТИКА (только рейтинг заведений) ===================== -->
+<!-- ===================== СТАТИСТИКА ===================== -->
 <div v-if="tab==='stats'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">🏆 Рейтинг заведений</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
@@ -117,7 +117,7 @@
 <tr v-if="!venueSubs.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет заведений</td></tr></table></div>
 </div>
 
-<!-- ===================== АНАЛИТИКА (убраны график, топы и часы пик) ===================== -->
+<!-- ===================== АНАЛИТИКА ===================== -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">📈 Полная аналитика платформы</h3>
 <select v-model="adminAnalyticsPeriod" v-on:change="loadAdminAnalytics" style="width:auto">
@@ -170,9 +170,9 @@
 </div>
 </div>
 
-<!-- ===================== АКТИВНОСТЬ ===================== -->
+<!-- ===================== АКТИВНОСТЬ (только заведения и управляющие) ===================== -->
 <div v-if="tab==='activity'">
-<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность персонала и заведений</h3>
+<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность заведений и управляющих</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
 <option value="7">За 7 дней</option><option value="30">За 30 дней</option><option value="all">За всё время</option></select></div>
 <div v-if="ordersLoading" class="loading-orders"><div class="spinner"></div> Загрузка данных заказов…</div>
@@ -190,24 +190,6 @@
 <td>{{ m.venues }}</td><td>{{ m.orders }}</td><td style="color:#34d399">{{ fmt(m.revenue) }} ₽</td>
 <td class="muted" style="font-size:12px">{{ m.lastLogin }}</td></tr>
 <tr v-if="!managerActivity.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
-<div class="glass card tblwrap" style="margin-bottom:14px"><h4 style="margin:0 0 14px">👨‍🍳 Активность поваров</h4>
-<table class="tbl"><tr><th>Повар</th><th>Заведение</th><th>Заказов взял</th><th>Ср. время готовки</th><th>Последний вход</th></tr>
-<tr v-for="c in cookActivity" v-bind:key="c.id"><td>👨‍🍳 {{ c.name }}</td><td>{{ c.venue }}</td>
-<td>{{ c.orders }}</td><td><b v-bind:style="{color:c.avgTime<=10?'#6ee7b7':c.avgTime<=20?'#fcd34d':'#fca5a5'}">{{ c.avgTime }} мин</b></td>
-<td class="muted" style="font-size:12px">{{ c.lastLogin }}</td></tr>
-<tr v-if="!cookActivity.length"><td colspan="5" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
-<div class="glass card tblwrap" style="margin-bottom:14px"><h4 style="margin:0 0 14px">🚗 Активность курьеров</h4>
-<table class="tbl"><tr><th>Курьер</th><th>Заведение</th><th>Доставок</th><th>В работе сейчас</th><th>Последний вход</th></tr>
-<tr v-for="c in courierActivity" v-bind:key="c.id"><td>🚗 {{ c.name }}</td><td>{{ c.venue }}</td>
-<td>{{ c.delivered }}</td><td>{{ c.inProgress }}</td>
-<td class="muted" style="font-size:12px">{{ c.lastLogin }}</td></tr>
-<tr v-if="!courierActivity.length"><td colspan="5" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
-<div class="glass card tblwrap"><h4 style="margin:0 0 14px">🤵 Активность официантов</h4>
-<table class="tbl"><tr><th>Официант</th><th>Заведение</th><th>Выдач</th><th>Последний вход</th></tr>
-<tr v-for="w in waiterActivity" v-bind:key="w.id"><td>🤵 {{ w.name }}</td><td>{{ w.venue }}</td>
-<td>{{ w.served }}</td>
-<td class="muted" style="font-size:12px">{{ w.lastLogin }}</td></tr>
-<tr v-if="!waiterActivity.length"><td colspan="4" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
 </template>
 </div>
 
