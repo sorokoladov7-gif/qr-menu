@@ -57,6 +57,36 @@
   margin-left: 8px;
   vertical-align: middle;
 }
+
+/* Стили для выбора заведения в панели дизайна */
+.venue-selector {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.venue-selector label {
+  font-size: 13px;
+  color: #9ca3af;
+}
+.venue-selector select {
+  padding: 6px 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+  flex: 1;
+  min-width: 200px;
+}
+.venue-selector .current-venue-name {
+  font-size: 13px;
+  color: #e2e8f0;
+  background: rgba(99,102,241,.15);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
 </style>
 </head>
 <body>
@@ -498,61 +528,75 @@
 <button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- ===================== ПАНЕЛЬ ДИЗАЙНА (улучшенная) ===================== -->
+<!-- ===================== ПАНЕЛЬ ДИЗАЙНА (улучшенная с выбором заведения) ===================== -->
 <div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
   <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
     <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
     <p class="muted" style="font-size:12px;margin-bottom:14px">
-      Здесь вы можете настроить внешний вид всех заведений или выборочно. 
-      Изменения применяются мгновенно после сохранения. 
+      Здесь вы можете настроить внешний вид глобально или для конкретного заведения.
+      Изменения применяются после сохранения. 
       Ниже — пояснения, что именно меняет каждый параметр.
     </p>
 
+    <!-- Селектор выбора цели -->
+    <div class="venue-selector">
+      <label>Настройка для:</label>
+      <select v-model="designTarget" @change="onDesignTargetChange">
+        <option value="global">🌐 Глобальный шаблон (все заведения)</option>
+        <option v-for="v in venues" :key="v.id" :value="v.id">{{ v.name }}</option>
+      </select>
+      <span v-if="designTarget !== 'global'" class="current-venue-name">
+        Настройки заведения: {{ getVenueName(designTarget) }}
+      </span>
+      <span v-else class="current-venue-name">Глобальные настройки</span>
+    </div>
+
+    <!-- Одна и та же форма настройки, но данные берутся из currentDesignTemplate -->
     <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
-      <h4>Шаблон дизайна (глобальный)</h4>
+      <h4>{{ designTarget === 'global' ? 'Глобальный шаблон' : 'Индивидуальные настройки заведения' }}</h4>
 
       <!-- 1. Основные цвета -->
       <div class="design-group">
         <h4>🎨 Основные цвета</h4>
         <div class="design-grid">
           <div class="design-field">
-            <label>Брендовый цвет <span class="color-preview" v-bind:style="{background:adminDesignTemplate.brand_color}"></span></label>
-            <input v-model="adminDesignTemplate.brand_color" type="color">
+            <label>Брендовый цвет <span class="color-preview" v-bind:style="{background:currentDesignTemplate.brand_color}"></span></label>
+            <input v-model="currentDesignTemplate.brand_color" type="color">
             <div class="hint">Главный цвет заведения. Используется для кнопок, заголовков, акцентных элементов. Пример: если выбрать синий, все кнопки «Заказать» станут синими.</div>
           </div>
           <div class="design-field">
-            <label>Цвет кнопок <span class="color-preview" v-bind:style="{background:adminDesignTemplate.button_color}"></span></label>
-            <input v-model="adminDesignTemplate.button_color" type="color">
+            <label>Цвет кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_color}"></span></label>
+            <input v-model="currentDesignTemplate.button_color" type="color">
             <div class="hint">Цвет фона для всех кнопок действия (добавить в корзину, оформить заказ и т.д.).</div>
           </div>
           <div class="design-field">
-            <label>Цвет заголовков <span class="color-preview" v-bind:style="{background:adminDesignTemplate.header_color}"></span></label>
-            <input v-model="adminDesignTemplate.header_color" type="color">
+            <label>Цвет заголовков <span class="color-preview" v-bind:style="{background:currentDesignTemplate.header_color}"></span></label>
+            <input v-model="currentDesignTemplate.header_color" type="color">
             <div class="hint">Цвет всех крупных заголовков (названия блюд, разделов меню).</div>
           </div>
           <div class="design-field">
-            <label>Цвет фона страницы <span class="color-preview" v-bind:style="{background:adminDesignTemplate.background_color}"></span></label>
-            <input v-model="adminDesignTemplate.background_color" type="color">
+            <label>Цвет фона страницы <span class="color-preview" v-bind:style="{background:currentDesignTemplate.background_color}"></span></label>
+            <input v-model="currentDesignTemplate.background_color" type="color">
             <div class="hint">Фон всей страницы заведения. Влияет на восприятие контента.</div>
           </div>
           <div class="design-field">
-            <label>Цвет фона карточек <span class="color-preview" v-bind:style="{background:adminDesignTemplate.card_background}"></span></label>
-            <input v-model="adminDesignTemplate.card_background" type="color">
+            <label>Цвет фона карточек <span class="color-preview" v-bind:style="{background:currentDesignTemplate.card_background}"></span></label>
+            <input v-model="currentDesignTemplate.card_background" type="color">
             <div class="hint">Фон карточек товаров (блюд и напитков).</div>
           </div>
           <div class="design-field">
-            <label>Цвет текста <span class="color-preview" v-bind:style="{background:adminDesignTemplate.text_color}"></span></label>
-            <input v-model="adminDesignTemplate.text_color" type="color">
+            <label>Цвет текста <span class="color-preview" v-bind:style="{background:currentDesignTemplate.text_color}"></span></label>
+            <input v-model="currentDesignTemplate.text_color" type="color">
             <div class="hint">Основной цвет текста на странице (описания, цены).</div>
           </div>
           <div class="design-field">
-            <label>Цвет акцентов <span class="color-preview" v-bind:style="{background:adminDesignTemplate.accent_color}"></span></label>
-            <input v-model="adminDesignTemplate.accent_color" type="color">
+            <label>Цвет акцентов <span class="color-preview" v-bind:style="{background:currentDesignTemplate.accent_color}"></span></label>
+            <input v-model="currentDesignTemplate.accent_color" type="color">
             <div class="hint">Дополнительный акцентный цвет (например, для иконок, выделения специальных предложений).</div>
           </div>
           <div class="design-field">
-            <label>Цвет границ <span class="color-preview" v-bind:style="{background:adminDesignTemplate.border_color}"></span></label>
-            <input v-model="adminDesignTemplate.border_color" type="color">
+            <label>Цвет границ <span class="color-preview" v-bind:style="{background:currentDesignTemplate.border_color}"></span></label>
+            <input v-model="currentDesignTemplate.border_color" type="color">
             <div class="hint">Цвет рамок и разделителей между элементами.</div>
           </div>
         </div>
@@ -563,18 +607,18 @@
         <h4>🖼️ Фон (градиент и изображение)</h4>
         <div class="design-grid">
           <div class="design-field">
-            <label>Градиент (цвет 1) <span class="color-preview" v-bind:style="{background:adminDesignTemplate.gradient_start}"></span></label>
-            <input v-model="adminDesignTemplate.gradient_start" type="color">
+            <label>Градиент (цвет 1) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_start}"></span></label>
+            <input v-model="currentDesignTemplate.gradient_start" type="color">
             <div class="hint">Первый цвет градиента фона (если используется градиент вместо сплошного цвета).</div>
           </div>
           <div class="design-field">
-            <label>Градиент (цвет 2) <span class="color-preview" v-bind:style="{background:adminDesignTemplate.gradient_end}"></span></label>
-            <input v-model="adminDesignTemplate.gradient_end" type="color">
+            <label>Градиент (цвет 2) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_end}"></span></label>
+            <input v-model="currentDesignTemplate.gradient_end" type="color">
             <div class="hint">Второй цвет градиента.</div>
           </div>
           <div class="design-field">
             <label>Направление градиента</label>
-            <select v-model="adminDesignTemplate.gradient_direction">
+            <select v-model="currentDesignTemplate.gradient_direction">
               <option value="to right">→ вправо</option>
               <option value="to left">← влево</option>
               <option value="to bottom">↓ вниз</option>
@@ -586,7 +630,7 @@
           </div>
           <div class="design-field">
             <label>Фоновое изображение (URL)</label>
-            <input v-model="adminDesignTemplate.background_image" placeholder="https://example.com/bg.jpg">
+            <input v-model="currentDesignTemplate.background_image" placeholder="https://example.com/bg.jpg">
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px">
               <span>📤 Загрузить</span>
               <input type="file" accept="image/*" v-on:change="uploadBgImage" style="display:none">
@@ -602,7 +646,7 @@
         <div class="design-grid">
           <div class="design-field">
             <label>Шрифт</label>
-            <select v-model="adminDesignTemplate.font_family">
+            <select v-model="currentDesignTemplate.font_family">
               <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
               <option value="Inter">Inter</option>
               <option value="Roboto">Roboto</option>
@@ -613,12 +657,12 @@
           </div>
           <div class="design-field">
             <label>Размер шрифта (px)</label>
-            <input v-model.number="adminDesignTemplate.font_size" type="number" min="12" max="24">
+            <input v-model.number="currentDesignTemplate.font_size" type="number" min="12" max="24">
             <div class="hint">Базовый размер текста. Влияет на читаемость.</div>
           </div>
           <div class="design-field">
             <label>Жирность заголовков</label>
-            <select v-model="adminDesignTemplate.heading_weight">
+            <select v-model="currentDesignTemplate.heading_weight">
               <option value="400">400 (обычный)</option>
               <option value="600">600 (полужирный)</option>
               <option value="700">700 (жирный)</option>
@@ -628,7 +672,7 @@
           </div>
           <div class="design-field">
             <label>Жирность текста</label>
-            <select v-model="adminDesignTemplate.body_weight">
+            <select v-model="currentDesignTemplate.body_weight">
               <option value="300">300 (лёгкий)</option>
               <option value="400">400 (обычный)</option>
               <option value="500">500 (средний)</option>
@@ -638,7 +682,7 @@
           </div>
           <div class="design-field">
             <label>Межстрочный интервал</label>
-            <select v-model="adminDesignTemplate.line_height">
+            <select v-model="currentDesignTemplate.line_height">
               <option value="1.4">1.4 (уплотнённый)</option>
               <option value="1.6">1.6 (стандартный)</option>
               <option value="1.8">1.8 (разреженный)</option>
@@ -648,7 +692,7 @@
           </div>
           <div class="design-field">
             <label>Межбуквенный интервал (px)</label>
-            <input v-model.number="adminDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5">
+            <input v-model.number="currentDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5">
             <div class="hint">Расстояние между буквами. Может сделать текст более «воздушным».</div>
           </div>
         </div>
@@ -660,25 +704,25 @@
         <div class="design-grid">
           <div class="design-field">
             <label>Внутренний отступ (px)</label>
-            <input v-model.number="adminDesignTemplate.card_padding" type="number" min="4" max="24">
+            <input v-model.number="currentDesignTemplate.card_padding" type="number" min="4" max="24">
             <div class="hint">Расстояние от края карточки до содержимого. Больше — «воздушнее».</div>
           </div>
           <div class="design-field">
             <label>Высота изображения (px)</label>
-            <input v-model.number="adminDesignTemplate.card_image_height" type="number" min="80" max="300">
+            <input v-model.number="currentDesignTemplate.card_image_height" type="number" min="80" max="300">
             <div class="hint">Высота фото блюда в карточке. Ширина подстроится автоматически.</div>
           </div>
           <div class="design-field">
             <label>Выравнивание текста</label>
-            <select v-model="adminDesignTemplate.card_text_align">
+            <select v-model="currentDesignTemplate.card_text_align">
               <option value="left">Слева</option>
               <option value="center">По центру</option>
             </select>
             <div class="hint">Как выравнивать название и описание внутри карточки.</div>
           </div>
           <div class="design-field" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <label><input type="checkbox" v-model="adminDesignTemplate.show_description"> Показывать описание</label>
-            <label><input type="checkbox" v-model="adminDesignTemplate.show_price"> Показывать цену</label>
+            <label><input type="checkbox" v-model="currentDesignTemplate.show_description"> Показывать описание</label>
+            <label><input type="checkbox" v-model="currentDesignTemplate.show_price"> Показывать цену</label>
             <div class="hint" style="width:100%">Включите, чтобы отображать эти поля на карточке.</div>
           </div>
         </div>
@@ -689,13 +733,13 @@
         <h4>🔘 Кнопки</h4>
         <div class="design-grid">
           <div class="design-field">
-            <label>Цвет текста кнопок <span class="color-preview" v-bind:style="{background:adminDesignTemplate.button_text_color}"></span></label>
-            <input v-model="adminDesignTemplate.button_text_color" type="color">
+            <label>Цвет текста кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_text_color}"></span></label>
+            <input v-model="currentDesignTemplate.button_text_color" type="color">
             <div class="hint">Цвет текста на кнопках.</div>
           </div>
           <div class="design-field">
             <label>Жирность текста кнопок</label>
-            <select v-model="adminDesignTemplate.button_weight">
+            <select v-model="currentDesignTemplate.button_weight">
               <option value="400">400</option>
               <option value="600">600</option>
               <option value="700">700</option>
@@ -704,7 +748,7 @@
           </div>
           <div class="design-field">
             <label>Эффект при наведении</label>
-            <select v-model="adminDesignTemplate.button_hover">
+            <select v-model="currentDesignTemplate.button_hover">
               <option value="scale">Увеличение (легкое увеличение размера)</option>
               <option value="shadow">Тень (появление тени)</option>
               <option value="none">Без эффекта</option>
@@ -720,27 +764,27 @@
         <div class="design-grid">
           <div class="design-field">
             <label>Толщина границ (px)</label>
-            <input v-model.number="adminDesignTemplate.border_width" type="number" min="0" max="4">
+            <input v-model.number="currentDesignTemplate.border_width" type="number" min="0" max="4">
             <div class="hint">Толщина рамок вокруг карточек, кнопок и других элементов.</div>
           </div>
           <div class="design-field">
             <label>Скругление карточек (px)</label>
-            <input v-model.number="adminDesignTemplate.border_radius" type="number" min="0" max="30">
+            <input v-model.number="currentDesignTemplate.border_radius" type="number" min="0" max="30">
             <div class="hint">Закругление углов у карточек товаров. Больше — более «мягкий» вид.</div>
           </div>
           <div class="design-field">
             <label>Скругление кнопок (px)</label>
-            <input v-model.number="adminDesignTemplate.button_radius" type="number" min="0" max="30">
+            <input v-model.number="currentDesignTemplate.button_radius" type="number" min="0" max="30">
             <div class="hint">Закругление углов кнопок.</div>
           </div>
           <div class="design-field">
             <label>Тень (px)</label>
-            <input v-model.number="adminDesignTemplate.shadow" type="number" min="0" max="20">
+            <input v-model.number="currentDesignTemplate.shadow" type="number" min="0" max="20">
             <div class="hint">Размер тени у карточек и кнопок. 0 — тени нет.</div>
           </div>
           <div class="design-field">
             <label>Скорость анимации (s)</label>
-            <select v-model="adminDesignTemplate.transition_speed">
+            <select v-model="currentDesignTemplate.transition_speed">
               <option value="0.1">0.1 (очень быстро)</option>
               <option value="0.2">0.2 (быстро)</option>
               <option value="0.3">0.3 (средне)</option>
@@ -751,15 +795,24 @@
         </div>
       </div>
 
+      <!-- Кнопки действий в зависимости от режима -->
       <div class="row" style="margin-top:16px;flex-wrap:wrap;gap:8px">
-        <button class="btn btn-primary btn-sm" v-on:click="applyDesignToAll">✅ Применить ко всем заведениям</button>
-        <button class="btn btn-ghost btn-sm" v-on:click="resetAdminTemplate">↺ Сбросить шаблон (вернуть стандартные настройки)</button>
+        <template v-if="designTarget === 'global'">
+          <button class="btn btn-primary btn-sm" v-on:click="saveGlobalDesign">💾 Сохранить глобальный шаблон</button>
+          <button class="btn btn-success btn-sm" v-on:click="applyDesignToAll">✅ Применить ко всем заведениям</button>
+        </template>
+        <template v-else>
+          <button class="btn btn-primary btn-sm" v-on:click="saveVenueDesign">💾 Сохранить для этого заведения</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="applyGlobalToVenue">📥 Применить глобальный шаблон к этому заведению</button>
+          <button class="btn btn-danger btn-sm" v-on:click="resetVenueDesign">↺ Сбросить на глобальный (удалить настройки)</button>
+        </template>
+        <button class="btn btn-ghost btn-sm" v-on:click="resetAdminTemplate">↺ Сбросить глобальный шаблон</button>
         <button class="btn btn-ghost btn-sm" v-on:click="secretDesignPanel=false">✖ Закрыть</button>
       </div>
     </div>
 
     <h4>Текущие настройки заведений</h4>
-    <p class="muted" style="font-size:12px;">Ниже показаны активные настройки для каждого заведения. Вы можете применить текущий шаблон к выбранному заведению кнопкой «Применить шаблон».</p>
+    <p class="muted" style="font-size:12px;">Ниже показаны активные настройки для каждого заведения. Вы можете применить глобальный шаблон к выбранному заведению кнопкой «Применить шаблон».</p>
     <div class="tblwrap">
       <table class="tbl">
         <tr><th>Заведение</th><th>Брендовый цвет</th><th>Цвет кнопок</th><th>Шрифт</th><th>Действие</th></tr>
@@ -768,7 +821,7 @@
           <td><span v-bind:style="{display:'inline-block',width:'30px',height:'30px',borderRadius:'6px',background:v.design_settings?.brand_color||'#6366f1'}"></span></td>
           <td><span v-bind:style="{display:'inline-block',width:'30px',height:'30px',borderRadius:'6px',background:v.design_settings?.button_color||'#8b5cf6'}"></span></td>
           <td>{{ v.design_settings?.font_family||'По умолчанию' }}</td>
-          <td><button class="btn btn-primary btn-sm" v-on:click="applyDesignToVenue(v)">📥 Применить шаблон</button></td>
+          <td><button class="btn btn-primary btn-sm" v-on:click="applyGlobalToVenueById(v.id)">📥 Применить глобальный шаблон</button></td>
         </tr>
       </table>
     </div>
@@ -800,6 +853,8 @@ staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:'
 secretDesignPanel:false,
 ordersLoaded:false,
 ordersLoading:false,
+// Дизайн
+designTarget: 'global', // 'global' или id заведения
 adminDesignTemplate:{
   brand_color:'#6366f1',
   button_color:'#8b5cf6',
@@ -832,7 +887,8 @@ adminDesignTemplate:{
   button_hover:'scale',
   border_width:1,
   transition_speed:0.2
-}
+},
+venueDesignTemplate: null // копия для редактирования заведения
 }},
 computed:{
 mrr:function(){var self=this;return this.venues.filter(function(v){return v.status==='active'}).reduce(function(s,v){var p=self.plans.find(function(x){return x.id===v.plan});return s+(p?Number(p.price):0)},0)},
@@ -930,7 +986,14 @@ return true});
 var served=ords.filter(function(o){return o.status==='done'}).length;
 return{id:w.id,name:w.name,venue:w.venues?w.venues.name:'—',served:served,
 lastLogin:w.last_login_at?new Date(w.last_login_at).toLocaleDateString('ru-RU')+' '+new Date(w.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}):'—'};
-}).sort(function(a,b){return b.served-a.served})}
+}).sort(function(a,b){return b.served-a.served})},
+currentDesignTemplate: function() {
+  if (this.designTarget === 'global') {
+    return this.adminDesignTemplate;
+  } else {
+    return this.venueDesignTemplate || this.adminDesignTemplate;
+  }
+}
 },
 methods:{
 fmt:function(v){return window.fmt(v)},
@@ -948,8 +1011,223 @@ this.loadOrders();
 
 openDesignPanel:function(){
   this.secretDesignPanel = true;
+  this.designTarget = 'global';
+  this.venueDesignTemplate = null;
+  // Загружаем глобальный шаблон
+  this.loadGlobalDesignSettings();
 },
 
+loadGlobalDesignSettings:function(){
+  // Можно загрузить из БД, но пока оставим как есть
+  // Если есть сохранённый глобальный шаблон в таблице settings, можно загрузить
+  // Пока оставим локальный
+},
+
+getVenueName:function(id){
+  var v=this.venues.find(function(x){return x.id===id});
+  return v?v.name:'';
+},
+
+onDesignTargetChange:function(){
+  if (this.designTarget === 'global') {
+    this.venueDesignTemplate = null;
+  } else {
+    // Загружаем настройки заведения
+    var venue = this.venues.find(function(v){return v.id === this.designTarget}.bind(this));
+    if (venue) {
+      if (venue.design_settings) {
+        // Копируем настройки заведения
+        this.venueDesignTemplate = JSON.parse(JSON.stringify(venue.design_settings));
+      } else {
+        // Копируем глобальный шаблон
+        this.venueDesignTemplate = JSON.parse(JSON.stringify(this.adminDesignTemplate));
+      }
+    } else {
+      this.venueDesignTemplate = null;
+    }
+  }
+},
+
+saveGlobalDesign:function(){
+  // Сохраняем глобальный шаблон в БД (можно в таблице settings)
+  alert('Глобальный шаблон сохранён (локально). В реальном проекте нужно сохранять в БД.');
+},
+
+saveVenueDesign:function(){
+  if (this.designTarget === 'global') return;
+  var self=this;
+  if (!this.venueDesignTemplate) {
+    alert('Нет данных для сохранения');
+    return;
+  }
+  var settings = this.venueDesignTemplate;
+  db.from('venues').update({design_settings: settings}).eq('id', this.designTarget).then(function(){
+    self.loadBaseData();
+    alert('Настройки дизайна для заведения сохранены!');
+  }).catch(function(e){
+    alert('Ошибка сохранения: '+e.message);
+  });
+},
+
+applyGlobalToVenue:function(){
+  if (this.designTarget === 'global') return;
+  var self=this;
+  var venue = this.venues.find(function(v){return v.id === this.designTarget}.bind(this));
+  if (!venue) return;
+  // Копируем глобальный шаблон
+  var settings = JSON.parse(JSON.stringify(this.adminDesignTemplate));
+  db.from('venues').update({design_settings: settings}).eq('id', this.designTarget).then(function(){
+    self.loadBaseData();
+    // Обновить локальную копию
+    self.venueDesignTemplate = settings;
+    alert('Глобальный шаблон применён к заведению "'+venue.name+'"');
+  }).catch(function(e){
+    alert('Ошибка: '+e.message);
+  });
+},
+
+applyGlobalToVenueById:function(venueId){
+  var self=this;
+  var venue = this.venues.find(function(v){return v.id === venueId});
+  if (!venue) return;
+  if (!confirm('Применить глобальный шаблон к заведению "'+venue.name+'" ?')) return;
+  var settings = JSON.parse(JSON.stringify(this.adminDesignTemplate));
+  db.from('venues').update({design_settings: settings}).eq('id', venueId).then(function(){
+    self.loadBaseData();
+    alert('Глобальный шаблон применён к заведению "'+venue.name+'"');
+  }).catch(function(e){
+    alert('Ошибка: '+e.message);
+  });
+},
+
+resetVenueDesign:function(){
+  if (this.designTarget === 'global') return;
+  var self=this;
+  var venue = this.venues.find(function(v){return v.id === this.designTarget}.bind(this));
+  if (!venue) return;
+  if (!confirm('Сбросить настройки дизайна для заведения "'+venue.name+'" на глобальный шаблон?')) return;
+  db.from('venues').update({design_settings: null}).eq('id', this.designTarget).then(function(){
+    self.loadBaseData();
+    self.venueDesignTemplate = null;
+    alert('Настройки сброшены. Теперь заведение использует глобальный шаблон.');
+  }).catch(function(e){
+    alert('Ошибка: '+e.message);
+  });
+},
+
+applyDesignToAll:function(){
+  if (!confirm('Применить текущий глобальный шаблон ко ВСЕМ заведениям?')) return;
+  var self=this;
+  var settings=this.getDesignSettings();
+  var updates=this.venues.map(function(v){
+    return db.from('venues').update({design_settings:settings}).eq('id',v.id);
+  });
+  Promise.all(updates).then(function(){
+    self.loadBaseData();
+    alert('✅ Дизайн применён ко всем заведениям!');
+  }).catch(function(e){
+    alert('Ошибка: '+e.message);
+  });
+},
+
+getDesignSettings:function(){
+  var t=this.adminDesignTemplate;
+  return{
+    brand_color:t.brand_color,
+    button_color:t.button_color,
+    header_color:t.header_color,
+    font_family:t.font_family,
+    background_color:t.background_color,
+    card_background:t.card_background,
+    text_color:t.text_color,
+    accent_color:t.accent_color,
+    border_color:t.border_color,
+    border_radius:t.border_radius,
+    button_radius:t.button_radius,
+    shadow:t.shadow,
+    font_size:t.font_size,
+    heading_weight:t.heading_weight,
+    body_weight:t.body_weight,
+    line_height:t.line_height,
+    letter_spacing:t.letter_spacing,
+    gradient_start:t.gradient_start,
+    gradient_end:t.gradient_end,
+    gradient_direction:t.gradient_direction,
+    background_image:t.background_image,
+    card_padding:t.card_padding,
+    card_image_height:t.card_image_height,
+    card_text_align:t.card_text_align,
+    show_description:t.show_description,
+    show_price:t.show_price,
+    button_text_color:t.button_text_color,
+    button_weight:t.button_weight,
+    button_hover:t.button_hover,
+    border_width:t.border_width,
+    transition_speed:t.transition_speed
+  };
+},
+
+resetAdminTemplate:function(){
+  if (!confirm('Сбросить глобальный шаблон к стандартным настройкам?')) return;
+  this.adminDesignTemplate={
+    brand_color:'#6366f1',
+    button_color:'#8b5cf6',
+    header_color:'#ffffff',
+    font_family:'Plus+Jakarta+Sans',
+    background_color:'#0b1120',
+    card_background:'#141821',
+    text_color:'#eef2f7',
+    accent_color:'#a78bfa',
+    border_color:'#29303d',
+    border_radius:18,
+    button_radius:12,
+    shadow:8,
+    font_size:16,
+    heading_weight:700,
+    body_weight:400,
+    line_height:1.6,
+    letter_spacing:0,
+    gradient_start:'#0b1120',
+    gradient_end:'#0b1120',
+    gradient_direction:'to right',
+    background_image:'',
+    card_padding:12,
+    card_image_height:130,
+    card_text_align:'left',
+    show_description:true,
+    show_price:true,
+    button_text_color:'#ffffff',
+    button_weight:700,
+    button_hover:'scale',
+    border_width:1,
+    transition_speed:0.2
+  };
+  alert('Глобальный шаблон сброшен');
+},
+
+uploadBgImage:function(ev){
+  var self=this;
+  var f=ev.target.files[0];
+  if(!f)return;
+  self.resizeImage(f,1920,0.8).then(function(blob){
+    var fn='bg/'+Date.now()+'.jpg';
+    return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
+      if(r.error)throw r.error;
+      // Обновляем текущий шаблон
+      var url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
+      if (self.designTarget === 'global') {
+        self.adminDesignTemplate.background_image = url;
+      } else {
+        if (self.venueDesignTemplate) {
+          self.venueDesignTemplate.background_image = url;
+        }
+      }
+      alert('Фоновое изображение загружено!');
+    });
+  }).catch(function(e){alert('Ошибка: '+e.message);});
+},
+
+// Остальные методы (init, loadBaseData, loadOrders, loadGlobalStats, ...) без изменений
 init:function(){var self=this;
 requireAuth(['admin']).then(function(profile){
 self.profile=profile;
@@ -1020,6 +1298,7 @@ self.globalStats={revenue:rev,orders:orders.length,clients:Object.keys(ph).lengt
 venueStats:Object.values(m).map(function(v){return{id:v.id,name:v.name,revenue:v.revenue,orders:v.orders,clients:Object.keys(v.clients).length,
 avgCheck:v.orders?Math.round(v.revenue/v.orders):0,avgCookTime:v.t.length?Math.round(v.t.reduce(function(a,b){return a+b},0)/v.t.length):0}}).sort(function(a,b){return b.revenue-a.revenue})};
 })},
+
 adminTypePercent:function(t){var s=this.adminAnalytics;var tot=s.pickup+s.delivery;return tot?Math.round(s[t]*100/tot):0},
 adminPayPercent:function(p){var s=this.adminAnalytics;var tot=s.cash+s.card;return tot?Math.round(s[p]*100/tot):0},
 
@@ -1114,6 +1393,7 @@ if(ar.data)self.adminAnalytics.topAddons=ar.data.map(function(x){return{name:x.n
 });
 })},
 
+// Методы редактирования заведений, меню, управляющих, персонала, тарифов и т.д. (без изменений)
 openVenueEdit:function(v){
 var mp=v.manager_permissions||{};
 this.venueEditModal={show:true,id:v.id,name:v.name,description:v.description||'',brand_color:v.brand_color||'#6366f1',logo_url:v.logo_url||'',
@@ -1260,113 +1540,7 @@ return db.from('subscriptions').update({plan_id:pay.plan_id,status:'active',curr
 }).then(function(){return db.from('payments').update({status:'confirmed'}).eq('id',pay.id)}).then(function(){self.loadBaseData()})},
 rejectPayment:function(pay){var self=this;
 db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadBaseData()})},
-logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
-
-uploadBgImage:function(ev){
-var self=this;
-var f=ev.target.files[0];
-if(!f)return;
-self.resizeImage(f,1920,0.8).then(function(blob){
-var fn='bg/'+Date.now()+'.jpg';
-return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
-if(r.error)throw r.error;
-self.adminDesignTemplate.background_image=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
-alert('Фоновое изображение загружено!');
-});
-}).catch(function(e){alert('Ошибка: '+e.message);});
-},
-applyDesignToVenue:function(v){
-var self=this;
-if(!confirm('Применить текущий шаблон дизайна к заведению "'+v.name+'"?'))return;
-var settings=this.getDesignSettings();
-db.from('venues').update({design_settings:settings}).eq('id',v.id).then(function(){
-self.loadBaseData();
-alert('✅ Дизайн применён к заведению "'+v.name+'"');
-});
-},
-applyDesignToAll:function(){
-if(!confirm('Применить этот шаблон дизайна ко ВСЕМ заведениям?'))return;
-var self=this;
-var settings=this.getDesignSettings();
-var updates=self.venues.map(function(v){
-return db.from('venues').update({design_settings:settings}).eq('id',v.id);
-});
-Promise.all(updates).then(function(){
-self.loadBaseData();
-alert('✅ Дизайн применён ко всем заведениям!');
-});
-},
-getDesignSettings:function(){
-var t=this.adminDesignTemplate;
-return{
-brand_color:t.brand_color,
-button_color:t.button_color,
-header_color:t.header_color,
-font_family:t.font_family,
-background_color:t.background_color,
-card_background:t.card_background,
-text_color:t.text_color,
-accent_color:t.accent_color,
-border_color:t.border_color,
-border_radius:t.border_radius,
-button_radius:t.button_radius,
-shadow:t.shadow,
-font_size:t.font_size,
-heading_weight:t.heading_weight,
-body_weight:t.body_weight,
-line_height:t.line_height,
-letter_spacing:t.letter_spacing,
-gradient_start:t.gradient_start,
-gradient_end:t.gradient_end,
-gradient_direction:t.gradient_direction,
-background_image:t.background_image,
-card_padding:t.card_padding,
-card_image_height:t.card_image_height,
-card_text_align:t.card_text_align,
-show_description:t.show_description,
-show_price:t.show_price,
-button_text_color:t.button_text_color,
-button_weight:t.button_weight,
-button_hover:t.button_hover,
-border_width:t.border_width,
-transition_speed:t.transition_speed
-};
-},
-resetAdminTemplate:function(){
-this.adminDesignTemplate={
-brand_color:'#6366f1',
-button_color:'#8b5cf6',
-header_color:'#ffffff',
-font_family:'Plus+Jakarta+Sans',
-background_color:'#0b1120',
-card_background:'#141821',
-text_color:'#eef2f7',
-accent_color:'#a78bfa',
-border_color:'#29303d',
-border_radius:18,
-button_radius:12,
-shadow:8,
-font_size:16,
-heading_weight:700,
-body_weight:400,
-line_height:1.6,
-letter_spacing:0,
-gradient_start:'#0b1120',
-gradient_end:'#0b1120',
-gradient_direction:'to right',
-background_image:'',
-card_padding:12,
-card_image_height:130,
-card_text_align:'left',
-show_description:true,
-show_price:true,
-button_text_color:'#ffffff',
-button_weight:700,
-button_hover:'scale',
-border_width:1,
-transition_speed:0.2
-};
-}
+logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'}
 },
 mounted:function(){this.init()}
 }).mount('#app');
