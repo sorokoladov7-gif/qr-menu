@@ -168,7 +168,7 @@ function makeChain(table){
 
 function rpc(name, args, options){
   if(name==='create_public_order' && args && typeof args==='object'){
-    var token = new URLSearchParams(location.search).get('table');
+    var token = new URLSearchParams(location.search).get('token');
     if(token) args = Object.assign({}, args, {p_table_token:String(token).trim()});
   }
   return oldRpc(name, args, options);
