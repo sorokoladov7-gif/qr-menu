@@ -187,7 +187,7 @@ window.db = {
 
 async function bootQrTable(){
   if(!isMenu) return;
-  var token = new URLSearchParams(location.search).get('table');
+  var token = new URLSearchParams(location.search).get('token');
   if(!token) return;
   var t = await resolveQrTable(null);
   if(!t) return;
