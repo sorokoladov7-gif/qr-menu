@@ -244,7 +244,7 @@ ready:false,
 loadError: null,
 venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:false,
 dishModal:{show:false, product:null, addons:[]},
-form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:''},
+form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:'', table_token:''},
 msg:'', msgType:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
 DEFAULT_IMG:window.DEFAULT_IMG,
 trackTimer:null,
@@ -317,6 +317,7 @@ init:function(){
 
   var slug = new URLSearchParams(location.search).get('venue');
   var tableParam = new URLSearchParams(location.search).get('table');
+  var tokenParam = new URLSearchParams(location.search).get('token');
 
   if (slug) {
     db.from('venues').select('*').eq('slug', slug).maybeSingle()
@@ -339,11 +340,12 @@ init:function(){
         self.venue = r.data;
         self.loadVenueSettings(self.venue);
         if (tableParam) {
-          self.form.type = 'table';
-          self.form.table_number = tableParam;
-          self.msg = '🪑 Вы заказываете за столом №' + tableParam;
-          self.msgType = 'ok';
-        }
+    self.form.type = 'table';
+    self.form.table_number = tableParam;
+    self.form.table_token = tokenParam || '';
+    self.msg = '🪑 Вы заказываете за столом №' + tableParam;
+    self.msgType = 'ok';
+}
         return self.loadProducts();
       })
       .then(function(){
@@ -425,8 +427,15 @@ checkout:function(){
       return;
     }
   } else if(self.form.type === 'table'){
-    if(!self.form.table_number.trim()){ self.msg='Укажите номер стола'; return; }
-  }
+    if(!self.form.table_number.trim()){
+        self.msg='Не удалось определить номер стола';
+        return;
+    }
+
+    if(!self.form.table_token.trim()){
+        self.msg='QR-код стола недействителен. Откройте меню заново по QR-коду стола.';
+        return;
+    }
 
   if(!self.cart.length){ self.msg='Корзина пустая'; return; }
   if(!self.venue || !self.venue.id){ self.msg='Не удалось определить заведение'; return; }
@@ -448,7 +457,9 @@ checkout:function(){
 
   var total = Number(self.cartTotalWithDelivery) || 0;
   var deliveryFee = self.form.type === 'delivery' ? (self.calculatedDeliveryFee || 0) : 0;
-  var tableToken = self.form.type === 'table' ? self.form.table_number.trim() : null;
+  var tableToken = self.form.type === 'table'
+    ? self.form.table_token.trim()
+    : null;
 
   db.rpc('create_public_order',{
     p_venue_id: self.venue.id,
