@@ -1,9 +1,19 @@
-/* QR-SETKA staff shift controls: shared by cook/waiter. */
+/* QR-SETKA staff shift controls: shared by cook/waiter/courier. */
 (function(){
   'use strict';
   if(window.__QR_STAFF_SHIFT__) return;
   window.__QR_STAFF_SHIFT__=true;
   var stopped=false;
+
+  function loadPatch(){
+    if(document.querySelector('script[data-qr-staff-ui-patch]')) return;
+    var s=document.createElement('script');
+    s.src='/js/staff-ui-patches.js?v=2';
+    s.async=false;
+    s.setAttribute('data-qr-staff-ui-patch','1');
+    document.head.appendChild(s);
+  }
+  loadPatch();
 
   function token(){return localStorage.getItem('staff_token')||'';}
   function top(){return document.querySelector('.topbar,.top');}
