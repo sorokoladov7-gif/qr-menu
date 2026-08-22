@@ -10,6 +10,12 @@
       Vue.__QR_TEMPLATE_METHOD_PATCHED__=true;
       var originalCreateApp=Vue.createApp;
       Vue.createApp=function(options){
+        if(options && typeof options==='object'){
+          options.computed=options.computed||{};
+          /* Venue-count limits are enforced authoritatively by create_venue_for_manager().
+             Keep the UI button clickable so the manager flow can perform the real check. */
+          options.computed.canCreateVenue=function(){ return true; };
+        }
         var app=originalCreateApp.apply(this,arguments);
         try{
           var originalMount=app.mount;
@@ -54,6 +60,6 @@
   loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
   loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
   loadScript('/js/manager-subscription-owner.js?v=4','data-manager-subscription-owner');
-  loadScript('/js/manager-create-venue-flow.js?v=4','data-manager-create-venue-flow');
+  loadScript('/js/manager-create-venue-flow.js?v=6','data-manager-create-venue-flow');
   loadScript('/js/manager-personnel-final.js?v=4','data-manager-personnel-final');
 })();
