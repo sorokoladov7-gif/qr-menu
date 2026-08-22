@@ -7,7 +7,7 @@
   const KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
   let client=null;
   function getClient(){if(client)return client;if(window.db&&window.db.rpc){client=window.db;return client;}if(window.supabase){client=window.supabase.createClient(URL,KEY);return client;}return null;}
-  function venueId(){
+  function syncVenueId(){
     try{
       const root=document.querySelector('#app');
       const app=root&&root.__vue_app__;
@@ -36,11 +36,41 @@
     }catch(e){}
     return null;
   }
+  async function venueId(){
+    const direct=syncVenueId();
+    if(direct) return direct;
+    const c=getClient();
+    if(!c) return null;
+    try{
+      const brand=document.querySelector('.topbar .brand span,.topbar .brand > span,.brand span');
+      const name=(brand&&brand.textContent||'').trim();
+      if(!name || name==='Мои заведения') return null;
+      if(c.auth&&c.auth.getUser){
+        const ur=await c.auth.getUser();
+        const uid=ur&&ur.data&&ur.data.user&&ur.data.user.id;
+        if(uid){
+          const mr=await c.from('manager_venues').select('venue_id').eq('manager_id',uid);
+          if(!mr.error && Array.isArray(mr.data) && mr.data.length){
+            const ids=mr.data.map(x=>x.venue_id).filter(Boolean);
+            const vr=await c.from('venues').select('id,name').in('id',ids);
+            if(!vr.error){
+              const hit=(vr.data||[]).find(v=>String(v.name||'').trim()===name);
+              if(hit&&hit.id) return hit.id;
+            }
+          }
+        }
+      }
+      const vr=await c.from('venues').select('id,name').eq('name',name).limit(2);
+      if(!vr.error&&vr.data&&vr.data.length===1) return vr.data[0].id;
+    }catch(e){console.warn('[QR Manager Staff] venue resolve failed:',e);}
+    return null;
+  }
   function fmt(n){return Number(n||0).toLocaleString('ru-RU');}
   function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
   function isoDate(d){return d.toISOString().slice(0,10)}
-  function open(){
-    const v=venueId(); if(!v){alert('Сначала выберите заведение.');return;}
+  async function open(){
+    const v=await venueId();
+    if(!v){alert('Не удалось определить выбранное заведение. Вернитесь к списку заведений и выберите его заново.');return;}
     const m=document.createElement('div');m.id='qr-manager-staff-modal';m.style.cssText='position:fixed;inset:0;z-index:100000;background:rgba(2,6,23,.86);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:16px';
     m.innerHTML='<div style="width:min(1100px,100%);max-height:94vh;overflow:auto;background:#0f172a;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:20px;box-shadow:0 25px 90px rgba(0,0,0,.55)"><div style="display:flex;justify-content:space-between;align-items:center;gap:12px"><div><h2 style="margin:0">📊 Статистика персонала</h2><div style="color:#94a3b8;font-size:12px;margin-top:4px">Данные по дням сохраняются в архиве</div></div><button id="qrm-close" style="border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:9px 12px">✕</button></div><div style="display:flex;gap:8px;align-items:center;margin:16px 0"><button class="qrm-period" data-days="7">7 дней</button><button class="qrm-period" data-days="30">30 дней</button><button class="qrm-period" data-days="90">90 дней</button></div><div id="qrm-body"><div style="text-align:center;color:#94a3b8;padding:30px">Загрузка…</div></div></div>';
     document.body.appendChild(m);m.querySelector('#qrm-close').onclick=()=>m.remove();m.onclick=e=>{if(e.target===m)m.remove()};
