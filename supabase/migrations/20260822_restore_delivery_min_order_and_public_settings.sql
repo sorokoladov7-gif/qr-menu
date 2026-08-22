@@ -18,7 +18,7 @@ begin
   if new.design_settings is distinct from old.design_settings then
     if not public.manager_has_permission(new.id,'edit_design') then raise exception 'design_permission_required'; end if;
   end if;
-  if new.delivery_fee is distinct from old.delivery_fee or new.delivery_base_price is distinct from old.delivery_base_price or new.delivery_per_km is distinct from old.delivery_per_km or new.delivery_max_km is distinct from old.delivery_max_km or new.delivery_rate_per_km is distinct from old.delivery_rate_per_km or new.delivery_min_order_free is distinct from old.delivery_min_order_free or new.delivery_min_order is distinct from old.delivery_min_order or new.delivery_base_fee is distinct from old.delivery_base_fee or new.latitude is distinct from old.latitude or new.longitude is distinct from old.longitude or new.lat is distinct from old.lat or new.lng is distinct from old.lng then
+  if new.delivery_fee is distinct from old.delivery_fee or new.delivery_base_price is distinct from old.delivery_base_price or new.delivery_per_km is distinct from old.delivery_per_km or new.delivery_min_order is distinct from old.delivery_min_order or new.delivery_min_order_free is distinct from old.delivery_min_order_free or new.delivery_max_km is distinct from old.delivery_max_km then
     if not public.manager_has_permission(new.id,'edit_delivery') then raise exception 'delivery_permission_required'; end if;
   end if;
   return new;
@@ -41,18 +41,18 @@ begin
 end;
 $function$;
 
-drop function if exists public.public_venue_by_slug(text);
-create function public.public_venue_by_slug(p_slug text)
-returns table(id uuid,name text,slug text,description text,logo_url text,brand_color text,status text,address text,lat numeric,lng numeric,latitude double precision,longitude double precision,delivery_base_price numeric,delivery_per_km numeric,delivery_max_km numeric,delivery_rate_per_km numeric,delivery_min_order numeric,delivery_min_order_free numeric,delivery_base_fee numeric)
+-- FIX #4: Use CREATE OR REPLACE instead of DROP + CREATE for consistency
+create or replace function public.public_venue_by_slug(p_slug text)
+returns table(id uuid,name text,slug text,description text,logo_url text,brand_color text,status text,address text,lat numeric,lng numeric,latitude double precision,longitude double precision,delivery_base_price numeric,delivery_per_km numeric,delivery_max_km numeric,delivery_rate_per_km numeric,delivery_fee numeric,delivery_min_order numeric,delivery_min_order_free numeric)
 language sql stable security definer set search_path to 'public' as $function$
-  select v.id,v.name,v.slug,v.description,v.logo_url,v.brand_color,v.status,v.address,v.lat,v.lng,v.latitude,v.longitude,v.delivery_base_price,v.delivery_per_km,v.delivery_max_km,v.delivery_rate_per_km,v.delivery_min_order,v.delivery_min_order_free,v.delivery_base_fee
+  select v.id,v.name,v.slug,v.description,v.logo_url,v.brand_color,v.status,v.address,v.lat,v.lng,v.latitude,v.longitude,v.delivery_base_price,v.delivery_per_km,v.delivery_max_km,v.delivery_rate_per_km,v.delivery_fee,v.delivery_min_order,v.delivery_min_order_free
   from public.venues v where v.slug=lower(trim(p_slug)) limit 1;
 $function$;
 grant execute on function public.public_venue_by_slug(text) to anon, authenticated, service_role;
 
-create or replace function public.create_public_order(p_venue_id uuid,p_order_type text,p_customer_name text,p_customer_phone text,p_delivery_address text,p_comment text,p_payment_method text,p_items jsonb,p_addons jsonb,p_total_price numeric,p_table_token text default null,p_delivery_fee numeric default 0)
+create or replace function public.create_public_order(p_venue_id uuid,p_order_type text,p_customer_name text,p_customer_phone text,p_delivery_address text,p_comment text,p_payment_method text,p_items jsonb,p_addons jsonb,p_total_price numeric,p_table_token text,p_delivery_fee numeric)
 returns jsonb language plpgsql security definer set search_path to 'public' as $function$
-declare v_order orders%rowtype; v_item jsonb; v_addon jsonb; v_product products%rowtype; v_table venue_tables%rowtype; v_session table_sessions%rowtype; v_qty integer; v_base_total numeric:=0; v_addon_total numeric:=0; v_expected_total numeric:=0; v_venue venues%rowtype; v_delivery_fee numeric:=0;
+declare v_order orders%rowtype; v_item jsonb; v_addon jsonb; v_product products%rowtype; v_table venue_tables%rowtype; v_session table_sessions%rowtype; v_qty integer; v_base_total numeric:=0; v_addon_total numeric:=0; v_expected_total numeric:=0; v_delivery_fee numeric:=0; v_venue venues%rowtype;
 begin
   select * into v_venue from venues where id=p_venue_id and status='active'; if not found then raise exception 'venue_not_found'; end if;
   if p_order_type not in ('pickup','table','delivery') then raise exception 'invalid_order_type'; end if;
@@ -91,9 +91,9 @@ begin
     v_expected_total:=v_expected_total+v_delivery_fee;
   else v_delivery_fee:=0; v_expected_total:=p_total_price; end if;
   if abs(p_total_price-v_expected_total)>0.01 then raise exception 'invalid_total_price'; end if;
-  insert into orders(venue_id,table_id,table_session_id,status,order_type,customer_name,customer_phone,delivery_address,comment,payment_method,items,addons,total_price,delivery_fee,created_at) values(p_venue_id,v_table.id,v_session.id,'new',p_order_type,nullif(trim(p_customer_name),''),trim(p_customer_phone),nullif(trim(p_delivery_address),''),nullif(trim(p_comment),''),coalesce(nullif(trim(p_payment_method),''),'cash'),p_items,coalesce(p_addons,'[]'::jsonb),v_expected_total,v_delivery_fee,now()) returning * into v_order;
+  insert into orders(venue_id,table_id,table_session_id,status,order_type,customer_name,customer_phone,delivery_address,comment,payment_method,items,addons,total_price,delivery_fee,created_at) values(p_venue_id,v_table.id,v_session.id,'new',p_order_type,p_customer_name,p_customer_phone,p_delivery_address,p_comment,p_payment_method,p_items,p_addons,p_total_price,v_delivery_fee,now()) returning * into v_order;
   if v_session.id is not null then update table_sessions set last_order_id=v_order.id,started_order_id=coalesce(started_order_id,v_order.id),guest_count=greatest(coalesce(guest_count,0),1) where id=v_session.id; end if;
-  return jsonb_build_object('id',v_order.id,'order_number',v_order.order_number,'venue_id',v_order.venue_id,'table_id',v_order.table_id,'table_session_id',v_order.table_session_id,'status',v_order.status,'order_type',v_order.order_type,'customer_name',v_order.customer_name,'customer_phone',v_order.customer_phone,'delivery_address',v_order.delivery_address,'comment',v_order.comment,'payment_method',v_order.payment_method,'items',p_items,'addons',coalesce(p_addons,'[]'::jsonb),'delivery_fee',v_delivery_fee,'total_price',v_expected_total,'created_at',v_order.created_at);
+  return jsonb_build_object('id',v_order.id,'order_number',v_order.order_number,'venue_id',v_order.venue_id,'table_id',v_order.table_id,'table_session_id',v_order.table_session_id,'status',v_order.status,'total_price',v_order.total_price,'delivery_fee',v_order.delivery_fee);
 end;
 $function$;
 
