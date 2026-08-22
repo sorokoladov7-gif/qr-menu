@@ -3,6 +3,7 @@
   'use strict';
   if(window.__QR_STAFF_SHIFT__) return;
   window.__QR_STAFF_SHIFT__=true;
+  var stopped=false;
 
   function token(){return localStorage.getItem('staff_token')||'';}
   function top(){return document.querySelector('.topbar,.top');}
@@ -16,8 +17,8 @@
       +'.qr-shift-open-btn{background:#047857;color:#fff}.qr-shift-close-btn{background:#991b1b;color:#fff}'
       +'.qr-shift-modal{position:fixed;inset:0;z-index:100000;background:rgba(2,6,23,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:16px}'
       +'.qr-shift-box{width:min(460px,100%);background:#0f172a;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:22px;box-shadow:0 24px 80px rgba(0,0,0,.5);color:#fff}'
-      +'.qr-shift-box h2{margin:0 0 8px}.qr-shift-muted{color:#94a3b8;font-size:13px;line-height:1.5}.qr-shift-actions{display:flex;gap:8px;margin-top:18px}.qr-shift-actions button{flex:1;border:0;border-radius:11px;padding:11px;font-weight:800;cursor:pointer}'
-      ;document.head.appendChild(s);
+      +'.qr-shift-box h2{margin:0 0 8px}.qr-shift-muted{color:#94a3b8;font-size:13px;line-height:1.5}.qr-shift-actions{display:flex;gap:8px;margin-top:18px}.qr-shift-actions button{flex:1;border:0;border-radius:11px;padding:11px;font-weight:800;cursor:pointer}';
+    document.head.appendChild(s);
   }
 
   async function getShift(){
@@ -44,6 +45,7 @@
     var logout=t.querySelector('button.btn-ghost,button.btn');
     if(logout)t.insertBefore(chip,logout);else t.appendChild(chip);
     if(shift.open){
+      unlock();
       addButton('qr-shift-close-btn','🔒 Закрыть смену','qr-shift-close-btn',closeShift);
     }else{
       addButton('qr-shift-open-btn','▶ Открыть смену','qr-shift-open-btn',openShift);
@@ -54,7 +56,7 @@
   function lockInterface(){
     var id='qr-shift-lock';if(document.getElementById(id))return;
     setTimeout(function(){
-      if(document.getElementById(id))return;
+      if(document.getElementById(id)||!token())return;
       var layer=document.createElement('div');layer.id=id;layer.className='qr-shift-modal';layer.innerHTML='<div class="qr-shift-box"><h2>Смена не открыта</h2><div class="qr-shift-muted">Сначала откройте рабочую смену. После открытия появятся заказы, столы и история текущей смены.</div><div class="qr-shift-actions"><button id="qr-shift-open-now" class="qr-shift-open-btn">▶ Открыть смену</button></div></div>';
       document.body.appendChild(layer);layer.querySelector('#qr-shift-open-now').onclick=openShift;
     },300);
@@ -94,12 +96,24 @@
   }
 
   async function refresh(){
-    try{var sh=await getShift();render(sh);}catch(e){console.warn('[QR Shift]',e);}
+    if(stopped || !token()) return;
+    try{
+      var sh=await getShift();
+      render(sh);
+    }catch(e){
+      var msg=String(e&&e.message||e||'');
+      if(msg.toLowerCase().indexOf('permission denied for function get_staff_shift')!==-1 || String(e&&e.code)==='42501'){
+        stopped=true;
+        console.warn('[QR Shift] get_staff_shift permission is not available yet; retry disabled until page reload.');
+      }else{
+        console.warn('[QR Shift]',e);
+      }
+    }
   }
 
   var tries=0;
   var timer=setInterval(function(){
-    if(token()){refresh();if(++tries>80)clearInterval(timer);}
-  },500);
+    if(!stopped && token()){refresh();if(++tries>80)clearInterval(timer);}
+  },1500);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',refresh);else refresh();
 })();
