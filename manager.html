@@ -710,23 +710,20 @@ Vue.createApp({
     currentPlan: function() { if(!this.venue) return null; var planId=this.venue.plan; return this.plans.find(function(p){return p.id===planId})||null; },
     canCreateVenue: function() { var p=this.plans.find(function(x){return x.id==='start'}); return this.myVenues.length < (p ? p.max_venues : 1); },
     perms: function() {
-  var p = (this.venue && this.venue.manager_permissions)
-    ? this.venue.manager_permissions
-    : {};
+      var p = (this.venue && this.venue.manager_permissions)
+        ? this.venue.manager_permissions
+        : {};
 
-  return {
-    addons: p.addons !== false,
-    products: p.products !== false,
-    prices: p.prices !== false,
-
-    // Поддерживаем оба варианта структуры прав:
-    // новый JSON manager_permissions и legacy-ключи.
-    delivery: p.delivery === true || p.can_edit_delivery === true,
-    design: p.design === true || p.can_edit_design === true,
-    branding: p.branding === true || p.can_edit_branding === true,
-    venue: p.venue === true || p.can_edit_venue === true
-  };
-}
+      return {
+        addons: p.addons !== false,
+        products: p.products !== false,
+        prices: p.prices !== false,
+        delivery: p.delivery === true || p.can_edit_delivery === true,
+        design: p.design === true || p.can_edit_design === true,
+        branding: p.branding === true || p.can_edit_branding === true,
+        venue: p.venue === true || p.can_edit_venue === true
+      };
+    }
   },
   methods: {
     fmt: function(v) { return window.fmt ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
@@ -821,46 +818,14 @@ Vue.createApp({
         description:v.description,
         brand_color:v.brand_color,
         logo_url:v.logo_url||'',
-
-        // Адрес и координаты заведения
         address:v.address || '',
-
-        latitude: v.latitude != null
-          ? Number(v.latitude)
-          : (v.lat != null ? Number(v.lat) : null),
-
-        longitude: v.longitude != null
-          ? Number(v.longitude)
-          : (v.lng != null ? Number(v.lng) : null),
-
-        // Настройки доставки
-        delivery_min_order: v.delivery_min_order != null
-          ? Number(v.delivery_min_order)
-          : 0,
-
-        delivery_min_order_free: v.delivery_min_order_free != null
-          ? Number(v.delivery_min_order_free)
-          : 0,
-
-        delivery_base_fee: v.delivery_base_fee != null
-          ? Number(v.delivery_base_fee)
-          : (
-              v.delivery_base_price != null
-                ? Number(v.delivery_base_price)
-                : 0
-            ),
-
-        delivery_rate_per_km: v.delivery_rate_per_km != null
-          ? Number(v.delivery_rate_per_km)
-          : (
-              v.delivery_per_km != null
-                ? Number(v.delivery_per_km)
-                : 0
-            ),
-
-        delivery_max_km: v.delivery_max_km != null
-          ? Number(v.delivery_max_km)
-          : 0
+        latitude: v.latitude != null ? Number(v.latitude) : (v.lat != null ? Number(v.lat) : null),
+        longitude: v.longitude != null ? Number(v.longitude) : (v.lng != null ? Number(v.lng) : null),
+        delivery_min_order: v.delivery_min_order != null ? Number(v.delivery_min_order) : 0,
+        delivery_min_order_free: v.delivery_min_order_free != null ? Number(v.delivery_min_order_free) : 0,
+        delivery_base_fee: v.delivery_base_fee != null ? Number(v.delivery_base_fee) : (v.delivery_base_price != null ? Number(v.delivery_base_price) : 0),
+        delivery_rate_per_km: v.delivery_rate_per_km != null ? Number(v.delivery_rate_per_km) : (v.delivery_per_km != null ? Number(v.delivery_per_km) : 0),
+        delivery_max_km: v.delivery_max_km != null ? Number(v.delivery_max_km) : 0
       };
       if(this.isExpired(v)) { this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
       Promise.all([this.loadProducts(), this.loadOrders(), this.loadCooks(), this.loadCouriers(), this.loadWaiters(), this.loadPayments()]).then(function() {
@@ -993,12 +958,9 @@ Vue.createApp({
       });
     },
 
-     selectVenue: function(v) {
+    selectVenue: function(v) {
       if(!v || !v.id) return;
-
       var self=this;
-
-      // Закрываем старый зал перед переключением заведения.
       try {
         if(window.QRManagerHall && typeof window.QRManagerHall.close === 'function') {
           window.QRManagerHall.close();
@@ -1006,12 +968,9 @@ Vue.createApp({
       } catch(e) {
         console.warn('[Manager] Не удалось закрыть старый зал:', e);
       }
-
-      // Устанавливаем новое заведение.
       this.venue=v;
       this.tab='menu';
       this.subscriptionEnd=v.subscription_end;
-
       this.vform={
         name:v.name,
         description:v.description,
@@ -1026,36 +985,14 @@ Vue.createApp({
         delivery_rate_per_km: v.delivery_rate_per_km != null ? Number(v.delivery_rate_per_km) : (v.delivery_per_km != null ? Number(v.delivery_per_km) : 0),
         delivery_max_km: v.delivery_max_km != null ? Number(v.delivery_max_km) : 0
       };
-
-      // Единое текущее заведение для остальных модулей.
       window.__managerSelectedVenue=v;
-      window.__managerCurrentVenue={
-        id:v.id,
-        name:v.name||'',
-        slug:v.slug||'',
-        logo_url:v.logo_url||null
-      };
-
-      // Сохраняем только ID текущего заведения.
+      window.__managerCurrentVenue={id:v.id,name:v.name||'',slug:v.slug||'',logo_url:v.logo_url||null};
       try {
         localStorage.setItem('manager_venue_id',String(v.id));
         localStorage.setItem('selectedVenueId',String(v.id));
-      } catch(e) {
-        console.warn('[Manager] Не удалось сохранить выбранное заведение:',e);
-      }
-
-      // Обновляем ссылку на актуальный Vue-инстанс.
+      } catch(e) {}
       window.__managerVue=this;
-
-      // Сбрасываем состояние блокировки.
-      if(this.isExpired(v)) {
-        this.isBlocked=true;
-        this.tab='billing';
-      } else {
-        this.isBlocked=false;
-      }
-
-      // Загружаем данные строго для нового venue.id.
+      if(this.isExpired(v)) { this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
       Promise.all([
         this.loadProducts(),
         this.loadOrders(),
@@ -1065,11 +1002,8 @@ Vue.createApp({
         this.loadPayments()
       ]).then(function() {
         self.loadStaffAnalytics();
-
         if(self.timer) clearInterval(self.timer);
-
         self.timer=setInterval(function() {
-          // Не допускаем загрузку старого заведения после переключения.
           if(self.venue && self.venue.id===v.id) {
             self.loadOrders();
           }
@@ -1312,58 +1246,34 @@ Vue.createApp({
 
     geocodeVenueAddress: function() {
       var self = this;
-
       var address = String(this.vform.address || '').trim();
-
       if(!address) {
         this.showToast('Введите адрес заведения', 'error');
         return;
       }
-
       this.geoBusy = true;
       this.geoError = '';
-
-      var url =
-        'https://nominatim.openstreetmap.org/search' +
-        '?format=jsonv2' +
-        '&limit=1' +
-        '&countrycodes=ru' +
-        '&q=' + encodeURIComponent(address);
-
-      fetch(url, {
-        headers: {
-          'Accept': 'application/json'
-        }
-      })
+      var url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=ru&q=' + encodeURIComponent(address);
+      fetch(url, { headers: { 'Accept': 'application/json' } })
       .then(function(r) {
-        if(!r.ok) {
-          throw new Error('Не удалось выполнить геокодирование');
-        }
+        if(!r.ok) throw new Error('Не удалось выполнить геокодирование');
         return r.json();
       })
       .then(function(data) {
         if(!Array.isArray(data) || !data.length) {
-          throw new Error(
-            'Адрес не найден. Уточните город, улицу и номер дома.'
-          );
+          throw new Error('Адрес не найден. Уточните город, улицу и номер дома.');
         }
-
         var item = data[0];
         var lat = Number(item.lat);
         var lon = Number(item.lon);
-
         if(!Number.isFinite(lat) || !Number.isFinite(lon)) {
           throw new Error('Сервис не вернул корректные координаты');
         }
-
         self.vform.latitude = lat;
         self.vform.longitude = lon;
-
-        // Сохраняем найденный адрес только если сервис его уточнил.
         if(item.display_name) {
           self.vform.address = item.display_name;
         }
-
         self.showToast('Координаты заведения определены');
       })
       .catch(function(e) {
@@ -1378,165 +1288,71 @@ Vue.createApp({
 
     saveVenue: function() {
       var self = this;
-
       self.busy = true;
       self.msg = '';
-
       var payload = {
         name: this.vform.name,
         description: this.vform.description,
         brand_color: this.vform.brand_color,
         logo_url: this.vform.logo_url || null
       };
-
-      /*
-       * Поля доставки/координат добавляем ТОЛЬКО если
-       * администратор действительно выдал право доставки.
-       *
-       * Это важно: существующие настройки управляющего
-       * без can_edit_delivery не должны случайно затронуться.
-       */
       if(this.perms.delivery) {
-
         var lat = Number(this.vform.latitude);
         var lng = Number(this.vform.longitude);
-
         if(Number.isFinite(lat) && Number.isFinite(lng)) {
           payload.latitude = lat;
           payload.longitude = lng;
-
-          // Сохраняем legacy-поля для обратной совместимости.
           payload.lat = lat;
           payload.lng = lng;
         }
-
-        payload.address =
-          String(this.vform.address || '').trim() || null;
-
-        payload.delivery_min_order =
-          Math.max(0, Number(this.vform.delivery_min_order) || 0);
-
-        payload.delivery_min_order_free =
-          Math.max(0, Number(this.vform.delivery_min_order_free) || 0);
-
-        payload.delivery_base_fee =
-          Math.max(0, Number(this.vform.delivery_base_fee) || 0);
-
-        payload.delivery_rate_per_km =
-          Math.max(0, Number(this.vform.delivery_rate_per_km) || 0);
-
-        payload.delivery_max_km =
-          Math.max(0, Number(this.vform.delivery_max_km) || 0);
+        payload.address = String(this.vform.address || '').trim() || null;
+        payload.delivery_min_order = Math.max(0, Number(this.vform.delivery_min_order) || 0);
+        payload.delivery_min_order_free = Math.max(0, Number(this.vform.delivery_min_order_free) || 0);
+        payload.delivery_base_fee = Math.max(0, Number(this.vform.delivery_base_fee) || 0);
+        payload.delivery_rate_per_km = Math.max(0, Number(this.vform.delivery_rate_per_km) || 0);
+        payload.delivery_max_km = Math.max(0, Number(this.vform.delivery_max_km) || 0);
       }
-
-      /*
-       * Бесплатная доставка не должна быть ниже
-       * минимальной суммы для самой доставки.
-       */
       if(
         this.perms.delivery &&
         payload.delivery_min_order_free > 0 &&
         payload.delivery_min_order_free < payload.delivery_min_order
       ) {
         self.busy = false;
-        self.showToast(
-          'Сумма бесплатной доставки не может быть меньше минимального заказа',
-          'error'
-        );
+        self.showToast('Сумма бесплатной доставки не может быть меньше минимального заказа', 'error');
         return;
       }
-
       db.from('venues')
         .update(payload)
         .eq('id', this.venue.id)
-
         .then(function(r) {
-
-          if(r.error) {
-            throw r.error;
-          }
-
-          return db
-            .from('venues')
-            .select('*')
-            .eq('id', self.venue.id)
-            .maybeSingle();
+          if(r.error) throw r.error;
+          return db.from('venues').select('*').eq('id', self.venue.id).maybeSingle();
         })
-
         .then(function(r) {
-
-          if(r.error) {
-            throw r.error;
-          }
-
+          if(r.error) throw r.error;
           self.venue = r.data;
-
-          /*
-           * Обновляем форму из БД, чтобы после сохранения
-           * интерфейс показывал фактические значения.
-           */
           var v = r.data || {};
-
           self.vform = Object.assign({}, self.vform, {
             name: v.name,
             description: v.description,
             brand_color: v.brand_color,
             logo_url: v.logo_url || '',
-
             address: v.address || '',
-
-            latitude: v.latitude != null
-              ? Number(v.latitude)
-              : (v.lat != null ? Number(v.lat) : null),
-
-            longitude: v.longitude != null
-              ? Number(v.longitude)
-              : (v.lng != null ? Number(v.lng) : null),
-
-            delivery_min_order: v.delivery_min_order != null
-              ? Number(v.delivery_min_order)
-              : 0,
-
-            delivery_min_order_free: v.delivery_min_order_free != null
-              ? Number(v.delivery_min_order_free)
-              : 0,
-
-            delivery_base_fee: v.delivery_base_fee != null
-              ? Number(v.delivery_base_fee)
-              : (
-                  v.delivery_base_price != null
-                    ? Number(v.delivery_base_price)
-                    : 0
-                ),
-
-            delivery_rate_per_km: v.delivery_rate_per_km != null
-              ? Number(v.delivery_rate_per_km)
-              : (
-                  v.delivery_per_km != null
-                    ? Number(v.delivery_per_km)
-                    : 0
-                ),
-
-            delivery_max_km: v.delivery_max_km != null
-              ? Number(v.delivery_max_km)
-              : 0
+            latitude: v.latitude != null ? Number(v.latitude) : (v.lat != null ? Number(v.lat) : null),
+            longitude: v.longitude != null ? Number(v.longitude) : (v.lng != null ? Number(v.lng) : null),
+            delivery_min_order: v.delivery_min_order != null ? Number(v.delivery_min_order) : 0,
+            delivery_min_order_free: v.delivery_min_order_free != null ? Number(v.delivery_min_order_free) : 0,
+            delivery_base_fee: v.delivery_base_fee != null ? Number(v.delivery_base_fee) : (v.delivery_base_price != null ? Number(v.delivery_base_price) : 0),
+            delivery_rate_per_km: v.delivery_rate_per_km != null ? Number(v.delivery_rate_per_km) : (v.delivery_per_km != null ? Number(v.delivery_per_km) : 0),
+            delivery_max_km: v.delivery_max_km != null ? Number(v.delivery_max_km) : 0
           });
-
           self.busy = false;
           self.showToast('Настройки сохранены');
         })
-
         .catch(function(e) {
-
           console.error('[Manager] saveVenue:', e);
-
           self.busy = false;
-
-          self.showToast(
-            'Ошибка сохранения: ' +
-            (e.message || String(e)),
-            'error'
-          );
+          self.showToast('Ошибка сохранения: ' + (e.message || String(e)), 'error');
         });
     },
 
