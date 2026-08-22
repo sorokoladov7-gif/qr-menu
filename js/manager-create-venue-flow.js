@@ -1,14 +1,44 @@
 /* QR Menu — stable manager venue creation flow. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_CREATE_FLOW_V5__) return;
-  window.__QR_MANAGER_CREATE_FLOW_V5__=true;
+  if(window.__QR_MANAGER_CREATE_FLOW_V6__) return;
+  window.__QR_MANAGER_CREATE_FLOW_V6__=true;
 
   function close(el){ if(el && el.parentNode) el.parentNode.removeChild(el); }
   function esc(v){
     return String(v==null?'':v).replace(/[&<>\"']/g,function(c){
       return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];
     });
+  }
+
+  function vue(){
+    try{
+      var root=document.getElementById('app');
+      var inst=root && root.__vue_app__ && root.__vue_app__._instance;
+      if(inst && inst.proxy) return inst.proxy;
+    }catch(e){}
+    try{ if(window.__managerVue) return window.__managerVue; }catch(e){}
+    return null;
+  }
+
+  async function managerId(){
+    var p=vue();
+    if(p && p.profile && p.profile.id) return p.profile.id;
+    try{
+      var u=await db.auth.getUser();
+      var id=u&&u.data&&u.data.user&&u.data.user.id;
+      if(id) return id;
+    }catch(e){
+      console.warn('[QR Manager create flow] auth.getUser failed:',e);
+    }
+    try{
+      var s=await db.auth.getSession();
+      var sid=s&&s.data&&s.data.session&&s.data.session.user&&s.data.session.user.id;
+      if(sid) return sid;
+    }catch(e){
+      console.warn('[QR Manager create flow] auth.getSession failed:',e);
+    }
+    return null;
   }
 
   function findCreateButton(target){
@@ -21,25 +51,8 @@
   function ensureCreateButtonEnabled(){
     var b=findCreateButton(document.body);
     if(!b) return;
-    /* Vue used to disable this button from canCreateVenue before our flow could run.
-       The real limit is enforced by the create_venue_for_manager RPC. */
-    if(b.disabled) b.disabled=false;
+    b.disabled=false;
     b.removeAttribute('aria-disabled');
-  }
-
-  function scheduleButtonUnlock(){
-    ensureCreateButtonEnabled();
-    var tries=0;
-    function retry(){
-      tries++;
-      ensureCreateButtonEnabled();
-      if(tries<12) setTimeout(retry,250);
-    }
-    setTimeout(retry,250);
-  }
-
-  function showLimitError(message){
-    alert(message || 'Достигнут лимит заведений по вашему тарифу.');
   }
 
   function showPlans(plans){
@@ -71,8 +84,7 @@
       card.onclick=async function(){
         card.disabled=true;
         try{
-          var u=await db.auth.getUser();
-          var uid=u&&u.data&&u.data.user&&u.data.user.id;
+          var uid=await managerId();
           if(!uid) throw new Error('Не удалось определить управляющего');
 
           var end=new Date(Date.now()+5*24*60*60*1000);
@@ -98,15 +110,17 @@
   }
 
   async function openFlow(){
-    var u=await db.auth.getUser();
-    var uid=u&&u.data&&u.data.user&&u.data.user.id;
+    var uid=await managerId();
     if(!uid) throw new Error('Не удалось определить управляющего');
 
-    var s=await db.from('subscriptions').select('id,manager_id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
+    var s=await db.from('subscriptions')
+      .select('id,manager_id,plan_id,status,current_period_end')
+      .eq('manager_id',uid)
+      .maybeSingle();
     if(s.error) throw s.error;
 
     var valid=!!(s.data && ['active','trialing'].indexOf(s.data.status)!==-1 && s.data.current_period_end && new Date(s.data.current_period_end)>=new Date());
-    if(valid) return {allowDefault:true};
+    if(valid) return {allowDefault:true,subscription:s.data};
 
     var p=await db.from('plans').select('id,name,price,max_venues,max_products,is_active,sort_order').eq('is_active',true).order('sort_order');
     if(p.error) throw p.error;
@@ -115,6 +129,96 @@
 
     showPlans(plans);
     return {allowDefault:false};
+  }
+
+  function openVenueForm(){
+    var p=vue();
+    if(!p) return false;
+    p.showCreateVenue=true;
+    if(p.managerSubscription==null){
+      /* Keep the live subscription available to the creation form. */
+      managerId().then(function(uid){
+        if(!uid) return;
+        db.from('subscriptions').select('id,manager_id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle().then(function(r){
+          if(!r.error && r.data){
+            p.managerSubscription=r.data;
+            p.subscriptionEnd=r.data.current_period_end;
+          }
+        });
+      });
+    }
+    return true;
+  }
+
+  /* Keep createVenue authoritative in one place; this replaces the stale 3-day/plan-start implementation. */
+  function patchCreateVenue(p){
+    if(!p || p.__qrCreateVenueFlowV6) return;
+    p.__qrCreateVenueFlowV6=true;
+    p.createVenue=async function(){
+      var self=this;
+      self.formError='';
+      var template=self.selectedVenueTemplate;
+      if(!template){ self.formError='Выберите шаблон ниши'; return; }
+      if(!self.newVenueForm.name || !self.newVenueForm.slug){ self.formError='Заполните название и код заведения'; return; }
+
+      var uid=await managerId();
+      if(!uid){ self.formError='Не удалось определить управляющего'; return; }
+
+      var sub=await db.from('subscriptions').select('id,manager_id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
+      if(sub.error){ self.formError='Не удалось проверить подписку: '+sub.error.message; return; }
+      if(!sub.data || ['active','trialing'].indexOf(sub.data.status)===-1 || !sub.data.current_period_end || new Date(sub.data.current_period_end)<new Date()){
+        self.formError='Сначала выберите тариф'; return;
+      }
+
+      var planId=sub.data.plan_id;
+      var end=sub.data.current_period_end;
+      var plans=Array.isArray(self.plans)?self.plans:[];
+      var plan=plans.find(function(x){return x.id===planId;})||null;
+      if(plan && plan.max_products && template.products.length>plan.max_products){
+        self.formError='В выбранном тарифе недостаточно места для шаблона ('+template.products.length+' позиций).'; return;
+      }
+
+      self.busy=true;
+      try{
+        var slug=self.newVenueForm.slug.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9а-яё_-]/gi,'').replace(/[а-яё]/gi,function(c){
+          var m={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
+          return m[c.toLowerCase()]||'';
+        });
+        if(!slug) throw new Error('Некорректный slug');
+
+        var products=template.products.map(function(item){
+          return {name:item.name,description:item.description||null,price:Number(item.price)||0,category:item.category||'main',image_url:item.image_url||null,applies_to:item.applies_to||'all',is_available:true};
+        });
+
+        var r=await db.rpc('create_venue_for_manager',{
+          p_name:self.newVenueForm.name.trim(),
+          p_slug:slug,
+          p_plan:planId,
+          p_subscription_end:end,
+          p_products:products
+        });
+        if(r.error) throw r.error;
+
+        self.showCreateVenue=false;
+        self.newVenueForm={name:'',slug:'',template:null};
+        await self.loadMyVenues();
+        if(r.data) self.selectVenue(r.data);
+        self.showToast('Заведение создано: '+template.name+' · '+template.products.length+' позиций добавлено');
+      }catch(err){
+        console.error('createVenue error:',err);
+        self.formError='Ошибка: '+(err.message||String(err));
+      }finally{ self.busy=false; }
+    };
+  }
+
+  function waitForVue(){
+    var tries=0;
+    function tick(){
+      var p=vue();
+      if(p) patchCreateVenue(p);
+      if(++tries<40) setTimeout(tick,250);
+    }
+    tick();
   }
 
   document.addEventListener('click',function(ev){
@@ -128,14 +232,10 @@
     b.dataset.qrFlowBusy='1';
 
     openFlow().then(function(result){
-      if(result && result.allowDefault){
-        setTimeout(function(){
-          b.dataset.qrFlowBusy='0';
-          b.click();
-        },0);
-        return;
-      }
       b.dataset.qrFlowBusy='0';
+      if(result && result.allowDefault){
+        openVenueForm();
+      }
     }).catch(function(e){
       console.error('[QR Manager create flow]',e);
       b.dataset.qrFlowBusy='0';
@@ -157,9 +257,9 @@
 
   function start(){
     fixTrialText();
-    scheduleButtonUnlock();
     setTimeout(fixTrialText,600);
     setTimeout(fixTrialText,1400);
+    waitForVue();
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start);
