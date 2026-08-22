@@ -57,3 +57,59 @@ async function logout(){
   function start(){sync();setInterval(sync,250);}
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
 })();
+
+/* Admin billing compatibility: subscriptions are owned by managers, while venues keep only cached plan/expiry values. */
+(function(){
+  'use strict';
+  if(!/\/admin\.html$/i.test(location.pathname) || !window.Vue || !db) return;
+  if(window.__QR_ADMIN_MANAGER_SUBS_PATCH__) return;
+  window.__QR_ADMIN_MANAGER_SUBS_PATCH__=true;
+  var originalCreateApp=Vue.createApp;
+  Vue.createApp=function(options){
+    if(options && typeof options==='object'){
+      options.methods=options.methods||{};
+      async function managerIdForVenue(vm, venueId){
+        var r=await db.from('manager_venues').select('manager_id').eq('venue_id',venueId).limit(1).maybeSingle();
+        return r.data ? r.data.manager_id : null;
+      }
+      options.methods.changePlan=async function(v,plan){
+        this.busy=true;
+        try{
+          var mid=await managerIdForVenue(this,v.id);
+          if(!mid) throw new Error('У заведения пока нет назначенного управляющего');
+          var nowSub=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:plan,status:'active'},{onConflict:'manager_id'}).select().single();
+          if(nowSub.error) throw nowSub.error;
+          this.loadBaseData();
+        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+      };
+      options.methods.extendSub=async function(v){
+        this.busy=true;
+        try{
+          var mid=await managerIdForVenue(this,v.id);
+          if(!mid) throw new Error('У заведения пока нет назначенного управляющего');
+          var current=await db.from('subscriptions').select('current_period_end,plan_id').eq('manager_id',mid).maybeSingle();
+          if(current.error) throw current.error;
+          var e=current.data && current.data.current_period_end && new Date(current.data.current_period_end)>new Date() ? new Date(current.data.current_period_end) : new Date();
+          e.setDate(e.getDate()+30);
+          var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:(current.data&&current.data.plan_id)||v.plan||'start',status:'active',current_period_end:e.toISOString()},{onConflict:'manager_id'});
+          if(up.error) throw up.error;
+          this.loadBaseData();
+        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+      };
+      options.methods.confirmPayment=async function(pay){
+        this.busy=true;
+        try{
+          var mid=pay.manager_id || await managerIdForVenue(this,pay.venue_id);
+          if(!mid) throw new Error('Не найден управляющий для оплаты');
+          var end=new Date(); end.setMonth(end.getMonth()+1);
+          var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:pay.plan_id,status:'active',current_period_end:end.toISOString()},{onConflict:'manager_id'});
+          if(up.error) throw up.error;
+          var pp=await db.from('payments').update({status:'confirmed'}).eq('id',pay.id);
+          if(pp.error) throw pp.error;
+          this.loadBaseData();
+        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+      };
+    }
+    return originalCreateApp.apply(this,arguments);
+  };
+})();
