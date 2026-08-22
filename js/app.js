@@ -129,10 +129,8 @@ async function logout(){
       };
 
       options.computed.managerSubscription=function(){
-        var self=this;
-        var by={};
+        var self=this, by={}, result={};
         (this.subscriptions||[]).forEach(function(s){if(s&&s.manager_id) by[s.manager_id]=s;});
-        var result={};
         (this.managers||[]).forEach(function(m){
           var s=by[m.id]||null;
           var p=s?self.plans.find(function(x){return x.id===s.plan_id}):null;
@@ -210,24 +208,34 @@ async function logout(){
         try{
           var root=document.getElementById('app');
           if(!root) return;
+
           var venuePane=root.querySelector('[v-if="tab===\'venues\'"]');
           if(venuePane){
             var vt=venuePane.querySelector('table.tbl');
             if(vt&&vt.rows&&vt.rows[0]){
-              var heads=Array.prototype.slice.call(vt.rows[0].cells);
-              heads.forEach(function(cell,idx){
-                if(/^(Тариф|Подписка|До)$/.test((cell.textContent||'').trim())){
-                  Array.prototype.forEach.call(vt.rows,function(row){if(row.cells[idx])row.deleteCell(idx);});
-                }
+              var remove=[];
+              Array.prototype.forEach.call(vt.rows[0].cells,function(cell,idx){
+                if(/^(Тариф|Подписка|До)$/.test((cell.textContent||'').trim())) remove.push(idx);
               });
+              remove.sort(function(a,b){return b-a;});
+              remove.forEach(function(idx){Array.prototype.forEach.call(vt.rows,function(row){if(row.cells[idx])row.deleteCell(idx);});});
             }
           }
+
+          var planPane=root.querySelector('[v-if="tab===\'plans\'"]');
+          if(planPane){
+            Array.prototype.forEach.call(planPane.querySelectorAll('*'),function(el){
+              if(el.childNodes && el.childNodes.length===1 && el.firstChild.nodeType===3 && /Персональные тарифы назначаются/.test(el.textContent||'')){
+                el.textContent='Назначение тарифов выполняется во вкладке «👤 Управляющие».';
+              }
+            });
+          }
+
           var mgrPane=root.querySelector('[v-if="tab===\'managers\'"]');
           if(mgrPane){
             var mt=mgrPane.querySelector('table.tbl');
             if(mt&&mt.rows&&mt.rows[0]){
-              var h=mt.rows[0];
-              var accessCell=-1;
+              var h=mt.rows[0], accessCell=-1;
               Array.prototype.forEach.call(h.cells,function(c,i){if((c.textContent||'').trim()==='Доступы к заведениям')accessCell=i;});
               if(accessCell<0) accessCell=h.cells.length-1;
               function th(text){var c=document.createElement('th');c.textContent=text;return c;}
@@ -236,8 +244,7 @@ async function logout(){
               h.insertBefore(th('До'),h.cells[accessCell+2]);
               Array.prototype.forEach.call(mt.querySelectorAll('tr'),function(row,ri){
                 if(ri===0)return;
-                var mExpr=row.getAttribute('v-for')||'';
-                if(!mExpr)return;
+                if(!row.getAttribute('v-for'))return;
                 var make=function(html){var c=document.createElement('td');c.innerHTML=html;return c;};
                 row.insertBefore(make('<select style="width:auto;padding:6px" v-if="managerSubscription[m.id]" v-bind:value="managerSubscription[m.id].sub ? managerSubscription[m.id].sub.plan_id : \'\'" v-on:change="changeManagerPlan(m,$event.target.value)"><option value="">— Нет тарифа —</option><option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option></select><span v-else class="muted">—</span>'),row.cells[accessCell]);
                 row.insertBefore(make('<span v-if="managerSubscription[m.id] && managerSubscription[m.id].sub" class="badge" v-bind:class="managerSubscription[m.id].sub.status===\'trialing\'?\'b-trial\':\'b-on\'">{{ managerSubscription[m.id].sub.status===\'trialing\'?\'Триал\':\'Активна\' }}</span><span v-else class="muted">Нет</span>'),row.cells[accessCell+1]);
