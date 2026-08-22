@@ -40,9 +40,8 @@
   }
   loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
   loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
-  loadScript('/js/manager-plan-before-venue.js?v=1','data-manager-plan-before-venue');
-  loadScript('/js/manager-trial-copy.js?v=1','data-manager-trial-copy');
-  loadScript('/js/manager-subscription-owner.js?v=1','data-manager-subscription-owner');
-  /* Native personnel tab. The old integrated personnel patch is intentionally disabled. */
-  loadScript('/js/manager-personnel-final.js?v=2','data-manager-personnel-final');
+  loadScript('/js/manager-plan-before-venue.js?v=2','data-manager-plan-before-venue');
+  loadScript('/js/manager-subscription-owner.js?v=2','data-manager-subscription-owner');
+  loadScript('/js/manager-create-venue-fix.js?v=1','data-manager-create-venue-fix');
+  loadScript('/js/manager-personnel-final.js?v=3','data-manager-personnel-final');
 })();
