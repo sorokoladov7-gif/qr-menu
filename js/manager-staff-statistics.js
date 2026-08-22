@@ -6,10 +6,38 @@
   const URL='https://ulxfsozdryqrnlxzlblt.supabase.co';
   const KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
   let client=null;
-  function getClient(){if(client)return client;if(window.db&&window.db.auth&&window.db.rpc){client=window.db;return client;}if(window.supabase){client=window.supabase.createClient(URL,KEY);return client;}return null;}
-  function venueId(){try{const root=document.querySelector('#app');const vm=root&&root.__vue_app__&&root.__vue_app__._instance&&root.__vue_app__._instance.proxy;return vm&&vm.venue&&vm.venue.id?vm.venue.id:null;}catch(e){return null;}}
+  function getClient(){if(client)return client;if(window.db&&window.db.rpc){client=window.db;return client;}if(window.supabase){client=window.supabase.createClient(URL,KEY);return client;}return null;}
+  function venueId(){
+    try{
+      const root=document.querySelector('#app');
+      const app=root&&root.__vue_app__;
+      const inst=app&&app._instance;
+      const candidates=[
+        inst&&inst.proxy&&inst.proxy.venue,
+        inst&&inst.ctx&&inst.ctx.venue,
+        inst&&inst.setupState&&inst.setupState.venue,
+        inst&&inst.data&&inst.data.venue,
+        inst&&inst.subTree&&inst.subTree.component&&inst.subTree.component.proxy&&inst.subTree.component.proxy.venue
+      ];
+      for(const v of candidates) if(v&&v.id) return v.id;
+    }catch(e){}
+    try{
+      const keys=['selected_venue','selectedVenue','manager_selected_venue','managerSelectedVenue','venue','current_venue','currentVenue'];
+      for(const key of keys){
+        const raw=localStorage.getItem(key);
+        if(!raw) continue;
+        try{const v=JSON.parse(raw);if(v&&v.id)return v.id;if(v&&v.venue_id)return v.venue_id;if(typeof v==='string'&&/^[0-9a-f-]{36}$/i.test(v))return v;}catch(e){if(/^[0-9a-f-]{36}$/i.test(raw.trim()))return raw.trim();}
+      }
+    }catch(e){}
+    try{
+      const el=document.querySelector('[data-venue-id],[data-selected-venue-id]');
+      const id=el&&(el.getAttribute('data-venue-id')||el.getAttribute('data-selected-venue-id'));
+      if(id)return id;
+    }catch(e){}
+    return null;
+  }
   function fmt(n){return Number(n||0).toLocaleString('ru-RU');}
-  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+  function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));}
   function isoDate(d){return d.toISOString().slice(0,10)}
   function open(){
     const v=venueId(); if(!v){alert('Сначала выберите заведение.');return;}
@@ -36,6 +64,6 @@
     body.querySelectorAll('[data-day]').forEach(b=>b.onclick=()=>{const p=body.querySelector('[data-panel="'+b.dataset.day+'"]');if(p)p.style.display=p.style.display==='none'?'block':'none';});
   }
   function staffTable(title,rows){if(!rows.length)return '<div style="margin-top:10px;color:#94a3b8">'+title+': данных нет</div>';return '<div style="margin-top:10px"><b>'+title+'</b><div style="margin-top:6px">'+rows.map(s=>'<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span>'+esc(s.staff_name||'Без имени')+'</span><span>'+fmt(s.orders_count)+' заказов · '+fmt(s.revenue)+' ₽</span></div>').join('')+'</div></div>';}
-  function install(){const tabs=document.querySelector('.tabs');if(!tabs||document.getElementById('qr-manager-staff-tab'))return;const b=document.createElement('button');b.id='qr-manager-staff-tab';b.className='';b.textContent='📊 Персонал';b.type='button';b.style.cssText='background:rgba(255,255,255,.06)';b.onclick=open;tabs.appendChild(b);}
+  function install(){const tabs=document.querySelector('.tabs');if(!tabs||document.getElementById('qr-manager-staff-tab'))return;const b=document.createElement('button');b.id='qr-manager-staff-tab';b.textContent='📊 Персонал';b.type='button';b.style.cssText='background:rgba(255,255,255,.06)';b.onclick=open;tabs.appendChild(b);}
   let n=0;const timer=setInterval(()=>{install();if(++n>60)clearInterval(timer)},500);
 })();
