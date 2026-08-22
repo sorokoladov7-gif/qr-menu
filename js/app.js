@@ -68,34 +68,108 @@ async function logout(){
   Vue.createApp=function(options){
     if(options && typeof options==='object'){
       options.methods=options.methods||{};
+      options.computed=options.computed||{};
+
       async function managerIdForVenue(vm, venueId){
         var r=await db.from('manager_venues').select('manager_id').eq('venue_id',venueId).limit(1).maybeSingle();
         return r.data ? r.data.manager_id : null;
       }
+
+      function managerVenueIds(vm, managerId){
+        return (vm.links||[]).filter(function(l){return l.manager_id===managerId}).map(function(l){return l.venue_id});
+      }
+
+      options.computed.mrr=function(){
+        var self=this, seen={};
+        return (this.subscriptions||[]).filter(function(s){
+          return s && s.manager_id && ['active','trialing'].indexOf(s.status)!==-1 && s.current_period_end && new Date(s.current_period_end)>=new Date();
+        }).reduce(function(sum,s){
+          if(seen[s.manager_id]) return sum;
+          seen[s.manager_id]=true;
+          var p=self.plans.find(function(x){return x.id===s.plan_id});
+          return sum+(p?Number(p.price)||0:0);
+        },0);
+      };
+
+      options.computed.subStats=function(){
+        var now=new Date(), active=0, trial=0, expired=0, expiring=0, list=this.subscriptions||[];
+        list.forEach(function(s){
+          if(!s||!s.manager_id){return;}
+          var e=s.current_period_end?new Date(s.current_period_end):null;
+          if(s.status==='trialing' && e && e>=now) trial++;
+          if(e && e>=now && ['active','trialing'].indexOf(s.status)!==-1){
+            active++;
+            var soon=new Date(); soon.setDate(soon.getDate()+7);
+            if(e<soon) expiring++;
+          }else{expired++;}
+        });
+        return {total:list.filter(function(s){return s&&s.manager_id}).length,active:active,trial:trial,expired:expired,expiringSoon:expiring};
+      };
+
+      options.computed.planStats=function(){
+        var self=this, now=new Date();
+        return this.plans.map(function(p){
+          var ss=(self.subscriptions||[]).filter(function(s){return s&&s.manager_id&&s.plan_id===p.id});
+          var active=ss.filter(function(s){return ['active','trialing'].indexOf(s.status)!==-1&&s.current_period_end&&new Date(s.current_period_end)>now}).length;
+          return {id:p.id,name:p.name,price:Number(p.price)||0,count:ss.length,active:active,mrr:active*(Number(p.price)||0)};
+        });
+      };
+
+      options.computed.venueSubs=function(){
+        var self=this;
+        return (this.subscriptions||[]).filter(function(s){return s&&s.manager_id}).map(function(s){
+          var m=self.managers.find(function(x){return x.id===s.manager_id})||{};
+          var p=self.plans.find(function(x){return x.id===s.plan_id});
+          var ids=managerVenueIds(self,s.manager_id);
+          var ords=self.ordersAll.filter(function(o){return ids.indexOf(o.venue_id)!==-1&&o.status==='done'});
+          var rev=ords.reduce(function(sum,o){return sum+Number(o.total_price||0)},0);
+          var names=ids.map(function(id){var v=self.venues.find(function(x){return x.id===id});return v?v.name:null}).filter(Boolean);
+          return {
+            id:s.id,
+            manager_id:s.manager_id,
+            name:m.display_name||m.email||s.manager_id,
+            slug:m.email||'управляющий',
+            planName:p?p.name:'—',
+            subscription_end:s.current_period_end,
+            status:s.status,
+            totalOrders:ords.length,
+            totalRevenue:rev,
+            plan_id:s.plan_id,
+            venueNames:names
+          };
+        });
+      };
+
       options.methods.changePlan=async function(v,plan){
         this.busy=true;
         try{
           var mid=await managerIdForVenue(this,v.id);
           if(!mid) throw new Error('У заведения пока нет назначенного управляющего');
-          var nowSub=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:plan,status:'active'},{onConflict:'manager_id'}).select().single();
-          if(nowSub.error) throw nowSub.error;
+          var current=await db.from('subscriptions').select('current_period_end').eq('manager_id',mid).maybeSingle();
+          if(current.error) throw current.error;
+          var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:plan,status:'active',current_period_end:(current.data&&current.data.current_period_end)||new Date().toISOString()},{onConflict:'manager_id'}).select().single();
+          if(up.error) throw up.error;
+          await db.from('venues').update({plan:plan}).eq('id',v.id);
           this.loadBaseData();
         }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
       };
+
       options.methods.extendSub=async function(v){
         this.busy=true;
         try{
           var mid=await managerIdForVenue(this,v.id);
           if(!mid) throw new Error('У заведения пока нет назначенного управляющего');
-          var current=await db.from('subscriptions').select('current_period_end,plan_id').eq('manager_id',mid).maybeSingle();
+          var current=await db.from('subscriptions').select('current_period_end,plan_id,status').eq('manager_id',mid).maybeSingle();
           if(current.error) throw current.error;
           var e=current.data && current.data.current_period_end && new Date(current.data.current_period_end)>new Date() ? new Date(current.data.current_period_end) : new Date();
           e.setDate(e.getDate()+30);
           var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:(current.data&&current.data.plan_id)||v.plan||'start',status:'active',current_period_end:e.toISOString()},{onConflict:'manager_id'});
           if(up.error) throw up.error;
+          await db.from('venues').update({plan:(current.data&&current.data.plan_id)||v.plan||'start',subscription_end:e.toISOString(),status:'active'}).in('id',managerVenueIds(this,mid));
           this.loadBaseData();
         }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
       };
+
       options.methods.confirmPayment=async function(pay){
         this.busy=true;
         try{
@@ -104,10 +178,22 @@ async function logout(){
           var end=new Date(); end.setMonth(end.getMonth()+1);
           var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:pay.plan_id,status:'active',current_period_end:end.toISOString()},{onConflict:'manager_id'});
           if(up.error) throw up.error;
+          await db.from('venues').update({plan:pay.plan_id,subscription_end:end.toISOString(),status:'active'}).in('id',managerVenueIds(this,mid));
           var pp=await db.from('payments').update({status:'confirmed'}).eq('id',pay.id);
           if(pp.error) throw pp.error;
           this.loadBaseData();
         }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+      };
+
+      options.methods.createVenue=async function(){
+        var self=this;self.msg='';
+        if(!self.nform.name||!self.nform.slug){self.msg='Заполните название и slug';return}
+        self.busy=true;
+        try{
+          var r=await db.from('venues').insert({name:self.nform.name,slug:self.nform.slug.toLowerCase(),plan:self.nform.plan,status:'active'}).select().single();
+          if(r.error)throw r.error;
+          self.showModal=false;self.nform={name:'',slug:'',plan:'start'};await self.loadBaseData();
+        }catch(e){self.msg='Ошибка: '+e.message;}finally{self.busy=false;}
       };
     }
     return originalCreateApp.apply(this,arguments);
