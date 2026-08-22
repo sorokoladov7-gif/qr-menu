@@ -124,52 +124,60 @@ async function logout(){
           var ords=self.ordersAll.filter(function(o){return ids.indexOf(o.venue_id)!==-1&&o.status==='done'});
           var rev=ords.reduce(function(sum,o){return sum+Number(o.total_price||0)},0);
           var names=ids.map(function(id){var v=self.venues.find(function(x){return x.id===id});return v?v.name:null}).filter(Boolean);
-          return {
-            id:s.id,
-            manager_id:s.manager_id,
-            name:m.display_name||m.email||s.manager_id,
-            slug:m.email||'управляющий',
-            planName:p?p.name:'—',
-            subscription_end:s.current_period_end,
-            status:s.status,
-            totalOrders:ords.length,
-            totalRevenue:rev,
-            plan_id:s.plan_id,
-            venueNames:names
-          };
+          return {id:s.id,manager_id:s.manager_id,name:m.display_name||m.email||s.manager_id,slug:m.email||'управляющий',planName:p?p.name:'—',subscription_end:s.current_period_end,status:s.status,totalOrders:ords.length,totalRevenue:rev,plan_id:s.plan_id,venueNames:names};
         });
       };
 
+      options.computed.managerSubscription=function(){
+        var self=this;
+        var by={};
+        (this.subscriptions||[]).forEach(function(s){if(s&&s.manager_id) by[s.manager_id]=s;});
+        var result={};
+        (this.managers||[]).forEach(function(m){
+          var s=by[m.id]||null;
+          var p=s?self.plans.find(function(x){return x.id===s.plan_id}):null;
+          var ids=managerVenueIds(self,m.id);
+          result[m.id]={sub:s,plan:p,venues:ids.map(function(id){var v=self.venues.find(function(x){return x.id===id});return v?v.name:null}).filter(Boolean)};
+        });
+        return result;
+      };
+
+      options.methods.changeManagerPlan=async function(m,plan){
+        this.busy=true;
+        try{
+          var sub=(this.managerSubscription[m.id]&&this.managerSubscription[m.id].sub)||null;
+          var end=sub&&sub.current_period_end?sub.current_period_end:new Date(Date.now()+5*864e5).toISOString();
+          var r=await db.from('subscriptions').upsert({manager_id:m.id,venue_id:null,plan_id:plan,status:'active',current_period_end:end},{onConflict:'manager_id'});
+          if(r.error)throw r.error;
+          var ids=managerVenueIds(this,m.id);
+          if(ids.length) await db.from('venues').update({plan:plan}).in('id',ids);
+          await this.loadBaseData();
+        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+      };
+
+      options.methods.extendManagerSub=async function(m){
+        this.busy=true;
+        try{
+          var sub=(this.managerSubscription[m.id]&&this.managerSubscription[m.id].sub)||null;
+          var end=sub&&sub.current_period_end&&new Date(sub.current_period_end)>new Date()?new Date(sub.current_period_end):new Date();
+          end.setDate(end.getDate()+30);
+          var planId=sub&&sub.plan_id?sub.plan_id:(this.managerSubscription[m.id]&&this.managerSubscription[m.id].plan?this.managerSubscription[m.id].plan.id:'start');
+          var r=await db.from('subscriptions').upsert({manager_id:m.id,venue_id:null,plan_id:planId,status:'active',current_period_end:end.toISOString()},{onConflict:'manager_id'});
+          if(r.error)throw r.error;
+          var ids=managerVenueIds(this,m.id);
+          if(ids.length) await db.from('venues').update({plan:planId,subscription_end:end.toISOString(),status:'active'}).in('id',ids);
+          await this.loadBaseData();
+        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+      };
+
       options.methods.changePlan=async function(v,plan){
-        this.busy=true;
-        try{
-          var mid=await managerIdForVenue(this,v.id);
-          if(!mid) throw new Error('У заведения пока нет назначенного управляющего');
-          var current=await db.from('subscriptions').select('current_period_end').eq('manager_id',mid).maybeSingle();
-          if(current.error) throw current.error;
-          var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:plan,status:'active',current_period_end:(current.data&&current.data.current_period_end)||new Date().toISOString()},{onConflict:'manager_id'}).select().single();
-          if(up.error) throw up.error;
-          await db.from('venues').update({plan:plan}).eq('id',v.id);
-          this.loadBaseData();
-        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+        var mid=await managerIdForVenue(this,v.id); if(!mid){this.msg='Не найден управляющий';return;}
+        return this.changeManagerPlan(this.managers.find(function(m){return m.id===mid})||{id:mid},plan);
       };
-
       options.methods.extendSub=async function(v){
-        this.busy=true;
-        try{
-          var mid=await managerIdForVenue(this,v.id);
-          if(!mid) throw new Error('У заведения пока нет назначенного управляющего');
-          var current=await db.from('subscriptions').select('current_period_end,plan_id,status').eq('manager_id',mid).maybeSingle();
-          if(current.error) throw current.error;
-          var e=current.data && current.data.current_period_end && new Date(current.data.current_period_end)>new Date() ? new Date(current.data.current_period_end) : new Date();
-          e.setDate(e.getDate()+30);
-          var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:(current.data&&current.data.plan_id)||v.plan||'start',status:'active',current_period_end:e.toISOString()},{onConflict:'manager_id'});
-          if(up.error) throw up.error;
-          await db.from('venues').update({plan:(current.data&&current.data.plan_id)||v.plan||'start',subscription_end:e.toISOString(),status:'active'}).in('id',managerVenueIds(this,mid));
-          this.loadBaseData();
-        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+        var mid=await managerIdForVenue(this,v.id); if(!mid){this.msg='Не найден управляющий';return;}
+        return this.extendManagerSub(this.managers.find(function(m){return m.id===mid})||{id:mid});
       };
-
       options.methods.confirmPayment=async function(pay){
         this.busy=true;
         try{
@@ -178,10 +186,11 @@ async function logout(){
           var end=new Date(); end.setMonth(end.getMonth()+1);
           var up=await db.from('subscriptions').upsert({manager_id:mid,venue_id:null,plan_id:pay.plan_id,status:'active',current_period_end:end.toISOString()},{onConflict:'manager_id'});
           if(up.error) throw up.error;
-          await db.from('venues').update({plan:pay.plan_id,subscription_end:end.toISOString(),status:'active'}).in('id',managerVenueIds(this,mid));
+          var ids=managerVenueIds(this,mid);
+          if(ids.length) await db.from('venues').update({plan:pay.plan_id,subscription_end:end.toISOString(),status:'active'}).in('id',ids);
           var pp=await db.from('payments').update({status:'confirmed'}).eq('id',pay.id);
           if(pp.error) throw pp.error;
-          this.loadBaseData();
+          await this.loadBaseData();
         }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
       };
 
@@ -195,6 +204,49 @@ async function logout(){
           self.showModal=false;self.nform={name:'',slug:'',plan:'start'};await self.loadBaseData();
         }catch(e){self.msg='Ошибка: '+e.message;}finally{self.busy=false;}
       };
+
+      /* Move tariff controls from venue rows to manager rows before Vue compiles the DOM. */
+      (function rewriteManagerSubscriptionUI(){
+        try{
+          var root=document.getElementById('app');
+          if(!root) return;
+          var venuePane=root.querySelector('[v-if="tab===\'venues\'"]');
+          if(venuePane){
+            var vt=venuePane.querySelector('table.tbl');
+            if(vt&&vt.rows&&vt.rows[0]){
+              var heads=Array.prototype.slice.call(vt.rows[0].cells);
+              heads.forEach(function(cell,idx){
+                if(/^(Тариф|Подписка|До)$/.test((cell.textContent||'').trim())){
+                  Array.prototype.forEach.call(vt.rows,function(row){if(row.cells[idx])row.deleteCell(idx);});
+                }
+              });
+            }
+          }
+          var mgrPane=root.querySelector('[v-if="tab===\'managers\'"]');
+          if(mgrPane){
+            var mt=mgrPane.querySelector('table.tbl');
+            if(mt&&mt.rows&&mt.rows[0]){
+              var h=mt.rows[0];
+              var accessCell=-1;
+              Array.prototype.forEach.call(h.cells,function(c,i){if((c.textContent||'').trim()==='Доступы к заведениям')accessCell=i;});
+              if(accessCell<0) accessCell=h.cells.length-1;
+              function th(text){var c=document.createElement('th');c.textContent=text;return c;}
+              h.insertBefore(th('Тариф'),h.cells[accessCell]);
+              h.insertBefore(th('Подписка'),h.cells[accessCell+1]);
+              h.insertBefore(th('До'),h.cells[accessCell+2]);
+              Array.prototype.forEach.call(mt.querySelectorAll('tr'),function(row,ri){
+                if(ri===0)return;
+                var mExpr=row.getAttribute('v-for')||'';
+                if(!mExpr)return;
+                var make=function(html){var c=document.createElement('td');c.innerHTML=html;return c;};
+                row.insertBefore(make('<select style="width:auto;padding:6px" v-if="managerSubscription[m.id]" v-bind:value="managerSubscription[m.id].sub ? managerSubscription[m.id].sub.plan_id : \'\'" v-on:change="changeManagerPlan(m,$event.target.value)"><option value="">— Нет тарифа —</option><option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option></select><span v-else class="muted">—</span>'),row.cells[accessCell]);
+                row.insertBefore(make('<span v-if="managerSubscription[m.id] && managerSubscription[m.id].sub" class="badge" v-bind:class="managerSubscription[m.id].sub.status===\'trialing\'?\'b-trial\':\'b-on\'">{{ managerSubscription[m.id].sub.status===\'trialing\'?\'Триал\':\'Активна\' }}</span><span v-else class="muted">Нет</span>'),row.cells[accessCell+1]);
+                row.insertBefore(make('<div v-if="managerSubscription[m.id] && managerSubscription[m.id].sub"><div style="font-size:12px">{{ fmtDate(managerSubscription[m.id].sub.current_period_end) }}</div><button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px;margin-top:4px" v-on:click="extendManagerSub(m)">+30 дн</button></div><span v-else class="muted">—</span>'),row.cells[accessCell+2]);
+              });
+            }
+          }
+        }catch(e){console.warn('[QR Admin] subscription UI rewrite:',e);}
+      })();
     }
     return originalCreateApp.apply(this,arguments);
   };
