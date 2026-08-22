@@ -14,6 +14,44 @@
     return (t==='+ Создать'||t==='Создать')?el:null;
   }
 
+  async function syncVenueCreateLimit(){
+    var b=findCreateButton(document.body);
+    if(!b||!window.db)return;
+    try{
+      var u=await db.auth.getUser();
+      var uid=u&&u.data&&u.data.user&&u.data.user.id;
+      if(!uid)return;
+      var s=await db.from('subscriptions').select('plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
+      if(s.error||!s.data)return;
+      if(['active','trialing'].indexOf(s.data.status)===-1||!s.data.current_period_end||new Date(s.data.current_period_end)<new Date())return;
+      var p=await db.from('plans').select('max_venues,name').eq('id',s.data.plan_id).maybeSingle();
+      if(p.error||!p.data)return;
+      var links=await db.from('manager_venues').select('venue_id',{count:'exact',head:true}).eq('manager_id',uid);
+      if(links.error)return;
+      var count=links.count||0;
+      var max=Number(p.data.max_venues||0);
+      if(max>0){
+        b.disabled=count>=max;
+        if(count>=max)b.title='Лимит тарифа «'+(p.data.name||s.data.plan_id)+'»: '+max+' заведения(й)';
+        else b.removeAttribute('title');
+      }else{
+        b.disabled=false;
+        b.removeAttribute('title');
+      }
+    }catch(e){console.warn('[QR Manager] venue limit sync:',e);}
+  }
+
+  function scheduleVenueLimitSync(){
+    syncVenueCreateLimit();
+    var tries=0;
+    function retry(){
+      tries++;
+      syncVenueCreateLimit();
+      if(tries<12)setTimeout(retry,250);
+    }
+    setTimeout(retry,250);
+  }
+
   function showPlans(userId,plans){
     var old=document.getElementById('qr-manager-create-plan-flow');
     if(old)close(old);
@@ -40,6 +78,7 @@
           if(r.error)throw r.error;
           sessionStorage.setItem('qr_plan_selected','1');
           close(m);
+          syncVenueCreateLimit();
         }catch(e){
           card.disabled=false;
           alert('Не удалось подключить тариф: '+(e.message||e));
@@ -108,7 +147,7 @@
     setTimeout(fixTrialText,600);
     setTimeout(fixTrialText,1400);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fixTrialTextLater);
-  else fixTrialTextLater();
-  window.addEventListener('load',fixTrialTextLater);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){fixTrialTextLater();scheduleVenueLimitSync();});
+  else {fixTrialTextLater();scheduleVenueLimitSync();}
+  window.addEventListener('load',function(){fixTrialTextLater();setTimeout(syncVenueCreateLimit,300);});
 })();
