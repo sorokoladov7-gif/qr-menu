@@ -17,23 +17,37 @@ var templates={
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])})}
 function getProxy(){var root=document.getElementById('app');return root&&root.__vue_app__&&root.__vue_app__._instance&&root.__vue_app__._instance.proxy}
 
-/*
- * Permission bridge.
- * The current admin permission source is manager_venue_permissions.
- * manager.html still reads legacy venues.manager_permissions, so we
- * mirror only the permission flags into the in-memory object. No DB
- * data is rewritten here.
- */
+var permissionVenueId=null;
+var permissionLoading=false;
+
+function applyPermissions(p,x){
+  x=x||{};
+  p.venue.manager_permissions=Object.assign({},p.venue.manager_permissions||{}, {
+    delivery:x.can_edit_delivery===true,
+    design:x.can_edit_design===true,
+    branding:x.can_edit_branding===true,
+    venue:x.can_edit_venue===true,
+    prices:x.can_edit_prices===true,
+    products:x.can_edit_menu===true,
+    can_edit_delivery:x.can_edit_delivery===true,
+    can_edit_design:x.can_edit_design===true,
+    can_edit_branding:x.can_edit_branding===true,
+    can_edit_venue:x.can_edit_venue===true,
+    can_edit_prices:x.can_edit_prices===true,
+    can_edit_menu:x.can_edit_menu===true
+  });
+}
+
 function loadPermissions(p,done){
   if(!p||!p.venue||!p.venue.id){if(done)done();return;}
   if(p.profile&&p.profile.role==='admin'){
-    p.venue.manager_permissions=Object.assign({},p.venue.manager_permissions||{}, {
-      delivery:true,design:true,branding:true,venue:true,prices:true,products:true,addons:true,
-      can_edit_delivery:true,can_edit_design:true,can_edit_branding:true,can_edit_venue:true,can_edit_prices:true
-    });
+    applyPermissions(p,{can_edit_menu:true,can_edit_prices:true,can_edit_delivery:true,can_edit_design:true,can_edit_branding:true,can_edit_venue:true});
+    permissionVenueId=p.venue.id;
     if(done)done();
     return;
   }
+  if(permissionVenueId===p.venue.id || permissionLoading){if(done)done();return;}
+  permissionLoading=true;
   db.from('manager_venue_permissions')
     .select('can_edit_menu,can_edit_prices,can_edit_delivery,can_edit_design,can_edit_branding,can_edit_venue')
     .eq('manager_id',p.profile&&p.profile.id ? p.profile.id : '')
@@ -43,25 +57,18 @@ function loadPermissions(p,done){
       if(r.error){
         console.warn('[Manager] permission bridge:',r.error.message||r.error);
       } else {
-        var x=r.data||{};
-        p.venue.manager_permissions=Object.assign({},p.venue.manager_permissions||{}, {
-          delivery:x.can_edit_delivery===true,
-          design:x.can_edit_design===true,
-          branding:x.can_edit_branding===true,
-          venue:x.can_edit_venue===true,
-          prices:x.can_edit_prices===true,
-          products:x.can_edit_menu===true,
-          can_edit_delivery:x.can_edit_delivery===true,
-          can_edit_design:x.can_edit_design===true,
-          can_edit_branding:x.can_edit_branding===true,
-          can_edit_venue:x.can_edit_venue===true,
-          can_edit_prices:x.can_edit_prices===true,
-          can_edit_menu:x.can_edit_menu===true
-        });
+        applyPermissions(p,r.data||{});
       }
+      permissionVenueId=p.venue.id;
+      permissionLoading=false;
       if(done)done();
     })
-    .catch(function(e){console.warn('[Manager] permission bridge exception:',e);if(done)done()});
+    .catch(function(e){
+      permissionLoading=false;
+      permissionVenueId=p.venue.id;
+      console.warn('[Manager] permission bridge exception:',e);
+      if(done)done();
+    });
 }
 
 function allowed(p){return !!(p&&p.venue&&p.venue.manager_permissions&&(p.venue.manager_permissions.design===true||p.venue.manager_permissions.can_edit_design===true))}
@@ -97,6 +104,6 @@ function render(host,p){
 function applyTemplate(host,k){var t=templates[k],map={brand_color:'#md-brand',button_color:'#md-button',header_color:'#md-header',font_family:'#md-font',card_style:'#md-card',hero_style:'#md-hero',card_radius:'#md-cr',button_radius:'#md-br'};Object.keys(map).forEach(function(key){var el=host.querySelector(map[key]);if(!el)return;if(el.type==='color'||el.type==='text')el.value=t[key]||el.value;else el.value=t[key]||el.value});host.querySelectorAll('.md-template').forEach(function(x){x.classList.toggle('on',x.dataset.template===k)});}
 function save(host,p){var msg=host.querySelector('#md-msg');msg.textContent='Сохранение…';var settings={template:(host.querySelector('.md-template.on')||{}).dataset?host.querySelector('.md-template.on').dataset.template:'custom',brand_color:host.querySelector('#md-brand').value,button_color:host.querySelector('#md-button').value,header_color:host.querySelector('#md-header').value,font_family:host.querySelector('#md-font').value,card_style:host.querySelector('#md-card').value,hero_style:host.querySelector('#md-hero').value,hero_enabled:host.querySelector('#md-hero-enabled').checked,card_radius:Number(host.querySelector('#md-cr').value)||18,button_radius:Number(host.querySelector('#md-br').value)||12,button_style:host.querySelector('#md-bs').value,image_ratio:host.querySelector('#md-ratio').value};db.rpc('manager_save_design',{p_venue_id:p.venue.id,p_design_settings:settings}).then(function(r){if(r.error)throw r.error;p.venue.design_settings=r.data;msg.textContent='Сохранено';var f=host.querySelector('#md-frame');f.src='/menu.html?venue='+encodeURIComponent(p.venue.slug)+'&designPreview=1&t='+Date.now()}).catch(function(e){msg.textContent='Ошибка: '+(e.message||e)})}
 function sync(){var p=getProxy(),host=document.getElementById('manager-design-host'),tab=document.getElementById('manager-design-tab');if(!p||!host||!tab)return;var ok=allowed(p);tab.style.display=ok?'':'none';host.style.display=ok&&p.tab==='design'?'block':'none';if(ok&&p.tab==='design'&&host.dataset.venueId!==p.venue.id)render(host,p)}
-function boot(){ensureStyle();var n=0,t=setInterval(function(){var p=getProxy();if(p&&p.venue){loadPermissions(p,function(){build();sync()})}else{build();sync()}if(++n>80)clearInterval(t)},250)}
+function boot(){ensureStyle();var n=0,t=setInterval(function(){var p=getProxy();if(p&&p.venue&&permissionVenueId!==p.venue.id){loadPermissions(p,function(){build();sync()})}else{build();sync()}if(!p||!p.venue)permissionVenueId=null;if(++n>80)clearInterval(t)},250)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
