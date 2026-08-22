@@ -23,6 +23,27 @@
               if(!this.newVenueForm.slug)this.newVenueForm.slug=t.id||'';
             };
           }
+          if(typeof options.methods.selectVenue==='function' && !options.methods.__qrStaffVenueWrapped){
+            var originalSelectVenue=options.methods.selectVenue;
+            options.methods.selectVenue=function(v){
+              try{window.__QR_MANAGER_SELECTED_VENUE_ID__=v&&v.id?v.id:null;window.__QR_MANAGER_SELECTED_VENUE__=v||null;}catch(e){}
+              return originalSelectVenue.apply(this,arguments);
+            };
+            options.methods.__qrStaffVenueWrapped=true;
+          }
+          if(typeof options.methods.loadStaffAnalytics==='function' && !options.methods.__qrStaffAnalyticsWrapped){
+            var originalLoadStaffAnalytics=options.methods.loadStaffAnalytics;
+            options.methods.loadStaffAnalytics=function(){
+              var self=this;
+              try{window.__QR_MANAGER_SELECTED_VENUE_ID__=self.venue&&self.venue.id?self.venue.id:(window.__QR_MANAGER_SELECTED_VENUE_ID__||null);}catch(e){}
+              var result=originalLoadStaffAnalytics.apply(this,arguments);
+              var sync=function(){try{window.__QR_MANAGER_STAFF_ANALYTICS__=self.staffAnalytics||null;window.__QR_MANAGER_SELECTED_VENUE_ID__=self.venue&&self.venue.id?self.venue.id:(window.__QR_MANAGER_SELECTED_VENUE_ID__||null);}catch(e){}};
+              if(result&&typeof result.then==='function')return result.then(function(v){sync();return v;});
+              setTimeout(sync,0);
+              return result;
+            };
+            options.methods.__qrStaffAnalyticsWrapped=true;
+          }
         }
         return originalCreateApp.apply(this,arguments);
       };
@@ -51,5 +72,5 @@
   installVueBridge();
   loadScript('/js/manager-hall.js?v=2','data-manager-hall-single',function(){console.error('[QR Hall] failed to load manager-hall.js');});
   loadScript('/js/manager-recipes-ui.js?v=2','data-manager-recipes-ui',function(){console.error('[QR Recipes] failed to load manager-recipes-ui.js');});
-  loadScript('/js/manager-staff-statistics.js?v=5','data-manager-staff-statistics',function(){console.error('[QR Staff Stats] failed to load manager-staff-statistics.js');});
+  loadScript('/js/manager-staff-statistics.js?v=6','data-manager-staff-statistics',function(){console.error('[QR Staff Stats] failed to load manager-staff-statistics.js');});
 })();
