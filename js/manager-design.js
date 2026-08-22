@@ -20,22 +20,23 @@ function getProxy(){var root=document.getElementById('app');return root&&root.__
 var permissionVenueId=null;
 var permissionLoading=false;
 
+function setPermission(target, source, key, legacyKey){
+  if(Object.prototype.hasOwnProperty.call(source,key)){
+    target[legacyKey]=source[key]===true;
+    target[key]=source[key]===true;
+  }
+}
+
 function applyPermissions(p,x){
   x=x||{};
-  p.venue.manager_permissions=Object.assign({},p.venue.manager_permissions||{}, {
-    delivery:x.can_edit_delivery===true,
-    design:x.can_edit_design===true,
-    branding:x.can_edit_branding===true,
-    venue:x.can_edit_venue===true,
-    prices:x.can_edit_prices===true,
-    products:x.can_edit_menu===true,
-    can_edit_delivery:x.can_edit_delivery===true,
-    can_edit_design:x.can_edit_design===true,
-    can_edit_branding:x.can_edit_branding===true,
-    can_edit_venue:x.can_edit_venue===true,
-    can_edit_prices:x.can_edit_prices===true,
-    can_edit_menu:x.can_edit_menu===true
-  });
+  var legacy=Object.assign({},p.venue.manager_permissions||{});
+  setPermission(legacy,x,'can_edit_menu','products');
+  setPermission(legacy,x,'can_edit_prices','prices');
+  setPermission(legacy,x,'can_edit_delivery','delivery');
+  setPermission(legacy,x,'can_edit_design','design');
+  setPermission(legacy,x,'can_edit_branding','branding');
+  setPermission(legacy,x,'can_edit_venue','venue');
+  p.venue.manager_permissions=legacy;
 }
 
 function loadPermissions(p,done){
@@ -56,8 +57,8 @@ function loadPermissions(p,done){
     .then(function(r){
       if(r.error){
         console.warn('[Manager] permission bridge:',r.error.message||r.error);
-      } else {
-        applyPermissions(p,r.data||{});
+      } else if(r.data){
+        applyPermissions(p,r.data);
       }
       permissionVenueId=p.venue.id;
       permissionLoading=false;
