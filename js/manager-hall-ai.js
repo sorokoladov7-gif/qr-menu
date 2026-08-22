@@ -40,8 +40,8 @@
   }
   loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
   loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
-  loadScript('/js/manager-plan-before-venue.js?v=2','data-manager-plan-before-venue');
-  loadScript('/js/manager-subscription-owner.js?v=2','data-manager-subscription-owner');
-  loadScript('/js/manager-create-venue-fix.js?v=1','data-manager-create-venue-fix');
-  loadScript('/js/manager-personnel-final.js?v=3','data-manager-personnel-final');
+  loadScript('/js/manager-subscription-owner.js?v=3','data-manager-subscription-owner');
+  loadScript('/js/manager-create-venue-fix.js?v=2','data-manager-create-venue-fix');
+  loadScript('/js/manager-create-venue-flow.js?v=1','data-manager-create-venue-flow');
+  loadScript('/js/manager-personnel-final.js?v=4','data-manager-personnel-final');
 })();
