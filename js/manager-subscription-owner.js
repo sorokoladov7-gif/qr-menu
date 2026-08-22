@@ -25,12 +25,6 @@
         };
 
         options.methods=options.methods||{};
-        var oldSelect=options.methods.selectVenue;
-        options.methods.selectVenue=async function(v){
-          if(typeof oldSelect==='function') await oldSelect.call(this,v);
-          else { this.venue=v; this.tab='menu'; }
-          await this.loadManagerSubscription();
-        };
 
         options.methods.loadManagerSubscription=async function(){
           try{
@@ -44,10 +38,6 @@
             this.managerSubscription=r.data||null;
             if(r.data){
               this.subscriptionEnd=r.data.current_period_end;
-              if(this.venue){
-                this.venue.plan=r.data.plan_id;
-                this.venue.subscription_end=r.data.current_period_end;
-              }
             }
             return r.data||null;
           }catch(e){
@@ -74,7 +64,6 @@
             if(up.error) throw up.error;
             this.managerSubscription=up.data;
             this.subscriptionEnd=up.data.current_period_end;
-            if(this.venue){ this.venue.plan=up.data.plan_id; this.venue.subscription_end=up.data.current_period_end; }
             this.payPlan=null;
             this.showToast('Тариф управляющего изменен');
           }catch(e){
