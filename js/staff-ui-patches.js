@@ -3,6 +3,21 @@
   var path=location.pathname.toLowerCase();
   var isCourier=/\/courier\.html$/i.test(path);
   var isWaiter=/\/waiter\.html$/i.test(path);
+  var isCook=/\/cook\.html$/i.test(path);
+  var role=isCourier?'courier':(isWaiter?'waiter':(isCook?'cook':null));
+
+  function syncRoleToken(){
+    if(!role || !window.StaffAuth || typeof window.StaffAuth.login!=='function') return;
+    try{
+      var t=localStorage.getItem(role+'_token');
+      if(!t) return;
+      var raw=localStorage.getItem(role+'_session');
+      var sess={token:t};
+      try{sess=Object.assign(sess,JSON.parse(raw||'{}'));}catch(e){}
+      sess.token=t;
+      window.StaffAuth.login(role,sess);
+    }catch(e){ console.warn('[QR Staff UI] role token sync failed:',e); }
+  }
 
   function removeWaiterLegacy(){
     if(!isWaiter) return;
@@ -41,6 +56,7 @@
                   localStorage.setItem('staff_token',r.data.token);
                   localStorage.setItem('courier_token',r.data.token);
                   localStorage.setItem('courier_session',JSON.stringify(Object.assign({},JSON.parse(localStorage.getItem('courier_session')||'{}'),{token:r.data.token})));
+                  syncRoleToken();
                   window.dispatchEvent(new Event('qr-courier-token-ready'));
                 } else if(r.error){
                   console.warn('[QR Courier] staff token bootstrap:',r.error);
@@ -56,10 +72,11 @@
   }
 
   function observe(){
+    syncRoleToken();
     removeWaiterLegacy();
     waiterReleasePatch();
     if(document.body){
-      var mo=new MutationObserver(function(){removeWaiterLegacy();waiterReleasePatch();});
+      var mo=new MutationObserver(function(){syncRoleToken();removeWaiterLegacy();waiterReleasePatch();});
       mo.observe(document.body,{childList:true,subtree:true});
       setTimeout(function(){mo.disconnect();},30000);
     }
