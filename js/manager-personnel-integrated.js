@@ -29,8 +29,9 @@
   }
 
   function findStaffRoot(){
-    var add=document.querySelector('.tabs button.on') && document.querySelector('.tabs button.on').textContent.indexOf('Персонал')!==-1;
-    if(!add) return null;
+    var active=document.querySelector('.tabs button.on');
+    var activeText=(active&&active.textContent||'').trim();
+    if(activeText.indexOf('Персонал')===-1) return null;
     var btns=document.querySelectorAll('button');
     for(var i=0;i<btns.length;i++){
       if((btns[i].textContent||'').indexOf('Добавить повара')!==-1){
@@ -101,20 +102,21 @@
 
     container.insertBefore(panel,root);
     var sel=panel.querySelector('#qr-personnel-period');
-    if(sel){sel.onchange=function(){proxy.staffAnalyticsDays=String(this.value);if(typeof proxy.loadStaffAnalytics==='function')proxy.loadStaffAnalytics();};}
+    if(sel){sel.onchange=function(){proxy.staffAnalyticsDays=String(this.value);if(typeof proxy.loadStaffAnalytics==='function')proxy.loadStaffAnalytics();setTimeout(sync,150);};}
   }
 
   function sync(){
     renamePersonnelTab();
+    hideAnalyticsPersonnel();
     var proxy=getVueProxy();
     if(!proxy) return;
-    if(proxy.tab==='analytics') hideAnalyticsPersonnel();
     if(proxy.tab==='staff') renderPersonnel(proxy);
   }
 
   function patchVue(Vue){
-    if(!Vue||typeof Vue.createApp!=='function'||Vue.__QR_PERSONNEL_PATCH__)return;
-    Vue.__QR_PERSONNEL_PATCH__=true;
+    if(!Vue||typeof Vue.createApp!=='function'||Vue.__QR_PERSONNEL_PATCH__) return;
+    if(Vue.__QR_PERSONNEL_PATCHED__) return;
+    Vue.__QR_PERSONNEL_PATCHED__=true;
     var original=Vue.createApp;
     Vue.createApp=function(options){
       if(options&&typeof options==='object'){
@@ -122,8 +124,7 @@
         var oldWatch=options.watch.tab;
         options.watch.tab=function(n,o){
           if(typeof oldWatch==='function')oldWatch.call(this,n,o);
-          var self=this;
-          setTimeout(function(){sync();},0);
+          setTimeout(sync,0);
         };
       }
       return original.apply(this,arguments);
@@ -138,7 +139,7 @@
       Object.defineProperty(window,'Vue',{configurable:true,enumerable:true,get:function(){return value;},set:function(v){value=v;patchVue(v);}});
     }
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(sync,50);});else setTimeout(sync,50);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(sync,100);});else setTimeout(sync,100);
   var mo=new MutationObserver(function(){sync();});
   mo.observe(document.documentElement,{childList:true,subtree:true});
 })();
