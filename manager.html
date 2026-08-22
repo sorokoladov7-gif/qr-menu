@@ -483,6 +483,8 @@
 <script src="/js/config.js"></script>
 <script src="/js/manager-hall.js"></script>
 <script src="/js/manager-hall-view.js"></script>
+<script src="/js/manager-hall-ai.js"></script>
+<script src="/js/manager-design.js"></script>
 <script src="/js/demo-data.js"></script>
 <script src="/js/demo-mode.js"></script>
 <script src="/js/app.js"></script>
@@ -530,13 +532,35 @@ Vue.createApp({
     currentPlan: function() { if(!this.venue) return null; var planId=this.venue.plan; return this.plans.find(function(p){return p.id===planId})||null; },
     canCreateVenue: function() { var p=this.plans.find(function(x){return x.id==='start'}); return this.myVenues.length < (p ? p.max_venues : 1); },
     perms: function() {
-      if(this.venue && this.venue.manager_permissions) {
-        var p=this.venue.manager_permissions;
-        return {addons: p.addons!==false, products: p.products!==false, prices: p.prices!==false};
-      }
-      return {addons: true, products: true, prices: true};
-    }
-  },
+  if(this.venue && this.venue.manager_permissions) {
+    var p=this.venue.manager_permissions;
+
+    return {
+      addons: p.addons !== false,
+      products: p.products !== false,
+      prices: p.prices !== false,
+
+      // Права, выдаваемые администратором
+      delivery: p.delivery === true,
+      design: p.design === true,
+      branding: p.branding === true,
+      venue: p.venue === true
+    };
+  }
+
+  return {
+    addons: true,
+    products: true,
+    prices: true,
+
+    // Старое поведение сохраняем:
+    // если объект прав отсутствует, базовые права остаются доступными.
+    delivery: false,
+    design: false,
+    branding: false,
+    venue: false
+  };
+}
   methods: {
     fmt: function(v) { return window.fmt ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
     fmtDate: function(d) { return d ? new Date(d).toLocaleDateString('ru-RU') : '-'; },
