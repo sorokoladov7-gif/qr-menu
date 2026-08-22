@@ -1,8 +1,9 @@
-/* QR Menu — compatibility bootstrap. Hall logic lives only in manager-hall.js. */
+/* QR Menu — compatibility bootstrap. */
 (function(){
   'use strict';
   if(window.__QR_MANAGER_HALL_BOOTSTRAP__) return;
   window.__QR_MANAGER_HALL_BOOTSTRAP__=true;
+
   function patchVue(Vue){
     try{
       if(!Vue || typeof Vue.createApp!=='function' || Vue.__QR_TEMPLATE_METHOD_PATCHED__) return;
@@ -15,11 +16,11 @@
             options.methods.selectVenueTemplate=function(id){
               var list=Array.isArray(this.venueTemplates)?this.venueTemplates:[];
               var t=list.find(function(x){return String(x.id)===String(id);});
-              if(!t) return;
-              if(!this.newVenueForm) this.newVenueForm={};
+              if(!t)return;
+              if(!this.newVenueForm)this.newVenueForm={};
               this.newVenueForm.template=t.id;
-              if(!this.newVenueForm.name) this.newVenueForm.name=t.name||'';
-              if(!this.newVenueForm.slug) this.newVenueForm.slug=t.id||'';
+              if(!this.newVenueForm.name)this.newVenueForm.name=t.name||'';
+              if(!this.newVenueForm.slug)this.newVenueForm.slug=t.id||'';
             };
           }
         }
@@ -27,26 +28,28 @@
       };
     }catch(e){console.warn('[QR Menu] Vue template bridge:',e);}
   }
-  try{
-    var currentVue=window.Vue;
-    if(currentVue) patchVue(currentVue);
-    else if(!Object.prototype.hasOwnProperty.call(window,'__QR_VUE_BRIDGE_INSTALLED__')){
-      window.__QR_VUE_BRIDGE_INSTALLED__=true;
-      var descriptor=Object.getOwnPropertyDescriptor(window,'Vue');
-      if(!descriptor || descriptor.configurable!==false){
-        var vueValue;
-        Object.defineProperty(window,'Vue',{configurable:true,enumerable:true,get:function(){return vueValue;},set:function(v){vueValue=v;patchVue(v);}});
+
+  function installVueBridge(){
+    try{
+      if(window.Vue)patchVue(window.Vue);
+      else if(!Object.prototype.hasOwnProperty.call(window,'__QR_VUE_BRIDGE_INSTALLED__')){
+        window.__QR_VUE_BRIDGE_INSTALLED__=true;
+        var descriptor=Object.getOwnPropertyDescriptor(window,'Vue');
+        if(!descriptor || descriptor.configurable!==false){
+          var vueValue;
+          Object.defineProperty(window,'Vue',{configurable:true,enumerable:true,get:function(){return vueValue;},set:function(v){vueValue=v;patchVue(v);}});
+        }
       }
-    }
-  }catch(e){console.warn('[QR Menu] Vue bridge install failed:',e);}
+    }catch(e){console.warn('[QR Menu] Vue bridge install failed:',e);}
+  }
+
   function loadScript(src,key,onError){
-    if(document.querySelector('script['+key+']')) return;
+    if(document.querySelector('script['+key+']'))return;
     var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(key,'1');s.onerror=onError;document.head.appendChild(s);
   }
-  function load(){
-    if(!(window.QRManagerHall&&window.QRManagerHall.open)) loadScript('/js/manager-hall.js?v=2','data-manager-hall-single',function(){console.error('[QR Hall] failed to load manager-hall.js');});
-    loadScript('/js/manager-recipes-ui.js?v=2','data-manager-recipes-ui',function(){console.error('[QR Recipes] failed to load manager-recipes-ui.js');});
-    loadScript('/js/manager-staff-statistics.js?v=1','data-manager-staff-statistics',function(){console.error('[QR Staff Stats] failed to load manager-staff-statistics.js');});
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',load); else load();
+
+  installVueBridge();
+  loadScript('/js/manager-hall.js?v=2','data-manager-hall-single',function(){console.error('[QR Hall] failed to load manager-hall.js');});
+  loadScript('/js/manager-recipes-ui.js?v=2','data-manager-recipes-ui',function(){console.error('[QR Recipes] failed to load manager-recipes-ui.js');});
+  loadScript('/js/manager-staff-statistics.js?v=5','data-manager-staff-statistics',function(){console.error('[QR Staff Stats] failed to load manager-staff-statistics.js');});
 })();
