@@ -16,7 +16,55 @@ var templates={
 
 function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])})}
 function getProxy(){var root=document.getElementById('app');return root&&root.__vue_app__&&root.__vue_app__._instance&&root.__vue_app__._instance.proxy}
-function allowed(p){return !!(p&&p.venue&&p.venue.manager_permissions&&p.venue.manager_permissions.design===true)}
+
+/*
+ * Permission bridge.
+ * The current admin permission source is manager_venue_permissions.
+ * manager.html still reads legacy venues.manager_permissions, so we
+ * mirror only the permission flags into the in-memory object. No DB
+ * data is rewritten here.
+ */
+function loadPermissions(p,done){
+  if(!p||!p.venue||!p.venue.id){if(done)done();return;}
+  if(p.profile&&p.profile.role==='admin'){
+    p.venue.manager_permissions=Object.assign({},p.venue.manager_permissions||{}, {
+      delivery:true,design:true,branding:true,venue:true,prices:true,products:true,addons:true,
+      can_edit_delivery:true,can_edit_design:true,can_edit_branding:true,can_edit_venue:true,can_edit_prices:true
+    });
+    if(done)done();
+    return;
+  }
+  db.from('manager_venue_permissions')
+    .select('can_edit_menu,can_edit_prices,can_edit_delivery,can_edit_design,can_edit_branding,can_edit_venue')
+    .eq('manager_id',p.profile&&p.profile.id ? p.profile.id : '')
+    .eq('venue_id',p.venue.id)
+    .maybeSingle()
+    .then(function(r){
+      if(r.error){
+        console.warn('[Manager] permission bridge:',r.error.message||r.error);
+      } else {
+        var x=r.data||{};
+        p.venue.manager_permissions=Object.assign({},p.venue.manager_permissions||{}, {
+          delivery:x.can_edit_delivery===true,
+          design:x.can_edit_design===true,
+          branding:x.can_edit_branding===true,
+          venue:x.can_edit_venue===true,
+          prices:x.can_edit_prices===true,
+          products:x.can_edit_menu===true,
+          can_edit_delivery:x.can_edit_delivery===true,
+          can_edit_design:x.can_edit_design===true,
+          can_edit_branding:x.can_edit_branding===true,
+          can_edit_venue:x.can_edit_venue===true,
+          can_edit_prices:x.can_edit_prices===true,
+          can_edit_menu:x.can_edit_menu===true
+        });
+      }
+      if(done)done();
+    })
+    .catch(function(e){console.warn('[Manager] permission bridge exception:',e);if(done)done()});
+}
+
+function allowed(p){return !!(p&&p.venue&&p.venue.manager_permissions&&(p.venue.manager_permissions.design===true||p.venue.manager_permissions.can_edit_design===true))}
 
 function ensureStyle(){if(document.getElementById('manager-design-style'))return;var s=document.createElement('style');s.id='manager-design-style';s.textContent='.md-wrap{padding:4px 0 30px}.md-grid{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:14px}.md-card{border:1px solid rgba(255,255,255,.1);border-radius:16px;background:rgba(255,255,255,.035);padding:16px}.md-templates{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.md-template{padding:11px;border:1px solid rgba(255,255,255,.1);border-radius:12px;cursor:pointer;background:rgba(255,255,255,.02)}.md-template:hover,.md-template.on{border-color:#8b5cf6;background:rgba(99,102,241,.12)}.md-template b{display:block}.md-template span{font-size:22px}.md-fields{display:grid;gap:10px;margin-top:12px}.md-field{display:grid;gap:5px;font-size:12px;color:#94a3b8}.md-field input,.md-field select{width:100%;box-sizing:border-box;padding:9px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:inherit}.md-two{display:grid;grid-template-columns:1fr 1fr;gap:8px}.md-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.md-preview{background:#0b1020;border-radius:18px;padding:12px;min-height:650px}.md-preview iframe{width:100%;height:620px;border:0;border-radius:14px;background:#fff}.md-note{font-size:11px;color:#94a3b8;margin-top:8px}.md-lock{padding:35px;text-align:center}.md-badge{display:inline-block;padding:5px 9px;border-radius:999px;background:rgba(52,211,153,.12);color:#6ee7b7;font-size:11px}@media(max-width:1050px){.md-grid{grid-template-columns:1fr}.md-templates{grid-template-columns:repeat(2,1fr)}}';document.head.appendChild(s)}
 
@@ -49,6 +97,6 @@ function render(host,p){
 function applyTemplate(host,k){var t=templates[k],map={brand_color:'#md-brand',button_color:'#md-button',header_color:'#md-header',font_family:'#md-font',card_style:'#md-card',hero_style:'#md-hero',card_radius:'#md-cr',button_radius:'#md-br'};Object.keys(map).forEach(function(key){var el=host.querySelector(map[key]);if(!el)return;if(el.type==='color'||el.type==='text')el.value=t[key]||el.value;else el.value=t[key]||el.value});host.querySelectorAll('.md-template').forEach(function(x){x.classList.toggle('on',x.dataset.template===k)});}
 function save(host,p){var msg=host.querySelector('#md-msg');msg.textContent='Сохранение…';var settings={template:(host.querySelector('.md-template.on')||{}).dataset?host.querySelector('.md-template.on').dataset.template:'custom',brand_color:host.querySelector('#md-brand').value,button_color:host.querySelector('#md-button').value,header_color:host.querySelector('#md-header').value,font_family:host.querySelector('#md-font').value,card_style:host.querySelector('#md-card').value,hero_style:host.querySelector('#md-hero').value,hero_enabled:host.querySelector('#md-hero-enabled').checked,card_radius:Number(host.querySelector('#md-cr').value)||18,button_radius:Number(host.querySelector('#md-br').value)||12,button_style:host.querySelector('#md-bs').value,image_ratio:host.querySelector('#md-ratio').value};db.rpc('manager_save_design',{p_venue_id:p.venue.id,p_design_settings:settings}).then(function(r){if(r.error)throw r.error;p.venue.design_settings=r.data;msg.textContent='Сохранено';var f=host.querySelector('#md-frame');f.src='/menu.html?venue='+encodeURIComponent(p.venue.slug)+'&designPreview=1&t='+Date.now()}).catch(function(e){msg.textContent='Ошибка: '+(e.message||e)})}
 function sync(){var p=getProxy(),host=document.getElementById('manager-design-host'),tab=document.getElementById('manager-design-tab');if(!p||!host||!tab)return;var ok=allowed(p);tab.style.display=ok?'':'none';host.style.display=ok&&p.tab==='design'?'block':'none';if(ok&&p.tab==='design'&&host.dataset.venueId!==p.venue.id)render(host,p)}
-function boot(){ensureStyle();var n=0,t=setInterval(function(){build();sync();if(++n>80)clearInterval(t)},250)}
+function boot(){ensureStyle();var n=0,t=setInterval(function(){var p=getProxy();if(p&&p.venue){loadPermissions(p,function(){build();sync()})}else{build();sync()}if(++n>80)clearInterval(t)},250)}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 })();
