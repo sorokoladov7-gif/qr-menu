@@ -1,120 +1,194 @@
-/* QR Menu — manager venue creation flow v8. */
+/* QR Menu — manager venue creation flow v9. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_CREATE_FLOW_V8__) return;
-  window.__QR_MANAGER_CREATE_FLOW_V8__=true;
+  if(window.__QR_MANAGER_CREATE_FLOW_V9__) return;
+  window.__QR_MANAGER_CREATE_FLOW_V9__ = true;
 
-  function vue(){
-    try{
-      if(window.__managerVue) return window.__managerVue;
-      if(window.__QR_MANAGER_VUE_APP__&&window.__QR_MANAGER_VUE_APP__._instance){
-        return window.__QR_MANAGER_VUE_APP__._instance.proxy||null;
-      }
-      var root=document.getElementById('app');
-      var inst=root&&root.__vue_app__&&root.__vue_app__._instance;
-      return inst&&inst.proxy?inst.proxy:null;
-    }catch(e){return null;}
+  var PLAN_ID = 'qr-manager-plan-modal-v9';
+  var CREATE_ID = 'qr-manager-create-modal-v9';
+  var BUSY = false;
+
+  function close(id){ var el=document.getElementById(id); if(el&&el.parentNode) el.parentNode.removeChild(el); }
+  function esc(v){ return String(v==null?'':v).replace(/[&<>\"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]; }); }
+  function text5(){
+    var root=document.getElementById('app'); if(!root) return;
+    var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),n;
+    while(n=w.nextNode()) if(/3\s*дня\s*бесплатно/i.test(n.nodeValue||'')) n.nodeValue=n.nodeValue.replace(/3\s*дня\s*бесплатно/ig,'5 дней бесплатно');
   }
-  function waitVue(timeout){
-    timeout=timeout||2500;
-    var ready=vue(); if(ready)return Promise.resolve(ready);
-    return new Promise(function(resolve,reject){
-      var done=false, timer;
-      function finish(v){if(done)return;done=true;clearTimeout(timer);window.removeEventListener('qr-manager-vue-ready',onReady);v?resolve(v):reject(new Error('Кабинет ещё не инициализирован'));}
-      function onReady(){finish(vue());}
-      window.addEventListener('qr-manager-vue-ready',onReady);
-      var started=Date.now();
-      (function poll(){var v=vue();if(v)return finish(v);if(Date.now()-started>=timeout)return finish(null);setTimeout(poll,50);})();
-      timer=setTimeout(function(){finish(vue());},timeout+100);
+  function showError(msg){ alert(msg); }
+
+  async function managerId(){
+    if(typeof db==='undefined') throw new Error('Supabase не подключен');
+    var a=await db.auth.getUser();
+    if(a&&a.data&&a.data.user&&a.data.user.id) return a.data.user.id;
+    var s=await db.auth.getSession();
+    if(s&&s.data&&s.data.session&&s.data.session.user) return s.data.session.user.id;
+    throw new Error('Не удалось определить управляющего');
+  }
+
+  async function currentSubscription(uid){
+    var r=await db.from('subscriptions').select('id,manager_id,venue_id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
+    if(r.error) throw r.error;
+    return r.data||null;
+  }
+
+  async function activePlans(){
+    var r=await db.from('plans').select('id,name,price,max_venues,max_products,is_active,sort_order').eq('is_active',true).order('sort_order');
+    if(r.error) throw r.error;
+    return r.data||[];
+  }
+
+  async function menuTemplates(){
+    var r=await db.from('menu_templates').select('id,name,slug,emoji,description,is_active,sort_order,products').eq('is_active',true).order('sort_order').order('name');
+    if(r.error) throw r.error;
+    return (r.data||[]).map(function(t){
+      return {id:t.id,name:t.name,emoji:t.emoji||'🍽️',description:t.description||'',products:Array.isArray(t.products)?t.products:[]};
     });
   }
-  async function managerId(){
-    var p=vue();
-    if(p&&p.profile&&p.profile.id)return p.profile.id;
-    var a=await db.auth.getUser();
-    if(a&&a.data&&a.data.user&&a.data.user.id)return a.data.user.id;
-    var s=await db.auth.getSession();
-    return s&&s.data&&s.data.session&&s.data.session.user?s.data.session.user.id:null;
+
+  async function venueCount(uid){
+    var r=await db.from('manager_venues').select('venue_id',{count:'exact',head:true}).eq('manager_id',uid);
+    if(r.error) throw r.error;
+    return Number(r.count||0);
   }
-  function btn(target){
-    var b=target&&target.closest?target.closest('#app button'):null;
-    if(!b)return null;
-    var t=(b.textContent||'').replace(/\s+/g,' ').trim();
-    return (t==='+ Создать'||t==='Создать')?b:null;
+
+  function injectBase(id){
+    var old=document.getElementById(id); if(old) close(id);
+    var m=document.createElement('div'); m.id=id;
+    m.style.cssText='position:fixed;inset:0;z-index:10060;background:rgba(3,8,20,.94);display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(8px)';
+    document.body.appendChild(m); return m;
   }
-  function close(el){if(el&&el.parentNode)el.parentNode.removeChild(el);}
-  function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
-  function text5(){
-    var root=document.getElementById('app');if(!root)return;
-    var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),n;
-    while(n=w.nextNode())if(/3\s*дня\s*бесплатно/i.test(n.nodeValue||''))n.nodeValue=n.nodeValue.replace(/3\s*дня\s*бесплатно/ig,'5 дней бесплатно');
-  }
-  function plansModal(plans){
-    var old=document.getElementById('qr-manager-plan-modal');if(old)close(old);
-    var m=document.createElement('div');m.id='qr-manager-plan-modal';
-    m.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(3,8,20,.94);display:flex;align-items:center;justify-content:center;padding:20px';
-    m.innerHTML='<div style="width:min(960px,100%);max-height:90vh;overflow:auto;background:#111827;color:#fff;border-radius:20px;padding:24px"><div style="display:flex;justify-content:space-between"><div><h2 style="margin:0 0 8px">Сначала выберите тариф</h2><div style="color:#9ca3af">Пробный период — <b>5 дней</b></div></div><button id="qr-plan-close" type="button" class="btn btn-ghost btn-sm">Отмена</button></div><div id="qr-plan-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:20px"></div></div>';
-    document.body.appendChild(m);m.querySelector('#qr-plan-close').onclick=function(){close(m);};
-    var g=m.querySelector('#qr-plan-grid');
+
+  function renderPlans(plans, uid, sub){
+    var m=injectBase(PLAN_ID);
+    m.innerHTML='<div style="width:min(980px,100%);max-height:90vh;overflow:auto;background:#111827;color:#fff;border-radius:20px;padding:24px">'
+      +'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">'
+      +'<div><h2 style="margin:0 0 8px">Сначала выберите тариф</h2><div style="color:#9ca3af">Пробный период — <b style="color:#6ee7b7">5 дней бесплатно</b></div></div>'
+      +'<button id="qr-plan-close-v9" type="button" style="background:rgba(255,255,255,.08);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer">Отмена</button></div>'
+      +'<div id="qr-plan-grid-v9" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:20px"></div></div>';
+    m.querySelector('#qr-plan-close-v9').onclick=function(){close(PLAN_ID);};
+    var g=m.querySelector('#qr-plan-grid-v9');
     plans.forEach(function(p){
-      var c=document.createElement('button');c.type='button';c.style.cssText='text-align:left;background:#172236;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;cursor:pointer';
-      c.innerHTML='<b style="font-size:20px">'+esc(p.name||p.id)+'</b><div style="font-size:25px;font-weight:800;margin-top:8px">'+esc(p.price||0)+' ₽</div><div style="font-size:12px;color:#9ca3af;margin-top:8px">'+esc(p.max_venues||1)+' завед. · '+esc(p.max_products||0)+' позиций</div><div style="font-size:12px;color:#6ee7b7;margin-top:10px">5 дней бесплатно</div>';
+      var c=document.createElement('button'); c.type='button';
+      c.style.cssText='text-align:left;background:#172236;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:18px;cursor:pointer';
+      c.innerHTML='<b style="font-size:20px">'+esc(p.name||p.id)+'</b>'
+        +'<div style="font-size:25px;font-weight:800;margin-top:8px">'+esc(p.price||0)+' ₽</div>'
+        +'<div style="font-size:12px;color:#9ca3af;margin-top:8px">'+esc(p.max_venues||1)+' завед. · '+esc(p.max_products||0)+' позиций</div>'
+        +'<div style="font-size:12px;color:#6ee7b7;margin-top:10px">5 дней бесплатно</div>';
       c.onclick=async function(){
-        c.disabled=true;
+        if(BUSY) return; BUSY=true; c.disabled=true;
         try{
-          var uid=await managerId();if(!uid)throw new Error('Не удалось определить управляющего');
           var end=new Date(Date.now()+5*864e5);
-          var r=await db.from('subscriptions').upsert({manager_id:uid,venue_id:null,plan_id:p.id,status:'trialing',current_period_end:end.toISOString()},{onConflict:'manager_id'}).select('*').single();
-          if(r.error)throw r.error;
-          close(m);text5();
-          var proxy=await waitVue();proxy.showCreateVenue=true;
-        }catch(e){c.disabled=false;alert('Не удалось подключить тариф: '+(e.message||e));}
+          var r=await db.from('subscriptions').upsert({manager_id:uid,venue_id:null,plan_id:p.id,status:'trialing',current_period_end:end.toISOString()},{onConflict:'manager_id'}).select('id,manager_id,plan_id,status,current_period_end').single();
+          if(r.error) throw r.error;
+          close(PLAN_ID);
+          text5();
+          await renderCreate(uid,r.data,p);
+        }catch(e){ c.disabled=false; showError('Не удалось подключить тариф: '+(e.message||e)); }
+        finally{ BUSY=false; }
       };
       g.appendChild(c);
     });
   }
-  async function openCreate(){
-    var uid=await managerId();if(!uid)throw new Error('Не удалось определить управляющего');
-    var s=await db.from('subscriptions').select('id,manager_id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
-    if(s.error)throw s.error;
-    var valid=s.data&&['active','trialing'].indexOf(s.data.status)!==-1&&s.data.current_period_end&&new Date(s.data.current_period_end)>=new Date();
-    if(valid){var p=await waitVue();p.showCreateVenue=true;return;}
-    var r=await db.from('plans').select('id,name,price,max_venues,max_products,is_active,sort_order').eq('is_active',true).order('sort_order');
-    if(r.error)throw r.error;if(!r.data||!r.data.length)throw new Error('Нет доступных тарифов');plansModal(r.data);
-  }
-  function patch(proxy){
-    if(!proxy||proxy.__qrCreateVenueV8)return;
-    proxy.__qrCreateVenueV8=true;
-    proxy.createVenue=async function(){
-      var p=proxy,template=p.selectedVenueTemplate;p.formError='';
-      if(!template){p.formError='Выберите шаблон ниши';return;}
-      if(!p.newVenueForm||!p.newVenueForm.name||!p.newVenueForm.slug){p.formError='Заполните название и код заведения';return;}
-      var uid=await managerId();if(!uid){p.formError='Не удалось определить управляющего';return;}
-      var s=await db.from('subscriptions').select('id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
-      if(s.error){p.formError='Не удалось проверить подписку: '+s.error.message;return;}
-      if(!s.data||['active','trialing'].indexOf(s.data.status)===-1||!s.data.current_period_end||new Date(s.data.current_period_end)<new Date()){p.formError='Сначала выберите тариф';return;}
-      var plan=Array.isArray(p.plans)?p.plans.find(function(x){return x.id===s.data.plan_id;}):null;
-      var count=Array.isArray(p.myVenues)?p.myVenues.length:0;
-      if(plan&&plan.max_venues&&count>=plan.max_venues){p.formError='Достигнут лимит заведений по тарифу';return;}
-      if(plan&&plan.max_products&&template.products.length>plan.max_products){p.formError='В выбранном тарифе недостаточно места для шаблона';return;}
-      p.busy=true;
+
+  async function renderCreate(uid, sub, plan){
+    var templates=await menuTemplates();
+    if(!templates.length) throw new Error('Нет доступных шаблонов заведений');
+    var count=await venueCount(uid);
+    var maxVenues=Number(plan&&plan.max_venues||0);
+    if(maxVenues>0 && count>=maxVenues) throw new Error('Достигнут лимит заведений по выбранному тарифу');
+
+    var m=injectBase(CREATE_ID);
+    m.innerHTML='<div style="width:min(980px,100%);max-height:92vh;overflow:auto;background:#111827;color:#fff;border-radius:20px;padding:24px">'
+      +'<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">'
+      +'<div><h2 style="margin:0 0 8px">Новое заведение</h2><div style="color:#9ca3af">Тариф: <b style="color:#fff">'+esc(plan.name||sub.plan_id)+'</b> · Trial до '+esc(new Date(sub.current_period_end).toLocaleString('ru-RU'))+'</div></div>'
+      +'<button id="qr-create-close-v9" type="button" style="background:rgba(255,255,255,.08);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer">Отмена</button></div>'
+      +'<div style="margin-top:18px"><label style="display:block;margin-bottom:8px">Шаблон ниши</label><div id="qr-template-grid-v9" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px"></div></div>'
+      +'<div id="qr-template-preview-v9" style="margin-top:12px"></div>'
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px">'
+      +'<div><label style="display:block;margin-bottom:8px">Название заведения *</label><input id="qr-venue-name-v9" style="width:100%;box-sizing:border-box;background:#0f172a;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px" placeholder="Например: Coffee Point"></div>'
+      +'<div><label style="display:block;margin-bottom:8px">Код (slug) *</label><input id="qr-venue-slug-v9" style="width:100%;box-sizing:border-box;background:#0f172a;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px" placeholder="coffee-point"></div>'
+      +'</div>'
+      +'<div id="qr-create-error-v9" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:rgba(248,113,113,.12);color:#fca5a5"></div>'
+      +'<div style="display:flex;gap:10px;margin-top:18px"><button id="qr-create-submit-v9" type="button" style="flex:1;background:#6366f1;color:#fff;border:0;border-radius:10px;padding:13px;cursor:pointer;font-weight:700">Создать заведение</button><button id="qr-create-cancel-v9" type="button" style="background:rgba(255,255,255,.08);color:#fff;border:0;border-radius:10px;padding:13px;cursor:pointer">Отмена</button></div></div>';
+    m.querySelector('#qr-create-close-v9').onclick=function(){close(CREATE_ID);};
+    m.querySelector('#qr-create-cancel-v9').onclick=function(){close(CREATE_ID);};
+
+    var selected=templates[0];
+    var grid=m.querySelector('#qr-template-grid-v9');
+    var preview=m.querySelector('#qr-template-preview-v9');
+    function selectTemplate(t){
+      selected=t;
+      Array.prototype.forEach.call(grid.children,function(el){el.style.borderColor=el.dataset.id===t.id?'#8b5cf6':'rgba(255,255,255,.12)';el.style.background=el.dataset.id===t.id?'rgba(99,102,241,.12)':'#172236';});
+      preview.innerHTML='<div style="border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;max-height:180px;overflow:auto">'
+        +'<b>'+esc(t.emoji)+' '+esc(t.name)+'</b><div style="margin-top:8px;color:#9ca3af;font-size:12px">'+esc(t.products.length)+' готовых позиций</div>'
+        +t.products.slice(0,20).map(function(i){return '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px"><span>'+esc(i.name)+'</span><b>'+esc(i.price||0)+' ₽</b></div>';}).join('')
+        +'</div>';
+    }
+    templates.forEach(function(t){
+      var c=document.createElement('button'); c.type='button'; c.dataset.id=t.id;
+      c.style.cssText='text-align:left;background:#172236;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:14px;cursor:pointer';
+      c.innerHTML='<div style="font-size:28px">'+esc(t.emoji)+'</div><b>'+esc(t.name)+'</b><div style="font-size:11px;color:#9ca3af;margin-top:5px">'+esc(t.products.length)+' позиций</div>';
+      c.onclick=function(){selectTemplate(t);}; grid.appendChild(c);
+    });
+    selectTemplate(selected);
+
+    m.querySelector('#qr-create-submit-v9').onclick=async function(){
+      if(BUSY) return;
+      var name=m.querySelector('#qr-venue-name-v9').value.trim();
+      var slugRaw=m.querySelector('#qr-venue-slug-v9').value.trim();
+      var err=m.querySelector('#qr-create-error-v9'); err.style.display='none';
+      if(!name||!slugRaw){err.textContent='Заполните название и код заведения';err.style.display='block';return;}
+      if(plan&&plan.max_products&&selected.products.length>Number(plan.max_products)){err.textContent='В выбранном тарифе недостаточно места для выбранного шаблона';err.style.display='block';return;}
+      var slug=slugRaw.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9а-яё_-]/gi,'');
+      if(!slug){err.textContent='Некорректный код заведения';err.style.display='block';return;}
+      BUSY=true; this.disabled=true; this.textContent='Создаю...';
       try{
-        var slug=p.newVenueForm.slug.toLowerCase().trim().replace(/\s+/g,'-').replace(/[^a-z0-9а-яё_-]/gi,'');
-        if(!slug)throw new Error('Некорректный slug');
-        var products=(template.products||[]).map(function(i){return {name:i.name,description:i.description||null,price:Number(i.price)||0,category:i.category||'main',image_url:i.image_url||null,applies_to:i.applies_to||'all',is_available:true};});
-        var r=await db.rpc('create_venue_for_manager',{p_name:p.newVenueForm.name.trim(),p_slug:slug,p_plan:s.data.plan_id,p_subscription_end:s.data.current_period_end,p_products:products});
-        if(r.error)throw r.error;
-        p.showCreateVenue=false;p.newVenueForm={name:'',slug:'',template:null};await p.loadMyVenues();if(r.data)p.selectVenue(r.data);p.showToast('Заведение создано');
-      }catch(e){console.error('createVenue error:',e);p.formError='Ошибка: '+(e.message||String(e));}finally{p.busy=false;}
+        var check=await currentSubscription(uid); if(!check) throw new Error('Подписка не найдена');
+        var r=await db.rpc('create_venue_for_manager',{p_name:name,p_slug:slug,p_plan:check.plan_id,p_subscription_end:check.current_period_end,p_products:(selected.products||[]).map(function(i){return {name:i.name,description:i.description||null,price:Number(i.price)||0,category:i.category||'main',image_url:i.image_url||null,applies_to:i.applies_to||'all',is_available:true};})});
+        if(r.error) throw r.error;
+        close(CREATE_ID);
+        alert('Заведение «'+name+'» создано.');
+        location.reload();
+      }catch(e){err.textContent='Ошибка: '+(e.message||String(e));err.style.display='block';this.disabled=false;this.textContent='Создать заведение';}
+      finally{BUSY=false;}
     };
   }
-  function boot(){
-    text5();var p=vue();if(p)patch(p);setTimeout(function(){var q=vue();if(q)patch(q);},300);window.addEventListener('qr-manager-vue-ready',function(){var q=vue();if(q)patch(q);});setTimeout(text5,800);
+
+  async function openFlow(){
+    try{
+      var uid=await managerId();
+      var sub=await currentSubscription(uid);
+      var valid=sub&&['active','trialing'].indexOf(sub.status)!==-1&&sub.current_period_end&&new Date(sub.current_period_end)>=new Date();
+      if(valid){
+        var plans=await activePlans();
+        var plan=plans.find(function(p){return p.id===sub.plan_id;});
+        if(!plan) throw new Error('Тариф подписки не найден');
+        var count=await venueCount(uid);
+        if(plan.max_venues&&count>=Number(plan.max_venues)) throw new Error('Достигнут лимит заведений по тарифу');
+        await renderCreate(uid,sub,plan);
+        return;
+      }
+      var plans2=await activePlans();
+      if(!plans2.length) throw new Error('Нет доступных тарифов');
+      renderPlans(plans2,uid,sub);
+    }catch(e){ console.error('[QR Manager create flow]',e); showError('Не удалось открыть создание заведения: '+(e.message||e)); }
   }
+
+  function isCreateButton(target){
+    var b=target&&target.closest?target.closest('#app button'):null;
+    if(!b) return false;
+    var t=(b.textContent||'').replace(/\s+/g,' ').trim();
+    return t==='+ Создать'||t==='Создать ещё заведение';
+  }
+
   document.addEventListener('click',function(e){
-    var b=btn(e.target);if(!b||!window.db)return;e.preventDefault();e.stopImmediatePropagation();
-    if(b.dataset.qrBusy==='1')return;b.dataset.qrBusy='1';
-    openCreate().catch(function(err){console.error('[QR Manager create flow]',err);alert('Не удалось проверить подписку: '+(err.message||err));}).finally(function(){b.dataset.qrBusy='0';});
+    if(!isCreateButton(e.target)) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(BUSY) return;
+    openFlow();
   },true);
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();window.addEventListener('load',boot);
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',text5); else text5();
+  window.addEventListener('load',text5);
 })();
