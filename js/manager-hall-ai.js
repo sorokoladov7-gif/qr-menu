@@ -40,6 +40,7 @@
   }
   loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
   loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
+  loadScript('/js/manager-subscription-owner.js?v=1','data-manager-subscription-owner');
   /* Native personnel tab. The old integrated personnel patch is intentionally disabled. */
   loadScript('/js/manager-personnel-final.js?v=2','data-manager-personnel-final');
 })();
