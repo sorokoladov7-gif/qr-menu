@@ -1,14 +1,17 @@
 /* QR Menu — deterministic first-create flow: manager plan -> venue template. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_CREATE_FLOW_V3__) return;
-  window.__QR_MANAGER_CREATE_FLOW_V3__=true;
+  if(window.__QR_MANAGER_CREATE_FLOW_V4__) return;
+  window.__QR_MANAGER_CREATE_FLOW_V4__=true;
 
   function getProxy(){
     try{
+      if(window.__managerVue) return window.__managerVue;
+      var app=window.__QR_MANAGER_VUE_APP__;
+      if(app && app._instance && app._instance.proxy) return app._instance.proxy;
       var root=document.getElementById('app');
-      var app=root&&root.__vue_app__;
-      return app&&app._instance&&app._instance.proxy||null;
+      var mounted=root&&root.__vue_app__;
+      return mounted&&mounted._instance&&mounted._instance.proxy||null;
     }catch(e){ return null; }
   }
   function close(el){ if(el&&el.parentNode) el.parentNode.removeChild(el); }
@@ -20,9 +23,11 @@
     return (text==='+ Создать' || text==='Создать') ? el : null;
   }
   function showPlans(p,userId,plans){
+    var old=document.getElementById('qr-manager-create-plan-flow');
+    if(old) close(old);
     var modal=document.createElement('div');
     modal.id='qr-manager-create-plan-flow';
-    modal.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(3,8,20,.9);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
+    modal.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(3,8,20,.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box';
     modal.innerHTML='<div style="width:min(960px,100%);max-height:90vh;overflow:auto;background:#111827;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:24px;box-sizing:border-box"><div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><h2 style="margin:0 0 8px">Сначала выберите тариф</h2><div style="color:#9ca3af;font-size:14px">Тариф закрепляется за управляющим. Пробный период — <b style="color:#fff">5 дней</b>.</div></div><button id="qr-plan-cancel" type="button" class="btn btn-ghost btn-sm">Отмена</button></div><div id="qr-plan-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-top:20px"></div></div>';
     document.body.appendChild(modal);
     modal.querySelector('#qr-plan-cancel').onclick=function(){close(modal);};
@@ -50,17 +55,6 @@
       grid.appendChild(card);
     });
   }
-  function retryProxy(done){
-    var tries=0;
-    function check(){
-      var p=getProxy();
-      if(p){ done(p); return; }
-      tries++;
-      if(tries<20){ setTimeout(check,50); return; }
-      done(null);
-    }
-    check();
-  }
   async function handleCreate(p){
     var auth=await db.auth.getUser();
     var user=auth&&auth.data&&auth.data.user;
@@ -83,31 +77,38 @@
   document.addEventListener('click',function(ev){
     var button=findCreateButton(ev.target);
     if(!button) return;
-    /* Always block Vue first. No proxy or network check is allowed to run before this. */
     ev.preventDefault();
     ev.stopImmediatePropagation();
     if(button.dataset.qrCreateBusy==='1') return;
     button.dataset.qrCreateBusy='1';
-    retryProxy(function(p){
-      if(!p||!window.db){
+    var p=getProxy();
+    if(!p){
+      var tries=0;
+      (function waitForApp(){
+        p=getProxy();
+        if(p){
+          handleCreate(p).catch(function(e){console.error('[QR Manager create flow]',e);alert('Не удалось проверить подписку: '+(e.message||e));}).finally(function(){button.dataset.qrCreateBusy='0';});
+          return;
+        }
+        if(++tries<40){setTimeout(waitForApp,50);return;}
         button.dataset.qrCreateBusy='0';
-        alert('Кабинет ещё загружается. Нажмите «Создать» ещё раз.');
-        return;
-      }
-      Promise.resolve(handleCreate(p)).catch(function(e){
-        console.error('[QR Manager create flow]',e);
-        alert('Не удалось проверить подписку: '+(e.message||e));
-      }).finally(function(){button.dataset.qrCreateBusy='0';});
-    });
+        alert('Не удалось инициализировать кабинет. Обновите страницу.');
+      })();
+      return;
+    }
+    handleCreate(p).catch(function(e){console.error('[QR Manager create flow]',e);alert('Не удалось проверить подписку: '+(e.message||e));}).finally(function(){button.dataset.qrCreateBusy='0';});
   },true);
+
   function fixTrialCopy(){
-    var nodes=document.querySelectorAll('#app *');
-    for(var i=0;i<nodes.length;i++){
-      var el=nodes[i];
-      if(el.children.length===0 && /3\s*дня\s*бесплатно/i.test(el.textContent||'')) el.textContent=(el.textContent||'').replace(/3\s*дня\s*бесплатно/ig,'5 дней бесплатно');
+    var root=document.getElementById('app');
+    if(!root) return;
+    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    var n;
+    while(n=walker.nextNode()){
+      if(/3\s*дня\s*бесплатно/i.test(n.nodeValue||'')) n.nodeValue=n.nodeValue.replace(/3\s*дня\s*бесплатно/ig,'5 дней бесплатно');
     }
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(fixTrialCopy,300);});
-  else setTimeout(fixTrialCopy,300);
-  window.addEventListener('load',function(){setTimeout(fixTrialCopy,300);});
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',function(){setTimeout(fixTrialCopy,250);});
+  else setTimeout(fixTrialCopy,250);
+  window.addEventListener('load',function(){setTimeout(fixTrialCopy,500);});
 })();
