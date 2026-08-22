@@ -19,8 +19,8 @@
               if(!t) return;
               if(!this.newVenueForm) this.newVenueForm={};
               this.newVenueForm.template=t.id;
-              if(!this.newVenueForm.name) this.newVenueForm.name=t.name||'';
-              if(!this.newVenueForm.slug) this.newVenueForm.slug=t.id||'';
+              if(!this.newVenueForm.name)this.newVenueForm.name=t.name||'';
+              if(!this.newVenueForm.slug)this.newVenueForm.slug=t.id||'';
             };
           }
         }
@@ -33,7 +33,7 @@
     if(window.Vue) patchVue(window.Vue);
     else{
       var d=Object.getOwnPropertyDescriptor(window,'Vue');
-      if(!d || d.configurable!==false){
+      if(!d||d.configurable!==false){
         var value;
         Object.defineProperty(window,'Vue',{configurable:true,enumerable:true,get:function(){return value;},set:function(v){value=v;patchVue(v);}});
       }
@@ -53,6 +53,6 @@
   loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
   loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
   loadScript('/js/manager-subscription-owner.js?v=4','data-manager-subscription-owner');
-  loadScript('/js/manager-create-venue-flow.js?v=2','data-manager-create-venue-flow');
+  loadScript('/js/manager-create-venue-flow.js?v=3','data-manager-create-venue-flow');
   loadScript('/js/manager-personnel-final.js?v=4','data-manager-personnel-final');
 })();
