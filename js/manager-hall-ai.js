@@ -72,5 +72,5 @@
   installVueBridge();
   loadScript('/js/manager-hall.js?v=2','data-manager-hall-single',function(){console.error('[QR Hall] failed to load manager-hall.js');});
   loadScript('/js/manager-recipes-ui.js?v=2','data-manager-recipes-ui',function(){console.error('[QR Recipes] failed to load manager-recipes-ui.js');});
-  loadScript('/js/manager-staff-statistics.js?v=6','data-manager-staff-statistics',function(){console.error('[QR Staff Stats] failed to load manager-staff-statistics.js');});
+  loadScript('/js/manager-personnel-integrated.js?v=2','data-manager-personnel-integrated',function(){console.error('[QR Personnel] failed to load manager-personnel-integrated.js');});
 })();
