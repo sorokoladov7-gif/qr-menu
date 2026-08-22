@@ -38,8 +38,8 @@
     s.onerror=function(){console.error('[QR Manager] failed to load '+src);};
     document.head.appendChild(s);
   }
-  loadScript('/js/manager-hall.js?v=2','data-manager-hall-single');
-  loadScript('/js/manager-recipes-ui.js?v=2','data-manager-recipes-ui');
+  loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
+  loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
   /* Native personnel tab. The old integrated personnel patch is intentionally disabled. */
-  loadScript('/js/manager-personnel-final.js?v=1','data-manager-personnel-final');
+  loadScript('/js/manager-personnel-final.js?v=2','data-manager-personnel-final');
 })();
