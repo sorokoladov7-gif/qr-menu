@@ -256,6 +256,7 @@ deliveryCalcError: '',
 venueLat: null,
 venueLng: null,
 deliveryRatePerKm: 50,
+deliveryMinOrder: 0,
 deliveryMinOrderFree: 0,
 deliveryBaseFee: 50,
 abortController: null,
@@ -300,7 +301,271 @@ setOrderType:function(type){
   }
 },
 
-calcDeliveryFee:function(){ /* код такой же, как в предыдущих версиях */ },
+calcDeliveryFee:function(){
+
+  var self = this;
+
+  self.deliveryCalcError = '';
+  self.calculatedDeliveryFee = null;
+  self.deliveryDistance = 0;
+
+  if(self.form.type !== 'delivery') {
+    return;
+  }
+
+  var address = String(self.form.address || '').trim();
+
+  if(!address) {
+    self.deliveryCalcError = 'Укажите адрес доставки';
+    return;
+  }
+
+  /*
+   * Сначала проверяем минимальную сумму.
+   *
+   * Нет смысла геокодировать адрес,
+   * если доставка заведомо запрещена по сумме.
+   */
+  var minimum =
+    Number(self.deliveryMinOrder) || 0;
+
+  if(
+    minimum > 0 &&
+    Number(self.cartTotal) < minimum
+  ) {
+
+    var missing =
+      Math.max(
+        0,
+        minimum - Number(self.cartTotal)
+      );
+
+    self.deliveryCalcError =
+      'Доставка доступна от ' +
+      self.fmt(minimum) +
+      ' ₽. ' +
+      'Добавьте ещё ' +
+      self.fmt(missing) +
+      ' ₽.';
+
+    self.showDeliveryMinOrderMessage(
+      minimum,
+      missing
+    );
+
+    return;
+  }
+
+  if(
+    !Number.isFinite(self.venueLat) ||
+    !Number.isFinite(self.venueLng)
+  ) {
+
+    self.deliveryCalcError =
+      'У заведения не указаны координаты. ' +
+      'Обратитесь к управляющему.';
+
+    return;
+  }
+
+  self.deliveryCalcBusy = true;
+
+  if(self.abortController) {
+    try {
+      self.abortController.abort();
+    } catch(e) {}
+  }
+
+  self.abortController = new AbortController();
+
+  var url =
+    'https://nominatim.openstreetmap.org/search' +
+    '?format=jsonv2' +
+    '&limit=1' +
+    '&countrycodes=ru' +
+    '&q=' + encodeURIComponent(address);
+
+  fetch(url, {
+    signal:self.abortController.signal,
+    headers:{
+      'Accept':'application/json'
+    }
+  })
+
+  .then(function(r){
+
+    if(!r.ok) {
+      throw new Error(
+        'Не удалось определить координаты адреса'
+      );
+    }
+
+    return r.json();
+  })
+
+  .then(function(data){
+
+    if(!Array.isArray(data) || !data.length) {
+      throw new Error(
+        'Адрес не найден. Уточните город, улицу и дом.'
+      );
+    }
+
+    var lat = Number(data[0].lat);
+    var lng = Number(data[0].lon);
+
+    if(
+      !Number.isFinite(lat) ||
+      !Number.isFinite(lng)
+    ) {
+      throw new Error(
+        'Сервис не вернул координаты адреса'
+      );
+    }
+
+    return db.rpc(
+      'calc_delivery_fee',
+      {
+        p_venue_id:self.venue.id,
+        p_lat:lat,
+        p_lng:lng
+      }
+    );
+  })
+
+  .then(function(r){
+
+    if(r.error) {
+      throw r.error;
+    }
+
+    var result = r.data;
+
+    /*
+     * RPC может вернуть объект.
+     */
+    if(Array.isArray(result)) {
+      result = result[0];
+    }
+
+    if(!result) {
+      throw new Error(
+        'Сервер не вернул расчёт доставки'
+      );
+    }
+
+    if(result.ok === false) {
+
+      if(result.error === 'too_far') {
+        throw new Error(
+          'Адрес находится дальше разрешённой зоны доставки.'
+        );
+      }
+
+      if(result.error === 'venue_coordinates_missing') {
+        throw new Error(
+          'У заведения не указаны координаты.'
+        );
+      }
+
+      throw new Error(
+        result.message ||
+        result.error ||
+        'Доставка по этому адресу недоступна'
+      );
+    }
+
+    var distance =
+      Number(result.distance_km);
+
+    var fee =
+      Number(result.fee);
+
+    if(!Number.isFinite(distance)) {
+      throw new Error(
+        'Сервер не вернул расстояние'
+      );
+    }
+
+    if(!Number.isFinite(fee) || fee < 0) {
+      throw new Error(
+        'Сервер не вернул корректную стоимость доставки'
+      );
+    }
+
+    /*
+     * Бесплатная доставка от заданной суммы.
+     */
+    var freeFrom =
+      Number(self.deliveryMinOrderFree) || 0;
+
+    if(
+      freeFrom > 0 &&
+      Number(self.cartTotal) >= freeFrom
+    ) {
+      fee = 0;
+    }
+
+    self.deliveryDistance =
+      Number(distance.toFixed(2));
+
+    self.calculatedDeliveryFee =
+      Math.round(fee);
+
+    self.deliveryCalcError = '';
+
+  })
+
+  .catch(function(e){
+
+    if(
+      e &&
+      e.name === 'AbortError'
+    ) {
+      return;
+    }
+
+    console.error(
+      '[Menu] delivery calculation:',
+      e
+    );
+
+    self.calculatedDeliveryFee = null;
+    self.deliveryDistance = 0;
+
+    self.deliveryCalcError =
+      e.message ||
+      'Не удалось рассчитать стоимость доставки';
+
+  })
+
+  .finally(function(){
+
+    self.deliveryCalcBusy = false;
+    self.abortController = null;
+
+  });
+},
+
+showDeliveryMinOrderMessage:function(minimum, missing){
+
+  var message =
+    'Минимальная сумма заказа для доставки — ' +
+    this.fmt(minimum) +
+    ' ₽.\n\n' +
+    'Сейчас в корзине: ' +
+    this.fmt(this.cartTotal) +
+    ' ₽.\n\n' +
+    'Добавьте ещё ' +
+    this.fmt(missing) +
+    ' ₽.';
+
+  /*
+   * Используем существующий UI браузера,
+   * не добавляя новую библиотеку модальных окон.
+   */
+  window.alert(message);
+},
 
 goToTracking:function(){
   var last=localStorage.getItem('last_phone')||'';
@@ -398,11 +663,57 @@ selectVenue:function(v){
 
 loadVenueSettings:function(v){
   if(!v) return;
-  this.venueLat = v.lat ? parseFloat(v.lat) : null;
-  this.venueLng = v.lng ? parseFloat(v.lng) : null;
-  this.deliveryRatePerKm = v.delivery_rate_per_km != null ? parseFloat(v.delivery_rate_per_km) : 50;
-  this.deliveryMinOrderFree = v.delivery_min_order_free != null ? parseFloat(v.delivery_min_order_free) : 0;
-  this.deliveryBaseFee = v.delivery_base_fee != null ? parseFloat(v.delivery_base_fee) : 50;
+
+  /*
+   * Поддерживаем обе версии координат:
+   * latitude/longitude — новые,
+   * lat/lng — старые.
+   */
+  this.venueLat =
+    v.latitude != null
+      ? parseFloat(v.latitude)
+      : (
+          v.lat != null
+            ? parseFloat(v.lat)
+            : null
+        );
+
+  this.venueLng =
+    v.longitude != null
+      ? parseFloat(v.longitude)
+      : (
+          v.lng != null
+            ? parseFloat(v.lng)
+            : null
+        );
+
+  this.deliveryRatePerKm =
+    v.delivery_rate_per_km != null
+      ? parseFloat(v.delivery_rate_per_km)
+      : (
+          v.delivery_per_km != null
+            ? parseFloat(v.delivery_per_km)
+            : 50
+        );
+
+  this.deliveryMinOrder =
+    v.delivery_min_order != null
+      ? parseFloat(v.delivery_min_order)
+      : 0;
+
+  this.deliveryMinOrderFree =
+    v.delivery_min_order_free != null
+      ? parseFloat(v.delivery_min_order_free)
+      : 0;
+
+  this.deliveryBaseFee =
+    v.delivery_base_fee != null
+      ? parseFloat(v.delivery_base_fee)
+      : (
+          v.delivery_base_price != null
+            ? parseFloat(v.delivery_base_price)
+            : 50
+        );
 },
 
 loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',self.venue.id).eq('is_available',true).order('category').then(function(r){self.products=r.data||[]})},
@@ -427,13 +738,52 @@ checkout:function(){
   if(!phone){ self.msg='Укажите телефон'; return; }
 
   if(self.form.type === 'delivery'){
-    if(!self.form.address.trim()){ self.msg='Укажите адрес доставки'; return; }
-    if(self.calculatedDeliveryFee === null){
-      self.msg='Рассчитайте стоимость доставки';
+
+    if(!self.form.address.trim()){
+      self.msg='Укажите адрес доставки';
       return;
     }
+
+    var minDelivery =
+      Number(self.deliveryMinOrder) || 0;
+
+    if(
+      minDelivery > 0 &&
+      Number(self.cartTotal) < minDelivery
+    ){
+
+      var missing =
+        Math.max(
+          0,
+          minDelivery - Number(self.cartTotal)
+        );
+
+      self.showDeliveryMinOrderMessage(
+        minDelivery,
+        missing
+      );
+
+      self.msg =
+        'Минимальная сумма заказа для доставки — ' +
+        self.fmt(minDelivery) +
+        ' ₽.';
+
+      return;
+    }
+
+    if(self.calculatedDeliveryFee === null){
+
+      self.msg =
+        'Рассчитайте стоимость доставки';
+
+      return;
+    }
+
     if(self.calculatedDeliveryFee < 0){
-      self.msg='Стоимость доставки не может быть отрицательной';
+
+      self.msg =
+        'Стоимость доставки не может быть отрицательной';
+
       return;
     }
   } else if(self.form.type === 'table'){
@@ -542,7 +892,7 @@ trackOrder:function(){
           self.$nextTick(function(){
             self.tracking = JSON.parse(JSON.stringify(newData));
             try {
-              var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
+              var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
               audio.play();
             } catch(e) {}
           });
