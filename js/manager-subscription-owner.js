@@ -4,6 +4,12 @@
   if(window.__QR_MANAGER_SUBSCRIPTION_OWNER__) return;
   window.__QR_MANAGER_SUBSCRIPTION_OWNER__=true;
 
+  function getManagerId(ctx){
+    if(ctx && ctx.profile && ctx.profile.id) return Promise.resolve(ctx.profile.id);
+    if(window.db && db.auth) return db.auth.getUser().then(function(r){ return r && r.data && r.data.user ? r.data.user.id : null; });
+    return Promise.resolve(null);
+  }
+
   function patchVue(Vue){
     if(!Vue || typeof Vue.createApp!=='function' || Vue.__QR_MANAGER_SUBSCRIPTION_PATCHED__) return;
     Vue.__QR_MANAGER_SUBSCRIPTION_PATCHED__=true;
@@ -28,11 +34,7 @@
 
         options.methods.loadManagerSubscription=async function(){
           try{
-            var managerId=this.profile && this.profile.id;
-            if(!managerId && db && db.auth){
-              var ur=await db.auth.getUser();
-              managerId=ur && ur.data && ur.data.user ? ur.data.user.id : null;
-            }
+            var managerId=await getManagerId(this);
             if(!managerId){ this.managerSubscription=null; return null; }
             var r=await db.from('subscriptions')
               .select('id,manager_id,plan_id,status,current_period_end,created_at')
@@ -59,11 +61,7 @@
           if(!p || p.price!==0) return;
           this.busy=true;
           try{
-            var managerId=this.profile && this.profile.id;
-            if(!managerId){
-              var ur=await db.auth.getUser();
-              managerId=ur && ur.data && ur.data.user ? ur.data.user.id : null;
-            }
+            var managerId=await getManagerId(this);
             if(!managerId) throw new Error('Не удалось определить управляющего');
             var e=new Date(); e.setMonth(e.getMonth()+1);
             var up=await db.from('subscriptions').upsert({
@@ -83,6 +81,43 @@
             console.error('[QR Subscription] subscribeFree:',e);
             this.showToast('Ошибка: '+(e.message||'не удалось изменить тариф'),'error');
           }finally{ this.busy=false; }
+        };
+
+        options.methods.markPaid=async function(){
+          this.busy=true;
+          try{
+            var managerId=await getManagerId(this);
+            if(!managerId) throw new Error('Не удалось определить управляющего');
+            if(!this.payPlan) throw new Error('Тариф не выбран');
+            var payment={
+              manager_id:managerId,
+              venue_id:null,
+              plan_id:this.payPlan.id,
+              amount:Number(this.payPlan.price)||0,
+              status:'pending'
+            };
+            var r=await db.from('payments').insert(payment).select().single();
+            if(r.error) throw r.error;
+            this.payPlan=null;
+            if(typeof this.loadPayments==='function') await this.loadPayments();
+            this.showToast('Заявка на оплату отправлена!');
+          }catch(e){
+            console.error('[QR Subscription] markPaid:',e);
+            this.showToast('Ошибка: '+(e.message||'не удалось отправить оплату'),'error');
+          }finally{ this.busy=false; }
+        };
+
+        options.methods.loadPayments=async function(){
+          try{
+            var managerId=await getManagerId(this);
+            if(!managerId){ this.myPayments=[]; return; }
+            var r=await db.from('payments').select('*').eq('manager_id',managerId).order('created_at',{ascending:false});
+            if(r.error) throw r.error;
+            this.myPayments=r.data||[];
+          }catch(e){
+            console.warn('[QR Subscription] load payments:',e);
+            this.myPayments=[];
+          }
         };
 
         options.computed=options.computed||{};
