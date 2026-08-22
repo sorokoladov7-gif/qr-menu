@@ -13,7 +13,7 @@ function getVM(){
   return null;
 }
 function token(){return new URLSearchParams(location.search).get('token')||'';}
-function tableText(t){return t?(t.name||('Стол '+t.table_number)):'';}
+function tableText(t){return t?(t.name||('Стол '+t.table_number)):'';};
 
 async function loadTable(v){
   var t=token();if(!t||!v)return null;
@@ -36,7 +36,7 @@ function showTrackingTable(){
   if(!card)return;
   var b=document.createElement('div');
   b.id='customer-table-badge';
-  b.style.cssText='display:block;width:max-content;max-width:100%;margin:8px 0;padding:7px 13px;border-radius:999px;background:rgba(99,102,241,.18);border:1px solid rgba(129,140,248,.32);color:#c7d2fe;font-weight:800;font-size:13px';
+  b.style.cssText='display:block;width:max-content;max-width:100%;margin:8px 0;padding:7px 13px;border-radius:999px;background:rgba(99,102,241,.18);border:1px solid rgba(129,140,248,.32);color:#c7d2fe;font-size:12px;font-weight:600';
   b.textContent='🪑 '+text;
   card.insertBefore(b,card.firstChild);
 }
@@ -56,6 +56,15 @@ function install(x,t){
     if(!phone){self.msg='Укажите телефон';return;}
     if(self.form.type==='delivery'&&!self.form.address.trim()){self.msg='Укажите адрес';return;}
     if(!self.cart.length){self.msg='Корзина пустая';return;}
+    
+    // FIX #3: Validate delivery fee before submission
+    if(self.form.type==='delivery'){
+      if(typeof self.deliveryFee !== 'number' || !isFinite(self.deliveryFee) || self.deliveryFee < 0){
+        self.msg='Ошибка расчёта доставки. Попробуйте ещё раз.';
+        return;
+      }
+    }
+    
     self.busy=true;
     try{
       var items=self.cart.map(function(i){return{product_id:i.id,qty:Number(i.qty)||1};});
@@ -72,9 +81,9 @@ function install(x,t){
         p_items:items,
         p_addons:addons,
         p_total_price:self.cartTotal,
-p_table_token:tt,
-p_delivery_fee:(self.form.type==='delivery'&&self.deliveryFee!=null)?self.deliveryFee:null
-});
+        p_table_token:tt,
+        p_delivery_fee:(self.form.type==='delivery'&&typeof self.deliveryFee==='number'&&isFinite(self.deliveryFee))?Math.max(self.deliveryFee,0):null
+      });
       if(r.error)throw r.error;
       localStorage.setItem('last_phone',phone);
       if(r.data&&r.data.id)localStorage.setItem('last_order_id',r.data.id);
