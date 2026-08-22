@@ -25,3 +25,4 @@
   loadScript('/js/manager-recipes-ui.js?v=2','data-manager-recipes-ui');
   loadScript('/js/manager-personnel-integrated.js?v=3','data-manager-personnel-integrated');
 })();
+// Production sync marker: force the GitHub -> Vercel production pipeline to deploy the current main branch.
