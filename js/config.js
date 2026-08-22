@@ -47,17 +47,37 @@ function rememberStaffLogin(type, data){
   }
 }
 
+// FIX #5: Add TTL to QR table cache to prevent stale data
 function resolveQrTable(venueId){
   var token = new URLSearchParams(location.search).get('token');
   if(!token) return Promise.resolve(null);
-  if(window.__qrTable && window.__qrTable.qr_token === token) return Promise.resolve(window.__qrTable);
+  
+  // Check cache validity: TTL = 5 minutes (300000 ms)
+  var now = Date.now();
+  var QR_TABLE_TTL = 300000; // 5 minutes
+  var cacheKey = '__qrTable_cache';
+  var cacheTimestampKey = '__qrTable_timestamp';
+  
+  if(window.__qrTable && window.__qrTable.qr_token === token){
+    var cachedAt = parseInt(localStorage.getItem(cacheTimestampKey) || '0', 10);
+    if(now - cachedAt < QR_TABLE_TTL && window.__qrTable.is_active === true){
+      // Cache is fresh and table is still active
+      return Promise.resolve(window.__qrTable);
+    }
+  }
+  
   var q = oldFrom('venue_tables')
     .select('id,venue_id,table_number,name,qr_token,is_active')
     .eq('qr_token', String(token).trim())
     .eq('is_active', true);
   if(venueId) q = q.eq('venue_id', venueId);
   return q.maybeSingle().then(function(r){
-    if(!r.error && r.data) window.__qrTable = r.data;
+    if(!r.error && r.data){
+      window.__qrTable = r.data;
+      try{
+        localStorage.setItem(cacheTimestampKey, String(now));
+      }catch(e){}
+    }
     return r.data || null;
   });
 }
