@@ -10,32 +10,33 @@
       Vue.__QR_TEMPLATE_METHOD_PATCHED__=true;
       var originalCreateApp=Vue.createApp;
       Vue.createApp=function(options){
-        if(options && typeof options==='object'){
-          if(!options.methods) options.methods={};
-          if(typeof options.methods.selectVenueTemplate!=='function'){
-            options.methods.selectVenueTemplate=function(id){
-              var list=Array.isArray(this.venueTemplates)?this.venueTemplates:[];
-              var t=list.find(function(x){return String(x.id)===String(id);});
-              if(!t) return;
-              if(!this.newVenueForm) this.newVenueForm={};
-              this.newVenueForm.template=t.id;
-              if(!this.newVenueForm.name)this.newVenueForm.name=t.name||'';
-              if(!this.newVenueForm.slug)this.newVenueForm.slug=t.id||'';
-            };
-          }
-        }
-        return originalCreateApp.apply(this,arguments);
+        var app=originalCreateApp.apply(this,arguments);
+        try{
+          var originalMount=app.mount;
+          app.mount=function(){
+            var result=originalMount.apply(this,arguments);
+            window.__QR_MANAGER_VUE_APP__=this;
+            try{ window.__managerVue=this._instance && this._instance.proxy || null; }catch(e){}
+            return result;
+          };
+        }catch(e){ console.warn('[QR Menu] Vue mount bridge:',e); }
+        return app;
       };
-    }catch(e){console.warn('[QR Menu] Vue template bridge:',e);}
+    }catch(e){console.warn('[QR Menu] Vue bootstrap:',e);}
   }
 
   try{
     if(window.Vue) patchVue(window.Vue);
     else{
       var d=Object.getOwnPropertyDescriptor(window,'Vue');
-      if(!d||d.configurable!==false){
+      if(!d || d.configurable!==false){
         var value;
-        Object.defineProperty(window,'Vue',{configurable:true,enumerable:true,get:function(){return value;},set:function(v){value=v;patchVue(v);}});
+        Object.defineProperty(window,'Vue',{
+          configurable:true,
+          enumerable:true,
+          get:function(){return value;},
+          set:function(v){value=v;patchVue(v);}
+        });
       }
     }
   }catch(e){console.warn('[QR Menu] Vue bridge install failed:',e);}
@@ -53,6 +54,6 @@
   loadScript('/js/manager-hall.js?v=3','data-manager-hall-single');
   loadScript('/js/manager-recipes-ui.js?v=3','data-manager-recipes-ui');
   loadScript('/js/manager-subscription-owner.js?v=4','data-manager-subscription-owner');
-  loadScript('/js/manager-create-venue-flow.js?v=3','data-manager-create-venue-flow');
+  loadScript('/js/manager-create-venue-flow.js?v=4','data-manager-create-venue-flow');
   loadScript('/js/manager-personnel-final.js?v=4','data-manager-personnel-final');
 })();
