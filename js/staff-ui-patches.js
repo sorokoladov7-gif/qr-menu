@@ -12,6 +12,16 @@
     });
   }
 
+  function waiterReleasePatch(){
+    if(!isWaiter || !window.db || typeof window.db.rpc!=='function' || window.__QR_WAITER_RELEASE_PATCH__) return;
+    window.__QR_WAITER_RELEASE_PATCH__=true;
+    var originalRpc=window.db.rpc.bind(window.db);
+    window.db.rpc=function(name,args,options){
+      if(name==='staff_release_table') name='waiter_release_table';
+      return originalRpc(name,args,options);
+    };
+  }
+
   function courierTokenPatch(Vue){
     if(!isCourier || !Vue || typeof Vue.createApp!=='function' || Vue.__QR_COURIER_SHIFT_PATCHED__) return;
     Vue.__QR_COURIER_SHIFT_PATCHED__=true;
@@ -47,8 +57,9 @@
 
   function observe(){
     removeWaiterLegacy();
+    waiterReleasePatch();
     if(document.body){
-      var mo=new MutationObserver(function(){removeWaiterLegacy();});
+      var mo=new MutationObserver(function(){removeWaiterLegacy();waiterReleasePatch();});
       mo.observe(document.body,{childList:true,subtree:true});
       setTimeout(function(){mo.disconnect();},30000);
     }
