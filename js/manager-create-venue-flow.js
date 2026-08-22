@@ -40,7 +40,6 @@
           if(r.error)throw r.error;
           sessionStorage.setItem('qr_plan_selected','1');
           close(m);
-          location.reload();
         }catch(e){
           card.disabled=false;
           alert('Не удалось подключить тариф: '+(e.message||e));
@@ -51,32 +50,48 @@
   }
 
   async function openFlow(){
+    if(sessionStorage.getItem('qr_plan_selected')==='1'){
+      sessionStorage.removeItem('qr_plan_selected');
+      return {allowDefault:true};
+    }
     var u=await db.auth.getUser();
     var uid=u&&u.data&&u.data.user&&u.data.user.id;
     if(!uid)throw new Error('Не удалось определить управляющего');
     var s=await db.from('subscriptions').select('id,manager_id,plan_id,status,current_period_end').eq('manager_id',uid).maybeSingle();
     if(s.error)throw s.error;
     var valid=!!(s.data&&['active','trialing'].indexOf(s.data.status)!==-1&&s.data.current_period_end&&new Date(s.data.current_period_end)>=new Date());
-    if(valid){
-      sessionStorage.setItem('qr_plan_ready','1');
-      location.reload();
-      return;
-    }
+    if(valid)return {allowDefault:true};
     var p=await db.from('plans').select('id,name,price,max_venues,max_products,is_active,sort_order').eq('is_active',true).order('sort_order');
     if(p.error)throw p.error;
     var plans=(p.data||[]).filter(function(x){return x&&x.is_active!==false;});
     if(!plans.length)throw new Error('Нет доступных тарифов');
     showPlans(uid,plans);
+    return {allowDefault:false};
   }
 
   document.addEventListener('click',function(ev){
     var b=findCreateButton(ev.target);
     if(!b||!window.db)return;
+    if(sessionStorage.getItem('qr_plan_selected')==='1'){
+      sessionStorage.removeItem('qr_plan_selected');
+      return;
+    }
     ev.preventDefault();
     ev.stopImmediatePropagation();
     if(b.dataset.qrFlowBusy==='1')return;
     b.dataset.qrFlowBusy='1';
-    openFlow().catch(function(e){console.error('[QR Manager create flow]',e);alert('Не удалось проверить подписку: '+(e.message||e));}).finally(function(){b.dataset.qrFlowBusy='0';});
+    openFlow().then(function(result){
+      if(result&&result.allowDefault){
+        ev.stopImmediatePropagation();
+        setTimeout(function(){b.dataset.qrFlowBusy='0';b.click();},0);
+        return;
+      }
+      b.dataset.qrFlowBusy='0';
+    }).catch(function(e){
+      console.error('[QR Manager create flow]',e);
+      b.dataset.qrFlowBusy='0';
+      alert('Не удалось проверить подписку: '+(e.message||e));
+    });
   },true);
 
   function fixTrialText(){
@@ -88,7 +103,12 @@
       if(/3\s*дня\s*бесплатно/i.test(n.nodeValue||''))n.nodeValue=n.nodeValue.replace(/3\s*дня\s*бесплатно/ig,'5 дней бесплатно');
     }
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(fixTrialText,300);});
-  else setTimeout(fixTrialText,300);
-  window.addEventListener('load',function(){setTimeout(fixTrialText,500);});
+  function fixTrialTextLater(){
+    fixTrialText();
+    setTimeout(fixTrialText,600);
+    setTimeout(fixTrialText,1400);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fixTrialTextLater);
+  else fixTrialTextLater();
+  window.addEventListener('load',fixTrialTextLater);
 })();
