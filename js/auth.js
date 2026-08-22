@@ -1,3 +1,4 @@
-// Заглушка: requireAuth и logout уже определены в app.js (с safeRedirect и авто-созданием профиля).
-// Файл оставлен только для совместимости подключений.
-console.info('[auth.js] Заглушка. Авторизация обрабатывается в app.js');
+// DEPRECATED: All authentication logic has been moved to app.js
+// This file is kept for backwards compatibility only.
+// Import app.js instead: <script src="js/app.js"></script>
+console.warn('[auth.js] Deprecated. Use app.js for authentication.');

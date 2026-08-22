@@ -15,7 +15,11 @@ var oldFrom = real.from.bind(real);
 var oldRpc = real.rpc.bind(real);
 
 function staffToken(){
-  if(window.StaffAuth && window.StaffAuth.token()) return window.StaffAuth.token();
+  // Priority: 1) StaffAuth unified session, 2) Legacy fallback
+  if(window.StaffAuth && typeof window.StaffAuth.token === 'function'){
+    return window.StaffAuth.token();
+  }
+  // Fallback for old code (should not happen if staff-auth.js loaded first)
   if(staffType){
     var roleKey = staffType + '_token';
     var t = localStorage.getItem(roleKey);
@@ -25,8 +29,13 @@ function staffToken(){
 }
 
 function rememberStaffLogin(type, data){
-  if(window.StaffAuth && data) window.StaffAuth.login(type, data);
-  if(data && data.token){
+  if(!data) return;
+  
+  // Priority: Use StaffAuth unified API if available
+  if(window.StaffAuth && typeof window.StaffAuth.login === 'function'){
+    window.StaffAuth.login(type, data);
+  } else if(data.token){
+    // Fallback: Old-style multi-key storage (legacy compatibility)
     try{
       localStorage.setItem('staff_token', data.token);
       localStorage.setItem(type+'_token', data.token);
@@ -38,17 +47,37 @@ function rememberStaffLogin(type, data){
   }
 }
 
+// FIX #5: Add TTL to QR table cache to prevent stale data
 function resolveQrTable(venueId){
   var token = new URLSearchParams(location.search).get('token');
   if(!token) return Promise.resolve(null);
-  if(window.__qrTable && window.__qrTable.qr_token === token) return Promise.resolve(window.__qrTable);
+  
+  // Check cache validity: TTL = 5 minutes (300000 ms)
+  var now = Date.now();
+  var QR_TABLE_TTL = 300000; // 5 minutes
+  var cacheKey = '__qrTable_cache';
+  var cacheTimestampKey = '__qrTable_timestamp';
+  
+  if(window.__qrTable && window.__qrTable.qr_token === token){
+    var cachedAt = parseInt(localStorage.getItem(cacheTimestampKey) || '0', 10);
+    if(now - cachedAt < QR_TABLE_TTL && window.__qrTable.is_active === true){
+      // Cache is fresh and table is still active
+      return Promise.resolve(window.__qrTable);
+    }
+  }
+  
   var q = oldFrom('venue_tables')
     .select('id,venue_id,table_number,name,qr_token,is_active')
     .eq('qr_token', String(token).trim())
     .eq('is_active', true);
   if(venueId) q = q.eq('venue_id', venueId);
   return q.maybeSingle().then(function(r){
-    if(!r.error && r.data) window.__qrTable = r.data;
+    if(!r.error && r.data){
+      window.__qrTable = r.data;
+      try{
+        localStorage.setItem(cacheTimestampKey, String(now));
+      }catch(e){}
+    }
     return r.data || null;
   });
 }
@@ -204,7 +233,7 @@ function renderCustomerTable(){
   if(!b){
     b = document.createElement('div');
     b.id = 'qr-table-fixed-badge';
-    b.style.cssText = 'position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.35)';
+    b.style.cssText = 'position:fixed;top:74px;right:14px;z-index:9999;display:block;padding:10px 14px;border-radius:999px;background:#4f46e5;color:#fff;font-weight:800;font-size:14px;box-shadow:0 8px 16px rgba(0,0,0,0.3)';
     if(document.body) document.body.appendChild(b);
   }
   if(b) b.textContent = '🪑 ' + (t.name||('Стол '+t.table_number));
@@ -233,7 +262,7 @@ function installTableControl(){
   btn.id = 'staff-table-control-btn';
   btn.type = 'button';
   btn.textContent = '🪑 Столы';
-  btn.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,.35);cursor:pointer';
+  btn.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:9998;border:0;border-radius:14px;padding:12px 16px;background:#4f46e5;color:#fff;font-weight:800;box-shadow:0 8px 25px rgba(0,0,0,0.2);cursor:pointer;font-size:15px';
   document.body.appendChild(btn);
   btn.onclick = showStaffTables;
 }
@@ -246,7 +275,9 @@ async function showStaffTables(){
   if(r.error){
     var msg = (r.error.message||String(r.error)||'').toLowerCase();
     if(msg.indexOf('does not exist')!==-1 || msg.indexOf('403')!==-1 || msg.indexOf('not found')!==-1 || msg.indexOf('invalid_session')!==-1){
-      alert('🪑 '+(r.error.message||'Не удалось загрузить столы')+'\n\nПопробуйте перезайти (Выйти → Войти).');
+      alert('🪑 '+(r.error.message||'Не удалось загрузить столы')+'
+
+Попробуйте перезайти (Выйти → Войти).');
     } else {
       alert('Не удалось загрузить столы: '+(r.error.message||r.error));
     }
@@ -267,7 +298,7 @@ async function showStaffTables(){
 
   var head = document.createElement('div');
   head.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px';
-  head.innerHTML = '<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer">✕</button>';
+  head.innerHTML = '<h2 style="margin:0">🪑 Столы</h2><button id="staff-table-close" style="border:0;border-radius:10px;padding:9px 12px;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-weight:600">✕</button>';
   box.appendChild(head);
 
   var info = document.createElement('div');
@@ -286,12 +317,12 @@ async function showStaffTables(){
     card.style.cssText = 'border:1px solid '+(occupied?'rgba(251,191,36,.45)':'rgba(52,211,153,.35)')+';border-radius:14px;padding:14px;background:rgba(255,255,255,.03)';
     var actionText = occupied?'Освободить стол':'Посадить гостя';
     var html = '<b style="font-size:17px">'+(t.name||('Стол '+t.table_number))+'</b>';
-    html += '<div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>';
+    html += '<div style="margin:7px 0;color:'+(occupied?'#fcd34d':'#6ee7b7')+'">\n'+(occupied?'🟡 Занят':'🟢 Свободен')+'</div>';
     if(t.session){
       html += '<div style="font-size:12px;color:#94a3b8">Заказов: '+(t.session.order_count||0)+' · '+Number(t.session.total_price||0).toLocaleString('ru-RU')+' ₽</div>';
     }
     if(canControl){
-      html += '<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+actionText+'</button>';
+      html += '<button class="staff-seat-btn" style="width:100%;margin-top:10px;border:0;border-radius:10px;padding:9px;background:'+(occupied?'#7f1d1d':'#047857')+';color:#fff;font-weight:700;cursor:pointer">'+(occupied?'Освободить':'Посадить')+'</button>';
     } else {
       html += '<div style="margin-top:10px;color:#94a3b8;font-size:12px">Только просмотр</div>';
     }
