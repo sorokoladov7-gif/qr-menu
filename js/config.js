@@ -17,6 +17,7 @@ const baseDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 window.db = baseDb;
+
 (function(){
 'use strict';
 var path = location.pathname.toLowerCase();
