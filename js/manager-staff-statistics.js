@@ -12,7 +12,7 @@
     var app = document.getElementById('app');
     return app && app.__vueParentComponent && app.__vueParentComponent.proxy;
   }
-  function tabs() { return document.querySelector('.tabs'); }
+  function tabs() { var t=document.querySelector('.tabs'); return t; }
   function findTabButton(text) {
     var t = tabs(); if (!t) return null;
     var buttons = t.querySelectorAll('button');
@@ -22,8 +22,41 @@
     }
     return null;
   }
-  function escapeHtml(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+  function escapeHtml(v) { return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;'); }
   function rub(v) { return Number(v || 0).toLocaleString('ru-RU') + ' ₽'; }
+
+  function installStaffPinIdGuard() {
+    var v = vm();
+    if (!v || typeof v.resetStaffPin !== 'function' || v.__qrStaffPinIdGuardInstalled) {
+      if (!v || typeof v.resetStaffPin !== 'function') setTimeout(installStaffPinIdGuard, 250);
+      return;
+    }
+    var original = v.resetStaffPin;
+    v.resetStaffPin = function(staff, type) {
+      var source = type === 'cook' ? this.cooks : (type === 'courier' ? this.couriers : this.waiters);
+      var suppliedId = staff && staff.id;
+      var resolved = suppliedId ? staff : null;
+
+      if (!resolved || !resolved.id) {
+        var name = staff && String(staff.name || '').trim();
+        if (name && Array.isArray(source)) {
+          resolved = source.find(function(item) {
+            return item && item.id && String(item.name || '').trim() === name;
+          }) || null;
+        }
+      }
+
+      if (!resolved || !resolved.id) {
+        if (typeof this.showToast === 'function') this.showToast('Не удалось определить ID сотрудника. Обновите страницу.', 'error');
+        console.error('[Manager PIN] staff id missing', { staff: staff, type: type, source: source });
+        return;
+      }
+
+      return original.call(this, resolved, type);
+    };
+    v.__qrStaffPinIdGuardInstalled = true;
+  }
+
   function hideVuePanels() {
     originalDisplays.clear();
     document.querySelectorAll('[v-if^="tab==="]').forEach(function(el){
@@ -81,6 +114,7 @@
     var b=document.querySelector('[data-manager-personnel-tab]'); if(b)b.classList.remove('on');
   }
   function install(){
+    installStaffPinIdGuard();
     var v=vm(), t=tabs(); if(!v||!v.venue||!t){setTimeout(install,250);return;}
     var cooksButton=findTabButton('Повара'); if(!cooksButton){setTimeout(install,250);return;}
     if(!document.querySelector('[data-manager-personnel-tab]')){
@@ -98,6 +132,7 @@
       if(btn.getAttribute('data-manager-personnel-tab')!=='1')btn.addEventListener('click',hidePersonnel);
     });
     installed=true;
+    if (!v.__qrStaffPinIdGuardInstalled) setTimeout(installStaffPinIdGuard, 250);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
