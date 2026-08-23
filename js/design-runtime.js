@@ -85,10 +85,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 })();
 
 (function loadCustomerOrderStatus(){
-  function load(){
-    if(document.querySelector('script[data-customer-order-status]'))return;
-    var s=document.createElement('script');s.src='/js/customer-order-status.js?v=1';s.async=false;s.setAttribute('data-customer-order-status','1');document.head.appendChild(s);
+  function load(src,key){
+    if(document.querySelector('script['+key+']'))return;
+    var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(key,'1');document.head.appendChild(s);
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();
+  load('/js/customer-order-status.js?v=2','data-customer-order-status');
+  load('/js/customer-order-live.js?v=2','data-customer-order-live-v2');
 })();
 })();
