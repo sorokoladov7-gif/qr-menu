@@ -2,10 +2,24 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
-      "main": false
+      "main": true
     }
   },
   "github": {
     "enabled": true
-  }
+  },
+  "headers": [
+    {
+      "source": "/(cook|waiter|courier|manager|admin)\\.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
+    {
+      "source": "/js/config\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    }
+  ]
 }
