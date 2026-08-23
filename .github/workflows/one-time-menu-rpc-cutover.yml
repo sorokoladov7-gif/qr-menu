@@ -1,0 +1,58 @@
+name: one-time-menu-rpc-cutover
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace customer tracking with canonical RPC
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('menu.html')
+          s=p.read_text(encoding='utf-8')
+          old=re.search(r"trackOrder:function\(\)\{.*?\n\},\nconfirmChanged:function", s, re.S)
+          if not old:
+              raise SystemExit('trackOrder block not found')
+          new="""trackOrder:function(){
+  var self=this;
+  var phone=self.norm(self.trackPhone);
+  var venueId=self.venue&&self.venue.id;
+  if(!phone||!venueId) return Promise.resolve(false);
+  self.trackSearched=true;
+  return db.rpc('customer_track_order_json',{
+    p_venue_id:venueId,
+    p_customer_phone:phone
+  }).then(function(r){
+    if(r.error) throw r.error;
+    var data=r.data;
+    if(Array.isArray(data)) data=data[0]||null;
+    if(data&&typeof data==='object'&&data.order) data=data.order;
+    if(data){
+      self.previousStatus=data.status||'';
+      self.tracking=data;
+      return true;
+    }
+    return false;
+  }).catch(function(e){
+    console.error('[Menu] customer tracking RPC:',e);
+    return false;
+  });
+},
+confirmChanged:function"""
+          s=s[:old.start()]+new+s[old.end():]
+          p.write_text(s,encoding='utf-8')
+      - name: Commit source-level cutover and remove temporary workflow
+        run: |
+          rm -f .github/workflows/one-time-menu-rpc-cutover.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add menu.html .github/workflows/one-time-menu-rpc-cutover.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix menu customer tracking via canonical RPC'
+          git push
