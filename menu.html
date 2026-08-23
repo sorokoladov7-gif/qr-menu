@@ -881,6 +881,7 @@ startTrackingTimer: function(){
   var self=this;
   this.trackTimer = setInterval(function(){
     if(self.view === 'tracking' && self.trackPhone){
+      console.log('[Menu] Обновление статуса заказа...');
       self.trackOrder();
     }
   }, 5000);
@@ -891,21 +892,16 @@ trackOrder:function(){
   var phone=self.norm(self.trackPhone);
   if(!phone) return Promise.resolve(false);
   self.trackSearched = true;
-
-  return db.from('orders')
-    .select('*, items:order_items(*), addons:order_addons(*)')
-    .eq('venue_id', self.venue.id)
-    .eq('customer_phone', phone)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-    .then(function(r) {
+  return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
+    .eq('venue_id',self.venue.id).eq('customer_phone',phone)
+    .order('created_at',{ascending:false}).limit(1).maybeSingle()
+    .then(function(r){
       var newData = r.data || null;
-      if (newData) {
-        // Если статус изменился – обновляем
-        if (self.previousStatus !== newData.status) {
+      if(newData){
+        console.log('[Menu] Получен заказ:', newData.id, 'статус:', newData.status);
+        if(self.previousStatus !== newData.status){
           self.previousStatus = newData.status;
-          self.$nextTick(function() {
+          self.$nextTick(function(){
             self.tracking = JSON.parse(JSON.stringify(newData));
             try {
               var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
@@ -913,15 +909,17 @@ trackOrder:function(){
             } catch(e) {}
           });
         } else {
-          // Если статус тот же, просто обновляем данные (например, состав или сумму)
           self.tracking = newData;
         }
         return true;
       } else {
-        // Если заказ не найден, но у нас уже есть заказ из ответа RPC – не сбрасываем
-        // Просто ничего не делаем
+        console.log('[Menu] Заказ не найден для телефона:', phone);
+        self.tracking = null;
         return false;
       }
+    }).catch(function(err){
+      console.error('[Menu] Ошибка при получении заказа:', err);
+      return false;
     });
 },
 confirmChanged:function(){var self=this;db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){self.trackOrder()})},
