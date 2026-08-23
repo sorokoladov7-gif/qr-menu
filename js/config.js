@@ -3,7 +3,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 const __qrRoleMatch = location.pathname.toLowerCase().match(/\/(admin|manager|cook|courier|waiter)\.html$/i);
 const __qrRole = __qrRoleMatch ? __qrRoleMatch[1].toLowerCase() : 'public';
 const __qrAuthStorage = window.sessionStorage;
-const __qrAuthKey = 'qr-menu-auth-' + __qrRole;
+const __qrAuthKey = 'qr-menu-auth-account';
 const baseDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
@@ -26,7 +26,7 @@ var real = baseDb;
 var oldFrom = real.from.bind(real);
 var oldRpc = real.rpc.bind(real);
 function staffToken(){if(window.StaffAuth&&window.StaffAuth.token())return window.StaffAuth.token();if(staffType){var roleKey=staffType+'_token';var t=sessionStorage.getItem(roleKey);if(t)return t;}return sessionStorage.getItem('staff_token');}
-function rememberStaffLogin(type,data){if(window.StaffAuth&&data)window.StaffAuth.login(type,data);if(data&&data.token){try{localStorage.setItem('staff_token',data.token);localStorage.setItem(type+'_token',data.token);sessionStorage.setItem(type+'_session',JSON.stringify({venueId:data.venueId,venueName:data.venueName,staffName:data.staffName,token:data.token}));}catch(e){}}}
+function rememberStaffLogin(type,data){if(window.StaffAuth&&data)window.StaffAuth.login(type,data);if(data&&data.token){try{sessionStorage.setItem(type+'_session',JSON.stringify({venueId:data.venueId,venueName:data.venueName,staffName:data.staffName,token:data.token}));}catch(e){}}}
 function resolveQrTable(venueId){var token=new URLSearchParams(location.search).get('token');if(!token)return Promise.resolve(null);if(window.__qrTable&&window.__qrTable.qr_token===token)return Promise.resolve(window.__qrTable);var q=oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('qr_token',String(token).trim()).eq('is_active',true);if(venueId)q=q.eq('venue_id',venueId);return q.maybeSingle().then(function(r){if(!r.error&&r.data)window.__qrTable=r.data;return r.data||null;});}
 function makeChain(table){var state={action:'select',filters:{},inFilters:{},neqFilters:{},payload:null};var api={select:function(){state.action='select';return api;},insert:function(v){state.action='insert';state.payload=v;return api;},update:function(v){state.action='update';state.payload=v;return api;},delete:function(){state.action='delete';return api;},eq:function(k,v){state.filters[k]=v;return api;},neq:function(k,v){state.neqFilters[k]=v;return api;},in:function(k,v){state.inFilters[k]=v;return api;},order:function(){return api;},limit:function(){return api;},maybeSingle:function(){return execute(true);},single:function(){return execute(true);},then:function(a,b){return execute(false).then(a,b);},catch:function(a){return execute(false).catch(a);}};
 function applyNeq(rows){if(!state.neqFilters||!Object.keys(state.neqFilters).length)return rows;return rows.filter(function(row){for(var k in state.neqFilters){if(row[k]===state.neqFilters[k])return false;}return true;});}

@@ -4,11 +4,12 @@
  */
 (function(){
 'use strict';
-var STORAGE_KEY='qr_staff_session';
+var role=(location.pathname.toLowerCase().match(/\/(cook|courier|waiter)\.html$/i)||[])[1]||'staff';
+var STORAGE_KEY='qr_staff_session_'+role;
 
 function get(){
   try{
-    var raw=localStorage.getItem(STORAGE_KEY);
+    var raw=sessionStorage.getItem(STORAGE_KEY);
     if(!raw)return null;
     var s=JSON.parse(raw);
     if(!s||typeof s.token!=='string'||!s.type||!s.venueId)return null;
@@ -19,14 +20,14 @@ function get(){
 
 function set(data){
   clear();
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(data));
+  sessionStorage.setItem(STORAGE_KEY,JSON.stringify(data));
 }
 
 function clear(){
-  localStorage.removeItem(STORAGE_KEY);
+  sessionStorage.removeItem(STORAGE_KEY);
   ['cook_token','waiter_token','courier_token','staff_token',
    'cook_login_context','waiter_login_context','courier_login_context'
-  ].forEach(function(k){localStorage.removeItem(k);});
+  ].forEach(function(k){sessionStorage.removeItem(k);});
 }
 
 function token(){var s=get();return s?s.token:null;}
