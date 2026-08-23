@@ -38,5 +38,46 @@ const tg=document.getElementById('tables');state.tables.forEach(t=>tg.appendChil
 try{state.session=JSON.parse(localStorage.getItem('waiter_session')||'null')}catch(e){}
 render();if(state.token)load();setInterval(()=>state.token&&load(),5000);
 </script>
+<script data-qr-waiter-direct-login>
+(() => {
+  const SUPA_URL='https://ulxfsozdryqrnlxzlblt.supabase.co';
+  const SUPA_KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
+  const client=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false}});
+  function install(){
+    const btn=document.getElementById('go'), slug=document.getElementById('slug'), pin=document.getElementById('pin');
+    if(!btn||!slug||!pin){setTimeout(install,150);return;}
+    if(btn.dataset.qrWaiterDirectLogin==='1')return;
+    btn.dataset.qrWaiterDirectLogin='1';
+    btn.onclick=async(e)=>{
+      e&&e.preventDefault();
+      btn.disabled=true;btn.textContent='Проверяем...';
+      const err=document.querySelector('#app .err, #app [style*="f87171"]');
+      const s=String(slug.value||'').trim().toLowerCase();
+      const p=String(pin.value||'').replace(/\s+/g,'').trim();
+      try{
+        if(!s)throw new Error('Введите код заведения');
+        if(!/^\d{4}$/.test(p))throw new Error('PIN должен состоять из 4 цифр');
+        const r=await client.rpc('staff_login',{p_type:'waiter',p_slug:s,p_pin:p});
+        if(r.error||!r.data||r.data.error){
+          let m=(r.error&&r.error.message)||(r.data&&r.data.error)||'Не удалось войти';
+          m=String(m);
+          if(m.includes('wrong_pin'))m='Неверный PIN';
+          else if(m.includes('venue_not_found'))m='Заведение не найдено или неактивно';
+          else if(m.includes('slug_or_pin_required'))m='Не передан код заведения или PIN';
+          throw new Error(m);
+        }
+        sessionStorage.setItem('waiter_token',r.data.token);
+        sessionStorage.setItem('waiter_session',JSON.stringify({token:r.data.token,venueId:r.data.venueId,venueName:r.data.venueName,staffName:r.data.staffName}));
+        sessionStorage.setItem('waiter_tab','overview');
+        location.reload();
+      }catch(x){
+        if(err)err.textContent=x.message||'Ошибка входа'; else alert(x.message||'Ошибка входа');
+        btn.disabled=false;btn.textContent='Войти';
+      }
+    };
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+})();
+</script>
 </body>
 </html>
