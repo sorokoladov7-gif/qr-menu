@@ -891,15 +891,21 @@ trackOrder:function(){
   var phone=self.norm(self.trackPhone);
   if(!phone) return Promise.resolve(false);
   self.trackSearched = true;
-  return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
-    .eq('venue_id',self.venue.id).eq('customer_phone',phone)
-    .order('created_at',{ascending:false}).limit(1).maybeSingle()
-    .then(function(r){
+
+  return db.from('orders')
+    .select('*, items:order_items(*), addons:order_addons(*)')
+    .eq('venue_id', self.venue.id)
+    .eq('customer_phone', phone)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .then(function(r) {
       var newData = r.data || null;
-      if(newData){
-        if(self.previousStatus !== newData.status){
+      if (newData) {
+        // Если статус изменился – обновляем
+        if (self.previousStatus !== newData.status) {
           self.previousStatus = newData.status;
-          self.$nextTick(function(){
+          self.$nextTick(function() {
             self.tracking = JSON.parse(JSON.stringify(newData));
             try {
               var audio = new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=");
@@ -907,11 +913,13 @@ trackOrder:function(){
             } catch(e) {}
           });
         } else {
+          // Если статус тот же, просто обновляем данные (например, состав или сумму)
           self.tracking = newData;
         }
         return true;
       } else {
-        self.tracking = null;
+        // Если заказ не найден, но у нас уже есть заказ из ответа RPC – не сбрасываем
+        // Просто ничего не делаем
         return false;
       }
     });
