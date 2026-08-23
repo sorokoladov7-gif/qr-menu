@@ -797,7 +797,8 @@ Vue.createApp({
       var self=this;
       if(!this.venue) return;
       var days = parseInt(this.staffAnalyticsDays) || 30;
-      db.rpc('manager_reset_staff_pin', {p_venue_id: this.venue.id, p_days: days}).then(function(r) {
+      // Исправлено: вызов правильной RPC для аналитики персонала
+      db.rpc('manager_staff_performance', {p_venue_id: this.venue.id, p_days: days}).then(function(r) {
         if(r.error) { console.warn('staff analytics:', r.error.message||r.error); return; }
         if(r.data) self.staffAnalytics = r.data;
       }).catch(function(e) { console.warn('staff analytics exception:', e); });
@@ -1115,20 +1116,26 @@ Vue.createApp({
       var typeRu = type==='cook' ? 'повара' : (type==='courier' ? 'курьера' : 'официанта');
       if(!confirm('Сбросить PIN у ' + staff.name + ' (' + typeRu + ')?\nНовый PIN будет показан только один раз.')) return;
       self.busy = true;
-      db.rpc('manager_reset_staff_pin_v2', {
-        p_venue_id: this.venue.id,
-        p_staff_id: staff.id,
-        p_type: type
-      }).then(function(r) {
-        self.busy = false;
-        if(r.error) { self.showToast('Ошибка: ' + (r.error.message || r.error), 'error'); return; }
-        var pin = r.data.pin;
-        alert('✅ Новый PIN для ' + staff.name + ':\n\n🔑 ' + pin + '\n\n⚠️ Сообщите PIN сотруднику сейчас.\nЭтот PIN больше не будет показан.');
-        self.loadStaffAnalytics(); // обновляем аналитику
-      }).catch(function(e) {
-        self.busy = false;
-        self.showToast('Ошибка: ' + (e.message || String(e)), 'error');
-      });
+      // Генерируем новый PIN на клиенте и обновляем напрямую
+      var newPin = String(Math.floor(1000 + Math.random() * 9000));
+      var tableName = type === 'cook' ? 'cooks' : (type === 'courier' ? 'couriers' : 'waiters');
+      db.from(tableName)
+        .update({ pin: newPin })
+        .eq('id', staff.id)
+        .eq('venue_id', this.venue.id)
+        .then(function(r) {
+          self.busy = false;
+          if(r.error) {
+            self.showToast('Ошибка: ' + (r.error.message || r.error), 'error');
+            return;
+          }
+          alert('✅ Новый PIN для ' + staff.name + ':\n\n🔑 ' + newPin + '\n\n⚠️ Сообщите PIN сотруднику сейчас.\nЭтот PIN больше не будет показан.');
+          self.loadStaffAnalytics(); // обновляем аналитику
+        })
+        .catch(function(e) {
+          self.busy = false;
+          self.showToast('Ошибка: ' + (e.message || String(e)), 'error');
+        });
     },
     delCook: function(c) {
       if(!confirm('Удалить повара '+c.name+'?')) return;
