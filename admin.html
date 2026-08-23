@@ -85,6 +85,100 @@
   padding: 4px 12px;
   border-radius: 20px;
 }
+
+/* Стили для редактора шаблонов */
+.template-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 18px;
+}
+.template-list {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+.template-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.template-item:hover {
+  background: rgba(255,255,255,.04);
+}
+.template-item.active {
+  border-color: #6366f1;
+  background: rgba(99,102,241,.08);
+}
+.template-item .name {
+  font-weight: 600;
+}
+.template-item .meta {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+.template-editor {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.template-editor .field-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.template-editor .field-group .full {
+  grid-column: 1 / -1;
+}
+.template-editor .product-row {
+  display: grid;
+  grid-template-columns: 44px 1fr 100px 120px 1.2fr 36px;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+  padding: 8px;
+  background: rgba(255,255,255,.03);
+  border-radius: 10px;
+}
+.template-editor .product-row input,
+.template-editor .product-row select {
+  background: #0e1219;
+  color: #fff;
+  border: 1px solid #303746;
+  border-radius: 8px;
+  padding: 6px 8px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+}
+.template-editor .product-row .thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 8px;
+  background: #0e1219;
+  border: 1px solid #303746;
+}
+.template-editor .product-row .del {
+  background: none;
+  border: none;
+  color: #f87171;
+  font-size: 18px;
+  cursor: pointer;
+}
+@media (max-width: 900px) {
+  .template-grid {
+    grid-template-columns: 1fr;
+  }
+  .template-editor .field-group {
+    grid-template-columns: 1fr;
+  }
+  .template-editor .product-row {
+    grid-template-columns: 40px 1fr 1fr;
+    gap: 6px;
+  }
+}
 </style>
 </head>
 <body>
@@ -133,9 +227,8 @@
 <button v-bind:class="{on:tab==='templates'}" v-on:click="switchTab('templates')">🍽️ Шаблоны заведений</button>
 </div>
 
-<!-- ===================== ШАБЛОНЫ ЗАВЕДЕНИЙ ===================== -->
+<!-- ===================== ШАБЛОНЫ ЗАВЕДЕНИЙ (полноценный редактор) ===================== -->
 <div v-if="tab==='templates'">
-
   <div class="spread" style="margin-bottom:14px">
     <div>
       <h3 style="margin:0">🍽️ Шаблоны заведений</h3>
@@ -143,83 +236,131 @@
         Управление шаблонами меню для новых заведений
       </div>
     </div>
-
-    <a
-      href="admin_templates.html"
-      class="btn btn-primary"
-      target="_self"
-    >
-      ✏️ Открыть редактор
-    </a>
+    <button class="btn btn-primary btn-sm" @click="newTemplate">+ Создать шаблон</button>
   </div>
 
-  <div class="glass card">
-
-    <div style="
-      display:grid;
-      grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-      gap:12px;
-      margin-bottom:18px;
-    ">
-
-      <div class="kpi">
-        <div class="n">11</div>
-        <div class="l">Шаблонов в системе</div>
+  <div class="glass card template-grid">
+    <!-- Левая колонка: список -->
+    <div class="template-list">
+      <input class="search" style="width:100%;box-sizing:border-box;margin-bottom:12px;background:#0e1219;color:#fff;border:1px solid #303746;border-radius:10px;padding:10px" 
+             v-model.trim="searchQuery" placeholder="Поиск шаблона...">
+      <div v-for="t in filteredTemplates" :key="t.id" 
+           class="template-item" :class="{active: selectedTemplate && selectedTemplate.id === t.id}"
+           @click="selectTemplate(t)">
+        <div class="name">{{ t.emoji || '🍽️' }} {{ t.name }}</div>
+        <div class="meta">{{ t.scale_code || 'M' }} · {{ t.niche || 'other' }} · {{ (t.products || []).length }} позиций</div>
+        <div class="meta" style="font-size:11px;color:#6b7a8f;">{{ t.is_active ? 'Опубликован' : 'Скрыт' }}</div>
       </div>
-
-      <div class="kpi">
-        <div class="n">11</div>
-        <div class="l">Готовых ниш</div>
-      </div>
-
-      <div class="kpi">
-        <div class="n">25–150</div>
-        <div class="l">Позиций в шаблонах</div>
-      </div>
-
+      <div v-if="!filteredTemplates.length" class="muted" style="padding:16px;text-align:center;">Нет шаблонов</div>
     </div>
 
-    <div style="
-      padding:16px;
-      border-radius:12px;
-      background:rgba(99,102,241,.08);
-      border:1px solid rgba(99,102,241,.18);
-    ">
-
-      <div style="font-weight:700;margin-bottom:6px">
-        Редактор шаблонов 2.0
+    <!-- Правая колонка: редактор -->
+    <div class="template-editor" v-if="selectedTemplate">
+      <div class="spread" style="margin-bottom:12px">
+        <div>
+          <h4 style="margin:0">{{ templateForm.emoji || '🍽️' }} {{ templateForm.name }}</h4>
+          <div class="muted" style="font-size:13px;">{{ (templateForm.products || []).length }} позиций</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" @click="saveTemplate" :disabled="templateBusy">
+            {{ templateBusy ? 'Сохранение…' : 'Сохранить' }}
+          </button>
+          <button class="btn btn-danger btn-sm" @click="deleteTemplate">Удалить</button>
+        </div>
       </div>
 
-      <div class="muted" style="font-size:13px;line-height:1.6">
-        Здесь администратор может управлять готовыми шаблонами заведений:
-        изменять название, нишу, масштаб, товары, категории, цены и изображения.
+      <div class="field-group">
+        <div class="field full">
+          <label>Название</label>
+          <input v-model.trim="templateForm.name">
+        </div>
+        <div class="field">
+          <label>Slug (уникальный код)</label>
+          <input v-model.trim="templateForm.slug">
+        </div>
+        <div class="field">
+          <label>Эмодзи</label>
+          <input v-model.trim="templateForm.emoji" placeholder="🍽️">
+        </div>
+        <div class="field">
+          <label>Ниша</label>
+          <select v-model="templateForm.niche">
+            <option value="fastfood">Fast food</option>
+            <option value="bakery">Пекарня</option>
+            <option value="coffee">Кофейня</option>
+            <option value="confectionery">Кондитерская</option>
+            <option value="cafe">Кафе</option>
+            <option value="shawarma_canteen">Шаурма-столовая</option>
+            <option value="cafe_bar">Кафе-бар</option>
+            <option value="sushi">Суши-бар</option>
+            <option value="pizzeria">Пиццерия</option>
+            <option value="restaurant">Ресторан</option>
+            <option value="other">Другое</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Масштаб</label>
+          <select v-model="templateForm.scale_code">
+            <option>S</option>
+            <option>M</option>
+            <option>L</option>
+            <option>XL</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Целевое число позиций</label>
+          <input v-model.number="templateForm.target_product_count" type="number" min="1">
+        </div>
+        <div class="field">
+          <label>Порядок сортировки</label>
+          <input v-model.number="templateForm.sort_order" type="number">
+        </div>
+        <div class="field full">
+          <label>Описание</label>
+          <input v-model.trim="templateForm.description">
+        </div>
+        <div class="field full" style="display:flex;align-items:center;gap:12px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+            <input type="checkbox" v-model="templateForm.is_active"> Опубликован
+          </label>
+        </div>
       </div>
 
-      <div class="muted" style="
-        font-size:12px;
-        margin-top:10px;
-        line-height:1.5;
-      ">
-        Изменения шаблона применяются только при создании новых заведений.
-        Существующие заведения и их меню не изменяются.
+      <hr style="border-color:#29303d;margin:16px 0;">
+
+      <div class="spread" style="margin-bottom:10px">
+        <h4 style="margin:0">Позиции меню <span class="count">({{ (templateForm.products || []).length }})</span></h4>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-sm" @click="addProduct">+ Добавить</button>
+          <button class="btn btn-sm" @click="sortProducts">Сортировать</button>
+          <button class="btn btn-sm" @click="fillTarget" v-if="templateForm.target_product_count > (templateForm.products || []).length">
+            Дополнить до {{ templateForm.target_product_count }}
+          </button>
+        </div>
       </div>
 
+      <div v-for="(p, idx) in templateForm.products" :key="idx" class="product-row">
+        <img class="thumb" :src="p.image_url || placeholder" @error="p.image_url = placeholder">
+        <input v-model.trim="p.name" placeholder="Название">
+        <input v-model.number="p.price" type="number" min="0" placeholder="Цена">
+        <input v-model.trim="p.category" placeholder="Категория">
+        <input v-model.trim="p.description" placeholder="Описание">
+        <button class="del" @click="removeProduct(idx)">✕</button>
+        <div style="grid-column: 1 / -1; display:flex; gap:8px; align-items:center; margin-top:4px;">
+          <span class="muted" style="font-size:12px;">URL изображения:</span>
+          <input v-model.trim="p.image_url" placeholder="https://..." style="flex:1;">
+        </div>
+      </div>
+      <div v-if="!templateForm.products || !templateForm.products.length" class="muted" style="padding:12px;text-align:center;">
+        Меню пустое. Добавьте позиции.
+      </div>
     </div>
 
-    <div style="margin-top:16px;text-align:right">
-
-      <a
-        href="admin_templates.html"
-        class="btn btn-primary"
-        target="_self"
-      >
-        🍽️ Управлять шаблонами
-      </a>
-
+    <!-- Если шаблон не выбран -->
+    <div v-else class="template-editor" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;min-height:200px;">
+      Выберите шаблон из списка или создайте новый
     </div>
-
   </div>
-
 </div>
 
 <!-- ===================== СТАТИСТИКА ===================== -->
@@ -976,7 +1117,26 @@ adminDesignTemplate:{
   border_width:1,
   transition_speed:0.2
 },
-venueDesignTemplate: null
+venueDesignTemplate: null,
+// === Шаблоны заведений ===
+templates: [],
+selectedTemplate: null,
+templateForm: {
+  id: null,
+  name: '',
+  slug: '',
+  emoji: '🍽️',
+  description: '',
+  is_active: true,
+  sort_order: 100,
+  niche: 'other',
+  scale_code: 'M',
+  target_product_count: 1,
+  products: []
+},
+templateBusy: false,
+searchQuery: '',
+placeholder: 'https://loremflickr.com/320/240/food?lock=1'
 }},
 computed:{
 mrr:function(){var self=this;return this.venues.filter(function(v){return v.status==='active'}).reduce(function(s,v){var p=self.plans.find(function(x){return x.id===v.plan});return s+(p?Number(p.price):0)},0)},
@@ -1082,7 +1242,6 @@ currentDesignTemplate: function() {
     return this.venueDesignTemplate || this.adminDesignTemplate;
   }
 },
-// Новое вычисляемое свойство: для каждого управляющего список его заведений с полными данными
 managerVenuesMap: function() {
   var map = {};
   var self = this;
@@ -1094,6 +1253,15 @@ managerVenuesMap: function() {
     map[m.id] = venues;
   });
   return map;
+},
+filteredTemplates: function() {
+  var q = this.searchQuery.toLowerCase();
+  var self = this;
+  if (!q) return this.templates;
+  return this.templates.filter(function(t) {
+    var s = (t.name || '') + ' ' + (t.slug || '') + ' ' + (t.niche || '');
+    return s.toLowerCase().includes(q);
+  });
 }
 },
 methods:{
@@ -1106,6 +1274,9 @@ switchTab:function(t){
 this.tab=t;
 if((t==='activity'||t==='subs')&&!this.ordersLoaded&&!this.ordersLoading){
 this.loadOrders();
+}
+if (t === 'templates') {
+  this.loadTemplates();
 }
 },
 openDesignPanel:function(){
@@ -1310,6 +1481,9 @@ self.loadGlobalStats();
 self.ready=true;
 if(self.tab==='activity'||self.tab==='subs'){
 self.loadOrders();
+}
+if(self.tab==='templates'){
+self.loadTemplates();
 }
 });
 });
@@ -1602,7 +1776,163 @@ return db.from('subscriptions').update({plan_id:pay.plan_id,status:'active',curr
 }).then(function(){return db.from('payments').update({status:'confirmed'}).eq('id',pay.id)}).then(function(){self.loadBaseData()})},
 rejectPayment:function(pay){var self=this;
 db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadBaseData()})},
-logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'}
+logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
+
+// ===================== МЕТОДЫ ДЛЯ ШАБЛОНОВ =====================
+loadTemplates:function(){
+  var self=this;
+  db.from('menu_templates')
+    .select('*')
+    .order('sort_order', {ascending: true})
+    .then(function(res){
+      if(res.error) throw res.error;
+      self.templates = res.data || [];
+      // Если выбранный шаблон есть в списке, обновим его данные, иначе сбросим выбор
+      if (self.selectedTemplate) {
+        var found = self.templates.find(function(t){return t.id === self.selectedTemplate.id});
+        if (found) {
+          self.selectTemplate(found);
+        } else {
+          self.selectedTemplate = null;
+          self.templateForm = {id:null, name:'', slug:'', emoji:'🍽️', description:'', is_active:true, sort_order:100, niche:'other', scale_code:'M', target_product_count:1, products:[]};
+        }
+      } else if (self.templates.length) {
+        self.selectTemplate(self.templates[0]);
+      }
+    })
+    .catch(function(e){
+      console.error('Ошибка загрузки шаблонов:', e);
+    });
+},
+
+selectTemplate:function(t){
+  this.selectedTemplate = t;
+  this.templateForm = JSON.parse(JSON.stringify(t));
+  this.templateForm.products = Array.isArray(this.templateForm.products) ? this.templateForm.products : [];
+  this.templateForm.target_product_count = this.templateForm.target_product_count || this.templateForm.products.length;
+  this.templateForm.scale_code = this.templateForm.scale_code || 'M';
+  this.templateForm.niche = this.templateForm.niche || 'other';
+},
+
+newTemplate:function(){
+  var newId = 'template-' + Date.now();
+  var newT = {
+    id: newId,
+    name: 'Новый шаблон',
+    slug: 'new-template-' + Date.now(),
+    emoji: '🍽️',
+    description: '',
+    is_active: true,
+    sort_order: 100,
+    niche: 'other',
+    scale_code: 'M',
+    target_product_count: 1,
+    products: []
+  };
+  this.templates.unshift(newT);
+  this.selectTemplate(newT);
+},
+
+addProduct:function(){
+  this.templateForm.products.push({
+    name: 'Новая позиция',
+    description: '',
+    price: 0,
+    category: 'main',
+    applies_to: 'all',
+    image_url: this.placeholder,
+    is_available: true
+  });
+},
+
+removeProduct:function(idx){
+  this.templateForm.products.splice(idx, 1);
+},
+
+sortProducts:function(){
+  this.templateForm.products.sort(function(a,b){
+    return (a.category || '').localeCompare(b.category || '', 'ru');
+  });
+},
+
+fillTarget:function(){
+  var target = this.templateForm.target_product_count || 1;
+  var current = this.templateForm.products.length;
+  while (current < target) {
+    this.addProduct();
+    current++;
+  }
+},
+
+saveTemplate:function(){
+  var self = this;
+  var form = this.templateForm;
+  if (!form.name || !form.slug) {
+    alert('Заполните название и slug');
+    return;
+  }
+  this.templateBusy = true;
+  var data = {
+    name: form.name,
+    slug: form.slug,
+    emoji: form.emoji || '🍽️',
+    description: form.description || null,
+    is_active: !!form.is_active,
+    sort_order: Number(form.sort_order) || 100,
+    niche: form.niche || 'other',
+    scale_code: form.scale_code || 'M',
+    target_product_count: Number(form.target_product_count) || form.products.length,
+    products: form.products
+  };
+  var promise;
+  if (form.id && form.id.startsWith('template-')) {
+    // Новый шаблон (ещё не сохранён в БД)
+    promise = db.from('menu_templates').insert([data]);
+  } else {
+    promise = db.from('menu_templates').update(data).eq('id', form.id);
+  }
+  promise.then(function(res){
+    self.templateBusy = false;
+    if (res.error) {
+      alert('Ошибка сохранения: ' + res.error.message);
+      return;
+    }
+    self.loadTemplates();
+    alert('Шаблон сохранён!');
+  }).catch(function(e){
+    self.templateBusy = false;
+    alert('Ошибка: ' + e.message);
+  });
+},
+
+deleteTemplate:function(){
+  var self = this;
+  if (!this.selectedTemplate) return;
+  if (!confirm('Удалить шаблон "' + this.selectedTemplate.name + '"?')) return;
+  var id = this.selectedTemplate.id;
+  // Если это новый (ещё не в БД), просто удаляем из списка
+  if (id && id.startsWith('template-')) {
+    var idx = this.templates.indexOf(this.selectedTemplate);
+    if (idx > -1) this.templates.splice(idx, 1);
+    this.selectedTemplate = null;
+    this.templateForm = {id:null, name:'', slug:'', emoji:'🍽️', description:'', is_active:true, sort_order:100, niche:'other', scale_code:'M', target_product_count:1, products:[]};
+    return;
+  }
+  db.from('menu_templates')
+    .delete()
+    .eq('id', id)
+    .then(function(res){
+      if (res.error) {
+        alert('Ошибка удаления: ' + res.error.message);
+        return;
+      }
+      self.loadTemplates();
+      alert('Шаблон удалён');
+    })
+    .catch(function(e){
+      alert('Ошибка: ' + e.message);
+    });
+}
 },
 mounted:function(){this.init()}
 }).mount('#app');
