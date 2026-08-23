@@ -1115,7 +1115,7 @@ Vue.createApp({
       var typeRu = type==='cook' ? 'повара' : (type==='courier' ? 'курьера' : 'официанта');
       if(!confirm('Сбросить PIN у ' + staff.name + ' (' + typeRu + ')?\nНовый PIN будет показан только один раз.')) return;
       self.busy = true;
-      db.rpc('manager_reset_staff_pin', {
+      db.rpc('manager_reset_staff_pin_v2', {
         p_venue_id: this.venue.id,
         p_staff_id: staff.id,
         p_type: type
