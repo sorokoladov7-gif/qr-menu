@@ -1,51 +1,130 @@
-/* Manager staff UI compatibility + cook phone support. */
-(function(){
+/* Manager personnel tab: stable UI bridge for the existing Vue analytics. */
+(function () {
   'use strict';
-  if(!/\/manager\.html$/i.test(location.pathname)) return;
-  function vm(){var app=document.getElementById('app');return app&&app.__vueParentComponent&&app.__vueParentComponent.proxy;}
-  async function loadCookPhones(v){
-    if(!v||!v.venue||!window.db)return;
-    try{
-      var r=await window.db.from('cooks').select('id,name,phone,venue_id').eq('venue_id',v.venue.id).order('created_at');
-      if(!r.error&&Array.isArray(r.data)){
-        v.cooks=r.data;
-      }
-    }catch(e){console.warn('[Manager staff] cook phone load failed',e);}
+  if (!/\/manager\.html$/i.test(location.pathname)) return;
+
+  var installed = false;
+  var personnelActive = false;
+
+  function getVm() {
+    var app = document.getElementById('app');
+    return app && app.__vueParentComponent && app.__vueParentComponent.proxy;
   }
-  function addPhoneField(v){
-    var modal=document.querySelector('.modal');
-    if(!modal||!v||!v.createStaffModal||v.createStaffType!=='cook') return;
-    if(modal.querySelector('[data-cook-phone-field]')) return;
-    var fields=modal.querySelectorAll('.field'); if(!fields.length)return;
-    var pinField=fields[fields.length-1];
-    var wrap=document.createElement('div');wrap.className='field';wrap.setAttribute('data-cook-phone-field','1');
-    wrap.innerHTML='<label>Телефон</label><input type="tel" placeholder="+7 900 000-00-00">';
-    var input=wrap.querySelector('input');input.value=(v.createStaffForm&&v.createStaffForm.phone)||'';
-    input.addEventListener('input',function(){var cur=vm();if(cur&&cur.createStaffForm)cur.createStaffForm.phone=input.value;});
-    pinField.parentNode.insertBefore(wrap,pinField);
-  }
-  function addCookPhones(v){
-    if(!v||!v.venue||!Array.isArray(v.cooks))return;
-    var cards=[].slice.call(document.querySelectorAll('.menu-item'));
-    v.cooks.forEach(function(c){
-      var card=cards.find(function(el){var t=el.textContent||'';return t.indexOf(c.name)>=0&&t.indexOf('Повар')>=0;});
-      if(!card||card.querySelector('[data-cook-phone]'))return;
-      var b=document.createElement('div');b.className='muted';b.setAttribute('data-cook-phone','1');b.style.fontSize='12px';b.textContent='📞 '+(c.phone||'не указан');
-      var host=card.querySelector('div[style*="flex:1"]')||card.firstElementChild;if(host)host.appendChild(b);
-    });
-  }
-  function install(){
-    var v=vm(),tabs=document.querySelector('.tabs');
-    if(!v||!tabs||!v.venue){setTimeout(install,250);return;}
-    if(!document.getElementById('manager-staff-quick-actions')){
-      var box=document.createElement('div');box.id='manager-staff-quick-actions';box.style.cssText='display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 16px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.025);';
-      var label=document.createElement('span');label.textContent='Персонал:';label.style.cssText='font-weight:800;color:#e5e7eb;margin-right:4px;';box.appendChild(label);
-      [['cook','👨‍🍳 Добавить повара','#047857'],['waiter','🤵 Добавить официанта','#0e7490'],['courier','🚗 Добавить курьера','#b45309']].forEach(function(x){var b=document.createElement('button');b.type='button';b.textContent=x[1];b.className='btn btn-green btn-sm';b.style.background=x[2];b.onclick=function(){var cur=vm();if(cur&&typeof cur.openCreateStaff==='function')cur.openCreateStaff(x[0]);};box.appendChild(b);});
-      tabs.parentNode.insertBefore(box,tabs);
+
+  function findTabButton(text) {
+    var tabs = document.querySelector('.tabs');
+    if (!tabs) return null;
+    var buttons = tabs.querySelectorAll('button');
+    for (var i = 0; i < buttons.length; i++) {
+      var t = (buttons[i].textContent || '').trim();
+      if (t === text || t.indexOf(text) !== -1) return buttons[i];
     }
-    loadCookPhones(v).then(function(){addCookPhones(v);});
-    addPhoneField(v);
-    setTimeout(install,700);
+    return null;
   }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
+
+  function ensurePersonnelTab(vm) {
+    var tabs = document.querySelector('.tabs');
+    if (!tabs || !vm || !vm.venue) return false;
+    if (tabs.querySelector('[data-manager-personnel-tab]')) return true;
+
+    var cooksButton = findTabButton('Повара');
+    if (!cooksButton) return false;
+
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('data-manager-personnel-tab', '1');
+    button.textContent = '👥 Персонал';
+    button.style.cssText = 'font-weight:800;';
+
+    button.addEventListener('click', function () {
+      var current = getVm();
+      if (!current || !current.venue) return;
+
+      personnelActive = true;
+      current.tab = 'analytics';
+      if (typeof current.loadStaffAnalytics === 'function') {
+        current.loadStaffAnalytics();
+      }
+
+      waitForPersonnelAnalytics(0);
+    });
+
+    tabs.insertBefore(button, cooksButton);
+    updatePersonnelState(vm);
+    return true;
+  }
+
+  function waitForPersonnelAnalytics(attempt) {
+    var vm = getVm();
+    var heading = findPersonnelHeading();
+
+    if (heading) {
+      var card = heading.closest('.glass.card');
+      if (card) {
+        card.style.borderColor = '#6366f1';
+        card.style.boxShadow = '0 0 0 1px rgba(99,102,241,.2), 0 12px 35px rgba(0,0,0,.18)';
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      updatePersonnelState(vm);
+      return;
+    }
+
+    if (attempt < 40) {
+      setTimeout(function () { waitForPersonnelAnalytics(attempt + 1); }, 150);
+    }
+  }
+
+  function findPersonnelHeading() {
+    var nodes = document.querySelectorAll('h3,h4,h5,div');
+    for (var i = 0; i < nodes.length; i++) {
+      var text = (nodes[i].textContent || '').trim();
+      if (text.indexOf('Производительность персонала') !== -1) return nodes[i];
+    }
+    return null;
+  }
+
+  function updatePersonnelState(vm) {
+    var button = document.querySelector('[data-manager-personnel-tab]');
+    if (!button) return;
+    var active = personnelActive && vm && vm.tab === 'analytics';
+    button.classList.toggle('on', !!active);
+  }
+
+  function maintain() {
+    var vm = getVm();
+    if (!vm || !vm.venue) {
+      setTimeout(maintain, 300);
+      return;
+    }
+
+    ensurePersonnelTab(vm);
+    updatePersonnelState(vm);
+
+    var tabs = document.querySelector('.tabs');
+    if (tabs) {
+      var buttons = tabs.querySelectorAll('button');
+      for (var i = 0; i < buttons.length; i++) {
+        if (buttons[i].getAttribute('data-manager-personnel-tab') === '1') continue;
+        if (!buttons[i].__qrPersonnelBound) {
+          buttons[i].__qrPersonnelBound = true;
+          buttons[i].addEventListener('click', function () {
+            personnelActive = false;
+            setTimeout(function () { updatePersonnelState(getVm()); }, 0);
+          });
+        }
+      }
+    }
+
+    setTimeout(maintain, 500);
+  }
+
+  function boot() {
+    maintain();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
 })();
