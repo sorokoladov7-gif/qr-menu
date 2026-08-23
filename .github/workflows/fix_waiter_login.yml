@@ -10,13 +10,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Patch waiter login
+      - name: Patch waiter login and session restore
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('waiter.html')
           s=p.read_text(encoding='utf-8')
-          if 'data-qr-waiter-direct-login' not in s:
+
+          # The page must restore the successful staff session from tab-local storage.
+          s=s.replace(
+              "const state={token:localStorage.getItem('staff_token')||'',session:null,",
+              "const state={token:sessionStorage.getItem('waiter_token')||sessionStorage.getItem('staff_token')||'',session:(()=>{try{return JSON.parse(sessionStorage.getItem('waiter_session')||'null')}catch(e){return null}})(),"
+          )
+
+          s=s.replace(
+              "localStorage.setItem('staff_token',r.token);localStorage.setItem('waiter_session',JSON.stringify(state.session));",
+              "sessionStorage.setItem('waiter_token',r.token);sessionStorage.setItem('staff_token',r.token);sessionStorage.setItem('waiter_session',JSON.stringify(state.session));"
+          )
+
+          s=s.replace(
+              "['staff_token','waiter_session','waiter_tab'].forEach(k=>localStorage.removeItem(k));",
+              "['staff_token','waiter_token','waiter_session','waiter_tab'].forEach(k=>sessionStorage.removeItem(k));"
+          )
+
+          marker='<script data-qr-waiter-direct-login>'
+          if marker not in s:
               inject=r'''<script data-qr-waiter-direct-login>
           (() => {
             const SUPA_URL='https://ulxfsozdryqrnlxzlblt.supabase.co';
@@ -45,8 +63,10 @@ jobs:
                     else if(m.includes('slug_or_pin_required'))m='Не передан код заведения или PIN';
                     throw new Error(m);
                   }
+                  const sess={token:r.data.token,venueId:r.data.venueId,venueName:r.data.venueName,staffName:r.data.staffName};
                   sessionStorage.setItem('waiter_token',r.data.token);
-                  sessionStorage.setItem('waiter_session',JSON.stringify({token:r.data.token,venueId:r.data.venueId,venueName:r.data.venueName,staffName:r.data.staffName}));
+                  sessionStorage.setItem('staff_token',r.data.token);
+                  sessionStorage.setItem('waiter_session',JSON.stringify(sess));
                   sessionStorage.setItem('waiter_tab','overview');
                   location.reload();
                 }catch(x){
@@ -59,7 +79,8 @@ jobs:
           })();
           </script>'''
               s=s.replace('</body>',inject+'\n</body>')
-              p.write_text(s,encoding='utf-8')
+
+          p.write_text(s,encoding='utf-8')
           PY
       - name: Commit repaired waiter
         run: |
