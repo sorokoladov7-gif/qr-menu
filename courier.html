@@ -10,192 +10,30 @@
 <script src="/js/config.js"></script>
 <script src="/js/staff-notifications.js"></script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
-.topbar{position:sticky;top:0;background:rgba(11,17,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}
-.brand{font-weight:800;font-size:16px}
-.btn{border:0;padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}
-.btn-ghost{background:rgba(255,255,255,.08);color:#fff}
-.btn-primary{background:#6366f1;color:#fff}
-.btn-green{background:#047857;color:#fff}
-.btn-warn{background:#b45309;color:#fff}
-.login{max-width:380px;margin:60px auto;padding:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px}
-.login h2{margin-bottom:16px;text-align:center}
-.login input{width:100%;padding:12px;margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:10px;font-size:15px}
-.login .pin{text-align:center;letter-spacing:8px;font-size:20px}
-.login .hint{color:#94a3b8;font-size:12px;margin:-6px 0 12px;text-align:center}
-.login .err{color:#f87171;font-size:13px;margin-bottom:10px;text-align:center;min-height:16px}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}
-.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}
-.stat b{display:block;font-size:22px;margin-bottom:4px}
-.stat span{color:#94a3b8;font-size:12px}
-.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:0 16px 16px}
-.col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;min-height:200px}
-.col h3{font-size:14px;margin-bottom:12px;color:#cbd5e1}
-.order{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:10px}
-.order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.order-items{font-size:13px;color:#cbd5e1;line-height:1.7}
-.order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-.empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}.topbar{position:sticky;top:0;background:rgba(11,17,32,.92);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}.brand{font-weight:800;font-size:16px}.btn{border:0;padding:9px 14px;border-radius:10px;cursor:pointer;font-weight:700;font-size:13px}.btn-ghost{background:rgba(255,255,255,.08);color:#fff}.btn-primary{background:#6366f1;color:#fff}.btn-green{background:#047857;color:#fff}.btn-warn{background:#b45309;color:#fff}.login{max-width:380px;margin:60px auto;padding:24px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px}.login h2{margin-bottom:16px;text-align:center}.login input{width:100%;padding:12px;margin-bottom:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.15);color:#fff;border-radius:10px;font-size:15px}.login .pin{text-align:center;letter-spacing:8px;font-size:20px}.login .hint{color:#94a3b8;font-size:12px;margin:-6px 0 12px;text-align:center}.login .err{color:#f87171;font-size:13px;margin-bottom:10px;text-align:center;min-height:16px}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat b{display:block;font-size:22px;margin-bottom:4px}.stat span{color:#94a3b8;font-size:12px}.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px;padding:0 16px 16px}.col{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;min-height:200px}.col h3{font-size:14px;margin-bottom:12px;color:#cbd5e1}.order{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin-bottom:10px}.order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.order-items{font-size:13px;color:#cbd5e1;line-height:1.7}.order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="topbar">
-    <div class="brand">🚗 Курьер<span v-if="session"> · {{ session.venueName }}</span></div>
-    <button v-if="session" class="btn btn-ghost" @click="logout">Выйти</button>
-  </div>
-
-  <div v-if="!session" class="login">
-    <h2>Вход для курьера</h2>
-    <input v-model="form.slug" placeholder="Код заведения" autocomplete="off">
-    <input v-model="form.pin" class="pin" placeholder="••••" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
-    <div class="hint">PIN — 4 цифры, выдаёт управляющий</div>
-    <div class="err">{{ err }}</div>
-    <button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button>
-  </div>
-
-  <div v-else>
-    <div class="stats">
-      <div class="stat"><b>{{ courierStats.done }}</b><span>Доставлено</span></div>
-      <div class="stat"><b>{{ courierStats.inProgress }}</b><span>Сейчас в пути</span></div>
-      <div class="stat"><b>{{ courierStats.total }}</b><span>Всего взято</span></div>
-      <div class="stat"><b>{{ fmt(courierStats.revenue) }} ₽</b><span>Выручка заказов</span></div>
-    </div>
-
-    <div class="cols">
-      <div class="col">
-        <h3>📦 Ждут выезда ({{ colReady.length }})</h3>
-        <div v-for="o in colReady" :key="o.id" class="order">
-          <div class="order-head">
-            <b>№{{ o.order_number }}</b>
-            <span style="color:#34d399;font-size:12px">готов к выезду</span>
-          </div>
-          <div class="order-items">
-            <div>📍 {{ o.delivery_address }}</div>
-            <div>📞 {{ o.customer_phone }} {{ o.customer_name?'· '+o.customer_name:'' }}</div>
-            <div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div>
-            <div style="margin-top:6px;font-weight:700">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено картой' }}</div>
-          </div>
-          <div class="order-actions">
-            <button class="btn btn-primary" @click="setStatus(o,'delivery')">🚗 Взять на доставку</button>
-          </div>
-        </div>
-        <div v-if="!colReady.length" class="empty">Пусто — ждите готовые заказы</div>
-      </div>
-
-      <div class="col">
-        <h3>🚗 В доставке ({{ colDelivery.length }})</h3>
-        <div v-for="o in colDelivery" :key="o.id" class="order">
-          <div class="order-head">
-            <b>№{{ o.order_number }}</b>
-            <span style="color:#a78bfa;font-size:12px">{{ o.status==='arrived'?'📍 на месте':'в пути' }}</span>
-          </div>
-          <div class="order-items">
-            <div>📍 {{ o.delivery_address }}</div>
-            <div>📞 {{ o.customer_phone }}</div>
-            <div style="margin-top:6px;font-weight:700">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено' }}</div>
-          </div>
-          <div class="order-actions">
-            <button v-if="o.status==='delivery'" class="btn btn-warn" @click="setStatus(o,'arrived')">📍 Я на месте</button>
-            <button v-if="o.status==='arrived'" class="btn btn-green" @click="setStatus(o,'done')">✅ Доставлено</button>
-          </div>
-        </div>
-        <div v-if="!colDelivery.length" class="empty">Пусто</div>
-      </div>
-
-      <div class="col">
-        <h3>📜 Моя история</h3>
-        <div v-for="o in history" :key="o.id" class="order" style="opacity:.7">
-          <div class="order-head">
-            <b>№{{ o.order_number }} — {{ o.customer_name||'Клиент' }}</b>
-            <span style="color:#94a3b8;font-size:12px">{{ fmtDate(o.created_at) }}</span>
-          </div>
-          <div class="order-items">📍 {{ o.delivery_address||'—' }} · {{ fmt(o.total_price) }} ₽</div>
-        </div>
-        <div v-if="!history.length" class="empty">У вас пока нет завершённых доставок.</div>
-      </div>
-    </div>
-  </div>
+  <div class="topbar"><div class="brand">🚗 Курьер<span v-if="session"> · {{ session.venueName }}</span></div><button v-if="session" class="btn btn-ghost" @click="logout">Выйти</button></div>
+  <div v-if="!session" class="login"><h2>Вход для курьера</h2><input v-model="form.slug" placeholder="Код заведения" autocomplete="off"><input v-model="form.pin" class="pin" placeholder="••••" type="password" inputmode="numeric" maxlength="4" autocomplete="off"><div class="hint">PIN — 4 цифры, выдаёт управляющий</div><div class="err">{{ err }}</div><button class="btn btn-primary" style="width:100%" @click="login" :disabled="busy">{{ busy?'Проверяем...':'Войти' }}</button></div>
+  <div v-else><div class="stats"><div class="stat"><b>{{ courierStats.done }}</b><span>Доставлено</span></div><div class="stat"><b>{{ courierStats.inProgress }}</b><span>Сейчас в пути</span></div><div class="stat"><b>{{ courierStats.total }}</b><span>Всего взято</span></div><div class="stat"><b>{{ fmt(courierStats.revenue) }} ₽</b><span>Выручка заказов</span></div></div><div class="cols"><div class="col"><h3>📦 Ждут выезда ({{ colReady.length }})</h3><div v-for="o in colReady" :key="o.id" class="order"><div class="order-head"><b>№{{ o.order_number }}</b><span style="color:#34d399;font-size:12px">готов к выезду</span></div><div class="order-items"><div>📍 {{ o.delivery_address }}</div><div>📞 {{ o.customer_phone }} {{ o.customer_name?'· '+o.customer_name:'' }}</div><div v-for="it in parseItems(o)" :key="it.product_id||it.name">{{ it.qty }}x {{ it.name }}</div><div style="margin-top:6px;font-weight:700">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено картой' }}</div></div><div class="order-actions"><button class="btn btn-primary" @click="setStatus(o,'delivery')">🚗 Взять на доставку</button></div></div><div v-if="!colReady.length" class="empty">Пусто — ждите готовые заказы</div></div><div class="col"><h3>🚗 В доставке ({{ colDelivery.length }})</h3><div v-for="o in colDelivery" :key="o.id" class="order"><div class="order-head"><b>№{{ o.order_number }}</b><span style="color:#a78bfa;font-size:12px">{{ o.status==='arrived'?'📍 на месте':'в пути' }}</span></div><div class="order-items"><div>📍 {{ o.delivery_address }}</div><div>📞 {{ o.customer_phone }}</div><div style="margin-top:6px;font-weight:700">{{ o.payment_method==='cash'?'💵 Собрать '+fmt(o.total_price)+' ₽':'💳 Оплачено' }}</div></div><div class="order-actions"><button v-if="o.status==='delivery'" class="btn btn-warn" @click="setStatus(o,'arrived')">📍 Я на месте</button><button v-if="o.status==='arrived'" class="btn btn-green" @click="setStatus(o,'done')">✅ Доставлено</button></div></div><div v-if="!colDelivery.length" class="empty">Пусто</div></div><div class="col"><h3>📜 Моя история</h3><div v-for="o in history" :key="o.id" class="order" style="opacity:.7"><div class="order-head"><b>№{{ o.order_number }} — {{ o.customer_name||'Клиент' }}</b><span style="color:#94a3b8;font-size:12px">{{ fmtDate(o.created_at) }}</span></div><div class="order-items">📍 {{ o.delivery_address||'—' }} · {{ fmt(o.total_price) }} ₽</div></div><div v-if="!history.length" class="empty">У вас пока нет завершённых доставок.</div></div></div></div>
 </div>
-
 <script>
 const { createApp } = Vue;
 createApp({
-  data(){
-    return {
-      session:null, busy:false, err:'',
-      form:{slug:'',pin:''},
-      orders:[], history:[],
-      courierStats:{done:0,inProgress:0,total:0,revenue:0},
-      timer:null
-    };
-  },
-  computed:{
-    colReady(){ return this.orders.filter(o=>o.status==='ready'&&o.order_type==='delivery'); },
-    colDelivery(){ return this.orders.filter(o=>o.status==='delivery'||o.status==='arrived'); }
-  },
+  data(){return{session:null,busy:false,err:'',form:{slug:'',pin:''},orders:[],history:[],courierStats:{done:0,inProgress:0,total:0,revenue:0},timer:null};},
+  computed:{colReady(){return this.orders.filter(o=>o.status==='ready'&&o.order_type==='delivery');},colDelivery(){return this.orders.filter(o=>o.status==='delivery'||o.status==='arrived');}},
   methods:{
-    fmt(n){ return Number(n||0).toLocaleString('ru-RU'); },
-    fmtDate(s){ if(!s) return ''; return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); },
-    parseItems(o){ try{ return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]); }catch(e){ return o.items||[]; } },
-
-    async login(){
-      if(typeof window.db==='undefined'||!window.db.from){ this.err='Ошибка загрузки. Обновите страницу (Ctrl+Shift+R)'; return; }
-      this.busy=true; this.err='';
-      const slug=this.form.slug.trim(), pin=this.form.pin.trim();
-      if(!slug||!pin){ this.err='Заполните код и PIN'; this.busy=false; return; }
-      if(!/^[0-9]{4}$/.test(pin)){ this.err='PIN должен быть из 4 цифр'; this.busy=false; return; }
-      const v=await db.from('venues').select('*').eq('slug',slug);
-      if(v.error||!v.data){ this.err='Заведение не найдено'; this.busy=false; return; }
-      const r=await db.from('couriers').select('*').eq('venue_id',v.data.id).eq('pin',pin);
-      if(r.error||!r.data){ this.err='Неверный PIN'; this.busy=false; return; }
-      this.session={courierName:r.data.name, venueId:v.data.id, venueName:v.data.name};
-      localStorage.setItem('courier_session',JSON.stringify(this.session));
-      this.busy=false; this.load();
-    },
-
-    logout(){
-      localStorage.removeItem('courier_session');
-      localStorage.removeItem('courier_token');
-      localStorage.removeItem('staff_token');
-      if(window.StaffAuth) window.StaffAuth.clear();
-      location.reload();
-    },
-
-    async load(){
-      if(!this.session) return;
-      if(typeof window.db==='undefined'||!window.db.from){ setTimeout(()=>this.load(),300); return; }
-      const r = await db.from('orders').select('*');
-      if(r.error) return;
-      this.orders = Array.isArray(r.data)?r.data:[];
-      // История курьера
-      const h = await db.from('orders').select('*').eq('courier_name', this.session.courierName).neq('status', 'cancelled');
-      if(!h.error&&Array.isArray(h.data)){
-        this.history = h.data.filter(o=>o.status==='done').slice(0,10);
-        this.courierStats.done = h.data.filter(o=>o.status==='done').length;
-        this.courierStats.total = h.data.length;
-        this.courierStats.inProgress = this.colDelivery.length;
-        this.courierStats.revenue = h.data.filter(o=>o.status==='done').reduce((s,o)=>s+Number(o.total_price||0),0);
-      }
-    },
-
-    async setStatus(o,status){
-      const r=await db.from('orders').update({status:status}).eq('id',o.id);
-      if(r.error){ alert('Ошибка: '+(r.error.message||r.error)); return; }
-      this.load();
-    },
-
-    restore(){
-      const s=localStorage.getItem('courier_session');
-      if(s){ try{ this.session=JSON.parse(s); this.load(); }catch(e){} }
-    }
-  },
-  mounted(){
-    this.restore();
-    this.timer=setInterval(()=>{ if(this.session) this.load(); },4000);
-  },
-  beforeUnmount(){ if(this.timer) clearInterval(this.timer); }
+    fmt(n){return Number(n||0).toLocaleString('ru-RU');},
+    fmtDate(s){if(!s)return '';return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});},
+    parseItems(o){try{return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]);}catch(e){return o.items||[];}},
+    async login(){this.busy=true;this.err='';const slug=this.form.slug.trim(),pin=this.form.pin.trim();if(!slug||!/^[0-9]{4}$/.test(pin)){this.err='Введите код и 4-значный PIN';this.busy=false;return;}try{const r=await db.rpc('staff_login',{p_type:'courier',p_slug:slug,p_pin:pin});if(r.error||!r.data||r.data.error){this.err=r.error?.message||r.data?.error||'Неверные данные';return;}this.session={courierName:r.data.staffName,venueId:r.data.venueId,venueName:r.data.venueName};sessionStorage.setItem('courier_token',r.data.token);sessionStorage.setItem('staff_token',r.data.token);sessionStorage.setItem('courier_session',JSON.stringify(this.session));await this.load();}catch(e){this.err=e.message||'Ошибка входа';}finally{this.busy=false;}},
+    logout(){['courier_session','courier_token','staff_token'].forEach(k=>sessionStorage.removeItem(k));if(window.StaffAuth&&window.StaffAuth.clear)window.StaffAuth.clear();location.reload();},
+    async load(){if(!this.session)return;const token=sessionStorage.getItem('courier_token')||sessionStorage.getItem('staff_token');if(!token)return;const r=await db.rpc('staff_orders_json',{p_token:token});if(r.error){this.logout();return;}const data=Array.isArray(r.data)?r.data:[];this.orders=data.filter(o=>o.order_type==='delivery'&&!['done','cancelled'].includes(o.status));this.history=data.filter(o=>o.status==='done').slice(0,20);this.courierStats.done=this.history.length;this.courierStats.total=data.length;this.courierStats.inProgress=this.colDelivery.length;this.courierStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0);},
+    async setStatus(o,status){const token=sessionStorage.getItem('courier_token')||sessionStorage.getItem('staff_token');const r=await db.rpc('staff_update_order',{p_token:token,p_order_id:o.id,p_status:status});if(r.error){alert('Ошибка: '+(r.error.message||r.error));return;}await this.load();},
+    restore(){const s=sessionStorage.getItem('courier_session');if(s){try{this.session=JSON.parse(s);this.load();}catch(e){}}}
+  },mounted(){this.restore();this.timer=setInterval(()=>{if(this.session)this.load();},4000);},beforeUnmount(){if(this.timer)clearInterval(this.timer);}
 }).mount('#app');
 </script>
 </body>
