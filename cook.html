@@ -6,7 +6,7 @@
 <title>Кухня — QR-SETKA</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="/js/config.js?v=2026082201"></script>
+<script src="/js/config.js?v=2026082402"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
@@ -119,7 +119,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 const {createApp}=Vue;
 const db=window.db;
 createApp({
-  data(){return{session:null,busy:false,err:'',form:{slug:'',pin:''},token:localStorage.getItem('staff_token')||'',orders:[],history:[],tables:[],canControlTables:false,timer:null,modal:{open:false,loading:false,error:'',type:'',title:'',items:[],canControl:false},cookStats:{total:0,done:0,avgTime:0,revenue:0}}},
+  data(){return{session:null,busy:false,err:'',form:{slug:'',pin:''},token:sessionStorage.getItem('cook_token')||'',orders:[],history:[],tables:[],canControlTables:false,timer:null,modal:{open:false,loading:false,error:'',type:'',title:'',items:[],canControl:false},cookStats:{total:0,done:0,avgTime:0,revenue:0}}},
   computed:{
     colNew(){return this.orders.filter(o=>o.status==='new'||o.status==='changed')},
     colCooking(){return this.orders.filter(o=>o.status==='cooking')},
@@ -133,8 +133,8 @@ createApp({
     tableStatusIcon(s){return s==='occupied'?'🟡':s==='reserved'?'🔵':'🟢'},
     parseItems(o){if(Array.isArray(o.items))return o.items;if(typeof o.items==='string')try{return JSON.parse(o.items)}catch(e){}return[]},
     parseAddons(o){if(Array.isArray(o.addons))return o.addons;if(typeof o.addons==='string')try{return JSON.parse(o.addons)}catch(e){}return[]},
-    async login(){this.busy=true;this.err='';const slug=this.form.slug.trim(),pin=this.form.pin.trim();if(!slug||!/^[0-9]{4}$/.test(pin)){this.err='Введите код и 4-значный PIN';this.busy=false;return}try{const r=await db.rpc('staff_login',{p_type:'cook',p_slug:slug,p_pin:pin});if(r.error||!r.data||r.data.error){this.err=r.error?.message||r.data?.error||'Неверные данные';return}this.token=r.data.token;this.session={cookName:r.data.staffName,venueId:r.data.venueId,venueName:r.data.venueName};localStorage.setItem('staff_token',this.token);localStorage.setItem('cook_session',JSON.stringify(this.session));await this.load()}catch(e){this.err=e.message||'Ошибка входа'}finally{this.busy=false}},
-    logout(){localStorage.removeItem('cook_session');localStorage.removeItem('staff_token');this.token='';this.session=null;location.reload()},
+    async login(){this.busy=true;this.err='';const slug=this.form.slug.trim(),pin=this.form.pin.trim();if(!slug||!/^[0-9]{4}$/.test(pin)){this.err='Введите код и 4-значный PIN';this.busy=false;return}try{const r=await db.rpc('staff_login',{p_type:'cook',p_slug:slug,p_pin:pin});if(r.error||!r.data||r.data.error){this.err=r.error?.message||r.data?.error||'Неверные данные';return}this.token=r.data.token;this.session={cookName:r.data.staffName,venueId:r.data.venueId,venueName:r.data.venueName};sessionStorage.setItem('cook_token',this.token);sessionStorage.setItem('cook_session',JSON.stringify(this.session));await this.load()}catch(e){this.err=e.message||'Ошибка входа'}finally{this.busy=false}},
+    logout(){sessionStorage.removeItem('cook_session');sessionStorage.removeItem('cook_token');this.token='';this.session=null;location.reload()},
     async load(){if(!this.token)return;const r=await db.rpc('staff_orders_json',{p_token:this.token});if(r.error){this.logout();return}const data=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.orders)?r.data.orders:[]);this.orders=data.filter(o=>!['done','cancelled'].includes(o.status));this.cookStats.total=data.length;this.loadHistorySummary()},
     async loadHistorySummary(){try{const r=await db.rpc('staff_history_json',{p_token:this.token});if(!r.error&&Array.isArray(r.data)){this.history=r.data;this.cookStats.done=this.history.length;this.cookStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0)}}catch(e){}},
     async fetchTables(){const r=await db.rpc('cook_get_table_dashboard',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить столы');this.tables=Array.isArray(r.data?.tables)?r.data.tables:[];this.canControlTables=r.data?.can_control_tables===true},
@@ -142,7 +142,7 @@ createApp({
     closeModal(){this.modal.open=false},
     async setStatusFromModal(o,status){const r=await db.rpc('staff_update_order',{p_token:this.token,p_order_id:o.id,p_status:status});if(r.error){alert(r.error.message);return}await this.load();await this.openTab(status==='cooking'?'new':status==='ready'?'cooking':'ready')},
     async tableActionFromModal(t,action){const fn=action==='release'?'cook_release_table':'cook_start_table_session';const r=await db.rpc(fn,{p_token:this.token,p_table_id:t.id});if(r.error){alert(r.error.message);return}await this.fetchTables();this.modal.items=this.tables},
-    restore(){const s=localStorage.getItem('cook_session'),t=localStorage.getItem('staff_token');if(s&&t)try{this.session=JSON.parse(s);this.token=t;this.load()}catch(e){localStorage.removeItem('cook_session')}}
+    restore(){const s=sessionStorage.getItem('cook_session'),t=sessionStorage.getItem('cook_token');if(s&&t)try{this.session=JSON.parse(s);this.token=t;this.load()}catch(e){sessionStorage.removeItem('cook_session')}}
   },
   mounted(){this.restore();this.timer=setInterval(()=>this.session&&this.token&&this.load(),5000)},
   beforeUnmount(){clearInterval(this.timer)}
