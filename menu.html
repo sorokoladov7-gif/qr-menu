@@ -645,17 +645,21 @@ self.venue = venueData;
       });
 
   } else {
-    db.from('venues').select('*').eq('status', 'active')
-      .then(function(r){
-        if (r.error) {
-          self.loadError = 'Ошибка загрузки заведений: ' + r.error.message;
-          self.ready = true;
-          return;
-        }
-
-        self.venues = r.data || [];
+  db.rpc('public_venues_list')
+    .then(function(r){
+      if (r.error) {
+        self.loadError = 'Ошибка загрузки заведений: ' + r.error.message;
         self.ready = true;
-      })
+        return;
+      }
+      self.venues = r.data || [];
+      self.ready = true;
+    })
+    .catch(function(err){
+      self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
+      self.ready = true;
+    });
+}
       .catch(function(err){
         self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
         self.ready = true;
