@@ -34,8 +34,6 @@
 .alert-box{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:15px;margin:15px 0}
 .status-big{text-align:center;padding:20px 0 10px;font-size:52px}
 .msg.ok{background:rgba(52,211,153,.15);color:#6ee7b7;padding:10px;border-radius:10px}
-.loading-spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
-@keyframes spin{to{transform:rotate(360deg)}
 </style>
 </head>
 <body>
@@ -119,10 +117,7 @@
 <button class="btn btn-primary btn-sm" v-on:click="trackOrder">Найти</button>
 </div>
 </div>
-<div v-if="trackingLoading" class="glass card" style="text-align:center;padding:20px">
-  <div class="loading-spinner"></div> Ищем ваш заказ...
-</div>
-<div v-else-if="tracking" class="glass order-card" v-bind:style="{borderTopColor:statusColor(tracking.status)}">
+<div v-if="tracking" class="glass order-card" v-bind:style="{borderTopColor:statusColor(tracking.status)}">
 <div class="status-big">{{ statusEmoji(tracking.status) }}</div>
 <div class="spread"><b>Заказ №{{ tracking.order_number }}</b>
 <span class="badge" v-bind:class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span></div>
@@ -149,7 +144,7 @@
 </div>
 </template>
 </div>
-<p v-if="trackSearched && !trackingLoading && !tracking" class="muted">Заказов с этим номером не найдено.</p>
+<p v-if="trackSearched&&!tracking" class="muted">Заказов с этим номером не найдено.</p>
 <div class="reorder-bar" v-if="tracking&&tracking.status!=='changed'">
 <button v-on:click="view='menu'">{{ tracking.status==='done'?'🍔 Сделать новый заказ':'🍔 Заказать ещё пока ждёте' }}</button>
 </div>
@@ -251,7 +246,6 @@ venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:fa
 dishModal:{show:false, product:null, addons:[]},
 form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:'', table_token:''},
 msg:'', msgType:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
-trackingLoading: false,
 DEFAULT_IMG:window.DEFAULT_IMG,
 trackTimer:null,
 previousStatus:'',
@@ -580,7 +574,7 @@ goToTracking:function(){
   this.startTrackingTimer();
 },
 
-// ====== ИНИЦИАЛИЗАЦИЯ С ОБРАБОТКОЙ ОШИБОК ======
+// ====== ИНИЦИАЛИЗАЦИЯ ======
 init:function(){
   var self = this;
   self.ready = false;
@@ -643,7 +637,6 @@ self.venue = venueData;
       });
 
   } else {
-    // ИСПРАВЛЕНО: используем RPC вместо прямого запроса
     db.rpc('public_venues_list')
       .then(function(r){
         if (r.error) {
@@ -824,9 +817,7 @@ checkout:function(){
 
   var total = Number(self.cartTotalWithDelivery) || 0;
   var deliveryFee = self.form.type === 'delivery' ? (self.calculatedDeliveryFee || 0) : 0;
-  var tableToken = self.form.type === 'table'
-    ? self.form.table_token.trim()
-    : null;
+  var tableToken = self.form.type === 'table' ? self.form.table_token.trim() : null;
 
   db.rpc('create_public_order',{
     p_venue_id: self.venue.id,
@@ -843,7 +834,7 @@ checkout:function(){
     p_delivery_fee: deliveryFee
   }).then(function(r){
     if(r.error) throw r.error;
-    // FIX: извлекаем заказ из ответа (поддержка как прямого, так и вложенного)
+    // Извлекаем заказ из ответа
     var order = r.data;
     if(order && typeof order === 'object' && order.order) {
       order = order.order;
@@ -855,55 +846,16 @@ checkout:function(){
 
     console.log('[Menu] Заказ создан:', order.id);
 
-    // Сохраняем телефон и переключаем на отслеживание
     localStorage.setItem('last_phone', phone);
     self.cart = [];
     self.showCart = false;
     self.view = 'tracking';
     self.trackPhone = phone;
     self.previousStatus = '';
-    self.tracking = null;
-    self.trackSearched = false;
-    self.trackingLoading = true; // показываем спиннер
+    self.tracking = order;  // сразу показываем заказ
+    self.trackSearched = true;
 
-    // Запускаем таймер и сразу пытаемся найти заказ
     self.startTrackingTimer();
-
-    // Пытаемся найти заказ с повторными попытками (до 5 раз с интервалом 1с)
-    var attempts = 0;
-    var maxAttempts = 5;
-    var interval = 1000;
-
-    function tryFindOrder() {
-      attempts++;
-      console.log('[Menu] Попытка найти заказ #' + attempts);
-      self.trackOrder().then(function(found) {
-        if(found) {
-          // Заказ найден
-          self.trackingLoading = false;
-          self.trackSearched = true;
-          console.log('[Menu] Заказ найден!');
-        } else if(attempts < maxAttempts) {
-          setTimeout(tryFindOrder, interval);
-        } else {
-          // Не нашли за 5 попыток – убираем спиннер и показываем сообщение
-          self.trackingLoading = false;
-          self.trackSearched = true;
-          console.warn('[Menu] Заказ не найден после ' + maxAttempts + ' попыток');
-        }
-      }).catch(function(e) {
-        console.warn('[Menu] Ошибка при поиске заказа:', e);
-        if(attempts < maxAttempts) {
-          setTimeout(tryFindOrder, interval);
-        } else {
-          self.trackingLoading = false;
-          self.trackSearched = true;
-        }
-      });
-    }
-
-    // Начинаем поиск через небольшую задержку (чтобы БД успела сохранить)
-    setTimeout(tryFindOrder, 500);
 
   }).catch(function(e){
     console.error('create_public_order error:', e);
