@@ -1,30 +1,6 @@
 name: Fix manager cook UI
+
 on:
-  push:
-    branches: [main]
-permissions:
-  contents: write
-jobs:
-  repair:
-    if: "!contains(github.event.head_commit.message, '[manager-cook-ui-fixed]')"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Fix cook phone rendering and field
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          p = Path('manager.html')
-          s = p.read_text(encoding='utf-8')
-          s = s.replace("db.from('cooks').select('id,name,venue_id,created_at')", "db.from('cooks').select('id,name,phone,venue_id,created_at')")
-          s = s.replace("v-if=\"createStaffType!=='cook'\"><label>Телефон</label>", "v-if=\"true\"><label>Телефон</label>")
-          s = s.replace("{{ w.phone||'не указан' }} · PIN защищён в базе", "{{ c.phone||'не указан' }} · PIN защищён в базе")
-          p.write_text(s, encoding='utf-8')
-          PY
-      - name: Commit fix
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add manager.html .github/workflows/fix-manager-cook-ui.yml
-          git commit -m 'Fix manager cook UI [manager-cook-ui-fixed]' || exit 0
-          git push
+  workflow_dispatch:
+
+# Disabled: legacy one-off patcher. Manager staff UI is maintained directly in manager.html.
