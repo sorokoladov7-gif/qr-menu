@@ -20,7 +20,7 @@ body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}.wrap{max
 <div id="cost"></div><div id="recipe"></div>
 <hr style="border-color:#ffffff12;margin:22px 0">
 <h3>Ингредиенты заведения</h3>
-<div class="toolbar"><input id="iname" placeholder="Название"><select id="iunit"><option value="g">г</option><option value="kg">кг</option><option value="ml">мл</option><option value="l">л</option><option value="pcs">шт</option></select><input id="iqty" type="number" min="0.001" step="0.001" value="1" placeholder="Закуп. кол-во"><input id="iprice" type="number" min="0" step="0.01" value="0" placeholder="Цена закупки"><button id="addIng" class="btn btn-green">Добавить</button></div>
+<div class="toolbar"><input id="iname" placeholder="Название"><select id="iunit"><option value="g">г</option><option value="kg">кг</option><option value="ml">мл</option><option value="l">л</option><option value="pcs">шт</option></select><input id="iqty" type="number" min="0.001" step="0.001" value="1" placeholder="Закуп. кол-во"><input id="iprice" type="number" min="0" step="0.01" value="0" placeholder="Цена закупки"><button id="addIng" class="btn btn-green">Добавить</button><button id="refreshIngredients" class="btn btn-ghost">🔄 Обновить</button></div>
 <div id="editIng" class="edit-panel" hidden>
 <div class="muted" style="margin-bottom:8px">Изменить ингредиент</div>
 <div class="toolbar"><input id="editName" placeholder="Название"><select id="editUnit"><option value="g">г</option><option value="kg">кг</option><option value="ml">мл</option><option value="l">л</option><option value="pcs">шт</option></select><input id="editQty" type="number" min="0.001" step="0.001" placeholder="Закуп. кол-во"><input id="editPrice" type="number" min="0" step="0.01" placeholder="Цена закупки"><button id="saveIng" class="btn btn-primary">Сохранить</button><button id="cancelEdit" class="btn btn-ghost">Отмена</button></div>
@@ -33,7 +33,6 @@ body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}.wrap{max
 (function(){
 'use strict';
 var db=window.db;
-// Получаем venueId из localStorage – должно быть установлено в manager.html при выборе заведения
 var venueId = localStorage.getItem('manager_venue_id') || localStorage.getItem('selectedVenueId');
 console.log('[Рецептуры] venueId =', venueId);
 
@@ -55,7 +54,7 @@ function rpc(name,args){
 }
 
 function loadIngredients(){
-  if(!venueId){ msg('Не найден ID заведения. Откройте manager.html, выберите заведение и вернитесь сюда.', true); return Promise.reject('venueId missing'); }
+  if(!venueId){ msg('Не найден ID заведения.', true); return Promise.reject('venueId missing'); }
   return rpc('manager_ingredient_list', {p_venue_id: venueId}).then(function(data){
     ingredients = Array.isArray(data) ? data : [];
     console.log('[Ингредиенты] загружено:', ingredients.length);
@@ -102,7 +101,6 @@ function renderProducts(){
     return '<button type="button" class="btn '+active+'" data-product-id="'+esc(p.id)+'">'+esc(p.name)+' <span class="muted">'+esc(p.category)+' · '+p.price+' ₽</span></button>';
   }).join('');
   container.innerHTML = html;
-  // Навешиваем обработчики
   Array.prototype.forEach.call(container.querySelectorAll('[data-product-id]'), function(btn){
     btn.addEventListener('click', function(){
       var id = btn.getAttribute('data-product-id');
@@ -114,6 +112,21 @@ function renderProducts(){
 
 function pickRecipe(id){
   if(!venueId){ msg('Нет заведения', true); return; }
+  // Если ингредиенты ещё не загружены, загружаем их сначала
+  if(ingredients.length === 0){
+    console.log('[pickRecipe] ингредиенты не загружены, загружаем...');
+    loadIngredients().then(function(){
+      // После загрузки продолжаем выбор
+      doPickRecipe(id);
+    }).catch(function(e){
+      msg('Не удалось загрузить ингредиенты: '+e.message, true);
+    });
+  } else {
+    doPickRecipe(id);
+  }
+}
+
+function doPickRecipe(id){
   selected = id;
   var p = products.find(function(x){ return x.id === id; });
   if(!p){
@@ -175,7 +188,6 @@ function renderRecipe(){
     if(addBtn) addBtn.addEventListener('click', addRow);
     return;
   }
-  // Строим строки рецептуры
   var html = '';
   rows.forEach(function(r, i){
     var ing = ingredients.find(function(x){ return x.id === r.ingredient_id; });
@@ -194,7 +206,6 @@ function renderRecipe(){
   html += '<button type="button" class="btn btn-ghost" id="addRecipeRow">+ Ингредиент</button>';
   container.innerHTML = html;
 
-  // Навешиваем события
   Array.prototype.forEach.call(container.querySelectorAll('[data-recipe-ing]'), function(el){
     el.addEventListener('change', function(){
       var idx = Number(el.getAttribute('data-recipe-ing'));
@@ -237,7 +248,6 @@ function addRow(){
 // Сохранение рецептуры
 $('save').addEventListener('click', function(){
   if(!selected) return;
-  // Проверяем, что все количества >0
   for(var i=0;i<rows.length;i++){
     if(!(rows[i].quantity > 0)){
       msg('Количество ингредиента должно быть больше нуля.', true);
@@ -283,6 +293,15 @@ $('addIng').addEventListener('click', function(){
   .catch(function(e){
     console.error('[add ingredient error]', e);
     msg('Ошибка добавления: '+e.message, true);
+  });
+});
+
+// Кнопка обновления ингредиентов
+$('refreshIngredients').addEventListener('click', function(){
+  loadIngredients().then(function(){
+    msg('Ингредиенты обновлены');
+  }).catch(function(e){
+    msg('Ошибка обновления: '+e.message, true);
   });
 });
 
