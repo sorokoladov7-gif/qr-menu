@@ -1,0 +1,61 @@
+name: Fix auth session isolation
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Apply auth/session isolation fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('js/config.js')
+          s = p.read_text(encoding='utf-8')
+          old = "const __qrAuthKey = 'qr-menu-auth-' + __qrRole;"
+          new = "const __qrAuthKey = 'qr-menu-auth-account';"
+          if old not in s:
+              raise SystemExit('config.js: expected auth key line not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('js/staff-auth.js')
+          s = p.read_text(encoding='utf-8')
+          s = s.replace("var STORAGE_KEY='qr_staff_session';", "var role=(location.pathname.toLowerCase().match(/\\/(cook|courier|waiter)\\.html$/i)||[])[1]||'staff';\nvar STORAGE_KEY='qr_staff_session_'+role;")
+          s = s.replace("  localStorage.setItem(STORAGE_KEY,JSON.stringify(data));", "  sessionStorage.setItem(STORAGE_KEY,JSON.stringify(data));")
+          s = s.replace("    var raw=localStorage.getItem(STORAGE_KEY);", "    var raw=sessionStorage.getItem(STORAGE_KEY);")
+          s = s.replace("  localStorage.removeItem(STORAGE_KEY);", "  sessionStorage.removeItem(STORAGE_KEY);")
+          s = s.replace("localStorage.removeItem(k);", "sessionStorage.removeItem(k);")
+          if "sessionStorage.getItem(STORAGE_KEY)" not in s:
+              raise SystemExit('staff-auth.js: session storage patch did not apply')
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('js/config.js')
+          s = p.read_text(encoding='utf-8')
+          old = "if(data&&data.token){try{localStorage.setItem('staff_token',data.token);localStorage.setItem(type+'_token',data.token);sessionStorage.setItem(type+'_session',JSON.stringify({venueId:data.venueId,venueName:data.venueName,staffName:data.staffName,token:data.token}));}catch(e){}}"
+          new = "if(data&&data.token){try{sessionStorage.setItem(type+'_session',JSON.stringify({venueId:data.venueId,venueName:data.venueName,staffName:data.staffName,token:data.token}));}catch(e){}}"
+          if old in s:
+              s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          rm -f .github/workflows/fix-auth-session.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add js/config.js js/staff-auth.js .github/workflows/fix-auth-session.yml
+          git diff --cached --quiet && exit 0
+          git commit -m "fix auth session isolation for shared browsers"
+          git push
