@@ -752,6 +752,7 @@ Vue.createApp({
     copySbp: function() { this.copyText(window.SBP_PHONE || '89053204350'); },
     copyCourierAccess: function(c) { this.copyText('Вход для курьера '+c.name+':\nСайт: '+location.origin+'/courier.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
     copyWaiterAccess: function(w) { this.copyText('Вход для официанта '+w.name+':\nСайт: '+location.origin+'/waiter.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
+    copyCookAccess: function(c) { this.copyText('Вход для повара '+c.name+':\nСайт: '+location.origin+'/cook.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
     openStaffGuide: function() { window.open('/staff-guide.html', '_blank'); },
 
     init: function() {
