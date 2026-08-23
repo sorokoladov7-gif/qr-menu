@@ -1,1 +1,0 @@
-// config.js placeholder not used on manager pages; use /js/config.js
