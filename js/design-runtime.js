@@ -5,7 +5,6 @@ if(window.__designRuntimeLoaded)return;
 window.__designRuntimeLoaded=true;
 
 function hex(v,f){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:f}
-
 function apply(v){
   if(!v)return;
   var d=v.design_settings||{},root=document.documentElement,body=document.body;
@@ -21,8 +20,7 @@ function apply(v){
   var old=document.getElementById('design-runtime-font');
   if(old)old.remove();
   var link=document.createElement('link');
-  link.id='design-runtime-font';
-  link.rel='stylesheet';
+  link.id='design-runtime-font';link.rel='stylesheet';
   link.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(font).replace(/%2B/g,'+')+':wght@400;600;700;800&display=swap';
   document.head.appendChild(link);
   body.style.fontFamily=font.replace(/\+/g,' ')+',sans-serif';
@@ -60,8 +58,6 @@ function boot(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 
-/* Canonical Order Core bridge for the legacy menu.html checkout.
-   The UI keeps its existing payload, while the actual RPC is now canonical. */
 (function installCanonicalOrderBridge(){
   var tries=0;
   function install(){
@@ -73,22 +69,26 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           var operationKey=a.p_operation_key||((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random()));
           var clientTotal=Number(a.p_total_price)||0;
           var deliveryFee=Number(a.p_delivery_fee)||0;
-          delete a.p_total_price;
-          delete a.p_delivery_fee;
+          delete a.p_total_price;delete a.p_delivery_fee;
           a.p_delivery_lat=a.p_delivery_lat==null?null:a.p_delivery_lat;
           a.p_delivery_lng=a.p_delivery_lng==null?null:a.p_delivery_lng;
-          a.p_operation_key=operationKey;
-          a.p_client_total=clientTotal;
-          a.p_delivery_fee=deliveryFee;
+          a.p_operation_key=operationKey;a.p_client_total=clientTotal;a.p_delivery_fee=deliveryFee;
           return originalRpc('create_public_order_canonical',a,options);
         }
         return originalRpc(name,args,options);
       };
-      window.__canonicalOrderBridge=true;
-      return;
+      window.__canonicalOrderBridge=true;return;
     }
     if(++tries<100)setTimeout(install,50);
   }
   install();
+})();
+
+(function loadCustomerOrderStatus(){
+  function load(){
+    if(document.querySelector('script[data-customer-order-status]'))return;
+    var s=document.createElement('script');s.src='/js/customer-order-status.js?v=1';s.async=false;s.setAttribute('data-customer-order-status','1');document.head.appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load);else load();
 })();
 })();
