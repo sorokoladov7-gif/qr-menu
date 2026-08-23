@@ -1,20 +1,22 @@
 const SUPABASE_URL = 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
-const __qrRoleMatch = location.pathname.toLowerCase().match(/\/(admin|manager|cook|courier|waiter)\.html$/i);
-const __qrRole = __qrRoleMatch ? __qrRoleMatch[1].toLowerCase() : 'public';
-const __qrAuthStorage = window.sessionStorage;
-const __qrAuthKey = 'qr-menu-auth-account';
+// Определяем, для какой страницы создаём клиент
+const path = location.pathname.toLowerCase();
+const isStaff = /^\/(cook|courier|waiter)\.html$/i.test(path);
+const isMenu = /\/menu\.html$/i.test(path);
+const useAnonymous = isStaff || isMenu;
+
 const baseDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-    detectSessionInUrl: true,
-    storage: __qrAuthStorage,
-    storageKey: __qrAuthKey
+    persistSession: !useAnonymous,  // для сотрудников и меню – не сохраняем сессию
+    autoRefreshToken: !useAnonymous,
+    detectSessionInUrl: !useAnonymous,
+    storage: useAnonymous ? undefined : __qrAuthStorage,
+    storageKey: useAnonymous ? undefined : __qrAuthKey
   }
 });
-window.db = baseDb;
 
+window.db = baseDb;
 (function(){
 'use strict';
 var path = location.pathname.toLowerCase();
