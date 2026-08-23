@@ -1,6 +1,0 @@
-name: Fix manager cook UI
-
-on:
-  workflow_dispatch:
-
-# Disabled: legacy one-off patcher. Manager staff UI is maintained directly in manager.html.
