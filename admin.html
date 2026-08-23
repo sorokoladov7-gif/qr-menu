@@ -39,9 +39,8 @@
 .design-group h4{font-size:14px;color:#cbd5e1;margin:0 0 10px}
 .loading-orders{display:flex;align-items:center;gap:10px;padding:20px;color:#9ca3af;font-size:14px}
 .loading-orders .spinner{width:24px;height:24px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}
 
-/* Улучшенные подсказки в панели дизайна */
 .design-field .hint {
   font-size: 11px;
   color: #64748b;
@@ -58,7 +57,6 @@
   vertical-align: middle;
 }
 
-/* Стили для выбора заведения в панели дизайна */
 .venue-selector {
   display: flex;
   gap: 10px;
@@ -96,7 +94,6 @@
   <div class="brand" style="display:flex;align-items:center;gap:8px;">
     <div class="logo">⚙️</div>
     <span>Админ-панель</span>
-    <!-- Скрытая кнопка настроек дизайна (только для админов) -->
     <button v-if="profile && profile.role === 'admin'" 
             class="btn btn-ghost btn-sm" 
             style="padding:4px 8px; font-size:16px; opacity:0.5; transition:opacity 0.2s;"
@@ -341,19 +338,14 @@
 </template>
 </div>
 
-<!-- ===================== ЗАВЕДЕНИЯ ===================== -->
+<!-- ===================== ЗАВЕДЕНИЯ (ТОЛЬКО СПИСОК И ДЕЙСТВИЯ) ===================== -->
 <div v-if="tab==='venues'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Заведения</h3>
 <button class="btn btn-primary btn-sm" v-on:click="showModal=true">+ Создать</button></div>
 <div class="glass card tblwrap"><table class="tbl">
-<tr><th>Заведение</th><th>Тариф</th><th>Подписка</th><th>До</th><th>Действия</th></tr>
+<tr><th>Заведение</th><th>Действия</th></tr>
 <tr v-for="v in venues" v-bind:key="v.id">
 <td><b>{{ v.name }}</b><div class="muted" style="font-size:12px">/{{ v.slug }}</div></td>
-<td><select v-bind:value="v.plan" v-on:change="changePlan(v,$event.target.value)" style="width:auto;padding:6px">
-<option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option></select></td>
-<td><span class="badge" v-bind:class="subClass(v)">{{ subLabel(v) }}</span></td>
-<td><div style="font-size:12px">{{ fmtDate(v.subscription_end) }}</div>
-<button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px;margin-top:4px" v-on:click="extendSub(v)">+30 дн</button></td>
 <td style="white-space:nowrap">
 <button class="btn btn-ghost btn-sm" v-on:click="openVenueEdit(v)" title="Настройки, логотип, права">⚙️</button>
 <button class="btn btn-ghost btn-sm" v-on:click="openVenueMenu(v)" title="Меню и фото">🍔</button>
@@ -364,22 +356,38 @@
 <p v-if="!venues.length" class="muted" style="padding:14px">Заведений нет.</p></div>
 </div>
 
-<!-- ===================== УПРАВЛЯЮЩИЕ ===================== -->
+<!-- ===================== УПРАВЛЯЮЩИЕ (С ПОДПИСКАМИ ИХ ЗАВЕДЕНИЙ) ===================== -->
 <div v-if="tab==='managers'">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Управляющие</h3>
 <button class="btn btn-primary btn-sm" v-on:click="addMgrModal.show=true">+ Добавить управляющего</button></div>
 <div class="glass card tblwrap"><table class="tbl">
-<tr><th>Имя</th><th>Email</th><th>Роль</th><th>Доступы к заведениям</th><th>Действия</th></tr>
+<tr><th>Имя</th><th>Email</th><th>Роль</th><th>Доступы к заведениям</th><th>Подписки заведений</th><th>Действия</th></tr>
 <tr v-for="m in managers" v-bind:key="m.id">
-<td><b>{{ m.display_name }}</b></td><td class="muted">{{ m.email }}</td>
+<td><b>{{ m.display_name }}</b></td>
+<td class="muted">{{ m.email }}</td>
 <td><span class="badge" v-bind:class="m.role==='admin'?'b-on':'b-trial'">{{ m.role }}</span></td>
 <td><div class="checkbox-group">
 <label v-for="v in venues" v-bind:key="v.id" class="checkbox-label">
 <input type="checkbox" v-bind:checked="isAssigned(m.id,v.id)" v-on:change="toggleMgrVenue(m.id,v.id,$event.target.checked)">{{ v.name }}</label>
 <span v-if="!venues.length" class="muted">Нет заведений</span></div></td>
+<td>
+  <div v-for="v in managerVenuesMap[m.id]" v-bind:key="v.id" style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
+    <div><b>{{ v.name }}</b></div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+      <select v-bind:value="v.plan" v-on:change="changePlan(v,$event.target.value)" style="width:auto;padding:4px;font-size:12px;">
+        <option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option>
+      </select>
+      <span class="badge" v-bind:class="subClass(v)">{{ subLabel(v) }}</span>
+      <span style="font-size:12px;">{{ fmtDate(v.subscription_end) }}</span>
+      <button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px;" v-on:click="extendSub(v)">+30 дн</button>
+    </div>
+  </div>
+  <span v-if="!managerVenuesMap[m.id] || !managerVenuesMap[m.id].length" class="muted">Нет заведений</span>
+</td>
 <td style="white-space:nowrap">
 <button class="btn btn-ghost btn-sm" v-on:click="openMgrEdit(m)">✏️</button>
-<button class="btn btn-danger btn-sm" v-on:click="delManager(m)" v-bind:disabled="m.id===profile.id">🗑</button></td></tr></table>
+<button class="btn btn-danger btn-sm" v-on:click="delManager(m)" v-bind:disabled="m.id===profile.id">🗑</button></td></tr>
+</table>
 <p v-if="!managers.length" class="muted" style="padding:14px">Нет управляющих.</p></div>
 </div>
 
@@ -618,7 +626,7 @@
 <button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
 </div></div>
 
-<!-- ===================== ПАНЕЛЬ ДИЗАЙНА (улучшенная с выбором заведения) ===================== -->
+<!-- ===================== ПАНЕЛЬ ДИЗАЙНА ===================== -->
 <div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
   <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
     <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
@@ -628,7 +636,6 @@
       Ниже — пояснения, что именно меняет каждый параметр.
     </p>
 
-    <!-- Селектор выбора цели -->
     <div class="venue-selector">
       <label>Настройка для:</label>
       <select v-model="designTarget" @change="onDesignTargetChange">
@@ -641,11 +648,9 @@
       <span v-else class="current-venue-name">Глобальные настройки</span>
     </div>
 
-    <!-- Одна и та же форма настройки, но данные берутся из currentDesignTemplate -->
     <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
       <h4>{{ designTarget === 'global' ? 'Глобальный шаблон' : 'Индивидуальные настройки заведения' }}</h4>
 
-      <!-- 1. Основные цвета -->
       <div class="design-group">
         <h4>🎨 Основные цвета</h4>
         <div class="design-grid">
@@ -692,7 +697,6 @@
         </div>
       </div>
 
-      <!-- 2. Фон -->
       <div class="design-group">
         <h4>🖼️ Фон (градиент и изображение)</h4>
         <div class="design-grid">
@@ -730,7 +734,6 @@
         </div>
       </div>
 
-      <!-- 3. Типографика -->
       <div class="design-group">
         <h4>🔤 Типографика (шрифты и размеры)</h4>
         <div class="design-grid">
@@ -788,7 +791,6 @@
         </div>
       </div>
 
-      <!-- 4. Карточки товаров -->
       <div class="design-group">
         <h4>🃏 Карточки товаров (блюд и напитков)</h4>
         <div class="design-grid">
@@ -818,7 +820,6 @@
         </div>
       </div>
 
-      <!-- 5. Кнопки -->
       <div class="design-group">
         <h4>🔘 Кнопки</h4>
         <div class="design-grid">
@@ -848,7 +849,6 @@
         </div>
       </div>
 
-      <!-- 6. Дополнительно -->
       <div class="design-group">
         <h4>⚙️ Дополнительно (рамки, тени, анимация)</h4>
         <div class="design-grid">
@@ -885,7 +885,6 @@
         </div>
       </div>
 
-      <!-- Кнопки действий в зависимости от режима -->
       <div class="row" style="margin-top:16px;flex-wrap:wrap;gap:8px">
         <template v-if="designTarget === 'global'">
           <button class="btn btn-primary btn-sm" v-on:click="saveGlobalDesign">💾 Сохранить глобальный шаблон</button>
@@ -943,8 +942,7 @@ staffEditModal:{show:false,table:'',id:null,venue_id:null,name:'',phone:'',pin:'
 secretDesignPanel:false,
 ordersLoaded:false,
 ordersLoading:false,
-// Дизайн
-designTarget: 'global', // 'global' или id заведения
+designTarget: 'global',
 adminDesignTemplate:{
   brand_color:'#6366f1',
   button_color:'#8b5cf6',
@@ -978,7 +976,7 @@ adminDesignTemplate:{
   border_width:1,
   transition_speed:0.2
 },
-venueDesignTemplate: null // копия для редактирования заведения
+venueDesignTemplate: null
 }},
 computed:{
 mrr:function(){var self=this;return this.venues.filter(function(v){return v.status==='active'}).reduce(function(s,v){var p=self.plans.find(function(x){return x.id===v.plan});return s+(p?Number(p.price):0)},0)},
@@ -1083,6 +1081,19 @@ currentDesignTemplate: function() {
   } else {
     return this.venueDesignTemplate || this.adminDesignTemplate;
   }
+},
+// Новое вычисляемое свойство: для каждого управляющего список его заведений с полными данными
+managerVenuesMap: function() {
+  var map = {};
+  var self = this;
+  this.managers.forEach(function(m) {
+    var venueIds = self.links.filter(function(l) { return l.manager_id === m.id; }).map(function(l) { return l.venue_id; });
+    var venues = venueIds.map(function(vid) {
+      return self.venues.find(function(v) { return v.id === vid; });
+    }).filter(function(v) { return v !== undefined; });
+    map[m.id] = venues;
+  });
+  return map;
 }
 },
 methods:{
@@ -1091,45 +1102,32 @@ fmtDate:function(d){return d?new Date(d).toLocaleDateString('ru-RU'):'—'},
 subClass:function(v){if(!v.subscription_end)return'b-off';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'b-off':d<=3?'b-trial':'b-on'},
 subLabel:function(v){if(!v.subscription_end)return'Нет';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'Истекла':d<=3?'Осталось '+Math.ceil(d)+' дн':'Активна'},
 isAssigned:function(m,v){return this.links.some(function(l){return l.manager_id===m&&l.venue_id===v})},
-
 switchTab:function(t){
 this.tab=t;
 if((t==='activity'||t==='subs')&&!this.ordersLoaded&&!this.ordersLoading){
 this.loadOrders();
 }
 },
-
 openDesignPanel:function(){
   this.secretDesignPanel = true;
   this.designTarget = 'global';
   this.venueDesignTemplate = null;
-  // Загружаем глобальный шаблон
   this.loadGlobalDesignSettings();
 },
-
-loadGlobalDesignSettings:function(){
-  // Можно загрузить из БД, но пока оставим как есть
-  // Если есть сохранённый глобальный шаблон в таблице settings, можно загрузить
-  // Пока оставим локальный
-},
-
+loadGlobalDesignSettings:function(){ /* можно загрузить из БД */ },
 getVenueName:function(id){
   var v=this.venues.find(function(x){return x.id===id});
   return v?v.name:'';
 },
-
 onDesignTargetChange:function(){
   if (this.designTarget === 'global') {
     this.venueDesignTemplate = null;
   } else {
-    // Загружаем настройки заведения
     var venue = this.venues.find(function(v){return v.id === this.designTarget}.bind(this));
     if (venue) {
       if (venue.design_settings) {
-        // Копируем настройки заведения
         this.venueDesignTemplate = JSON.parse(JSON.stringify(venue.design_settings));
       } else {
-        // Копируем глобальный шаблон
         this.venueDesignTemplate = JSON.parse(JSON.stringify(this.adminDesignTemplate));
       }
     } else {
@@ -1137,12 +1135,9 @@ onDesignTargetChange:function(){
     }
   }
 },
-
 saveGlobalDesign:function(){
-  // Сохраняем глобальный шаблон в БД (можно в таблице settings)
   alert('Глобальный шаблон сохранён (локально). В реальном проекте нужно сохранять в БД.');
 },
-
 saveVenueDesign:function(){
   if (this.designTarget === 'global') return;
   var self=this;
@@ -1158,24 +1153,20 @@ saveVenueDesign:function(){
     alert('Ошибка сохранения: '+e.message);
   });
 },
-
 applyGlobalToVenue:function(){
   if (this.designTarget === 'global') return;
   var self=this;
   var venue = this.venues.find(function(v){return v.id === this.designTarget}.bind(this));
   if (!venue) return;
-  // Копируем глобальный шаблон
   var settings = JSON.parse(JSON.stringify(this.adminDesignTemplate));
   db.from('venues').update({design_settings: settings}).eq('id', this.designTarget).then(function(){
     self.loadBaseData();
-    // Обновить локальную копию
     self.venueDesignTemplate = settings;
     alert('Глобальный шаблон применён к заведению "'+venue.name+'"');
   }).catch(function(e){
     alert('Ошибка: '+e.message);
   });
 },
-
 applyGlobalToVenueById:function(venueId){
   var self=this;
   var venue = this.venues.find(function(v){return v.id === venueId});
@@ -1189,7 +1180,6 @@ applyGlobalToVenueById:function(venueId){
     alert('Ошибка: '+e.message);
   });
 },
-
 resetVenueDesign:function(){
   if (this.designTarget === 'global') return;
   var self=this;
@@ -1204,7 +1194,6 @@ resetVenueDesign:function(){
     alert('Ошибка: '+e.message);
   });
 },
-
 applyDesignToAll:function(){
   if (!confirm('Применить текущий глобальный шаблон ко ВСЕМ заведениям?')) return;
   var self=this;
@@ -1219,7 +1208,6 @@ applyDesignToAll:function(){
     alert('Ошибка: '+e.message);
   });
 },
-
 getDesignSettings:function(){
   var t=this.adminDesignTemplate;
   return{
@@ -1256,7 +1244,6 @@ getDesignSettings:function(){
     transition_speed:t.transition_speed
   };
 },
-
 resetAdminTemplate:function(){
   if (!confirm('Сбросить глобальный шаблон к стандартным настройкам?')) return;
   this.adminDesignTemplate={
@@ -1294,7 +1281,6 @@ resetAdminTemplate:function(){
   };
   alert('Глобальный шаблон сброшен');
 },
-
 uploadBgImage:function(ev){
   var self=this;
   var f=ev.target.files[0];
@@ -1303,7 +1289,6 @@ uploadBgImage:function(ev){
     var fn='bg/'+Date.now()+'.jpg';
     return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){
       if(r.error)throw r.error;
-      // Обновляем текущий шаблон
       var url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
       if (self.designTarget === 'global') {
         self.adminDesignTemplate.background_image = url;
@@ -1316,8 +1301,6 @@ uploadBgImage:function(ev){
     });
   }).catch(function(e){alert('Ошибка: '+e.message);});
 },
-
-// Остальные методы (init, loadBaseData, loadOrders, loadGlobalStats, ...) без изменений
 init:function(){var self=this;
 requireAuth(['admin']).then(function(profile){
 self.profile=profile;
@@ -1331,7 +1314,6 @@ self.loadOrders();
 });
 });
 },
-
 loadBaseData:function(){var self=this;
 return Promise.all([
 db.from('venues').select('*').order('created_at'),
@@ -1355,7 +1337,6 @@ self.payments=r[7].data||[];
 self.subscriptions=r[8].data||[];
 });
 },
-
 loadOrders:function(force){
 var self=this;
 if(self.ordersLoading)return;
@@ -1374,7 +1355,6 @@ self.ordersLoading=false;
 self.ordersLoading=false;
 });
 },
-
 loadGlobalStats:function(){var self=this;
 var q=db.from('orders').select('venue_id,total_price,customer_phone,cooking_started_at,ready_at,venues(name)').eq('status','done');
 if(self.statsPeriod!=='all'){var d=new Date();d.setDate(d.getDate()-parseInt(self.statsPeriod));q=q.gte('created_at',d.toISOString())}
@@ -1388,10 +1368,8 @@ self.globalStats={revenue:rev,orders:orders.length,clients:Object.keys(ph).lengt
 venueStats:Object.values(m).map(function(v){return{id:v.id,name:v.name,revenue:v.revenue,orders:v.orders,clients:Object.keys(v.clients).length,
 avgCheck:v.orders?Math.round(v.revenue/v.orders):0,avgCookTime:v.t.length?Math.round(v.t.reduce(function(a,b){return a+b},0)/v.t.length):0}}).sort(function(a,b){return b.revenue-a.revenue})};
 })},
-
 adminTypePercent:function(t){var s=this.adminAnalytics;var tot=s.pickup+s.delivery;return tot?Math.round(s[t]*100/tot):0},
 adminPayPercent:function(p){var s=this.adminAnalytics;var tot=s.cash+s.card;return tot?Math.round(s[p]*100/tot):0},
-
 loadAdminAnalytics:function(){var self=this;
 var period=this.adminAnalyticsPeriod;
 var dateFilter='';
@@ -1482,8 +1460,6 @@ addQ.group('name').order('count',{ascending:false}).limit(10).then(function(ar){
 if(ar.data)self.adminAnalytics.topAddons=ar.data.map(function(x){return{name:x.name,count:Number(x.count)||0}});
 });
 })},
-
-// Методы редактирования заведений, меню, управляющих, персонала, тарифов и т.д. (без изменений)
 openVenueEdit:function(v){
 var mp=v.manager_permissions||{};
 this.venueEditModal={show:true,id:v.id,name:v.name,description:v.description||'',brand_color:v.brand_color||'#6366f1',logo_url:v.logo_url||'',
@@ -1535,7 +1511,6 @@ c.width=w;c.height=h;c.getContext('2d').drawImage(i,0,0,w,h);
 c.toBlob(function(b){b?res(b):rej(new Error('err'))},'image/jpeg',q)};
 i.onerror=function(){rej(new Error('err'))};i.src=e.target.result};
 r.onerror=function(){rej(new Error('err'))};r.readAsDataURL(file)})},
-
 createVenue:function(){var self=this;self.msg='';
 if(!self.nform.name||!self.nform.slug){self.msg='Заполните название и slug';return}
 self.busy=true;var end=new Date();end.setDate(end.getDate()+3);
@@ -1558,7 +1533,6 @@ db.from('venues').update({status:v.status==='active'?'paused':'active'}).eq('id'
 delVenue:function(v){var self=this;
 if(!confirm('Удалить заведение "'+v.name+'" и все его данные?'))return;
 db.from('venues').delete().eq('id',v.id).then(function(){self.loadBaseData()})},
-
 addManager:function(){var self=this;self.busy=true;self.addMgrModal.err='';
 var temp=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,storageKey:'admin-temp',autoRefreshToken:false,detectSessionInUrl:false}});
 temp.auth.signUp({email:self.addMgrModal.email,password:self.addMgrModal.password,options:{data:{display_name:self.addMgrModal.name,role:self.addMgrModal.role}}}).then(function(r){
@@ -1584,7 +1558,6 @@ if(!confirm('Удалить управляющего '+m.display_name+'?'))retur
 db.from('manager_venues').delete().eq('manager_id',m.id).then(function(){
 return db.from('profiles').delete().eq('id',m.id);
 }).then(function(){self.loadBaseData()})},
-
 genPin:function(list){var pin,a=0;do{pin=String(Math.floor(1000+Math.random()*9000));a++}while(list.some(function(c){return c.pin===pin})&&a<10);return pin},
 addCookAdmin:function(){var self=this;var pin=this.genPin(self.cooksAll);
 db.from('cooks').insert({venue_id:self.cookForm.venue_id,name:self.cookForm.name,phone:self.cookForm.phone||null,pin:pin}).then(function(){
@@ -1612,7 +1585,6 @@ this.staffEditModal={show:true,table:table,id:obj.id,venue_id:obj.venue_id,name:
 saveStaffEdit:function(){var self=this;var m=this.staffEditModal;
 db.from(m.table).update({venue_id:m.venue_id,name:m.name,phone:m.phone||null,pin:m.pin}).eq('id',m.id).then(function(){
 self.staffEditModal.show=false;self.loadBaseData()})},
-
 createPlan:function(){var self=this;
 db.from('plans').insert({id:'custom_'+Date.now(),name:'Персональный тариф',price:0,max_venues:1,max_cooks:5,max_couriers:10,max_waiters:10,max_products:50}).then(function(){self.loadBaseData()})},
 delPlan:function(p){var self=this;
