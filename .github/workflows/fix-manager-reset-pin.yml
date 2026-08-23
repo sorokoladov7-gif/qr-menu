@@ -1,0 +1,36 @@
+name: Fix manager reset PIN RPC
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch manager reset PIN RPC
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('manager.html')
+          s = p.read_text(encoding='utf-8')
+          old = "db.rpc('manager_reset_staff_pin', {"
+          new = "db.rpc('manager_reset_staff_pin_v2', {"
+          if old not in s:
+              raise SystemExit('manager_reset_staff_pin call not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit patch and remove workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/fix-manager-reset-pin.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manager.html .github/workflows/fix-manager-reset-pin.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix manager reset pin rpc endpoint'
+          git push
