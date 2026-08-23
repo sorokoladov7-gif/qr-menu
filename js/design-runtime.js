@@ -4,7 +4,6 @@ if(!/\/menu\.html$/i.test(location.pathname))return;
 if(window.__designRuntimeLoaded)return;
 window.__designRuntimeLoaded=true;
 
-// ИСПРАВЛЕНО: убран пробел после # (было /^# [0-9a-f]{6}$/i)
 function hex(v,f){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:f}
 
 function apply(v){
@@ -26,13 +25,9 @@ function apply(v){
   link.rel='stylesheet';
   link.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(font).replace(/%2B/g,'+')+':wght@400;600;700;800&display=swap';
   document.head.appendChild(link);
-  // ИСПРАВЛЕНО: экранирован + (было font.replace(/+/g,' '))
   body.style.fontFamily=font.replace(/\+/g,' ')+',sans-serif';
   var hero=document.querySelector('.hero');
-  if(hero){
-    hero.style.display=d.hero_enabled===false?'none':'';
-    hero.style.background=heroBg(d,brand,header);
-  }
+  if(hero){hero.style.display=d.hero_enabled===false?'none':'';hero.style.background=heroBg(d,brand,header)}
   document.querySelectorAll('.dish').forEach(function(x){
     x.style.borderRadius=(Number(d.card_radius)||18)+'px';
     if(d.card_style==='flat'){x.style.background='transparent';x.style.border='1px solid rgba(148,163,184,.18)'}
@@ -43,33 +38,57 @@ function apply(v){
   document.querySelectorAll('.add-btn').forEach(function(x){
     x.style.borderRadius=(Number(d.button_radius)||12)+'px';
     x.style.background=d.button_style==='solid'?button:d.button_style==='outline'?'transparent':'linear-gradient(90deg,'+brand+','+button+')';
-    if(d.button_style==='outline'){x.style.border='1px solid '+button;x.style.color=button}
-    else{x.style.border='none';x.style.color='#fff'}
+    if(d.button_style==='outline'){x.style.border='1px solid '+button;x.style.color=button}else{x.style.border='none';x.style.color='#fff'}
   });
   document.querySelectorAll('.chip.on').forEach(function(x){x.style.background='linear-gradient(90deg,'+brand+','+button+')'});
   document.querySelectorAll('.price-pill').forEach(function(x){x.style.background='linear-gradient(90deg,'+brand+','+button+')'});
   var top=document.querySelector('.topbar');
   if(top)top.style.borderColor=brand+'33';
 }
-
 function heroBg(d,b,h){
   if(d.hero_style==='dark')return 'linear-gradient(135deg,#020617,'+b+')';
   if(d.hero_style==='warm')return 'linear-gradient(135deg,'+b+','+h+')';
   if(d.hero_style==='minimal')return h;
   return 'linear-gradient(135deg,'+b+','+b+'aa,#8b5cf6)';
 }
-
 function boot(){
-  var n=0;
-  var t=setInterval(function(){
-    var app=document.getElementById('app');
-    var inst=app&&app.__vue_app__&&app.__vue_app__._instance;
-    var proxy=inst&&inst.proxy;
+  var n=0,t=setInterval(function(){
+    var app=document.getElementById('app'),inst=app&&app.__vue_app__&&app.__vue_app__._instance,proxy=inst&&inst.proxy;
     if(proxy&&proxy.venue){apply(proxy.venue);clearInterval(t)}
     if(++n>80)clearInterval(t);
   },250);
 }
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);else boot();
 
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot);
-else boot();
+/* Canonical Order Core bridge for the legacy menu.html checkout.
+   The UI keeps its existing payload, while the actual RPC is now canonical. */
+(function installCanonicalOrderBridge(){
+  var tries=0;
+  function install(){
+    if(window.db&&typeof window.db.rpc==='function'&&!window.__canonicalOrderBridge){
+      var originalRpc=window.db.rpc.bind(window.db);
+      window.db.rpc=function(name,args,options){
+        if(name==='create_public_order'&&args&&typeof args==='object'){
+          var a=Object.assign({},args);
+          var operationKey=a.p_operation_key||((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random()));
+          var clientTotal=Number(a.p_total_price)||0;
+          var deliveryFee=Number(a.p_delivery_fee)||0;
+          delete a.p_total_price;
+          delete a.p_delivery_fee;
+          a.p_delivery_lat=a.p_delivery_lat==null?null:a.p_delivery_lat;
+          a.p_delivery_lng=a.p_delivery_lng==null?null:a.p_delivery_lng;
+          a.p_operation_key=operationKey;
+          a.p_client_total=clientTotal;
+          a.p_delivery_fee=deliveryFee;
+          return originalRpc('create_public_order_canonical',a,options);
+        }
+        return originalRpc(name,args,options);
+      };
+      window.__canonicalOrderBridge=true;
+      return;
+    }
+    if(++tries<100)setTimeout(install,50);
+  }
+  install();
+})();
 })();
