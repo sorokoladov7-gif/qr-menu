@@ -101,7 +101,8 @@
 <button v-bind:class="{on:tab==='orders'}" v-on:click="tab='orders'">Заказы</button>
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
 <button v-bind:class="{on:tab==='hall'}" data-manager-hall-tab v-on:click="tab='hall'">🪑 Зал / Столы</button>
-<button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">Повара</button>
+<button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">👥 Персонал</button>
+<button v-bind:class="{on:tab==='cooks'}" v-on:click="tab='cooks'">Повара</button>
 <button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
 <button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
@@ -109,6 +110,60 @@
 <button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
+<!-- ===================== ВКЛАДКА ПЕРСОНАЛ (СВОДКА) ===================== -->
+<div v-if="tab==='staff'">
+  <h3 style="margin-top:0">👥 Персонал — сводка</h3>
+  <p class="muted" style="font-size:13px;margin-bottom:14px">
+    Данные за последние {{ staffAnalytics.period_days || 30 }} дней
+  </p>
+
+  <!-- Повара -->
+  <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
+    <h4 style="margin:0 0 10px">👨‍🍳 Повара</h4>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Заказов</th><th>Среднее время</th><th>Выручка</th></tr>
+      <tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
+        <td><b>{{ c.name }}</b></td>
+        <td>{{ c.orders_count }}</td>
+        <td v-bind:style="{color: c.avg_time_min <= 10 ? '#6ee7b7' : c.avg_time_min <= 20 ? '#fcd34d' : '#fca5a5'}">
+          {{ c.avg_time_min }} мин
+        </td>
+        <td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+      </tr>
+      <tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных о поварах</td></tr>
+    </table>
+  </div>
+
+  <!-- Курьеры -->
+  <div class="glass card" style="margin-bottom:14px;border-color:#f59e0b">
+    <h4 style="margin:0 0 10px">🚗 Курьеры</h4>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr>
+      <tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
+        <td><b>{{ c.name }}</b></td>
+        <td>{{ c.deliveries_count }}</td>
+        <td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+      </tr>
+      <tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных о курьерах</td></tr>
+    </table>
+  </div>
+
+  <!-- Официанты -->
+  <div class="glass card" style="margin-bottom:14px;border-color:#67e8f9">
+    <h4 style="margin:0 0 10px">🤵 Официанты</h4>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr>
+      <tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
+        <td><b>{{ w.name }}</b></td>
+        <td>{{ w.served_count }}</td>
+        <td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+      </tr>
+      <tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных об официантах</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ===================== ВКЛАДКА МЕНЮ ===================== -->
 <div v-if="tab==='menu'">
 <div class="spread" style="margin-bottom:14px"><h3>Позиции меню</h3>
 <button class="btn btn-primary btn-sm" v-on:click="openAdd" v-bind:disabled="busy">+ Добавить</button></div>
@@ -128,6 +183,7 @@
 <p v-if="!products.length" class="muted">Меню пустое.</p>
 </div>
 
+<!-- ===================== ВКЛАДКА ЗАКАЗЫ ===================== -->
 <div v-if="tab==='orders'">
 <div v-for="o in orders" v-bind:key="o.id" class="glass order-card" v-bind:style="{borderTopColor:statusColor(o.status)}">
 <div class="spread">
@@ -152,6 +208,7 @@
 <p v-if="!orders.length" class="muted">Заказов пока нет.</p>
 </div>
 
+<!-- ===================== ВКЛАДКА АНАЛИТИКА ===================== -->
 <div v-if="tab==='analytics'">
 <div class="spread" style="margin-bottom:14px">
 <h3>Аналитика заведения</h3>
@@ -286,10 +343,10 @@
 </div>
 </div>
 </div>
-
 </div>
 
-<div v-if="tab==='staff'">
+<!-- ===================== ВКЛАДКА ПОВАРА (подробно) ===================== -->
+<div v-if="tab==='cooks'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button>
 <span class="muted" style="font-size:11px;margin-left:8px">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</span></div></div>
@@ -307,6 +364,7 @@
 <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
 </div>
 
+<!-- ===================== ВКЛАДКА КУРЬЕРЫ (подробно) ===================== -->
 <div v-if="tab==='couriers'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button>
@@ -325,6 +383,7 @@
 <p v-if="!couriers.length" class="muted">Добавьте курьеров — они будут доставлять заказы.</p>
 </div>
 
+<!-- ===================== ВКЛАДКА ОФИЦИАНТЫ (подробно) ===================== -->
 <div v-if="tab==='waiters'">
 <div class="glass card" style="margin-bottom:14px"><div class="row">
 <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button>
@@ -336,13 +395,14 @@
 <p class="muted" style="font-size:11px;margin:8px 0 0">Официант открывает waiter.html и вводит: код заведения + свой PIN.</p></div>
 <div v-for="w in waiters" v-bind:key="w.id" class="glass menu-item" style="margin-bottom:10px">
 <div style="flex:1"><b>🤵 {{ w.name }}</b>
-<div class="muted" style="font-size:12px">📞 {{ c.phone||'не указан' }} · PIN защищён в базе</div></div>
+<div class="muted" style="font-size:12px">📞 {{ w.phone||'не указан' }} · PIN защищён в базе</div></div>
 <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button>
 <button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋 Инструкция</button>
 <button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button></div>
 <p v-if="!waiters.length" class="muted">Добавьте официантов — они будут выдавать заказы.</p>
 </div>
 
+<!-- ===================== ВКЛАДКА ТАРИФЫ ===================== -->
 <div v-if="tab==='billing'">
 <div class="glass card" style="margin-bottom:16px;text-align:center">
 <h3>Тариф: {{ currentPlanName }}</h3>
@@ -375,6 +435,7 @@
 </div>
 </div>
 
+<!-- ===================== ВКЛАДКА НАСТРОЙКИ ===================== -->
 <div v-if="tab==='settings'" class="glass card" style="max-width:560px">
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
@@ -387,183 +448,47 @@
 <input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
 
-<!-- ===================== АДРЕС И КООРДИНАТЫ ===================== -->
-<div
-  v-if="perms.delivery"
-  style="
-    margin-top:22px;
-    padding-top:18px;
-    border-top:1px solid rgba(255,255,255,.08);
-  "
->
-  <h4 style="margin:0 0 14px">📍 Адрес и геолокация</h4>
+<!-- АДРЕС И ДОСТАВКА (если разрешено) -->
+<div v-if="perms.delivery" style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
+<h4 style="margin:0 0 14px">📍 Адрес и геолокация</h4>
+<div class="field">
+<label>Фактический адрес заведения</label>
+<div class="row" style="align-items:stretch">
+<input v-model.trim="vform.address" placeholder="Город, улица, дом" style="flex:1">
+<button type="button" class="btn btn-ghost" v-on:click="geocodeVenueAddress" v-bind:disabled="geoBusy || !vform.address.trim()">
+{{ geoBusy ? '⏳ Определяю...' : '📍 Определить' }}
+</button>
+</div>
+</div>
+<div class="row" style="gap:10px">
+<div class="field" style="flex:1"><label>Широта</label><input v-model.number="vform.latitude" type="number" step="0.0000001" placeholder="51.5178123"></div>
+<div class="field" style="flex:1"><label>Долгота</label><input v-model.number="vform.longitude" type="number" step="0.0000001" placeholder="45.9705955"></div>
+</div>
+<div v-if="vform.latitude && vform.longitude" style="padding:10px 12px;border-radius:10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);font-size:12px;color:#6ee7b7;">
+✓ Координаты определены: {{ Number(vform.latitude).toFixed(7) }}, {{ Number(vform.longitude).toFixed(7) }}
+</div>
 
-  <div class="field">
-    <label>Фактический адрес заведения</label>
-
-    <div class="row" style="align-items:stretch">
-      <input
-        v-model.trim="vform.address"
-        placeholder="Город, улица, дом"
-        style="flex:1"
-      >
-
-      <button
-        type="button"
-        class="btn btn-ghost"
-        v-on:click="geocodeVenueAddress"
-        v-bind:disabled="geoBusy || !vform.address.trim()"
-      >
-        {{ geoBusy ? '⏳ Определяю...' : '📍 Определить' }}
-      </button>
-    </div>
-  </div>
-
-  <div class="row" style="gap:10px">
-    <div class="field" style="flex:1">
-      <label>Широта</label>
-      <input
-        v-model.number="vform.latitude"
-        type="number"
-        step="0.0000001"
-        placeholder="51.5178123"
-      >
-    </div>
-
-    <div class="field" style="flex:1">
-      <label>Долгота</label>
-      <input
-        v-model.number="vform.longitude"
-        type="number"
-        step="0.0000001"
-        placeholder="45.9705955"
-      >
-    </div>
-  </div>
-
-  <div
-    v-if="vform.latitude && vform.longitude"
-    style="
-      padding:10px 12px;
-      border-radius:10px;
-      background:rgba(52,211,153,.08);
-      border:1px solid rgba(52,211,153,.2);
-      font-size:12px;
-      color:#6ee7b7;
-    "
-  >
-    ✓ Координаты определены:
-    {{ Number(vform.latitude).toFixed(7) }},
-    {{ Number(vform.longitude).toFixed(7) }}
-  </div>
-
-  <!-- ===================== ДОСТАВКА ===================== -->
-
-  <div
-    style="
-      margin-top:20px;
-      padding-top:18px;
-      border-top:1px solid rgba(255,255,255,.06);
-    "
-  >
-    <h4 style="margin:0 0 14px">🚗 Тариф доставки</h4>
-
-    <div class="field">
-      <label>
-        Минимальная сумма заказа для доставки, ₽
-      </label>
-
-      <input
-        v-model.number="vform.delivery_min_order"
-        type="number"
-        min="0"
-        step="1"
-        placeholder="0"
-      >
-
-      <div class="muted" style="font-size:11px;margin-top:5px">
-        Если сумма заказа ниже этого значения, доставка недоступна.
-      </div>
-    </div>
-
-    <div class="field">
-      <label>
-        Бесплатная доставка от, ₽
-      </label>
-
-      <input
-        v-model.number="vform.delivery_min_order_free"
-        type="number"
-        min="0"
-        step="1"
-        placeholder="0"
-      >
-
-      <div class="muted" style="font-size:11px;margin-top:5px">
-        0 — бесплатная доставка не используется.
-      </div>
-    </div>
-
-    <div class="row" style="gap:10px">
-
-      <div class="field" style="flex:1">
-        <label>Базовая стоимость, ₽</label>
-
-        <input
-          v-model.number="vform.delivery_base_fee"
-          type="number"
-          min="0"
-          step="1"
-        >
-      </div>
-
-      <div class="field" style="flex:1">
-        <label>Стоимость за 1 км, ₽</label>
-
-        <input
-          v-model.number="vform.delivery_rate_per_km"
-          type="number"
-          min="0"
-          step="1"
-        >
-      </div>
-
-    </div>
-
-    <div class="field">
-      <label>Максимальная дистанция, км</label>
-
-      <input
-        v-model.number="vform.delivery_max_km"
-        type="number"
-        min="0"
-        step="0.1"
-        placeholder="15"
-      >
-
-      <div class="muted" style="font-size:11px;margin-top:5px">
-        0 — ограничение расстояния не используется.
-      </div>
-    </div>
-
-    <div
-      style="
-        padding:12px;
-        border-radius:10px;
-        background:rgba(99,102,241,.08);
-        border:1px solid rgba(99,102,241,.15);
-        font-size:12px;
-        line-height:1.5;
-      "
-    >
-      <b>Пример</b><br>
-      Минимальный заказ: 500 ₽<br>
-      Бесплатная доставка: от 1500 ₽<br>
-      База: 100 ₽<br>
-      За 1 км: 30 ₽
-    </div>
-
-  </div>
+<div style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);">
+<h4 style="margin:0 0 14px">🚗 Тариф доставки</h4>
+<div class="field">
+<label>Минимальная сумма заказа для доставки, ₽</label>
+<input v-model.number="vform.delivery_min_order" type="number" min="0" step="1" placeholder="0">
+<div class="muted" style="font-size:11px;margin-top:5px">Если сумма заказа ниже этого значения, доставка недоступна.</div>
+</div>
+<div class="field">
+<label>Бесплатная доставка от, ₽</label>
+<input v-model.number="vform.delivery_min_order_free" type="number" min="0" step="1" placeholder="0">
+<div class="muted" style="font-size:11px;margin-top:5px">0 — бесплатная доставка не используется.</div>
+</div>
+<div class="row" style="gap:10px">
+<div class="field" style="flex:1"><label>Базовая стоимость, ₽</label><input v-model.number="vform.delivery_base_fee" type="number" min="0" step="1"></div>
+<div class="field" style="flex:1"><label>Стоимость за 1 км, ₽</label><input v-model.number="vform.delivery_rate_per_km" type="number" min="0" step="1"></div>
+</div>
+<div class="field"><label>Максимальная дистанция, км</label><input v-model.number="vform.delivery_max_km" type="number" min="0" step="0.1" placeholder="15"><div class="muted" style="font-size:11px;margin-top:5px">0 — ограничение расстояния не используется.</div></div>
+<div style="padding:12px;border-radius:10px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);font-size:12px;line-height:1.5;">
+<b>Пример</b><br>Минимальный заказ: 500 ₽<br>Бесплатная доставка: от 1500 ₽<br>База: 100 ₽<br>За 1 км: 30 ₽
+</div>
+</div>
 </div>
 
 <button class="btn btn-primary" v-on:click="saveVenue" style="margin-top:16px">Сохранить</button>
@@ -580,6 +505,9 @@
 </template>
 </div>
 
+<!-- ===================== МОДАЛЬНЫЕ ОКНА ===================== -->
+
+<!-- Создание заведения -->
 <div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false"><div class="glass box" style="max-width:760px;width:95%">
 <h3 style="margin-bottom:4px">Новое заведение</h3>
 <p class="muted" style="margin-top:0">Выберите готовый шаблон меню. Товары, цены и описания будут добавлены автоматически — после создания их можно полностью изменить.</p>
@@ -605,6 +533,7 @@
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
+<!-- Модалка товара -->
 <div v-if="showModal" class="modal" v-on:click.self="closeModal"><div class="glass box">
 <h3>{{ modalTitle }}</h3>
 <div class="field"><label>Название *</label><input v-model.trim="pform.name"></div>
@@ -617,7 +546,8 @@
 <option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
 <option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
 <option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
-</select></div>
+</select>
+</div>
 </div>
 <div class="field" v-if="pform.category==='addon'"><label>Подходит к</label>
 <select v-model="pform.applies_to">
@@ -634,12 +564,13 @@
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
+<!-- Создание сотрудника -->
 <div v-if="createStaffModal" class="modal" v-on:click.self="createStaffModal=false">
 <div class="glass box" style="max-width:440px">
 <h3 style="margin-bottom:4px">Новый {{ createStaffType==='cook'?'повар':createStaffType==='courier'?'курьер':'официант' }}</h3>
 <p class="muted" style="margin:0 0 14px;font-size:12px">PIN будет показан только один раз после создания. Сообщите его сотруднику.</p>
 <div class="field"><label>Имя *</label><input v-model.trim="createStaffForm.name" placeholder="Иван Петров"></div>
-<div class="field" v-if="true"><label>Телефон</label><input v-model.trim="createStaffForm.phone" placeholder="+7 900 000-00-00"></div>
+<div class="field"><label>Телефон</label><input v-model.trim="createStaffForm.phone" placeholder="+7 900 000-00-00"></div>
 <div class="field">
 <label>PIN (4 цифры) *</label>
 <input v-model="createStaffForm.pin" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="1234" style="text-align:center;letter-spacing:10px;font-size:22px;font-weight:700">
@@ -653,8 +584,7 @@
 <button class="btn btn-primary" style="flex:1" v-on:click="saveStaff" v-bind:disabled="createStaffBusy">{{ createStaffBusy?'Создание...':'Создать' }}</button>
 <button class="btn btn-ghost" v-on:click="createStaffModal=false">Отмена</button>
 </div>
-</div>
-</div>
+</div></div>
 
 <div v-if="toast" class="toast" v-bind:class="toast.type">{{ toast.text }}</div>
 </div>
@@ -689,7 +619,8 @@ Vue.createApp({
       analyticsPeriod: '7',
       analytics: {revenue:0, orders:0, clients:0, avgCheck:0, avgCookTime:0, newClients:0, repeatClients:0, topItems:[], topAddons:[], typeStats:{pickup:0,delivery:0}, payStats:{cash:0,card:0}, topHours:[], daily:[], cooks:[], couriers:[], waiters:[]},
       subscriptionEnd: null, isBlocked: false, payPlan: null, myPayments: [],
-      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>"
+      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>",
+      selectedVenueId: null // для восстановления из localStorage
     };
   },
   computed: {
@@ -714,7 +645,6 @@ Vue.createApp({
       var p = (this.venue && this.venue.manager_permissions)
         ? this.venue.manager_permissions
         : {};
-
       return {
         addons: p.addons !== false,
         products: p.products !== false,
@@ -767,7 +697,22 @@ Vue.createApp({
             db.from('plans').select('*').order('price').then(function(pl) {
               self.plans=pl.data||[];
               return self.loadVenueTemplates().then(function() { return self.loadMyVenues(); });
-            }).then(function() { self.ready=true; });
+            }).then(function() {
+              self.ready=true;
+              // Автоматический выбор заведения
+              if (self.myVenues.length) {
+                var savedId = localStorage.getItem('selectedVenueId');
+                var venueToSelect = null;
+                if (savedId) {
+                  venueToSelect = self.myVenues.find(function(v) { return String(v.id) === savedId; });
+                }
+                if (!venueToSelect) {
+                  venueToSelect = self.myVenues[0];
+                }
+                // Выбираем заведение с флагом автовыбора
+                self.selectVenue(venueToSelect, true);
+              }
+            });
           });
         } else {
           self.ready=true; self.loadError='Функция requireAuth не найдена. Проверьте app.js';
@@ -812,9 +757,24 @@ Vue.createApp({
 
     backToList: function() { this.venue=null; if(this.timer){clearInterval(this.timer); this.timer=null;} this.loadMyVenues(); },
 
-    selectVenue: function(v) {
+    selectVenue: function(v, autoSelect) {
+      if (!v || !v.id) return;
       var self=this;
-      this.venue=v; this.tab='menu'; this.subscriptionEnd=v.subscription_end;
+      try {
+        if(window.QRManagerHall && typeof window.QRManagerHall.close === 'function') {
+          window.QRManagerHall.close();
+        }
+      } catch(e) {
+        console.warn('[Manager] Не удалось закрыть старый зал:', e);
+      }
+      // Сохраняем выбранное заведение
+      try {
+        localStorage.setItem('selectedVenueId', String(v.id));
+      } catch(e) {}
+
+      this.venue=v;
+      this.tab='menu';
+      this.subscriptionEnd=v.subscription_end;
       this.vform={
         name:v.name,
         description:v.description,
@@ -829,11 +789,37 @@ Vue.createApp({
         delivery_rate_per_km: v.delivery_rate_per_km != null ? Number(v.delivery_rate_per_km) : (v.delivery_per_km != null ? Number(v.delivery_per_km) : 0),
         delivery_max_km: v.delivery_max_km != null ? Number(v.delivery_max_km) : 0
       };
+      window.__managerSelectedVenue=v;
+      window.__managerCurrentVenue={id:v.id,name:v.name||'',slug:v.slug||'',logo_url:v.logo_url||null};
+      try {
+        localStorage.setItem('manager_venue_id',String(v.id));
+      } catch(e) {}
+      window.__managerVue=this;
       if(this.isExpired(v)) { this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
-      Promise.all([this.loadProducts(), this.loadOrders(), this.loadCooks(), this.loadCouriers(), this.loadWaiters(), this.loadPayments()]).then(function() {
+
+      // Загрузка всех данных
+      Promise.all([
+        this.loadProducts(),
+        this.loadOrders(),
+        this.loadCooks(),
+        this.loadCouriers(),
+        this.loadWaiters(),
+        this.loadPayments()
+      ]).then(function() {
         self.loadStaffAnalytics();
         if(self.timer) clearInterval(self.timer);
-        self.timer = setInterval(function() { self.loadOrders(); }, 5000);
+        self.timer = setInterval(function() {
+          if(self.venue && self.venue.id===v.id) {
+            self.loadOrders();
+          }
+        },5000);
+        // Переключаем вкладку на 'staff' только если это автовыбор, иначе оставляем как есть
+        if (autoSelect) {
+          self.tab = 'staff';
+        } else {
+          // Если пользователь кликнул вручную, оставляем 'menu' (или можно всегда 'staff' – решать вам)
+          self.tab = 'staff';
+        }
       });
     },
 
@@ -960,57 +946,8 @@ Vue.createApp({
       });
     },
 
-    selectVenue: function(v) {
-      if(!v || !v.id) return;
-      var self=this;
-      try {
-        if(window.QRManagerHall && typeof window.QRManagerHall.close === 'function') {
-          window.QRManagerHall.close();
-        }
-      } catch(e) {
-        console.warn('[Manager] Не удалось закрыть старый зал:', e);
-      }
-      this.venue=v;
-      this.tab='menu';
-      this.subscriptionEnd=v.subscription_end;
-      this.vform={
-        name:v.name,
-        description:v.description,
-        brand_color:v.brand_color,
-        logo_url:v.logo_url||'',
-        address:v.address || '',
-        latitude: v.latitude != null ? Number(v.latitude) : (v.lat != null ? Number(v.lat) : null),
-        longitude: v.longitude != null ? Number(v.longitude) : (v.lng != null ? Number(v.lng) : null),
-        delivery_min_order: v.delivery_min_order != null ? Number(v.delivery_min_order) : 0,
-        delivery_min_order_free: v.delivery_min_order_free != null ? Number(v.delivery_min_order_free) : 0,
-        delivery_base_fee: v.delivery_base_fee != null ? Number(v.delivery_base_fee) : (v.delivery_base_price != null ? Number(v.delivery_base_price) : 0),
-        delivery_rate_per_km: v.delivery_rate_per_km != null ? Number(v.delivery_rate_per_km) : (v.delivery_per_km != null ? Number(v.delivery_per_km) : 0),
-        delivery_max_km: v.delivery_max_km != null ? Number(v.delivery_max_km) : 0
-      };
-      window.__managerSelectedVenue=v;
-      window.__managerCurrentVenue={id:v.id,name:v.name||'',slug:v.slug||'',logo_url:v.logo_url||null};
-      try {
-        localStorage.setItem('manager_venue_id',String(v.id));
-        localStorage.setItem('selectedVenueId',String(v.id));
-      } catch(e) {}
-      window.__managerVue=this;
-      if(this.isExpired(v)) { this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
-      Promise.all([
-        this.loadProducts(),
-        this.loadOrders(),
-        this.loadCooks(),
-        this.loadCouriers(),
-        this.loadWaiters(),
-        this.loadPayments()
-      ]).then(function() {
-        self.loadStaffAnalytics();
-        if(self.timer) clearInterval(self.timer);
-        self.timer=setInterval(function() {
-          if(self.venue && self.venue.id===v.id) {
-            self.loadOrders();
-          }
-        },5000);
-      });
+    selectVenueTemplate: function(id) {
+      this.newVenueForm.template = id;
     },
 
     createVenue: function() {
@@ -1046,7 +983,7 @@ Vue.createApp({
         self.showCreateVenue = false;
         self.newVenueForm = {name:'', slug:'', template:'coffee'};
         return self.loadMyVenues().then(function() {
-          self.selectVenue(venue);
+          self.selectVenue(venue, true);
           self.showToast('Заведение создано: '+template.name+' · '+template.products.length+' позиций добавлено');
         });
       })
