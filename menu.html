@@ -35,7 +35,7 @@
 .status-big{text-align:center;padding:20px 0 10px;font-size:52px}
 .msg.ok{background:rgba(52,211,153,.15);color:#6ee7b7;padding:10px;border-radius:10px}
 .loading-spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
-@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes spin{to{transform:rotate(360deg)}
 </style>
 </head>
 <body>
@@ -119,7 +119,6 @@
 <button class="btn btn-primary btn-sm" v-on:click="trackOrder">Найти</button>
 </div>
 </div>
-<!-- FIX: индикатор загрузки -->
 <div v-if="trackingLoading" class="glass card" style="text-align:center;padding:20px">
   <div class="loading-spinner"></div> Ищем ваш заказ...
 </div>
@@ -150,7 +149,6 @@
 </div>
 </template>
 </div>
-<!-- FIX: показываем сообщение только если поиск завершён и нет загрузки -->
 <p v-if="trackSearched && !trackingLoading && !tracking" class="muted">Заказов с этим номером не найдено.</p>
 <div class="reorder-bar" v-if="tracking&&tracking.status!=='changed'">
 <button v-on:click="view='menu'">{{ tracking.status==='done'?'🍔 Сделать новый заказ':'🍔 Заказать ещё пока ждёте' }}</button>
@@ -253,7 +251,7 @@ venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:fa
 dishModal:{show:false, product:null, addons:[]},
 form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:'', table_token:''},
 msg:'', msgType:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
-trackingLoading: false, // FIX: новый флаг
+trackingLoading: false,
 DEFAULT_IMG:window.DEFAULT_IMG,
 trackTimer:null,
 previousStatus:'',
@@ -645,21 +643,17 @@ self.venue = venueData;
       });
 
   } else {
-  db.rpc('public_venues_list')
-    .then(function(r){
-      if (r.error) {
-        self.loadError = 'Ошибка загрузки заведений: ' + r.error.message;
+    // ИСПРАВЛЕНО: используем RPC вместо прямого запроса
+    db.rpc('public_venues_list')
+      .then(function(r){
+        if (r.error) {
+          self.loadError = 'Ошибка загрузки заведений: ' + r.error.message;
+          self.ready = true;
+          return;
+        }
+        self.venues = r.data || [];
         self.ready = true;
-        return;
-      }
-      self.venues = r.data || [];
-      self.ready = true;
-    })
-    .catch(function(err){
-      self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
-      self.ready = true;
-    });
-}
+      })
       .catch(function(err){
         self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
         self.ready = true;
@@ -742,7 +736,6 @@ else this.cart.push({id:m.product.id,name:m.product.name,price:Number(m.product.
 this.dishModal.show=false},
 dec:function(i){if(i.qty>1){i.qty--}else{this.cart.splice(this.cart.indexOf(i),1)}},
 
-// FIX: улучшенный checkout
 checkout:function(){
   var self = this;
   self.msg = '';
@@ -941,7 +934,6 @@ startTrackingTimer: function(){
   }, 5000);
 },
 
-// FIX: trackOrder возвращает Promise<boolean> – найден ли заказ
 trackOrder:function(){
   var self=this;
   var phone=self.norm(self.trackPhone);
