@@ -1,8 +1,8 @@
-/* QR Menu — manager compatibility bootstrap v9. */
+/* QR Menu — manager compatibility bootstrap v10. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_HALL_BOOTSTRAP_V9__) return;
-  window.__QR_MANAGER_HALL_BOOTSTRAP_V9__=true;
+  if(window.__QR_MANAGER_HALL_BOOTSTRAP_V10__) return;
+  window.__QR_MANAGER_HALL_BOOTSTRAP_V10__=true;
 
   function publish(app){
     try{
@@ -12,9 +12,75 @@
     }catch(e){console.warn('[QR Menu] publish Vue:',e);}
   }
 
+  function patchDb(){
+    try{
+      if(!window.db || typeof window.db.rpc!=='function' || window.db.__QR_CANONICAL_CREATE_VENUE__) return;
+      var originalRpc=window.db.rpc.bind(window.db);
+      window.db.__QR_CANONICAL_CREATE_VENUE__=true;
+
+      function normProducts(items){
+        return (Array.isArray(items)?items:[]).map(function(i){
+          return {
+            name:String(i.name||'').trim(),
+            description:i.description==null?null:String(i.description),
+            price:Number(i.price)||0,
+            category:i.category||'main',
+            image_url:i.image_url||null,
+            applies_to:i.applies_to||'all',
+            is_available:i.is_available!==false
+          };
+        });
+      }
+
+      function sameTemplateProducts(a,b){
+        a=normProducts(a); b=normProducts(b);
+        if(!a.length || a.length!==b.length) return false;
+        var aa=a.map(function(x){return JSON.stringify(x);}).sort();
+        var bb=b.map(function(x){return JSON.stringify(x);}).sort();
+        for(var i=0;i<aa.length;i++) if(aa[i]!==bb[i]) return false;
+        return true;
+      }
+
+      async function resolveTemplateId(products){
+        var r=await window.db.from('menu_templates').select('id,products').eq('is_active',true);
+        if(r.error) throw r.error;
+        var list=r.data||[];
+        var found=list.find(function(t){return sameTemplateProducts(products,t.products);});
+        if(found) return found.id;
+
+        // Fallback for older template JSON where only the product names/prices match.
+        var incoming=normProducts(products).map(function(x){return x.name+'|'+x.price+'|'+x.category;}).sort().join('\n');
+        found=list.find(function(t){
+          var current=normProducts(t.products).map(function(x){return x.name+'|'+x.price+'|'+x.category;}).sort().join('\n');
+          return current && current===incoming;
+        });
+        if(found) return found.id;
+        throw new Error('Не удалось определить шаблон каталога. Обновите шаблоны меню.');
+      }
+
+      window.db.rpc=function(fn,args,options){
+        if(fn!=='create_venue_for_manager' || !args || !args.p_products) {
+          return originalRpc(fn,args,options);
+        }
+        var a=args;
+        return resolveTemplateId(a.p_products).then(function(templateId){
+          return originalRpc('create_venue_from_template',{
+            p_template_id:templateId,
+            p_name:a.p_name,
+            p_slug:a.p_slug,
+            p_plan:a.p_plan||'start',
+            p_subscription_end:a.p_subscription_end
+          },options);
+        });
+      };
+    }catch(e){
+      console.warn('[QR Manager] canonical venue RPC patch:',e);
+    }
+  }
+
   function patchVue(Vue){
-    if(!Vue || typeof Vue.createApp!=='function' || Vue.__QR_MANAGER_PATCH_V9__) return;
-    Vue.__QR_MANAGER_PATCH_V9__=true;
+    if(!Vue || typeof Vue.createApp!=='function' || Vue.__QR_MANAGER_PATCH_V10__) return;
+    Vue.__QR_MANAGER_PATCH_V10__=true;
     var original=Vue.createApp;
     Vue.createApp=function(options){
       if(options && typeof options==='object'){
@@ -25,67 +91,11 @@
         };
 
         options.methods=options.methods||{};
+        var previousCreateVenue=options.methods.createVenue;
         options.methods.createVenue=function(){
-          var self=this;
-          self.formError='';
-          if(!self.newVenueForm.name || !self.newVenueForm.slug){
-            self.formError='Заполните название и код заведения';
-            return;
-          }
-          if(!self.canCreateVenue){
-            self.formError='Лимит заведений';
-            return;
-          }
-          var template=self.selectedVenueTemplate;
-          if(!template){
-            self.formError='Выберите шаблон ниши';
-            return;
-          }
-          if(self.currentPlan && self.currentPlan.max_products && template.products.length > self.currentPlan.max_products){
-            self.formError='В выбранном тарифе недостаточно места для шаблона ('+template.products.length+' позиций).';
-            return;
-          }
-
-          var slug=String(self.newVenueForm.slug||'').toLowerCase().trim()
-            .replace(/\s+/g,'-')
-            .replace(/[^a-z0-9а-яё_-]/gi,'')
-            .replace(/[а-яё]/gi,function(c){
-              var m={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
-              return m[c.toLowerCase()]||'';
-            });
-          if(!slug){
-            self.formError='Некорректный slug';
-            return;
-          }
-
-          self.busy=true;
-          var end=new Date();
-          end.setDate(end.getDate()+3);
-
-          db.rpc('create_venue_from_template',{
-            p_template_id: self.newVenueForm.template,
-            p_name: self.newVenueForm.name.trim(),
-            p_slug: slug,
-            p_plan: 'start',
-            p_subscription_end: end.toISOString()
-          }).then(function(r){
-            if(r.error) throw r.error;
-            var venue=Array.isArray(r.data) ? r.data[0] : r.data;
-            if(!venue || !venue.id) throw new Error('Сервер не вернул созданное заведение');
-            return venue;
-          }).then(function(venue){
-            self.showCreateVenue=false;
-            self.newVenueForm={name:'',slug:'',template:'coffee'};
-            return self.loadMyVenues().then(function(){
-              self.selectVenue(venue);
-              self.showToast('Заведение создано: '+template.name+' · '+template.products.length+' позиций добавлено');
-            });
-          }).catch(function(err){
-            console.error('[Manager] createVenue canonical:',err);
-            self.formError='Ошибка: '+(err.message||String(err));
-          }).finally(function(){
-            self.busy=false;
-          });
+          // Keep the existing UI flow intact; its RPC call is transparently
+          // redirected to create_venue_from_template by patchDb().
+          return previousCreateVenue ? previousCreateVenue.apply(this,arguments) : undefined;
         };
       }
       var app=original.apply(this,arguments);
@@ -101,6 +111,10 @@
 
   function init(){
     try{ if(window.Vue) patchVue(window.Vue); }catch(e){ console.warn('[QR Menu] Vue patch:',e); }
+    patchDb();
+    setTimeout(patchDb,0);
+    setTimeout(patchDb,100);
+    setTimeout(patchDb,500);
   }
   init();
 
@@ -112,9 +126,9 @@
     document.head.appendChild(s);
   }
 
-  load('/js/manager-hall.js?v=5','data-manager-hall-single-v9');
-  load('/js/manager-recipes-ui.js?v=5','data-manager-recipes-ui-v9');
-  load('/js/manager-subscription-owner.js?v=6','data-manager-subscription-owner-v9');
-  load('/js/manager-create-venue-flow.js?v=9','data-manager-create-venue-flow-v9');
-  load('/js/manager-personnel-final.js?v=6','data-manager-personnel-final-v9');
+  load('/js/manager-hall.js?v=5','data-manager-hall-single-v10');
+  load('/js/manager-recipes-ui.js?v=5','data-manager-recipes-ui-v10');
+  load('/js/manager-subscription-owner.js?v=6','data-manager-subscription-owner-v10');
+  load('/js/manager-create-venue-flow.js?v=10','data-manager-create-venue-flow-v10');
+  load('/js/manager-personnel-final.js?v=6','data-manager-personnel-final-v10');
 })();
