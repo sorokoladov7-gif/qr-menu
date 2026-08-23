@@ -102,64 +102,108 @@
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
 <button v-bind:class="{on:tab==='hall'}" data-manager-hall-tab v-on:click="tab='hall'">🪑 Зал / Столы</button>
 <button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">👥 Персонал</button>
-<button v-bind:class="{on:tab==='cooks'}" v-on:click="tab='cooks'">Повара</button>
-<button v-bind:class="{on:tab==='couriers'}" v-on:click="tab='couriers'">🚗 Курьеры</button>
-<button v-bind:class="{on:tab==='waiters'}" v-on:click="tab='waiters'">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
 <button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
-<!-- ===================== ВКЛАДКА ПЕРСОНАЛ (СВОДКА) ===================== -->
+<!-- ===================== ВКЛАДКА ПЕРСОНАЛ (с аналитикой и управлением) ===================== -->
 <div v-if="tab==='staff'">
-  <h3 style="margin-top:0">👥 Персонал — сводка</h3>
+  <h3 style="margin-top:0">👥 Персонал — сводка и управление</h3>
   <p class="muted" style="font-size:13px;margin-bottom:14px">
     Данные за последние {{ staffAnalytics.period_days || 30 }} дней
   </p>
 
-  <!-- Повара -->
+  <!-- АНАЛИТИКА -->
+  <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+    <div class="glass stat"><div class="num" style="color:#6366f1">{{ staffAnalytics.cooks.reduce((s,c)=>s+c.orders_count,0) }}</div><div class="lbl">Всего заказов (повара)</div></div>
+    <div class="glass stat"><div class="num" style="color:#f59e0b">{{ staffAnalytics.couriers.reduce((s,c)=>s+c.deliveries_count,0) }}</div><div class="lbl">Всего доставок</div></div>
+    <div class="glass stat"><div class="num" style="color:#67e8f9">{{ staffAnalytics.waiters.reduce((s,w)=>s+w.served_count,0) }}</div><div class="lbl">Всего выдач</div></div>
+  </div>
+
+  <!-- ПОВАРА -->
   <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
-    <h4 style="margin:0 0 10px">👨‍🍳 Повара</h4>
+    <div class="spread">
+      <h4 style="margin:0">👨‍🍳 Повара</h4>
+      <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button>
+    </div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</div>
     <table class="tbl">
-      <tr><th>Имя</th><th>Заказов</th><th>Среднее время</th><th>Выручка</th></tr>
+      <tr><th>Имя</th><th>Телефон</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th><th>Действия</th></tr>
       <tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
         <td><b>{{ c.name }}</b></td>
+        <td class="muted">{{ getStaffPhone('cook', c.name) || '—' }}</td>
         <td>{{ c.orders_count }}</td>
-        <td v-bind:style="{color: c.avg_time_min <= 10 ? '#6ee7b7' : c.avg_time_min <= 20 ? '#fcd34d' : '#fca5a5'}">
-          {{ c.avg_time_min }} мин
-        </td>
+        <td v-bind:style="{color: c.avg_time_min <= 10 ? '#6ee7b7' : c.avg_time_min <= 20 ? '#fcd34d' : '#fca5a5'}">{{ c.avg_time_min }} мин</td>
         <td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'cook')" title="Сбросить PIN">🔄 PIN</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="copyCookAccess(c)" title="Скопировать инструкцию">📋</button>
+          <button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button>
+        </td>
       </tr>
-      <tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных о поварах</td></tr>
+      <tr v-if="!staffAnalytics.cooks.length"><td colspan="6" class="muted">Нет поваров</td></tr>
     </table>
   </div>
 
-  <!-- Курьеры -->
+  <!-- КУРЬЕРЫ -->
   <div class="glass card" style="margin-bottom:14px;border-color:#f59e0b">
-    <h4 style="margin:0 0 10px">🚗 Курьеры</h4>
+    <div class="spread">
+      <h4 style="margin:0">🚗 Курьеры</h4>
+      <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button>
+    </div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxCouriers }} ({{ couriers.length }} занято)</div>
     <table class="tbl">
-      <tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr>
+      <tr><th>Имя</th><th>Телефон</th><th>Доставок</th><th>Выручка</th><th>Действия</th></tr>
       <tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
         <td><b>{{ c.name }}</b></td>
+        <td class="muted">{{ getStaffPhone('courier', c.name) || '—' }}</td>
         <td>{{ c.deliveries_count }}</td>
         <td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'courier')" title="Сбросить PIN">🔄 PIN</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="copyCourierAccess(c)" title="Скопировать инструкцию">📋</button>
+          <button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button>
+        </td>
       </tr>
-      <tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных о курьерах</td></tr>
+      <tr v-if="!staffAnalytics.couriers.length"><td colspan="5" class="muted">Нет курьеров</td></tr>
     </table>
   </div>
 
-  <!-- Официанты -->
+  <!-- ОФИЦИАНТЫ -->
   <div class="glass card" style="margin-bottom:14px;border-color:#67e8f9">
-    <h4 style="margin:0 0 10px">🤵 Официанты</h4>
+    <div class="spread">
+      <h4 style="margin:0">🤵 Официанты</h4>
+      <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button>
+    </div>
+    <div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxWaiters }} ({{ waiters.length }} занято)</div>
     <table class="tbl">
-      <tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr>
+      <tr><th>Имя</th><th>Телефон</th><th>Выдач</th><th>Выручка</th><th>Действия</th></tr>
       <tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
         <td><b>{{ w.name }}</b></td>
+        <td class="muted">{{ getStaffPhone('waiter', w.name) || '—' }}</td>
         <td>{{ w.served_count }}</td>
         <td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋</button>
+          <button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button>
+        </td>
       </tr>
-      <tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных об официантах</td></tr>
+      <tr v-if="!staffAnalytics.waiters.length"><td colspan="5" class="muted">Нет официантов</td></tr>
     </table>
+  </div>
+
+  <!-- Инструкция по доступу для сотрудников -->
+  <div class="glass card" style="border-color:#6366f1; margin-top:14px;">
+    <label>🔑 Данные для входа сотрудников</label>
+    <div class="row" style="margin-top:8px">
+      <b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
+      <button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button>
+    </div>
+    <p class="muted" style="font-size:11px;margin:8px 0 0">
+      Повар открывает cook.html, курьер – courier.html, официант – waiter.html и вводит: код заведения + свой PIN.
+    </p>
   </div>
 </div>
 
@@ -343,63 +387,6 @@
 </div>
 </div>
 </div>
-</div>
-
-<!-- ===================== ВКЛАДКА ПОВАРА (подробно) ===================== -->
-<div v-if="tab==='cooks'">
-<div class="glass card" style="margin-bottom:14px"><div class="row">
-<button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button>
-<span class="muted" style="font-size:11px;margin-left:8px">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</span></div></div>
-<div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
-<label>🔑 Данные для входа поваров на кухню</label>
-<div class="row" style="margin-top:8px"><b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
-<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button></div>
-<p class="muted" style="font-size:11px;margin:8px 0 0">Повар открывает cook.html и вводит: код заведения + свой PIN.</p></div>
-<div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px">
-<div style="flex:1"><b>👨‍ {{ c.name }}</b>
-<div class="muted" style="font-size:12px">📞 {{ c.phone||'не указан' }} · PIN защищён в базе</div></div>
-<button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'cook')" title="Сбросить PIN">🔄 PIN</button>
-<button class="btn btn-ghost btn-sm" v-on:click="copyCookAccess(c)" title="Скопировать инструкцию">📋 Инструкция</button>
-<button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button></div>
-<p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
-</div>
-
-<!-- ===================== ВКЛАДКА КУРЬЕРЫ (подробно) ===================== -->
-<div v-if="tab==='couriers'">
-<div class="glass card" style="margin-bottom:14px"><div class="row">
-<button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button>
-<span class="muted" style="font-size:11px;margin-left:8px">Лимит: {{ maxCouriers }} ({{ couriers.length }} занято)</span></div></div>
-<div class="glass card" style="margin-bottom:14px;border-color:#f59e0b">
-<label>🔑 Данные для входа курьеров</label>
-<div class="row" style="margin-top:8px"><b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
-<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button></div>
-<p class="muted" style="font-size:11px;margin:8px 0 0">Курьер открывает courier.html и вводит: код заведения + свой PIN.</p></div>
-<div v-for="c in couriers" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px">
-<div style="flex:1"><b>🚗 {{ c.name }}</b>
-<div class="muted" style="font-size:12px">📞 {{ c.phone||'не указан' }} · PIN защищён в базе</div></div>
-<button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'courier')" title="Сбросить PIN">🔄 PIN</button>
-<button class="btn btn-ghost btn-sm" v-on:click="copyCourierAccess(c)" title="Скопировать инструкцию">📋 Инструкция</button>
-<button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button></div>
-<p v-if="!couriers.length" class="muted">Добавьте курьеров — они будут доставлять заказы.</p>
-</div>
-
-<!-- ===================== ВКЛАДКА ОФИЦИАНТЫ (подробно) ===================== -->
-<div v-if="tab==='waiters'">
-<div class="glass card" style="margin-bottom:14px"><div class="row">
-<button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button>
-<span class="muted" style="font-size:11px;margin-left:8px">Лимит: {{ maxWaiters }} ({{ waiters.length }} занято)</span></div></div>
-<div class="glass card" style="margin-bottom:14px;border-color:#06b6d4">
-<label>🔑 Данные для входа официантов</label>
-<div class="row" style="margin-top:8px"><b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
-<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button></div>
-<p class="muted" style="font-size:11px;margin:8px 0 0">Официант открывает waiter.html и вводит: код заведения + свой PIN.</p></div>
-<div v-for="w in waiters" v-bind:key="w.id" class="glass menu-item" style="margin-bottom:10px">
-<div style="flex:1"><b>🤵 {{ w.name }}</b>
-<div class="muted" style="font-size:12px">📞 {{ c.phone||'не указан' }} · PIN защищён в базе</div></div>
-<button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button>
-<button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋 Инструкция</button>
-<button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button></div>
-<p v-if="!waiters.length" class="muted">Добавьте официантов — они будут выдавать заказы.</p>
 </div>
 
 <!-- ===================== ВКЛАДКА ТАРИФЫ ===================== -->
@@ -619,8 +606,7 @@ Vue.createApp({
       analyticsPeriod: '7',
       analytics: {revenue:0, orders:0, clients:0, avgCheck:0, avgCookTime:0, newClients:0, repeatClients:0, topItems:[], topAddons:[], typeStats:{pickup:0,delivery:0}, payStats:{cash:0,card:0}, topHours:[], daily:[], cooks:[], couriers:[], waiters:[]},
       subscriptionEnd: null, isBlocked: false, payPlan: null, myPayments: [],
-      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>",
-      selectedVenueId: null // для восстановления из localStorage
+      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>"
     };
   },
   computed: {
@@ -699,19 +685,7 @@ Vue.createApp({
               return self.loadVenueTemplates().then(function() { return self.loadMyVenues(); });
             }).then(function() {
               self.ready=true;
-              // Автоматический выбор заведения
-              if (self.myVenues.length) {
-                var savedId = localStorage.getItem('selectedVenueId');
-                var venueToSelect = null;
-                if (savedId) {
-                  venueToSelect = self.myVenues.find(function(v) { return String(v.id) === savedId; });
-                }
-                if (!venueToSelect) {
-                  venueToSelect = self.myVenues[0];
-                }
-                // Выбираем заведение с флагом автовыбора
-                self.selectVenue(venueToSelect, true);
-              }
+              // НЕТ АВТОВЫБОРА — оставляем список заведений
             });
           });
         } else {
@@ -757,7 +731,7 @@ Vue.createApp({
 
     backToList: function() { this.venue=null; if(this.timer){clearInterval(this.timer); this.timer=null;} this.loadMyVenues(); },
 
-    selectVenue: function(v, autoSelect) {
+    selectVenue: function(v) {
       if (!v || !v.id) return;
       var self=this;
       try {
@@ -767,13 +741,9 @@ Vue.createApp({
       } catch(e) {
         console.warn('[Manager] Не удалось закрыть старый зал:', e);
       }
-      // Сохраняем выбранное заведение
-      try {
-        localStorage.setItem('selectedVenueId', String(v.id));
-      } catch(e) {}
 
       this.venue=v;
-      this.tab='menu';
+      this.tab='menu'; // по умолчанию открываем меню
       this.subscriptionEnd=v.subscription_end;
       this.vform={
         name:v.name,
@@ -813,13 +783,6 @@ Vue.createApp({
             self.loadOrders();
           }
         },5000);
-        // Переключаем вкладку на 'staff' только если это автовыбор, иначе оставляем как есть
-        if (autoSelect) {
-          self.tab = 'staff';
-        } else {
-          // Если пользователь кликнул вручную, оставляем 'menu' (или можно всегда 'staff' – решать вам)
-          self.tab = 'staff';
-        }
       });
     },
 
@@ -838,6 +801,12 @@ Vue.createApp({
         if(r.error) { console.warn('staff analytics:', r.error.message||r.error); return; }
         if(r.data) self.staffAnalytics = r.data;
       }).catch(function(e) { console.warn('staff analytics exception:', e); });
+    },
+
+    getStaffPhone: function(type, name) {
+      var arr = type==='cook' ? this.cooks : (type==='courier' ? this.couriers : this.waiters);
+      var found = arr.find(function(item) { return item.name === name; });
+      return found ? found.phone || '' : '';
     },
 
     loadAnalytics: function() {
@@ -983,7 +952,7 @@ Vue.createApp({
         self.showCreateVenue = false;
         self.newVenueForm = {name:'', slug:'', template:'coffee'};
         return self.loadMyVenues().then(function() {
-          self.selectVenue(venue, true);
+          self.selectVenue(venue);
           self.showToast('Заведение создано: '+template.name+' · '+template.products.length+' позиций добавлено');
         });
       })
@@ -1134,6 +1103,7 @@ Vue.createApp({
         if(type==='cook') self.loadCooks();
         else if(type==='courier') self.loadCouriers();
         else self.loadWaiters();
+        self.loadStaffAnalytics(); // обновляем аналитику
         self.showToast(typeRu + ' добавлен');
       }).catch(function(e) {
         self.createStaffBusy = false;
@@ -1154,6 +1124,7 @@ Vue.createApp({
         if(r.error) { self.showToast('Ошибка: ' + (r.error.message || r.error), 'error'); return; }
         var pin = r.data.pin;
         alert('✅ Новый PIN для ' + staff.name + ':\n\n🔑 ' + pin + '\n\n⚠️ Сообщите PIN сотруднику сейчас.\nЭтот PIN больше не будет показан.');
+        self.loadStaffAnalytics(); // обновляем аналитику
       }).catch(function(e) {
         self.busy = false;
         self.showToast('Ошибка: ' + (e.message || String(e)), 'error');
@@ -1162,17 +1133,17 @@ Vue.createApp({
     delCook: function(c) {
       if(!confirm('Удалить повара '+c.name+'?')) return;
       var self=this;
-      db.from('cooks').delete().eq('id', c.id).then(function() { self.loadCooks(); self.showToast('Удалено'); });
+      db.from('cooks').delete().eq('id', c.id).then(function() { self.loadCooks(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
     },
     delCourier: function(c) {
       if(!confirm('Удалить курьера '+c.name+'?')) return;
       var self=this;
-      db.from('couriers').delete().eq('id', c.id).then(function() { self.loadCouriers(); self.showToast('Удалено'); });
+      db.from('couriers').delete().eq('id', c.id).then(function() { self.loadCouriers(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
     },
     delWaiter: function(w) {
       if(!confirm('Удалить официанта '+w.name+'?')) return;
       var self=this;
-      db.from('waiters').delete().eq('id', w.id).then(function() { self.loadWaiters(); self.showToast('Удалено'); });
+      db.from('waiters').delete().eq('id', w.id).then(function() { self.loadWaiters(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
     },
 
     setStatus: function(id, status) {
