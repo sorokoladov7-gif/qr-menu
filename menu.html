@@ -34,6 +34,8 @@
 .alert-box{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:15px;margin:15px 0}
 .status-big{text-align:center;padding:20px 0 10px;font-size:52px}
 .msg.ok{background:rgba(52,211,153,.15);color:#6ee7b7;padding:10px;border-radius:10px}
+.loading-spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(255,255,255,.1);border-top-color:#6366f1;border-radius:50%;animation:spin .8s linear infinite;vertical-align:middle;margin-right:8px}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -117,7 +119,11 @@
 <button class="btn btn-primary btn-sm" v-on:click="trackOrder">Найти</button>
 </div>
 </div>
-<div v-if="tracking" class="glass order-card" v-bind:style="{borderTopColor:statusColor(tracking.status)}">
+<!-- FIX: индикатор загрузки -->
+<div v-if="trackingLoading" class="glass card" style="text-align:center;padding:20px">
+  <div class="loading-spinner"></div> Ищем ваш заказ...
+</div>
+<div v-else-if="tracking" class="glass order-card" v-bind:style="{borderTopColor:statusColor(tracking.status)}">
 <div class="status-big">{{ statusEmoji(tracking.status) }}</div>
 <div class="spread"><b>Заказ №{{ tracking.order_number }}</b>
 <span class="badge" v-bind:class="'b-'+tracking.status">{{ statusName(tracking.status) }}</span></div>
@@ -144,7 +150,8 @@
 </div>
 </template>
 </div>
-<p v-if="trackSearched&&!tracking" class="muted">Заказов с этим номером не найдено.</p>
+<!-- FIX: показываем сообщение только если поиск завершён и нет загрузки -->
+<p v-if="trackSearched && !trackingLoading && !tracking" class="muted">Заказов с этим номером не найдено.</p>
 <div class="reorder-bar" v-if="tracking&&tracking.status!=='changed'">
 <button v-on:click="view='menu'">{{ tracking.status==='done'?'🍔 Сделать новый заказ':'🍔 Заказать ещё пока ждёте' }}</button>
 </div>
@@ -246,6 +253,7 @@ venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:fa
 dishModal:{show:false, product:null, addons:[]},
 form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:'', table_token:''},
 msg:'', msgType:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
+trackingLoading: false, // FIX: новый флаг
 DEFAULT_IMG:window.DEFAULT_IMG,
 trackTimer:null,
 previousStatus:'',
@@ -260,7 +268,7 @@ deliveryMinOrder: 0,
 deliveryMinOrderFree: 0,
 deliveryBaseFee: 50,
 abortController: null,
-design: { /* стандартный дизайн, можно не заполнять */ }
+design: {}
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -730,6 +738,7 @@ else this.cart.push({id:m.product.id,name:m.product.name,price:Number(m.product.
 this.dishModal.show=false},
 dec:function(i){if(i.qty>1){i.qty--}else{this.cart.splice(this.cart.indexOf(i),1)}},
 
+// FIX: улучшенный checkout
 checkout:function(){
   var self = this;
   self.msg = '';
@@ -837,17 +846,68 @@ checkout:function(){
     p_delivery_fee: deliveryFee
   }).then(function(r){
     if(r.error) throw r.error;
+    // FIX: извлекаем заказ из ответа (поддержка как прямого, так и вложенного)
     var order = r.data;
+    if(order && typeof order === 'object' && order.order) {
+      order = order.order;
+    }
+    if(Array.isArray(order) && order.length) {
+      order = order[0];
+    }
     if(!order || !order.id) throw new Error('Сервер не вернул созданный заказ');
 
+    console.log('[Menu] Заказ создан:', order.id);
+
+    // Сохраняем телефон и переключаем на отслеживание
     localStorage.setItem('last_phone', phone);
     self.cart = [];
     self.showCart = false;
     self.view = 'tracking';
     self.trackPhone = phone;
     self.previousStatus = '';
+    self.tracking = null;
+    self.trackSearched = false;
+    self.trackingLoading = true; // показываем спиннер
+
+    // Запускаем таймер и сразу пытаемся найти заказ
     self.startTrackingTimer();
-    return self.trackOrder();
+
+    // Пытаемся найти заказ с повторными попытками (до 5 раз с интервалом 1с)
+    var attempts = 0;
+    var maxAttempts = 5;
+    var interval = 1000;
+
+    function tryFindOrder() {
+      attempts++;
+      console.log('[Menu] Попытка найти заказ #' + attempts);
+      self.trackOrder().then(function(found) {
+        if(found) {
+          // Заказ найден
+          self.trackingLoading = false;
+          self.trackSearched = true;
+          console.log('[Menu] Заказ найден!');
+        } else if(attempts < maxAttempts) {
+          setTimeout(tryFindOrder, interval);
+        } else {
+          // Не нашли за 5 попыток – убираем спиннер и показываем сообщение
+          self.trackingLoading = false;
+          self.trackSearched = true;
+          console.warn('[Menu] Заказ не найден после ' + maxAttempts + ' попыток');
+        }
+      }).catch(function(e) {
+        console.warn('[Menu] Ошибка при поиске заказа:', e);
+        if(attempts < maxAttempts) {
+          setTimeout(tryFindOrder, interval);
+        } else {
+          self.trackingLoading = false;
+          self.trackSearched = true;
+        }
+      });
+    }
+
+    // Начинаем поиск через небольшую задержку (чтобы БД успела сохранить)
+    setTimeout(tryFindOrder, 500);
+
   }).catch(function(e){
     console.error('create_public_order error:', e);
     var message = e && e.message ? e.message : 'Не удалось оформить заказ';
@@ -877,14 +937,16 @@ startTrackingTimer: function(){
   }, 5000);
 },
 
+// FIX: trackOrder возвращает Promise<boolean> – найден ли заказ
 trackOrder:function(){
   var self=this;
   var phone=self.norm(self.trackPhone);
-  if(!phone) return Promise.resolve();
-  self.trackSearched=true;
+  if(!phone) return Promise.resolve(false);
+  self.trackSearched = true;
   return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
     .eq('venue_id',self.venue.id).eq('customer_phone',phone)
-    .order('created_at',{ascending:false}).limit(1).maybeSingle().then(function(r){
+    .order('created_at',{ascending:false}).limit(1).maybeSingle()
+    .then(function(r){
       var newData = r.data || null;
       if(newData){
         if(self.previousStatus !== newData.status){
@@ -899,8 +961,10 @@ trackOrder:function(){
         } else {
           self.tracking = newData;
         }
+        return true;
       } else {
         self.tracking = null;
+        return false;
       }
     });
 },
