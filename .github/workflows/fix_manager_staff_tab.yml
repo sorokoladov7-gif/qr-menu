@@ -1,0 +1,113 @@
+name: Fix manager personnel tab
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: "!contains(github.event.head_commit.message, '[manager-personnel-tab-fixed]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch manager personnel tab
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('manager.html')
+          s = p.read_text(encoding='utf-8')
+
+          old_nav = "<button v-bind:class=\"{on:tab==='staff'}\" v-on:click=\"tab='staff'\">Повара</button>"
+          new_nav = "<button v-bind:class=\"{on:tab==='staff'}\" v-on:click=\"tab='staff';loadStaffAnalytics()\">👥 Персонал</button>\n<button v-bind:class=\"{on:tab==='cooks'}\" v-on:click=\"tab='cooks'\">Повара</button>"
+          if old_nav in s and new_nav not in s:
+              s = s.replace(old_nav, new_nav, 1)
+
+          cooks_marker = '<div v-if=\"tab===\'staff\'\">\n<div class=\"glass card\" style=\"margin-bottom:14px\"><div class=\"row\">\n<button class=\"btn btn-green btn-sm\" v-on:click=\"openCreateStaff(\'cook\')\"'
+          if cooks_marker not in s:
+              raise SystemExit('cooks panel marker not found')
+
+          s = s.replace("<div v-if=\"tab==='staff'\">\n<div class=\"glass card\" style=\"margin-bottom:14px\"><div class=\"row\">\n<button class=\"btn btn-green btn-sm\" v-on:click=\"openCreateStaff('cook')\"", "<div v-if=\"tab==='cooks'\">\n<div class=\"glass card\" style=\"margin-bottom:14px\"><div class=\"row\">\n<button class=\"btn btn-green btn-sm\" v-on:click=\"openCreateStaff('cook')\"", 1)
+
+          personnel_panel = r'''<div v-if="tab==='staff'">
+<div class="glass card" style="margin-bottom:14px">
+  <div class="spread" style="margin-bottom:12px">
+    <div>
+      <h3 style="margin:0">👥 Персонал</h3>
+      <div class="muted">Производительность и аналитика сотрудников заведения.</div>
+    </div>
+    <select v-model="staffAnalyticsDays" v-on:change="loadStaffAnalytics" style="width:auto">
+      <option value="7">7 дней</option>
+      <option value="30">30 дней</option>
+      <option value="90">90 дней</option>
+    </select>
+  </div>
+
+  <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:14px">
+    <div class="glass stat"><div class="num">{{ cooks.length }}</div><div class="lbl">Повара</div></div>
+    <div class="glass stat"><div class="num">{{ couriers.length }}</div><div class="lbl">Курьеры</div></div>
+    <div class="glass stat"><div class="num">{{ waiters.length }}</div><div class="lbl">Официанты</div></div>
+  </div>
+
+  <div class="glass card" style="margin-bottom:12px">
+    <h4 style="margin:0 0 10px">👨‍🍳 Производительность поваров</h4>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th></tr>
+      <tr v-for="c in staffAnalytics.cooks" v-bind:key="'cook-'+c.name">
+        <td>{{ c.name }}</td>
+        <td>{{ c.orders_count }}</td>
+        <td>{{ c.avg_time_min }} мин</td>
+        <td>{{ fmt(c.revenue) }} ₽</td>
+      </tr>
+      <tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных за выбранный период</td></tr>
+    </table>
+  </div>
+
+  <div class="glass card" style="margin-bottom:12px">
+    <h4 style="margin:0 0 10px">🚗 Производительность курьеров</h4>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr>
+      <tr v-for="c in staffAnalytics.couriers" v-bind:key="'courier-'+c.name">
+        <td>{{ c.name }}</td>
+        <td>{{ c.deliveries_count }}</td>
+        <td>{{ fmt(c.revenue) }} ₽</td>
+      </tr>
+      <tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных за выбранный период</td></tr>
+    </table>
+  </div>
+
+  <div class="glass card">
+    <h4 style="margin:0 0 10px">🤵 Производительность официантов</h4>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr>
+      <tr v-for="w in staffAnalytics.waiters" v-bind:key="'waiter-'+w.name">
+        <td>{{ w.name }}</td>
+        <td>{{ w.served_count }}</td>
+        <td>{{ fmt(w.revenue) }} ₽</td>
+      </tr>
+      <tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных за выбранный период</td></tr>
+    </table>
+  </div>
+</div>
+</div>
+
+'''
+
+          if "<div v-if=\"tab==='staff'\">\n<div class=\"glass card\" style=\"margin-bottom:14px\"><div class=\"row\">\n<button class=\"btn btn-green btn-sm\" v-on:click=\"openCreateStaff('cook')\"" in s:
+              raise SystemExit('cook panel rename did not apply')
+          if "<div v-if=\"tab==='staff'\">\n<div class=\"glass card\" style=\"margin-bottom:14px\"><div class=\"row\">\n<button class=\"btn btn-green btn-sm\" v-on:click=\"openCreateStaff('cook')\"" not in s:
+              pass
+
+          cook_panel = s.find("<div v-if=\"tab==='cooks'\">")
+          if cook_panel < 0:
+              raise SystemExit('renamed cooks panel not found')
+          s = s[:cook_panel] + personnel_panel + s[cook_panel:]
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Commit patched manager
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manager.html .github/workflows/fix_manager_staff_tab.yml
+          git commit -m 'Fix manager personnel tab [manager-personnel-tab-fixed]' || exit 0
+          git push
