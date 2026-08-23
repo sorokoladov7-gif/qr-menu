@@ -395,7 +395,7 @@
 <p class="muted" style="font-size:11px;margin:8px 0 0">Официант открывает waiter.html и вводит: код заведения + свой PIN.</p></div>
 <div v-for="w in waiters" v-bind:key="w.id" class="glass menu-item" style="margin-bottom:10px">
 <div style="flex:1"><b>🤵 {{ w.name }}</b>
-<div class="muted" style="font-size:12px">📞 {{ w.phone||'не указан' }} · PIN защищён в базе</div></div>
+<div class="muted" style="font-size:12px">📞 {{ c.phone||'не указан' }} · PIN защищён в базе</div></div>
 <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button>
 <button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋 Инструкция</button>
 <button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button></div>
