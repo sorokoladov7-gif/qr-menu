@@ -300,8 +300,9 @@
 <p class="muted" style="font-size:11px;margin:8px 0 0">Повар открывает cook.html и вводит: код заведения + свой PIN.</p></div>
 <div v-for="c in cooks" v-bind:key="c.id" class="glass menu-item" style="margin-bottom:10px">
 <div style="flex:1"><b>👨‍ {{ c.name }}</b>
-<div class="muted" style="font-size:12px">cook.html (код: {{ venue.slug }}) · PIN защищён в базе</div></div>
+<div class="muted" style="font-size:12px">📞 {{ w.phone||'не указан' }} · PIN защищён в базе</div></div>
 <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'cook')" title="Сбросить PIN">🔄 PIN</button>
+<button class="btn btn-ghost btn-sm" v-on:click="copyCookAccess(c)" title="Скопировать инструкцию">📋 Инструкция</button>
 <button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button></div>
 <p v-if="!cooks.length" class="muted">Добавьте поваров — они будут принимать заказы по PIN.</p>
 </div>
