@@ -1,0 +1,58 @@
+name: Fix manager staff refs
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: "!contains(github.event.head_commit.message, '[manager-staff-refs-fixed]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Repair manager staff template references
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('manager.html')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+              # Cook list: loop variable is c.
+              ('{{ w.phone||\'не указан\' }} · PIN защищён в базе', '{{ c.phone||\'не указан\' }} · PIN защищён в базе'),
+              # Waiter list: loop variable is w.
+              ('{{ c.phone||\'не указан\' }} · PIN защищён в базе', '{{ w.phone||\'не указан\' }} · PIN защищён в базе'),
+              # Load cook phone from DB.
+              ("db.from('cooks').select('id,name,venue_id,created_at')", "db.from('cooks').select('id,name,phone,venue_id,created_at')"),
+              # Show phone field for cooks too.
+              ('<div class="field" v-if="createStaffType!==\'cook\'"><label>Телефон</label>', '<div class="field"><label>Телефон</label>'),
+          ]
+          for old, new in replacements:
+              s = s.replace(old, new)
+
+          # Ensure cook instruction method exists.
+          if 'copyCookAccess: function' not in s:
+              marker = "copyCourierAccess: function(c) {"
+              method = "copyCookAccess: function(c) { this.copyText('Вход для повара '+c.name+':\\nСайт: '+location.origin+'/cook.html\\nКод заведения: '+this.venue.slug+'\\n\\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },\n    "
+              s = s.replace(marker, method + marker, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Verify no cross-variable staff phone refs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s = Path('manager.html').read_text(encoding='utf-8')
+          if "v-for=\"c in cooks\"" in s and "v-for=\"w in waiters\"" in s:
+              pass
+          assert "copyCookAccess: function" in s, 'copyCookAccess missing'
+          assert "select('id,name,phone,venue_id,created_at')" in s, 'cook phone is not loaded'
+          print('manager staff refs verified')
+          PY
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add manager.html .github/workflows/fix-manager-staff-refs.yml
+          git commit -m 'Fix manager staff references [manager-staff-refs-fixed]' || exit 0
+          git push
