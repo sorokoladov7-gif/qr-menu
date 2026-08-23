@@ -1,6 +1,18 @@
 const SUPABASE_URL = 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
-const baseDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const __qrRoleMatch = location.pathname.toLowerCase().match(/\/(admin|manager|cook|courier|waiter)\.html$/i);
+const __qrRole = __qrRoleMatch ? __qrRoleMatch[1].toLowerCase() : 'public';
+const __qrAuthStorage = window.sessionStorage;
+const __qrAuthKey = 'qr-menu-auth-' + __qrRole;
+const baseDb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storage: __qrAuthStorage,
+    storageKey: __qrAuthKey
+  }
+});
 window.db = baseDb;
 
 (function(){
@@ -13,14 +25,14 @@ var staffType = isStaff ? staffMatch[1] : null;
 var real = baseDb;
 var oldFrom = real.from.bind(real);
 var oldRpc = real.rpc.bind(real);
-function staffToken(){if(window.StaffAuth&&window.StaffAuth.token())return window.StaffAuth.token();if(staffType){var roleKey=staffType+'_token';var t=localStorage.getItem(roleKey);if(t)return t;}return localStorage.getItem('staff_token');}
-function rememberStaffLogin(type,data){if(window.StaffAuth&&data)window.StaffAuth.login(type,data);if(data&&data.token){try{localStorage.setItem('staff_token',data.token);localStorage.setItem(type+'_token',data.token);localStorage.setItem(type+'_session',JSON.stringify({venueId:data.venueId,venueName:data.venueName,staffName:data.staffName,token:data.token}));}catch(e){}}}
+function staffToken(){if(window.StaffAuth&&window.StaffAuth.token())return window.StaffAuth.token();if(staffType){var roleKey=staffType+'_token';var t=sessionStorage.getItem(roleKey);if(t)return t;}return sessionStorage.getItem('staff_token');}
+function rememberStaffLogin(type,data){if(window.StaffAuth&&data)window.StaffAuth.login(type,data);if(data&&data.token){try{localStorage.setItem('staff_token',data.token);localStorage.setItem(type+'_token',data.token);sessionStorage.setItem(type+'_session',JSON.stringify({venueId:data.venueId,venueName:data.venueName,staffName:data.staffName,token:data.token}));}catch(e){}}}
 function resolveQrTable(venueId){var token=new URLSearchParams(location.search).get('token');if(!token)return Promise.resolve(null);if(window.__qrTable&&window.__qrTable.qr_token===token)return Promise.resolve(window.__qrTable);var q=oldFrom('venue_tables').select('id,venue_id,table_number,name,qr_token,is_active').eq('qr_token',String(token).trim()).eq('is_active',true);if(venueId)q=q.eq('venue_id',venueId);return q.maybeSingle().then(function(r){if(!r.error&&r.data)window.__qrTable=r.data;return r.data||null;});}
 function makeChain(table){var state={action:'select',filters:{},inFilters:{},neqFilters:{},payload:null};var api={select:function(){state.action='select';return api;},insert:function(v){state.action='insert';state.payload=v;return api;},update:function(v){state.action='update';state.payload=v;return api;},delete:function(){state.action='delete';return api;},eq:function(k,v){state.filters[k]=v;return api;},neq:function(k,v){state.neqFilters[k]=v;return api;},in:function(k,v){state.inFilters[k]=v;return api;},order:function(){return api;},limit:function(){return api;},maybeSingle:function(){return execute(true);},single:function(){return execute(true);},then:function(a,b){return execute(false).then(a,b);},catch:function(a){return execute(false).catch(a);}};
 function applyNeq(rows){if(!state.neqFilters||!Object.keys(state.neqFilters).length)return rows;return rows.filter(function(row){for(var k in state.neqFilters){if(row[k]===state.neqFilters[k])return false;}return true;});}
 async function execute(single){
-if(isStaff&&table==='venues'&&state.action==='select'&&state.filters.slug){var slug=String(state.filters.slug).trim().toLowerCase();localStorage.setItem(staffType+'_login_context',JSON.stringify({slug:slug}));var r=await oldRpc('staff_venue_by_slug',{p_slug:slug});return{data:r.error?null:r.data,error:r.error||null};}
-if(isStaff&&['cooks','waiters','couriers'].indexOf(table)>=0&&state.action==='select'&&state.filters.venue_id&&state.filters.pin){var type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';var ctx=JSON.parse(localStorage.getItem(type+'_login_context')||'null')||{};var r2=await oldRpc('staff_login',{p_type:type,p_slug:ctx.slug||'',p_pin:String(state.filters.pin)});if(r2.data&&r2.data.error)return{data:null,error:{message:r2.data.error}};if(r2.error)return{data:null,error:r2.error};rememberStaffLogin(type,r2.data);return{data:r2.data?{id:r2.data.staffId,name:r2.data.staffName,venue_id:r2.data.venueId,token:r2.data.token}:null,error:null};}
+if(isStaff&&table==='venues'&&state.action==='select'&&state.filters.slug){var slug=String(state.filters.slug).trim().toLowerCase();sessionStorage.setItem(staffType+'_login_context',JSON.stringify({slug:slug}));var r=await oldRpc('staff_venue_by_slug',{p_slug:slug});return{data:r.error?null:r.data,error:r.error||null};}
+if(isStaff&&['cooks','waiters','couriers'].indexOf(table)>=0&&state.action==='select'&&state.filters.venue_id&&state.filters.pin){var type=table==='cooks'?'cook':table==='waiters'?'waiter':'courier';var ctx=JSON.parse(sessionStorage.getItem(type+'_login_context')||'null')||{};var r2=await oldRpc('staff_login',{p_type:type,p_slug:ctx.slug||'',p_pin:String(state.filters.pin)});if(r2.data&&r2.data.error)return{data:null,error:{message:r2.data.error}};if(r2.error)return{data:null,error:r2.error};rememberStaffLogin(type,r2.data);return{data:r2.data?{id:r2.data.staffId,name:r2.data.staffName,venue_id:r2.data.venueId,token:r2.data.token}:null,error:null};}
 if(isStaff&&table==='orders'&&state.action==='select'){var token=staffToken();if(!token)return{data:[],error:new Error('staff_session_missing')};var historyKey=state.filters.cook_name||state.filters.waiter_name||state.filters.courier_name;var r3=await oldRpc(historyKey?'staff_history_json':'staff_orders_json',{p_token:token});if(r3.error)return{data:[],error:r3.error};var rows=Array.isArray(r3.data)?r3.data:[];rows=applyNeq(rows);return{data:single?(rows[0]||null):rows,error:null};}
 if(isStaff&&table==='orders'&&state.action==='update'){var token=staffToken();if(!token)return{data:null,error:new Error('staff_session_missing')};var r4=await oldRpc('staff_update_order',{p_token:token,p_order_id:state.filters.id,p_status:state.payload&&state.payload.status});return{data:r4.data||null,error:r4.error||null};}
 if(table==='orders'&&state.action==='select'&&isMenu){var venueId=state.filters.venue_id;var phone=state.filters.customer_phone||localStorage.getItem('last_phone')||'';if(!venueId||!phone)return{data:null,error:new Error('tracking_context_missing')};var r5=await oldRpc('customer_track_order_json',{p_venue_id:venueId,p_customer_phone:String(phone).trim()});return{data:single?(r5.data||null):(r5.data?[r5.data]:[]),error:r5.error||null};}
