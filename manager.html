@@ -797,7 +797,7 @@ Vue.createApp({
       var self=this;
       if(!this.venue) return;
       var days = parseInt(this.staffAnalyticsDays) || 30;
-      db.rpc('manager_staff_performance', {p_venue_id: this.venue.id, p_days: days}).then(function(r) {
+      db.rpc('manager_reset_staff_pin', {p_venue_id: this.venue.id, p_days: days}).then(function(r) {
         if(r.error) { console.warn('staff analytics:', r.error.message||r.error); return; }
         if(r.data) self.staffAnalytics = r.data;
       }).catch(function(e) { console.warn('staff analytics exception:', e); });
