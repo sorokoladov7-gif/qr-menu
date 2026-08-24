@@ -3,17 +3,12 @@
 
   if (!/\/manager\.html$/i.test(location.pathname)) return;
 
-  /*
-   * ВАЖНО:
-   * Не используем:
-   *   app.__vue_app__._instance
-   *
-   * В вашем Vue 3 приложение имеет _instance === null.
-   * Получаем proxy через __vueParentComponent.proxy.
-   */
-
   if (window.__managerDesignLoaded) return;
   window.__managerDesignLoaded = true;
+
+  /* =========================================================
+     DESIGN TEMPLATES
+  ========================================================= */
 
   var templates = {
     coffee: {
@@ -121,6 +116,10 @@
     }
   };
 
+  /* =========================================================
+     HELPERS
+  ========================================================= */
+
   function esc(v) {
     return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) {
       return {
@@ -134,15 +133,11 @@
   }
 
   /*
-   * Надёжное получение Vue component proxy.
-   *
-   * В вашем приложении:
-   *   #app.__vue_app__._instance === null
-   *
-   * Но:
-   *   #app.__vueParentComponent.proxy
-   * работает после монтирования Vue.
+   * ВАЖНО:
+   * В этом проекте __vue_app__._instance = null.
+   * Рабочий proxy находится на __vueParentComponent.proxy.
    */
+
   function getProxy() {
     var root = document.getElementById('app');
 
@@ -157,44 +152,53 @@
       }
     } catch (e) {}
 
-    /*
-     * Дополнительный fallback.
-     */
     try {
-      var app = root.__vue_app__;
-
       if (
-        app &&
-        app._container &&
-        app._container.__vueParentComponent &&
-        app._container.__vueParentComponent.proxy
+        root.__vue_app__ &&
+        root.__vue_app__._instance &&
+        root.__vue_app__._instance.proxy
       ) {
-        return app._container.__vueParentComponent.proxy;
+        return root.__vue_app__._instance.proxy;
+      }
+    } catch (e) {}
+
+    try {
+      if (
+        window.__QR_MANAGER_VUE_APP__ &&
+        window.__QR_MANAGER_VUE_APP__._instance &&
+        window.__QR_MANAGER_VUE_APP__._instance.proxy
+      ) {
+        return window.__QR_MANAGER_VUE_APP__._instance.proxy;
       }
     } catch (e) {}
 
     return null;
   }
 
-  var permissionVenueId = null;
-  var permissionLoadingVenueId = null;
-
-  /*
-   * Удаляем старое состояние, если управляющий вернулся
-   * к списку заведений.
-   */
-  function resetPermissionState() {
-    permissionVenueId = null;
-    permissionLoadingVenueId = null;
+  function getVenueId(p) {
+    return p &&
+      p.venue &&
+      p.venue.id
+      ? String(p.venue.id)
+      : null;
   }
 
+  /* =========================================================
+     PERMISSIONS
+  ========================================================= */
+
+  var permissionVenueId = null;
+  var permissionLoading = false;
+  var permissionRequestVenueId = null;
+
   function setPermission(target, source, key, legacyKey) {
-    if (
-      source &&
-      Object.prototype.hasOwnProperty.call(source, key)
-    ) {
-      target[legacyKey] = source[key] === true;
-      target[key] = source[key] === true;
+    if (!source) return;
+
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      var value = source[key] === true;
+
+      target[legacyKey] = value;
+      target[key] = value;
     }
   }
 
@@ -215,35 +219,34 @@
     setPermission(current, x, 'can_edit_branding', 'branding');
     setPermission(current, x, 'can_edit_venue', 'venue');
 
-    /*
-     * Сохраняем оба варианта:
-     *
-     * design
-     * can_edit_design
-     *
-     * чтобы не ломать существующий код.
-     */
     p.venue.manager_permissions = current;
   }
 
+  function clearPermissions(p) {
+    if (!p || !p.venue) return;
+
+    applyPermissions(p, {
+      can_edit_menu: false,
+      can_edit_prices: false,
+      can_edit_delivery: false,
+      can_edit_design: false,
+      can_edit_branding: false,
+      can_edit_venue: false
+    });
+  }
+
   function loadPermissions(p, done) {
-    if (
-      !p ||
-      !p.venue ||
-      !p.venue.id
-    ) {
-      resetPermissionState();
+    var venueId = getVenueId(p);
 
+    if (!p || !p.venue || !venueId) {
       if (done) done();
-
       return;
     }
 
-    var venueId = p.venue.id;
-
     /*
-     * Администратор получает полный доступ.
+     * Администратор получает все права.
      */
+
     if (
       p.profile &&
       p.profile.role === 'admin'
@@ -258,43 +261,44 @@
       });
 
       permissionVenueId = venueId;
-      permissionLoadingVenueId = null;
+      permissionLoading = false;
 
-      if (done) done();
-
-      return;
-    }
-
-    /*
-     * Если права уже загружены именно для ЭТОГО venue,
-     * повторный запрос не нужен.
-     */
-    if (permissionVenueId === venueId) {
       if (done) done();
       return;
     }
 
     /*
-     * Не допускаем параллельных запросов для одного venue.
+     * Уже загрузили права именно для этого заведения.
      */
-    if (permissionLoadingVenueId === venueId) {
-      return;
-    }
 
-    permissionLoadingVenueId = venueId;
-
-    var managerId =
-      p.profile && p.profile.id
-        ? p.profile.id
-        : null;
-
-    if (!managerId) {
-      permissionLoadingVenueId = null;
-
+    if (
+      permissionVenueId === venueId &&
+      !permissionLoading
+    ) {
       if (done) done();
-
       return;
     }
+
+    /*
+     * Не блокируем новое заведение старым запросом.
+     */
+
+    if (
+      permissionLoading &&
+      permissionRequestVenueId === venueId
+    ) {
+      if (done) done();
+      return;
+    }
+
+    permissionLoading = true;
+    permissionRequestVenueId = venueId;
+
+    /*
+     * Сбрасываем старые права перед загрузкой нового заведения.
+     */
+
+    clearPermissions(p);
 
     if (
       typeof db === 'undefined' ||
@@ -302,20 +306,30 @@
       !db.from
     ) {
       console.warn(
-        '[Manager Design] Supabase db is not available'
+        '[Manager Design] Supabase db недоступен'
       );
 
-      permissionLoadingVenueId = null;
+      permissionLoading = false;
+      permissionVenueId = venueId;
 
       if (done) done();
-
       return;
     }
+
+    var managerId =
+      p.profile && p.profile.id
+        ? p.profile.id
+        : '';
 
     db
       .from('manager_venue_permissions')
       .select(
-        'can_edit_menu,can_edit_prices,can_edit_delivery,can_edit_design,can_edit_branding,can_edit_venue'
+        'can_edit_menu,' +
+        'can_edit_prices,' +
+        'can_edit_delivery,' +
+        'can_edit_design,' +
+        'can_edit_branding,' +
+        'can_edit_venue'
       )
       .eq('manager_id', managerId)
       .eq('venue_id', venueId)
@@ -324,59 +338,28 @@
       .then(function (r) {
 
         if (r.error) {
-
           console.warn(
             '[Manager Design] permission bridge:',
             r.error.message || r.error
           );
-
-        } else if (r.data) {
-
-          applyPermissions(p, r.data);
-
-        } else {
-
-          /*
-           * Если строки прав нет — очищаем только права,
-           * полученные этим bridge.
-           *
-           * Не удаляем остальные свойства venue.
-           */
-          var current = Object.assign(
-            {},
-            p.venue.manager_permissions || {}
-          );
-
-          delete current.design;
-          delete current.branding;
-          delete current.products;
-          delete current.prices;
-          delete current.delivery;
-          delete current.venue;
-
-          delete current.can_edit_menu;
-          delete current.can_edit_prices;
-          delete current.can_edit_delivery;
-          delete current.can_edit_design;
-          delete current.can_edit_branding;
-          delete current.can_edit_venue;
-
-          p.venue.manager_permissions = current;
         }
 
-        /*
-         * Помечаем права загруженными только ПОСЛЕ запроса.
-         */
+        if (r.data) {
+          applyPermissions(p, r.data);
+        }
+
         permissionVenueId = venueId;
-        permissionLoadingVenueId = null;
+        permissionRequestVenueId = null;
+        permissionLoading = false;
 
         if (done) done();
-
       })
 
       .catch(function (e) {
 
-        permissionLoadingVenueId = null;
+        permissionRequestVenueId = null;
+        permissionLoading = false;
+        permissionVenueId = venueId;
 
         console.warn(
           '[Manager Design] permission bridge exception:',
@@ -384,21 +367,30 @@
         );
 
         if (done) done();
-
       });
   }
 
   function allowed(p) {
-    return !!(
-      p &&
-      p.venue &&
-      p.venue.manager_permissions &&
-      (
-        p.venue.manager_permissions.design === true ||
-        p.venue.manager_permissions.can_edit_design === true
-      )
+    if (
+      !p ||
+      !p.venue ||
+      !p.venue.manager_permissions
+    ) {
+      return false;
+    }
+
+    var permissions =
+      p.venue.manager_permissions;
+
+    return (
+      permissions.design === true ||
+      permissions.can_edit_design === true
     );
   }
+
+  /* =========================================================
+     STYLE
+  ========================================================= */
 
   function ensureStyle() {
 
@@ -429,7 +421,8 @@
         border:1px solid rgba(255,255,255,.1);
         border-radius:16px;
         background:rgba(255,255,255,.035);
-        padding:16px
+        padding:16px;
+        margin-bottom:14px
       }
 
       .md-templates{
@@ -541,204 +534,58 @@
     document.head.appendChild(s);
   }
 
-  function getTabs() {
-    return document.querySelector('.tabs');
-  }
-
-  function removeDesignUI() {
-
-    var tab =
-      document.getElementById(
-        'manager-design-tab'
-      );
-
-    if (tab) {
-      tab.remove();
-    }
-
-    var host =
-      document.getElementById(
-        'manager-design-host'
-      );
-
-    if (host) {
-      host.remove();
-    }
-  }
-
-  function build() {
-
-    var p = getProxy();
-
-    /*
-     * Очень важно:
-     * если мы сейчас на странице списка заведений,
-     * полностью сбрасываем состояние.
-     */
-    if (!p || !p.venue) {
-
-      resetPermissionState();
-      removeDesignUI();
-
-      return;
-    }
-
-    var tabs = getTabs();
-
-    if (!tabs) return;
-
-    /*
-     * Если права ещё не были загружены —
-     * build будет вызван повторно callback'ом.
-     */
-    if (!allowed(p)) {
-
-      var oldTab =
-        document.getElementById(
-          'manager-design-tab'
-        );
-
-      if (oldTab) {
-        oldTab.remove();
-      }
-
-      var oldHost =
-        document.getElementById(
-          'manager-design-host'
-        );
-
-      if (oldHost) {
-        oldHost.style.display = 'none';
-      }
-
-      return;
-    }
-
-    var tab =
-      document.getElementById(
-        'manager-design-tab'
-      );
-
-    /*
-     * После "К списку" Vue может пересоздать .tabs.
-     * Поэтому проверяем кнопку каждый раз.
-     */
-    if (!tab) {
-
-      tab = document.createElement('button');
-
-      tab.id =
-        'manager-design-tab';
-
-      tab.type = 'button';
-
-      tab.textContent =
-        '🎨 Дизайн';
-
-      tab.onclick = function () {
-
-        var current =
-          getProxy();
-
-        if (!current) return;
-
-        current.tab = 'design';
-
-        sync();
-      };
-
-      tabs.appendChild(tab);
-    }
-
-    var host =
-      document.getElementById(
-        'manager-design-host'
-      );
-
-    if (!host) {
-
-      host =
-        document.createElement('div');
-
-      host.id =
-        'manager-design-host';
-
-      tabs.parentNode.insertBefore(
-        host,
-        tabs.nextSibling
-      );
-    }
-
-    /*
-     * Новый venue = новый DOM/render.
-     */
-    if (
-      host.dataset.venueId !==
-      p.venue.id
-    ) {
-
-      host.dataset.venueId =
-        p.venue.id;
-
-      render(host, p);
-    }
-
-    sync();
-  }
+  /* =========================================================
+     SETTINGS
+  ========================================================= */
 
   function currentSettings(p) {
 
     var d =
-      p.venue.design_settings || {};
+      p &&
+      p.venue &&
+      p.venue.design_settings
+        ? p.venue.design_settings
+        : {};
 
     return Object.assign(
       {
         template: 'default',
-
         brand_color:
           p.venue.brand_color ||
           '#6366f1',
 
-        button_color:
-          '#8b5cf6',
-
-        header_color:
-          '#ffffff',
+        button_color: '#8b5cf6',
+        header_color: '#ffffff',
 
         font_family:
           'Plus+Jakarta+Sans',
 
         hero_enabled: true,
-
-        hero_style:
-          'gradient',
-
-        card_style:
-          'glass',
+        hero_style: 'gradient',
+        card_style: 'glass',
 
         card_radius: 18,
-
         button_radius: 12,
 
-        button_style:
-          'gradient',
-
-        category_style:
-          'chips',
-
-        image_ratio:
-          '4:3'
+        button_style: 'gradient',
+        category_style: 'chips',
+        image_ratio: '4:3'
       },
       d
     );
   }
 
+  /* =========================================================
+     RENDER
+  ========================================================= */
+
   function render(host, p) {
+
+    if (!host || !p || !p.venue) return;
 
     ensureStyle();
 
-    var d =
-      currentSettings(p);
+    var d = currentSettings(p);
 
     var html = `
       <div class="md-wrap">
@@ -781,8 +628,7 @@
 
     Object.keys(templates).forEach(function (k) {
 
-      var t =
-        templates[k];
+      var t = templates[k];
 
       html += `
         <div
@@ -844,9 +690,7 @@
                     Шрифт
 
                     <select id="md-font">
-                      <option>
-                        Plus+Jakarta+Sans
-                      </option>
+                      <option>Plus+Jakarta+Sans</option>
                       <option>Inter</option>
                       <option>Roboto</option>
                       <option>Montserrat</option>
@@ -863,18 +707,10 @@
                     Карточки
 
                     <select id="md-card">
-                      <option value="glass">
-                        Glass
-                      </option>
-                      <option value="soft">
-                        Мягкие
-                      </option>
-                      <option value="bold">
-                        Акцентные
-                      </option>
-                      <option value="flat">
-                        Плоские
-                      </option>
+                      <option value="glass">Glass</option>
+                      <option value="soft">Мягкие</option>
+                      <option value="bold">Акцентные</option>
+                      <option value="flat">Плоские</option>
                     </select>
 
                   </label>
@@ -883,18 +719,10 @@
                     Главный экран
 
                     <select id="md-hero">
-                      <option value="gradient">
-                        Градиент
-                      </option>
-                      <option value="warm">
-                        Тёплый
-                      </option>
-                      <option value="dark">
-                        Dark
-                      </option>
-                      <option value="minimal">
-                        Minimal
-                      </option>
+                      <option value="gradient">Градиент</option>
+                      <option value="warm">Тёплый</option>
+                      <option value="dark">Dark</option>
+                      <option value="minimal">Minimal</option>
                     </select>
 
                   </label>
@@ -935,15 +763,9 @@
                     Кнопки
 
                     <select id="md-bs">
-                      <option value="gradient">
-                        Градиент
-                      </option>
-                      <option value="solid">
-                        Сплошные
-                      </option>
-                      <option value="outline">
-                        Контур
-                      </option>
+                      <option value="gradient">Градиент</option>
+                      <option value="solid">Сплошные</option>
+                      <option value="outline">Контур</option>
                     </select>
 
                   </label>
@@ -952,15 +774,9 @@
                     Фото
 
                     <select id="md-ratio">
-                      <option value="4:3">
-                        4:3
-                      </option>
-                      <option value="1:1">
-                        1:1
-                      </option>
-                      <option value="16:9">
-                        16:9
-                      </option>
+                      <option value="4:3">4:3</option>
+                      <option value="1:1">1:1</option>
+                      <option value="16:9">16:9</option>
                     </select>
 
                   </label>
@@ -988,7 +804,6 @@
                 <button
                   id="md-save"
                   class="btn btn-primary"
-                  type="button"
                 >
                   Сохранить дизайн
                 </button>
@@ -996,7 +811,6 @@
                 <button
                   id="md-reset"
                   class="btn btn-ghost"
-                  type="button"
                 >
                   Восстановить стандартный
                 </button>
@@ -1024,8 +838,8 @@
             ></iframe>
 
             <div class="md-note">
-              Предпросмотр использует реальное
-              клиентское меню заведения.
+              Предпросмотр использует
+              реальное клиентское меню заведения.
             </div>
 
           </div>
@@ -1037,8 +851,7 @@
 
     host.innerHTML = html;
 
-    var font =
-      host.querySelector('#md-font');
+    var font = host.querySelector('#md-font');
 
     if (font) {
       font.value =
@@ -1082,19 +895,14 @@
 
       var el =
         host.querySelector(
-          '[data-template="' +
-          k +
-          '"]'
+          '[data-template="' + k + '"]'
         );
 
       if (el) {
-
         el.onclick = function () {
           applyTemplate(host, k);
         };
-
       }
-
     });
 
     var save =
@@ -1110,7 +918,6 @@
       host.querySelector('#md-reset');
 
     if (reset) {
-
       reset.onclick = function () {
 
         applyTemplate(
@@ -1119,38 +926,33 @@
         );
 
         var msg =
-          host.querySelector(
-            '#md-msg'
-          );
+          host.querySelector('#md-msg');
 
         if (msg) {
           msg.textContent =
             'Выбран стандартный стиль. Нажмите «Сохранить».';
         }
-
       };
-
     }
 
     var frame =
       host.querySelector('#md-frame');
 
     if (frame) {
-
       frame.src =
         '/menu.html?venue=' +
-        encodeURIComponent(
-          p.venue.slug
-        ) +
+        encodeURIComponent(p.venue.slug) +
         '&designPreview=1';
-
     }
   }
 
+  /* =========================================================
+     APPLY TEMPLATE
+  ========================================================= */
+
   function applyTemplate(host, k) {
 
-    var t =
-      templates[k];
+    var t = templates[k];
 
     if (!t) return;
 
@@ -1168,23 +970,26 @@
     Object.keys(map).forEach(function (key) {
 
       var el =
-        host.querySelector(
-          map[key]
-        );
+        host.querySelector(map[key]);
 
       if (!el) return;
 
-      el.value =
-        t[key] != null
-          ? t[key]
-          : el.value;
-
+      if (
+        el.type === 'color' ||
+        el.type === 'text'
+      ) {
+        if (t[key]) {
+          el.value = t[key];
+        }
+      } else {
+        if (t[key]) {
+          el.value = t[key];
+        }
+      }
     });
 
     host
-      .querySelectorAll(
-        '.md-template'
-      )
+      .querySelectorAll('.md-template')
       .forEach(function (x) {
 
         x.classList.toggle(
@@ -1195,22 +1000,21 @@
       });
   }
 
+  /* =========================================================
+     SAVE
+  ========================================================= */
+
   function saveDesign(host, p) {
 
     var msg =
-      host.querySelector(
-        '#md-msg'
-      );
+      host.querySelector('#md-msg');
 
     if (msg) {
-      msg.textContent =
-        'Сохранение…';
+      msg.textContent = 'Сохранение…';
     }
 
     var selected =
-      host.querySelector(
-        '.md-template.on'
-      );
+      host.querySelector('.md-template.on');
 
     var settings = {
 
@@ -1221,63 +1025,41 @@
           : 'custom',
 
       brand_color:
-        host.querySelector(
-          '#md-brand'
-        ).value,
+        host.querySelector('#md-brand').value,
 
       button_color:
-        host.querySelector(
-          '#md-button'
-        ).value,
+        host.querySelector('#md-button').value,
 
       header_color:
-        host.querySelector(
-          '#md-header'
-        ).value,
+        host.querySelector('#md-header').value,
 
       font_family:
-        host.querySelector(
-          '#md-font'
-        ).value,
+        host.querySelector('#md-font').value,
 
       card_style:
-        host.querySelector(
-          '#md-card'
-        ).value,
+        host.querySelector('#md-card').value,
 
       hero_style:
-        host.querySelector(
-          '#md-hero'
-        ).value,
+        host.querySelector('#md-hero').value,
 
       hero_enabled:
-        host.querySelector(
-          '#md-hero-enabled'
-        ).checked,
+        host.querySelector('#md-hero-enabled').checked,
 
       card_radius:
         Number(
-          host.querySelector(
-            '#md-cr'
-          ).value
+          host.querySelector('#md-cr').value
         ) || 18,
 
       button_radius:
         Number(
-          host.querySelector(
-            '#md-br'
-          ).value
+          host.querySelector('#md-br').value
         ) || 12,
 
       button_style:
-        host.querySelector(
-          '#md-bs'
-        ).value,
+        host.querySelector('#md-bs').value,
 
       image_ratio:
-        host.querySelector(
-          '#md-ratio'
-        ).value
+        host.querySelector('#md-ratio').value
     };
 
     if (
@@ -1285,7 +1067,6 @@
       !db ||
       !db.rpc
     ) {
-
       if (msg) {
         msg.textContent =
           'Ошибка: Supabase недоступен';
@@ -1298,11 +1079,8 @@
       .rpc(
         'manager_save_design',
         {
-          p_venue_id:
-            p.venue.id,
-
-          p_design_settings:
-            settings
+          p_venue_id: p.venue.id,
+          p_design_settings: settings
         }
       )
 
@@ -1312,16 +1090,8 @@
           throw r.error;
         }
 
-        /*
-         * RPC может вернуть JSONB или null.
-         */
-        if (r.data != null) {
-          p.venue.design_settings =
-            r.data;
-        } else {
-          p.venue.design_settings =
-            settings;
-        }
+        p.venue.design_settings =
+          r.data;
 
         if (msg) {
           msg.textContent =
@@ -1329,12 +1099,9 @@
         }
 
         var frame =
-          host.querySelector(
-            '#md-frame'
-          );
+          host.querySelector('#md-frame');
 
         if (frame) {
-
           frame.src =
             '/menu.html?venue=' +
             encodeURIComponent(
@@ -1342,78 +1109,181 @@
             ) +
             '&designPreview=1&t=' +
             Date.now();
-
         }
-
       })
 
       .catch(function (e) {
-
-        if (msg) {
-
-          msg.textContent =
-            'Ошибка: ' +
-            (
-              e &&
-              e.message
-                ? e.message
-                : e
-            );
-
-        }
 
         console.error(
           '[Manager Design] save:',
           e
         );
 
+        if (msg) {
+          msg.textContent =
+            'Ошибка: ' +
+            (e.message || e);
+        }
       });
   }
 
-  function sync() {
+  /* =========================================================
+     BUILD
+  ========================================================= */
 
-    var p =
-      getProxy();
+  function build() {
 
-    var tab =
-      document.getElementById(
-        'manager-design-tab'
-      );
+    var p = getProxy();
 
-    var host =
+    if (!p || !p.venue) {
+      return;
+    }
+
+    var tabs =
+      document.querySelector('.tabs');
+
+    if (!tabs) {
+      return;
+    }
+
+    var venueId =
+      getVenueId(p);
+
+    if (!venueId) {
+      return;
+    }
+
+    var old =
       document.getElementById(
         'manager-design-host'
       );
 
     /*
-     * Нет venue = список заведений.
+     * Если право пропало — убираем вкладку.
      */
-    if (
-      !p ||
-      !p.venue
-    ) {
 
-      resetPermissionState();
+    if (!allowed(p)) {
 
-      if (tab) {
-        tab.remove();
+      if (old) {
+        old.style.display = 'none';
       }
 
-      if (host) {
-        host.remove();
+      var deniedTab =
+        document.getElementById(
+          'manager-design-tab'
+        );
+
+      if (deniedTab) {
+        deniedTab.remove();
       }
 
       return;
     }
 
     /*
-     * Vue мог пересоздать .tabs.
-     * Если кнопки больше нет — build её создаст.
+     * Создаём вкладку.
      */
+
+    var tab =
+      document.getElementById(
+        'manager-design-tab'
+      );
+
     if (!tab) {
 
-      build();
+      tab =
+        document.createElement('button');
 
+      tab.id =
+        'manager-design-tab';
+
+      tab.type =
+        'button';
+
+      tab.textContent =
+        '🎨 Дизайн';
+
+      tab.onclick =
+        function () {
+
+          try {
+            p.tab = 'design';
+          } catch (e) {}
+
+          sync();
+        };
+
+      tabs.appendChild(tab);
+    }
+
+    /*
+     * Создаём контейнер.
+     */
+
+    if (!old) {
+
+      old =
+        document.createElement('div');
+
+      old.id =
+        'manager-design-host';
+
+      old.style.display =
+        'none';
+
+      tabs.parentNode.insertBefore(
+        old,
+        tabs.nextSibling
+      );
+    }
+
+    /*
+     * Если пользователь вернулся из списка
+     * заведений и выбрал другое заведение —
+     * полностью перерисовываем редактор.
+     */
+
+    if (
+      old.dataset.venueId !== venueId
+    ) {
+
+      old.dataset.venueId =
+        venueId;
+
+      render(old, p);
+    }
+
+    sync();
+  }
+
+  /* =========================================================
+     SYNC
+  ========================================================= */
+
+  function sync() {
+
+    var p = getProxy();
+
+    if (!p || !p.venue) {
+      return;
+    }
+
+    var host =
+      document.getElementById(
+        'manager-design-host'
+      );
+
+    var tab =
+      document.getElementById(
+        'manager-design-tab'
+      );
+
+    /*
+     * Vue мог полностью заменить DOM.
+     * В этом случае build() создаст элементы заново.
+     */
+
+    if (!host || !tab) {
       return;
     }
 
@@ -1423,132 +1293,186 @@
     tab.style.display =
       ok ? '' : 'none';
 
-    if (host) {
+    host.style.display =
+      ok &&
+      p.tab === 'design'
+        ? 'block'
+        : 'none';
 
-      host.style.display =
-        ok &&
-        p.tab === 'design'
-          ? 'block'
-          : 'none';
+    if (
+      ok &&
+      p.tab === 'design' &&
+      host.dataset.venueId !==
+        getVenueId(p)
+    ) {
 
-      /*
-       * Если Vue заменил venue,
-       * полностью перерисовываем дизайн.
-       */
-      if (
-        ok &&
-        host.dataset.venueId !==
-        p.venue.id
-      ) {
+      host.dataset.venueId =
+        getVenueId(p);
 
-        host.dataset.venueId =
-          p.venue.id;
-
-        render(host, p);
-      }
-
+      render(host, p);
     }
   }
 
-  /*
-   * Основной цикл.
-   *
-   * Почему interval оставляем:
-   *
-   * manager.html — Vue SPA.
-   * При "К списку" DOM Vue перестраивается без
-   * полной перезагрузки страницы.
-   *
-   * Поэтому модуль должен повторно находить:
-   *   .tabs
-   *   venue
-   *   permissions
-   *   кнопку Design
-   */
+  /* =========================================================
+     PERMISSION + BUILD LOOP
+  ========================================================= */
+
+  function tick() {
+
+    var p = getProxy();
+
+    if (!p || !p.venue) {
+      return;
+    }
+
+    var venueId =
+      getVenueId(p);
+
+    if (!venueId) {
+      return;
+    }
+
+    /*
+     * Если пользователь вышел в список,
+     * venue может исчезнуть.
+     *
+     * При возвращении в заведение
+     * здесь снова загружаются права.
+     */
+
+    if (
+      permissionVenueId !== venueId &&
+      !permissionLoading
+    ) {
+
+      loadPermissions(
+        p,
+        function () {
+          build();
+          sync();
+        }
+      );
+
+      return;
+    }
+
+    build();
+    sync();
+  }
+
+  /* =========================================================
+     DOM OBSERVER
+  ========================================================= */
+
+  var observerStarted = false;
+
+  function startObserver() {
+
+    if (observerStarted) {
+      return;
+    }
+
+    observerStarted = true;
+
+    if (!window.MutationObserver) {
+      return;
+    }
+
+    var root =
+      document.getElementById('app');
+
+    if (!root) return;
+
+    var observer =
+      new MutationObserver(
+        function () {
+
+          /*
+           * Не выполняем тяжёлую работу
+           * прямо внутри MutationObserver.
+           */
+
+          clearTimeout(
+            window.__managerDesignObserverTimer
+          );
+
+          window.__managerDesignObserverTimer =
+            setTimeout(function () {
+
+              tick();
+
+            }, 50);
+        }
+      );
+
+    observer.observe(
+      root,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
+
+    window.__managerDesignObserver =
+      observer;
+  }
+
+  /* =========================================================
+     BOOT
+  ========================================================= */
+
   function boot() {
 
     ensureStyle();
+    startObserver();
 
-    var n = 0;
+    var attempts = 0;
 
     var timer =
       setInterval(function () {
 
-        var p =
-          getProxy();
+        tick();
+
+        attempts++;
 
         /*
-         * Пока Vue ещё не смонтирован.
+         * Оставляем небольшой постоянный контроль,
+         * потому что Vue меняет venue/tab без
+         * перезагрузки страницы.
          */
-        if (!p) {
 
-          if (++n > 120) {
-            clearInterval(timer);
+        if (attempts > 120) {
+          clearInterval(timer);
+
+          /*
+           * После первоначальной инициализации
+           * продолжаем проверять реже.
+           */
+
+          if (
+            !window.__managerDesignSlowTimer
+          ) {
+
+            window.__managerDesignSlowTimer =
+              setInterval(
+                tick,
+                1000
+              );
           }
-
-          return;
-        }
-
-        /*
-         * Пользователь вышел к списку.
-         */
-        if (!p.venue) {
-
-          resetPermissionState();
-          removeDesignUI();
-
-          if (++n > 120) {
-            /*
-             * Не останавливаем навсегда:
-             * пользователь может снова открыть venue.
-             *
-             * Поэтому после 120 циклов просто
-             * переходим на более редкую проверку.
-             */
-          }
-
-          return;
-        }
-
-        var venueId =
-          p.venue.id;
-
-        /*
-         * Новый venue.
-         *
-         * Это ключевой фикс:
-         * даже если это то же заведение,
-         * после выхода к списку объект Vue может
-         * быть создан заново.
-         */
-        if (
-          permissionVenueId !== venueId &&
-          permissionLoadingVenueId !== venueId
-        ) {
-
-          loadPermissions(
-            p,
-            function () {
-
-              build();
-              sync();
-
-            }
-          );
-
-        } else {
-
-          build();
-          sync();
-
         }
 
       }, 250);
+
+    window.__managerDesignBootTimer =
+      timer;
   }
 
+  /* =========================================================
+     START
+  ========================================================= */
+
   if (
-    document.readyState ===
-    'loading'
+    document.readyState === 'loading'
   ) {
 
     document.addEventListener(
@@ -1559,7 +1483,6 @@
   } else {
 
     boot();
-
   }
 
 })();
