@@ -20,6 +20,11 @@ function base64url(buffer) {
   return Buffer.from(buffer).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
+function fromBase64url(value) {
+  const normalized = String(value).replace(/-/g, '+').replace(/_/g, '/');
+  return Buffer.from(normalized + '='.repeat((4 - normalized.length % 4) % 4), 'base64');
+}
+
 function randomToken(bytes = 32) {
   return base64url(crypto.randomBytes(bytes));
 }
@@ -130,6 +135,26 @@ async function yookassaMe(accessToken) {
   return data;
 }
 
+async function yookassaCreatePayment(accessToken, payload, idempotenceKey) {
+  const response = await fetch('https://api.yookassa.ru/v3/payments', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Idempotence-Key': idempotenceKey || randomToken(24),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
+  });
+  const data = await response.json();
+  if (!response.ok || !data || !data.id) {
+    const error = new Error(data && (data.description || data.message || data.code) || `ЮKassa HTTP ${response.status}`);
+    error.status = response.status;
+    error.data = data;
+    throw error;
+  }
+  return data;
+}
+
 function encryptionKey() {
   const raw = env('PAYMENT_TOKEN_ENCRYPTION_KEY');
   const key = /^[0-9a-f]{64}$/i.test(raw) ? Buffer.from(raw, 'hex') : Buffer.from(raw, 'base64');
@@ -143,6 +168,14 @@ function encryptSecret(value) {
   const encrypted = Buffer.concat([cipher.update(String(value), 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
   return `v1:${base64url(iv)}:${base64url(tag)}:${base64url(encrypted)}`;
+}
+
+function decryptSecret(value) {
+  const parts = String(value || '').split(':');
+  if (parts.length !== 4 || parts[0] !== 'v1') throw new Error('Invalid encrypted payment token');
+  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey(), fromBase64url(parts[1]));
+  decipher.setAuthTag(fromBase64url(parts[2]));
+  return Buffer.concat([decipher.update(fromBase64url(parts[3])), decipher.final()]).toString('utf8');
 }
 
 module.exports = {
@@ -159,5 +192,7 @@ module.exports = {
   origin,
   yookassaToken,
   yookassaMe,
-  encryptSecret
+  yookassaCreatePayment,
+  encryptSecret,
+  decryptSecret
 };
