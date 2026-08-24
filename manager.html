@@ -635,8 +635,8 @@ Vue.createApp({
         addons: p.addons !== false,
         products: p.products !== false,
         prices: p.prices !== false,
-        delivery: p.delivery === true || p.can_edit_delivery === true,
-        design: p.design === true || p.can_edit_design === true,
+        delivery: p.delivery !== false && p.can_edit_delivery !== false,
+        design: p.design !== false && p.can_edit_design !== false,
         branding: p.branding === true || p.can_edit_branding === true,
         venue: p.venue === true || p.can_edit_venue === true
       };
