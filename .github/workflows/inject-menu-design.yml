@@ -1,0 +1,49 @@
+name: Load menu design runtime
+
+on:
+  push:
+    branches:
+      - feature/real-address-suggestions
+
+permissions:
+  contents: write
+
+jobs:
+  inject:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/real-address-suggestions
+          fetch-depth: 0
+
+      - name: Inject menu design script
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('menu.html')
+          s = p.read_text(encoding='utf-8')
+          tag = '<script src="/js/menu-design.js"></script>'
+          if tag not in s:
+              marker = '<script src="/js/address-suggestions.js"></script>'
+              if marker in s:
+                  s = s.replace(marker, tag + '\n' + marker, 1)
+              else:
+                  s = s.replace('</body>', tag + '\n</body>', 1)
+              p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Commit injection
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add menu.html
+          if git diff --cached --quiet; then
+            echo 'No changes'
+            exit 0
+          fi
+          git commit -m 'fix: apply saved design in customer menu'
+          git push origin feature/real-address-suggestions
