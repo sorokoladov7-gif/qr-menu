@@ -39,7 +39,20 @@ document.getElementById('logout').onclick=logout;document.querySelectorAll('[dat
 const tg=document.getElementById('tables');state.tables.forEach(t=>tg.appendChild(tableCard(t)));if(!tg.children.length)tg.innerHTML='<div class="empty">Столы не настроены</div>';const og=document.getElementById('orders');state.orders.filter(o=>!['done','cancelled'].includes(o.status)).forEach(o=>og.appendChild(orderCard(o)));if(!og.children.length)og.innerHTML='<div class="empty">Нет активных заказов</div>';
 const hg=document.getElementById('history-orders');const historyItems=state.history.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at));historyItems.forEach(o=>hg.appendChild(historyCard(o)));if(!hg.children.length)hg.innerHTML='<div class="empty">История заказов пуста</div>';}
 try{state.session=JSON.parse(sessionStorage.getItem('waiter_session')||'null')}catch(e){}
-render();if(state.token)load(); // без setInterval
+render();
+
+const removeOldWaiterHistory = () => {
+  document.getElementById('qr-waiter-history-body')?.remove();
+};
+
+removeOldWaiterHistory();
+
+new MutationObserver(removeOldWaiterHistory).observe(document.body, {
+  childList: true,
+  subtree: true
+});
+
+if(state.token)load();
 </script>
 <script data-qr-waiter-direct-login>
 (() => {
