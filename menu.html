@@ -221,6 +221,7 @@
 <div class="field"><label>Оплата</label><div class="row">
 <button class="btn" v-bind:class="form.pay==='cash'?'btn-green':'btn-ghost'" style="flex:1" v-on:click="form.pay='cash'">💵 Наличными</button>
 <button class="btn" v-bind:class="form.pay==='card'?'btn-primary':'btn-ghost'" style="flex:1" v-on:click="form.pay='card'">💳 Картой</button>
+<button class="btn" v-bind:class="form.pay==='sbp'?'btn-primary':'btn-ghost'" style="flex:1" v-on:click="form.pay='sbp'">🏦 СБП</button>
 </div></div>
 
 <div class="spread" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.1)">
