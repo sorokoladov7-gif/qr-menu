@@ -1,7 +1,9 @@
 (function(){
   'use strict';
-  if (!/\/menu\.html$/i.test(location.pathname)) return;
 
+  // Do not depend on the exact URL pathname. Vercel/custom-domain rewrites can
+  // expose menu.html through another pathname, while the actual address field
+  // is still present in the DOM.
   var state={timer:null,request:null,input:null,box:null,selected:null,venueDelivery:true,suppressNextInput:false};
 
   function getVm(){
@@ -11,16 +13,6 @@
       if(root&&root.__vueParentComponent)return root.__vueParentComponent.proxy;
     }catch(e){}
     return null;
-  }
-
-  function patchVenueRpc(){
-    if(!window.db||!window.db.rpc||window.__qrAddressRpcPatched)return;
-    var original=window.db.rpc;
-    window.db.rpc=function(name,args,options){
-      var p=original.apply(this,arguments);
-      return p;
-    };
-    window.__qrAddressRpcPatched=true;
   }
 
   function getSelectedVenueDelivery(){
@@ -41,7 +33,7 @@
   function positionBox(){
     if(!state.input||!state.box)return;
     var r=state.input.getBoundingClientRect();
-    state.box.style.left=Math.round(r.left)+'px';
+    state.box.style.left=Math.max(4,Math.round(r.left))+'px';
     state.box.style.top=Math.round(r.bottom+6)+'px';
     state.box.style.width=Math.round(r.width)+'px';
   }
@@ -52,13 +44,12 @@
       positionBox();
       return state.box;
     }
-
     state.input=input;
     if(state.box)state.box.remove();
 
     var box=document.createElement('div');
     box.className='qr-address-suggestions';
-    box.style.cssText='position:fixed;z-index:2147483647;background:#111827;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.55);overflow-y:auto;display:none;max-height:280px;pointer-events:auto;';
+    box.style.cssText='position:fixed;z-index:2147483647;background:#111827;border:1px solid rgba(255,255,255,.18);border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.55);overflow-y:auto;display:none;max-height:280px;pointer-events:auto;';
     document.body.appendChild(box);
     state.box=box;
     positionBox();
@@ -113,6 +104,24 @@
     box.style.display='block';
   }
 
+  function normalizeNominatim(items){
+    return (Array.isArray(items)?items:[]).map(function(item){
+      var a=item.address||{};
+      var city=a.city||a.town||a.village||a.municipality||a.county||null;
+      var street=a.road||null;
+      var house=a.house_number||null;
+      var value=[city,street,house].filter(Boolean).join(', ')||item.display_name||'';
+      return {value:value,unrestricted_value:item.display_name||value,data:{city:city,settlement:a.village||a.hamlet||null,street:street,house:house,flat:null,fias_id:null,geo_lat:item.lat!=null?Number(item.lat):null,geo_lon:item.lon!=null?Number(item.lon):null}};
+    }).filter(function(item){return item.value&&Number.isFinite(item.data.geo_lat)&&Number.isFinite(item.data.geo_lon);});
+  }
+
+  function requestFallback(q,controller){
+    var url='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&countrycodes=ru&accept-language=ru&q='+encodeURIComponent(q);
+    return fetch(url,{signal:controller.signal,headers:{Accept:'application/json','Accept-Language':'ru-RU,ru;q=0.9'}})
+      .then(function(r){if(!r.ok)throw new Error('nominatim_'+r.status);return r.json();})
+      .then(normalizeNominatim);
+  }
+
   function onInput(){
     var input=state.input;
     if(!input)return;
@@ -122,16 +131,29 @@
     var q=String(input.value||'').trim();
     clearTimeout(state.timer);
     if(state.request){try{state.request.abort();}catch(e){}state.request=null;}
-    if(q.length<3){clearSuggestions();return;}
+    clearSuggestions();
+    if(q.length<3)return;
+
     state.timer=setTimeout(function(){
       var controller=new AbortController();
       state.request=controller;
       fetch('/api/address?q='+encodeURIComponent(q),{signal:controller.signal,headers:{Accept:'application/json'}})
-      .then(function(r){if(!r.ok)throw new Error('address_api_'+r.status);return r.json();})
-      .then(function(data){
-        if(data&&Array.isArray(data.suggestions))render(data.suggestions);else clearSuggestions();
+      .then(function(r){
+        if(!r.ok)throw new Error('address_api_'+r.status);
+        return r.json();
       })
-      .catch(function(e){if(e&&e.name!=='AbortError')console.warn('[QR address]',e);})
+      .then(function(data){
+        var items=data&&Array.isArray(data.suggestions)?data.suggestions:[];
+        if(items.length){render(items);return;}
+        return requestFallback(q,controller).then(render);
+      })
+      .catch(function(e){
+        if(e&&e.name==='AbortError')return;
+        console.warn('[QR address] API fallback:',e);
+        requestFallback(q,controller).then(render).catch(function(err){
+          if(err&&err.name!=='AbortError')console.warn('[QR address] geocoder:',err);
+        });
+      })
       .finally(function(){state.request=null;});
     },250);
   }
@@ -186,7 +208,6 @@
   }
 
   function init(){
-    patchVenueRpc();
     var input=findAddressInput();
     if(input)ensureBox(input);
     enforceDeliveryVisibility();
@@ -199,4 +220,5 @@
   document.addEventListener('click',function(e){
     if(state.box&&state.box.style.display==='block'&&e.target!==state.input&&!state.box.contains(e.target))clearSuggestions();
   },false);
+  init();
 })();
