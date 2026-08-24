@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OS QR-Меню — Демо сотрудника</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1120}iframe{width:100%;height:100%;border:0;display:block}</style></head><body><iframe id="demoFrame"></iframe><script>
+(function(){
+  var p=new URLSearchParams(location.search), role=(p.get('role')||'').toLowerCase();
+  var pages={cook:'cook.html',courier:'courier.html',waiter:'waiter.html'};
+  if(!pages[role]){location.href='index.html';return;}
+  var f=document.getElementById('demoFrame');
+  f.src=pages[role]+'?demo=1';
+  f.addEventListener('load',function(){
+    try{
+      var d=f.contentDocument||f.contentWindow.document;
+      function add(src){return new Promise(function(resolve,reject){var s=d.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;d.head.appendChild(s);});}
+      add('/js/demo-data.js').then(function(){return add('/js/demo-staff.js');}).catch(function(e){console.error('Demo staff bootstrap failed',e);});
+    }catch(e){console.error('Demo staff frame error',e);}
+  });
+})();
+</script></body></html>
