@@ -4,36 +4,6 @@
 
   var state={timer:null,request:null,input:null,box:null,selected:null,venueDelivery:true,suppressNextInput:false};
 
-  function rememberVenue(value){
-    if(!value)return;
-    try{
-      if(Array.isArray(value)) value.forEach(function(v){
-        if(v&&v.id){
-          window.__qrVenueDeliveryById=window.__qrVenueDeliveryById||{};
-          window.__qrVenueDeliveryById[v.id]=v.delivery_enabled!==false;
-        }
-      });
-      else if(value.id){
-        window.__qrVenueDeliveryById=window.__qrVenueDeliveryById||{};
-        window.__qrVenueDeliveryById[value.id]=value.delivery_enabled!==false;
-        state.venueDelivery=value.delivery_enabled!==false;
-      }
-    }catch(e){}
-  }
-
-  function patchVenueRpc(){
-    if(!window.db||!window.db.rpc||window.__qrAddressRpcPatched)return;
-    var original=window.db.rpc;
-    window.db.rpc=function(name,args,options){
-      var p=original.apply(this,arguments);
-      if(name==='public_venue_by_slug'||name==='public_venues_list'){
-        return Promise.resolve(p).then(function(r){rememberVenue(r&&r.data);return r;});
-      }
-      return p;
-    };
-    window.__qrAddressRpcPatched=true;
-  }
-
   function getVm(){
     try{
       var root=document.getElementById('app');
@@ -43,49 +13,75 @@
     return null;
   }
 
+  function patchVenueRpc(){
+    if(!window.db||!window.db.rpc||window.__qrAddressRpcPatched)return;
+    var original=window.db.rpc;
+    window.db.rpc=function(name,args,options){
+      var p=original.apply(this,arguments);
+      return p;
+    };
+    window.__qrAddressRpcPatched=true;
+  }
+
   function getSelectedVenueDelivery(){
     var vm=getVm();
-    if(vm&&vm.venue)return vm.venue.delivery_enabled!==false;
-    return state.venueDelivery!==false;
+    return !(vm&&vm.venue&&vm.venue.delivery_enabled===false);
   }
 
   function findAddressInput(){
     var inputs=Array.prototype.slice.call(document.querySelectorAll('input'));
     return inputs.find(function(el){
+      if(el.disabled||el.offsetParent===null)return false;
       var ph=(el.getAttribute('placeholder')||'').toLowerCase();
-      return ph.indexOf('улица')!==-1||ph.indexOf('адрес')!==-1;
+      var parentText=(el.parentElement&&el.parentElement.parentElement?el.parentElement.parentElement.textContent:'').toLowerCase();
+      return ph.indexOf('улица')!==-1||ph.indexOf('адрес')!==-1||parentText.indexOf('адрес доставки')!==-1;
     })||null;
+  }
+
+  function positionBox(){
+    if(!state.input||!state.box)return;
+    var r=state.input.getBoundingClientRect();
+    state.box.style.left=Math.round(r.left)+'px';
+    state.box.style.top=Math.round(r.bottom+6)+'px';
+    state.box.style.width=Math.round(r.width)+'px';
   }
 
   function ensureBox(input){
     if(!input)return null;
-    if(state.input===input&&state.box&&document.documentElement.contains(state.box))return state.box;
+    if(state.input===input&&state.box&&document.documentElement.contains(state.box)){
+      positionBox();
+      return state.box;
+    }
 
     state.input=input;
-    state.box=null;
-    var parent=input.parentElement;
-    if(!parent)return null;
-    parent.style.position=parent.style.position||'relative';
+    if(state.box)state.box.remove();
 
     var box=document.createElement('div');
     box.className='qr-address-suggestions';
-    box.style.cssText='position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:100000;background:#111827;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.45);overflow:hidden;display:none;max-height:280px;overflow-y:auto;';
-    parent.appendChild(box);
+    box.style.cssText='position:fixed;z-index:2147483647;background:#111827;border:1px solid rgba(255,255,255,.14);border-radius:14px;box-shadow:0 18px 45px rgba(0,0,0,.55);overflow-y:auto;display:none;max-height:280px;pointer-events:auto;';
+    document.body.appendChild(box);
     state.box=box;
+    positionBox();
 
     input.setAttribute('autocomplete','off');
+    input.setAttribute('aria-autocomplete','list');
     input.addEventListener('input',onInput);
     input.addEventListener('focus',function(){
+      positionBox();
       if(input.value.trim().length>=3&&box.childElementCount)box.style.display='block';
     });
+    input.addEventListener('blur',function(){
+      setTimeout(function(){
+        if(document.activeElement!==input&&!box.contains(document.activeElement))box.style.display='none';
+      },180);
+    });
+    window.addEventListener('resize',positionBox,{passive:true});
+    window.addEventListener('scroll',positionBox,{passive:true,capture:true});
     return box;
   }
 
   function clearSuggestions(){
-    if(state.box){
-      state.box.innerHTML='';
-      state.box.style.display='none';
-    }
+    if(state.box){state.box.innerHTML='';state.box.style.display='none';}
   }
 
   function escapeHtml(v){
@@ -99,91 +95,55 @@
     if(!box)return;
     box.innerHTML='';
     if(!items.length){box.style.display='none';return;}
-
     items.forEach(function(item){
       var row=document.createElement('button');
       row.type='button';
-      row.style.cssText='display:block;width:100%;text-align:left;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:#fff;padding:12px 14px;cursor:pointer;font:inherit;';
+      row.tabIndex=-1;
+      row.style.cssText='display:block;width:100%;text-align:left;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:#111827;color:#fff;padding:12px 14px;cursor:pointer;font:inherit;';
       var d=item.data||{};
       var sub=[d.city,d.street,d.house].filter(Boolean).join(', ');
-      row.innerHTML='<div style="font-weight:700;font-size:13px">'+escapeHtml(item.value||item.unrestricted_value||'')+'</div>'+
-        (sub?'<div style="font-size:11px;color:#94a3b8;margin-top:3px">'+escapeHtml(sub)+'</div>':'');
-      row.addEventListener('mouseenter',function(){row.style.background='rgba(99,102,241,.16)';});
-      row.addEventListener('mouseleave',function(){row.style.background='transparent';});
-      row.addEventListener('click',function(){selectItem(item);});
+      row.innerHTML='<div style="font-weight:700;font-size:13px">'+escapeHtml(item.value||item.unrestricted_value||'')+'</div>'+(sub?'<div style="font-size:11px;color:#94a3b8;margin-top:3px">'+escapeHtml(sub)+'</div>':'');
+      row.addEventListener('mouseenter',function(){row.style.background='#1e293b';});
+      row.addEventListener('mouseleave',function(){row.style.background='#111827';});
+      row.addEventListener('mousedown',function(e){e.preventDefault();});
+      row.addEventListener('click',function(e){e.preventDefault();selectItem(item);});
       box.appendChild(row);
     });
+    positionBox();
     box.style.display='block';
   }
 
   function onInput(){
     var input=state.input;
-
-    // Vue receives a synthetic input event after a suggestion is selected.
-    // Do not treat that event as manual editing or the selected coordinates
-    // would immediately be erased.
-    if(state.suppressNextInput){
-      state.suppressNextInput=false;
-      return;
-    }
-
+    if(!input)return;
+    if(state.suppressNextInput){state.suppressNextInput=false;return;}
     state.selected=null;
     window.__selectedDeliveryAddress=null;
     var q=String(input.value||'').trim();
     clearTimeout(state.timer);
     if(state.request){try{state.request.abort();}catch(e){}state.request=null;}
     if(q.length<3){clearSuggestions();return;}
-
     state.timer=setTimeout(function(){
       var controller=new AbortController();
       state.request=controller;
-      fetch('/api/address?q='+encodeURIComponent(q),{
-        signal:controller.signal,
-        headers:{Accept:'application/json'}
-      })
-      .then(function(r){
-        if(!r.ok)throw new Error('address_api_'+r.status);
-        return r.json();
-      })
+      fetch('/api/address?q='+encodeURIComponent(q),{signal:controller.signal,headers:{Accept:'application/json'}})
+      .then(function(r){if(!r.ok)throw new Error('address_api_'+r.status);return r.json();})
       .then(function(data){
-        if(data&&Array.isArray(data.suggestions))render(data.suggestions);
-        else clearSuggestions();
+        if(data&&Array.isArray(data.suggestions))render(data.suggestions);else clearSuggestions();
       })
-      .catch(function(e){
-        if(e&&e.name!=='AbortError'){
-          console.warn('[QR address]',e);
-          clearSuggestions();
-        }
-      })
+      .catch(function(e){if(e&&e.name!=='AbortError')console.warn('[QR address]',e);})
       .finally(function(){state.request=null;});
-    },350);
+    },250);
   }
 
   function selectItem(item){
-    var input=state.input;
-    if(!input)return;
+    var input=state.input;if(!input)return;
     var d=item.data||{};
     var lat=d.geo_lat!=null?Number(d.geo_lat):null;
     var lng=d.geo_lon!=null?Number(d.geo_lon):null;
-
-    if(!Number.isFinite(lat)||!Number.isFinite(lng)){
-      state.selected=null;
-      window.__selectedDeliveryAddress=null;
-      return;
-    }
-
-    state.selected={
-      value:item.value||item.unrestricted_value||'',
-      fias_id:d.fias_id||null,
-      city:d.city||d.settlement||null,
-      street:d.street||null,
-      house:d.house||null,
-      flat:d.flat||null,
-      lat:lat,
-      lng:lng
-    };
+    if(!Number.isFinite(lat)||!Number.isFinite(lng)){alert('У выбранного адреса нет координат. Выберите другой адрес.');return;}
+    state.selected={value:item.value||item.unrestricted_value||'',fias_id:d.fias_id||null,city:d.city||d.settlement||null,street:d.street||null,house:d.house||null,flat:d.flat||null,lat:lat,lng:lng};
     window.__selectedDeliveryAddress=state.selected;
-
     input.value=state.selected.value;
     state.suppressNextInput=true;
     input.dispatchEvent(new Event('input',{bubbles:true}));
@@ -191,39 +151,28 @@
     clearSuggestions();
   }
 
-  // Keep the existing delivery calculation contract intact: menu.html still
-  // asks Nominatim for the selected address, but when a suggestion was chosen
-  // we provide its exact coordinates and avoid another external geocoding call.
   if(!window.__qrNominatimPatch){
     var nativeFetch=window.fetch.bind(window);
     window.fetch=function(input,init){
       var url=typeof input==='string'?input:(input&&input.url)||'';
       if(window.__selectedDeliveryAddress&&/nominatim\.openstreetmap\.org\/search/i.test(url)){
         var s=window.__selectedDeliveryAddress;
-        return Promise.resolve(new Response(JSON.stringify([{lat:String(s.lat),lon:String(s.lng)}]),{
-          status:200,
-          headers:{'Content-Type':'application/json'}
-        }));
+        return Promise.resolve(new Response(JSON.stringify([{lat:String(s.lat),lon:String(s.lng)}]),{status:200,headers:{'Content-Type':'application/json'}}));
       }
       return nativeFetch(input,init);
     };
     window.__qrNominatimPatch=true;
   }
 
-  // Capture clicks before Vue's handlers. Delivery calculation and checkout
-  // are allowed only after the customer has selected a real address suggestion.
   document.addEventListener('click',function(e){
     var target=e.target&&e.target.closest?e.target.closest('button'):null;
     if(!target||getSelectedVenueDelivery()===false)return;
     var text=(target.textContent||'').trim();
     if(text.indexOf('Рассчитать')!==-1||text.indexOf('Подтвердить заказ')!==-1){
       var vm=getVm();
-      var isDelivery=vm&&vm.form&&vm.form.type==='delivery';
-      if(isDelivery&&(!state.selected||!window.__selectedDeliveryAddress)){
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(vm)vm.msg='Выберите адрес доставки из предложенных реальных адресов';
-        else alert('Выберите адрес доставки из предложенных реальных адресов');
+      if(vm&&vm.form&&vm.form.type==='delivery'&&(!state.selected||!window.__selectedDeliveryAddress)){
+        e.preventDefault();e.stopImmediatePropagation();
+        vm.msg='Выберите адрес доставки из предложенных реальных адресов';
       }
     }
   },true);
@@ -245,10 +194,9 @@
 
   var observer=new MutationObserver(function(){init();});
   observer.observe(document.documentElement,{childList:true,subtree:true});
-
   var tries=0;
-  var timer=setInterval(function(){
-    init();
-    if(++tries>120)clearInterval(timer);
-  },250);
+  var timer=setInterval(function(){init();if(++tries>120)clearInterval(timer);},250);
+  document.addEventListener('click',function(e){
+    if(state.box&&state.box.style.display==='block'&&e.target!==state.input&&!state.box.contains(e.target))clearSuggestions();
+  },false);
 })();
