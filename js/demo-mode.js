@@ -16,7 +16,7 @@ var isAdmin = /admin\.html$/i.test(path);
 
 // ─── 0. Staff-сессии в localStorage ───
 (function(){
-  var base = { venueId: D.venue.id, venueName: D.venue.name, token: 'demo-token-' + Date.now() };
+  var base = { venueId: D.venue.id, venueName: D.venue.name, token: 'demo-token-' + Date.now(), shiftOpen: true, shift_open: true };
   try{
     localStorage.setItem('cook_session', JSON.stringify(Object.assign({}, base, { cookName: D.session.cookName })));
     localStorage.setItem('courier_session', JSON.stringify(Object.assign({}, base, { courierName: D.session.courierName })));
@@ -25,6 +25,10 @@ var isAdmin = /admin\.html$/i.test(path);
     localStorage.setItem('courier_token', base.token);
     localStorage.setItem('waiter_token', base.token);
     localStorage.setItem('staff_token', base.token);
+    localStorage.setItem('cook_shift_open','1');
+    localStorage.setItem('courier_shift_open','1');
+    localStorage.setItem('waiter_shift_open','1');
+    localStorage.setItem('staff_shift_open','1');
   }catch(e){}
 })();
 
@@ -44,10 +48,23 @@ function patchDb(){
   };
 
   window.db.rpc = function(name, args){
+    // Demo staff shifts are always open. These handlers only exist while
+    // qr_demo_mode=1 and therefore cannot affect the production database.
+    if(/shift/i.test(String(name))){
+      var staffType = args && (args.p_type || args.p_staff_type || args.staff_type) || (isStaff ? (path.indexOf('cook')!==-1?'cook':path.indexOf('courier')!==-1?'courier':'waiter') : 'staff');
+      var staffId = 'demo-' + staffType;
+      if(/status|current|get|check|active|open/i.test(String(name))){
+        return Promise.resolve({ data:{ ok:true, open:true, is_open:true, shift_open:true, status:'open', id:'demo-shift', shift_id:'demo-shift', staff_id:staffId, venue_id:D.venue.id, opened_at:new Date().toISOString() }, error:null });
+      }
+      if(/close/i.test(String(name))){
+        return Promise.resolve({ data:{ ok:true, open:false, is_open:false, shift_open:false, status:'closed' }, error:null });
+      }
+      return Promise.resolve({ data:{ ok:true, open:true, is_open:true, shift_open:true, status:'open', id:'demo-shift', shift_id:'demo-shift', staff_id:staffId, venue_id:D.venue.id }, error:null });
+    }
     if(name==='staff_login'){
       var type = args && args.p_type;
       var nm = type==='cook'?D.session.cookName : type==='courier'?D.session.courierName : D.session.waiterName;
-      return Promise.resolve({ data:{ staffId:'demo-'+type, staffName:nm, venueId:D.venue.id, venueName:D.venue.name, token:'demo-token-'+Date.now(), expiresAt: Date.now()+12*60*60*1000 }, error:null });
+      return Promise.resolve({ data:{ staffId:'demo-'+type, staffName:nm, venueId:D.venue.id, venueName:D.venue.name, token:'demo-token-'+Date.now(), expiresAt: Date.now()+12*60*60*1000, shiftOpen:true, shift_open:true }, error:null });
     }
     if(name==='staff_venue_by_slug') return Promise.resolve({ data:D.venue, error:null });
     if(name==='staff_orders_json' || name==='staff_history_json') return Promise.resolve({ data:D.orders, error:null });
@@ -66,6 +83,8 @@ function patchDb(){
 
   window.db.from = function(table){
     function pick(){
+      // Any demo shift table is represented by one already-open shift.
+      if(/shift/i.test(String(table))) return { data:[{ id:'demo-shift', venue_id:D.venue.id, staff_id:'demo-staff', status:'open', is_open:true, open:true, opened_at:new Date().toISOString() }], error:null };
       if(table==='profiles') return { data: D.profile, error:null };
       if(table==='venues') return { data:[D.venue], error:null };
       if(table==='manager_venues') return { data:[{ venue_id:D.venue.id, manager_id:'demo-user', venues:D.venue }], error:null };
@@ -105,7 +124,7 @@ function patchDb(){
 function blockRedirects(){
   if(typeof window.safeRedirect === 'function' && !window.__demoSafePatched){
     window.__demoSafePatched = true;
-    window.safeRedirect = function(){ /* ничего не делаем в демо */ };
+    window.safeRedirect = function(){};
   }
   if(typeof window.requireAuth === 'function' && !window.__demoAuthPatched){
     window.__demoAuthPatched = true;
@@ -121,52 +140,33 @@ function blockRedirects(){
     try{
       var origPush = history.pushState.bind(history);
       var origReplace = history.replaceState.bind(history);
-      history.pushState = function(state, title, url){
-        if(url && String(url).indexOf('index.html')!==-1){
-          console.warn('[demo] history.pushState to index blocked');
-          return;
-        }
-        return origPush(state, title, url);
+      history.pushState = function(state,title,url){
+        if(url && String(url).indexOf('index.html')!==-1){ console.warn('[demo] history.pushState to index blocked'); return; }
+        return origPush(state,title,url);
       };
-      history.replaceState = function(state, title, url){
-        if(url && String(url).indexOf('index.html')!==-1){
-          console.warn('[demo] history.replaceState to index blocked');
-          return;
-        }
-        return origReplace(state, title, url);
+      history.replaceState = function(state,title,url){
+        if(url && String(url).indexOf('index.html')!==-1){ console.warn('[demo] history.replaceState to index blocked'); return; }
+        return origReplace(state,title,url);
       };
     }catch(e){}
   }
 }
 
-// ─── 3. Баннер ───
 function showBanner(){ /* ... без изменений */ }
-
 function getVM(){ /* ... без изменений */ }
-
-// ─── 4. Принудительное заполнение Vue ───
 function forceFillVue(){ /* ... без изменений */ }
-
-// ─── 5. Авто-вход staff ───
 function autoStaffLogin(){ /* ... без изменений */ }
 
-// ─── 6. Старт ───
 function start(){
   patchDb();
   blockRedirects();
   showBanner();
-
-  var tries = 0;
-  var mainTimer = setInterval(function(){
-    patchDb();
-    blockRedirects();
-    forceFillVue();
-    if(++tries > 100) clearInterval(mainTimer);
-  }, 200);
-
+  var tries=0;
+  var mainTimer=setInterval(function(){
+    patchDb(); blockRedirects(); forceFillVue();
+    if(++tries>100) clearInterval(mainTimer);
+  },200);
   autoStaffLogin();
 }
-
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', start);
-else start();
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',start); else start();
 })();
