@@ -158,3 +158,15 @@
     }
   },true);
 })();
+
+/* Load the public menu design runtime without changing menu.html or its Vue lifecycle. */
+(function(){
+  'use strict';
+  if(!/\/menu\.html$/i.test(location.pathname)) return;
+  if(document.querySelector('script[data-qr-menu-design-runtime]')) return;
+  var s=document.createElement('script');
+  s.src='/js/menu-design-runtime.js?v=1';
+  s.async=false;
+  s.setAttribute('data-qr-menu-design-runtime','1');
+  (document.head||document.documentElement).appendChild(s);
+})();
