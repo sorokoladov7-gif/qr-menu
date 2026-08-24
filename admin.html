@@ -133,7 +133,7 @@
 }
 .template-editor .product-row {
   display: grid;
-  grid-template-columns: 44px 1fr 100px 120px 1.2fr 36px;
+  grid-template-columns: 44px 1fr 100px 130px 130px 1fr 70px 36px 36px;
   gap: 8px;
   align-items: center;
   margin: 6px 0;
@@ -236,7 +236,11 @@
         Управление шаблонами меню для новых заведений
       </div>
     </div>
-    <button class="btn btn-primary btn-sm" @click="newTemplate">+ Создать шаблон</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" @click="newTemplate">+ Создать шаблон</button>
+      <button class="btn btn-sm" @click="duplicateTemplate" v-if="selectedTemplate">⧉ Дублировать шаблон</button>
+      <button class="btn btn-sm" @click="previewTemplate" v-if="selectedTemplate">👁 Предпросмотр</button>
+    </div>
   </div>
 
   <div class="glass card template-grid">
@@ -261,22 +265,22 @@
           <h4 style="margin:0">{{ templateForm.emoji || '🍽️' }} {{ templateForm.name }}</h4>
           <div class="muted" style="font-size:13px;">{{ (templateForm.products || []).length }} позиций</div>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-primary btn-sm" @click="saveTemplate" :disabled="templateBusy">
-            {{ templateBusy ? 'Сохранение…' : 'Сохранить' }}
+            {{ templateBusy ? 'Сохранение…' : '💾 Сохранить' }}
           </button>
-          <button class="btn btn-danger btn-sm" @click="deleteTemplate">Удалить</button>
+          <button class="btn btn-danger btn-sm" @click="deleteTemplate">🗑 Удалить</button>
         </div>
       </div>
 
       <div class="field-group">
         <div class="field full">
-          <label>Название</label>
-          <input v-model.trim="templateForm.name">
+          <label>Название <span class="muted" style="font-size:11px;color:#f87171;">*</span></label>
+          <input v-model.trim="templateForm.name" placeholder="Введите название">
         </div>
-        <div class="field">
-          <label>Slug (уникальный код)</label>
-          <input v-model.trim="templateForm.slug">
+        <div class="field full">
+          <label>Slug (уникальный код) <span class="muted" style="font-size:11px;color:#f87171;">*</span></label>
+          <input v-model.trim="templateForm.slug" placeholder="автоматически из названия">
         </div>
         <div class="field">
           <label>Эмодзи</label>
@@ -301,10 +305,7 @@
         <div class="field">
           <label>Масштаб</label>
           <select v-model="templateForm.scale_code">
-            <option>S</option>
-            <option>M</option>
-            <option>L</option>
-            <option>XL</option>
+            <option>S</option><option>M</option><option>L</option><option>XL</option>
           </select>
         </div>
         <div class="field">
@@ -317,7 +318,7 @@
         </div>
         <div class="field full">
           <label>Описание</label>
-          <input v-model.trim="templateForm.description">
+          <input v-model.trim="templateForm.description" placeholder="Краткое описание шаблона">
         </div>
         <div class="field full" style="display:flex;align-items:center;gap:12px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
@@ -330,7 +331,7 @@
 
       <div class="spread" style="margin-bottom:10px">
         <h4 style="margin:0">Позиции меню <span class="count">({{ (templateForm.products || []).length }})</span></h4>
-        <div style="display:flex;gap:8px;">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
           <button class="btn btn-sm" @click="addProduct">+ Добавить</button>
           <button class="btn btn-sm" @click="sortProducts">Сортировать</button>
           <button class="btn btn-sm" @click="fillTarget" v-if="templateForm.target_product_count > (templateForm.products || []).length">
@@ -339,18 +340,67 @@
         </div>
       </div>
 
+      <!-- Список позиций -->
       <div v-for="(p, idx) in templateForm.products" :key="idx" class="product-row">
-        <img class="thumb" :src="p.image_url || placeholder" @error="p.image_url = placeholder">
-        <input v-model.trim="p.name" placeholder="Название">
-        <input v-model.number="p.price" type="number" min="0" placeholder="Цена">
-        <input v-model.trim="p.category" placeholder="Категория">
-        <input v-model.trim="p.description" placeholder="Описание">
-        <button class="del" @click="removeProduct(idx)">✕</button>
-        <div style="grid-column: 1 / -1; display:flex; gap:8px; align-items:center; margin-top:4px;">
-          <span class="muted" style="font-size:12px;">URL изображения:</span>
-          <input v-model.trim="p.image_url" placeholder="https://..." style="flex:1;">
+        <!-- Фото -->
+        <div style="position:relative; width:44px; height:44px; flex-shrink:0;">
+          <img class="thumb" :src="p.image_url || placeholder" @error="p.image_url = placeholder">
+          <label class="btn btn-ghost btn-sm" style="position:absolute;top:-8px;right:-8px;padding:0;width:20px;height:20px;font-size:14px;border-radius:50%;background:#0e1219;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Загрузить фото">
+            📷
+            <input type="file" accept="image/*" @change="uploadTemplatePhoto($event, p)" style="display:none">
+          </label>
         </div>
+
+        <!-- Название -->
+        <input v-model.trim="p.name" placeholder="Название *" style="min-width:80px;">
+
+        <!-- Цена -->
+        <input v-model.number="p.price" type="number" min="0" step="0.5" placeholder="Цена" style="width:100px;">
+
+        <!-- Категория -->
+        <select v-model="p.category" style="width:130px;">
+          <option value="main">🍽 Блюдо</option>
+          <option value="drink">🥤 Напиток</option>
+          <option value="addon">🧂 Доп</option>
+          <option value="breakfast">🍳 Завтрак</option>
+          <option value="salad">🥗 Салат</option>
+          <option value="soup">🍲 Суп</option>
+          <option value="dessert">🍰 Десерт</option>
+          <option value="sauce">🌶 Соус</option>
+          <option value="snack">🥨 Закуска</option>
+          <option value="hot">🔥 Горячее</option>
+          <option value="bbq">🥩 Гриль</option>
+        </select>
+
+        <!-- applies_to (для addon) -->
+        <select v-model="p.applies_to" style="width:130px;" v-if="p.category === 'addon'">
+          <option value="all">Все блюда</option>
+          <option value="main">Блюда</option>
+          <option value="drink">Напитки</option>
+          <option value="breakfast">Завтраки</option>
+          <option value="salad">Салаты</option>
+          <option value="soup">Супы</option>
+          <option value="dessert">Десерты</option>
+          <option value="sauce">Соусы</option>
+          <option value="snack">Закуски</option>
+          <option value="hot">Горячее</option>
+          <option value="bbq">Гриль</option>
+        </select>
+        <span v-else style="font-size:12px;color:#64748b;width:130px;">—</span>
+
+        <!-- Описание -->
+        <input v-model.trim="p.description" placeholder="Описание" style="min-width:120px;">
+
+        <!-- Доступность -->
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer;">
+          <input type="checkbox" v-model="p.is_available"> {{ p.is_available ? 'Вкл' : 'Выкл' }}
+        </label>
+
+        <!-- Действия -->
+        <button class="btn btn-ghost btn-sm" @click="duplicateProduct(idx)" title="Дублировать">⧉</button>
+        <button class="btn btn-danger btn-sm" @click="removeProduct(idx)" title="Удалить">✕</button>
       </div>
+
       <div v-if="!templateForm.products || !templateForm.products.length" class="muted" style="padding:12px;text-align:center;">
         Меню пустое. Добавьте позиции.
       </div>
@@ -1059,6 +1109,29 @@
 </div>
 <!-- ============================================== -->
 
+<!-- ===================== ПРЕДПРОСМОТР ШАБЛОНА ===================== -->
+<div v-if="previewModal.show" class="modal" @click.self="previewModal.show=false">
+  <div class="glass box" style="max-width:800px;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-top:0">👁 Предпросмотр: {{ selectedTemplate ? selectedTemplate.name : '' }}</h3>
+    <div v-if="previewModal.products.length === 0" class="muted" style="padding:20px;text-align:center;">Нет позиций</div>
+    <div v-for="(cat, catName) in groupedPreview" :key="catName" style="margin-bottom:20px;">
+      <h4 style="border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;margin-bottom:10px;">{{ catName }}</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+        <div v-for="p in cat" :key="p.name" class="glass card" style="padding:12px;border-radius:12px;">
+          <img :src="p.image_url || placeholder" style="width:100%;height:130px;object-fit:cover;border-radius:8px;background:#0e1219;" @error="$event.target.src=placeholder">
+          <div style="font-weight:600;margin-top:6px;">{{ p.name }}</div>
+          <div style="font-size:13px;color:#9ca3af;">{{ p.description || '' }}</div>
+          <div style="font-weight:700;color:#34d399;margin-top:4px;">{{ fmt(p.price) }} ₽</div>
+          <div style="font-size:11px;color:#64748b;">{{ p.is_available ? '✓ В наличии' : '✕ Скрыто' }}</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" @click="previewModal.show=false">Закрыть</button>
+    </div>
+  </div>
+</div>
+
 </div>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
@@ -1136,7 +1209,9 @@ templateForm: {
 },
 templateBusy: false,
 searchQuery: '',
-placeholder: 'https://loremflickr.com/320/240/food?lock=1'
+placeholder: 'https://loremflickr.com/320/240/food?lock=1',
+// Предпросмотр
+previewModal: { show: false, products: [] }
 }},
 computed:{
 mrr:function(){var self=this;return this.venues.filter(function(v){return v.status==='active'}).reduce(function(s,v){var p=self.plans.find(function(x){return x.id===v.plan});return s+(p?Number(p.price):0)},0)},
@@ -1262,6 +1337,34 @@ filteredTemplates: function() {
     var s = (t.name || '') + ' ' + (t.slug || '') + ' ' + (t.niche || '');
     return s.toLowerCase().includes(q);
   });
+},
+groupedPreview: function(){
+  var groups = {};
+  var self = this;
+  (this.previewModal.products || []).forEach(function(p){
+    var cat = p.category || 'main';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(p);
+  });
+  var catMap = {
+    main: '🍽 Блюда',
+    drink: '🥤 Напитки',
+    addon: '🧂 Добавки',
+    breakfast: '🍳 Завтраки',
+    salad: '🥗 Салаты',
+    soup: '🍲 Супы',
+    dessert: '🍰 Десерты',
+    sauce: '🌶 Соусы',
+    snack: '🥨 Закуски',
+    hot: '🔥 Горячее',
+    bbq: '🥩 Гриль'
+  };
+  var result = {};
+  Object.keys(groups).sort().forEach(function(k){
+    var display = catMap[k] || k;
+    result[display] = groups[k];
+  });
+  return result;
 }
 },
 methods:{
@@ -1779,22 +1882,38 @@ db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){
 logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
 
 // ===================== МЕТОДЫ ДЛЯ ШАБЛОНОВ =====================
-loadTemplates:function(){
+normalizeProduct: function(p) {
+  if (!p) return { name: '', price: 0, category: 'main', description: '', image_url: '', applies_to: 'all', is_available: true };
+  return {
+    ...p,
+    category: p.category || 'main',
+    applies_to: p.applies_to || 'all',
+    is_available: p.is_available !== undefined ? p.is_available : true,
+    image_url: p.image_url || ''
+  };
+},
+loadTemplates: function(){
   var self=this;
   db.from('menu_templates')
     .select('*')
     .order('sort_order', {ascending: true})
     .then(function(res){
       if(res.error) throw res.error;
-      self.templates = res.data || [];
-      // Если выбранный шаблон есть в списке, обновим его данные, иначе сбросим выбор
+      self.templates = (res.data || []).map(function(t) {
+        if (t.products) {
+          t.products = t.products.map(function(p) { return self.normalizeProduct(p); });
+        } else {
+          t.products = [];
+        }
+        return t;
+      });
       if (self.selectedTemplate) {
         var found = self.templates.find(function(t){return t.id === self.selectedTemplate.id});
         if (found) {
           self.selectTemplate(found);
         } else {
           self.selectedTemplate = null;
-          self.templateForm = {id:null, name:'', slug:'', emoji:'🍽️', description:'', is_active:true, sort_order:100, niche:'other', scale_code:'M', target_product_count:1, products:[]};
+          self.templateForm = self.getEmptyTemplateForm();
         }
       } else if (self.templates.length) {
         self.selectTemplate(self.templates[0]);
@@ -1804,17 +1923,28 @@ loadTemplates:function(){
       console.error('Ошибка загрузки шаблонов:', e);
     });
 },
-
-selectTemplate:function(t){
-  this.selectedTemplate = t;
-  this.templateForm = JSON.parse(JSON.stringify(t));
-  this.templateForm.products = Array.isArray(this.templateForm.products) ? this.templateForm.products : [];
-  this.templateForm.target_product_count = this.templateForm.target_product_count || this.templateForm.products.length;
-  this.templateForm.scale_code = this.templateForm.scale_code || 'M';
-  this.templateForm.niche = this.templateForm.niche || 'other';
+getEmptyTemplateForm: function() {
+  return {
+    id: null,
+    name: '',
+    slug: '',
+    emoji: '🍽️',
+    description: '',
+    is_active: true,
+    sort_order: 100,
+    niche: 'other',
+    scale_code: 'M',
+    target_product_count: 1,
+    products: []
+  };
 },
-
-newTemplate:function(){
+selectTemplate: function(t){
+  this.selectedTemplate = t;
+  var form = JSON.parse(JSON.stringify(t));
+  form.products = (form.products || []).map(function(p) { return this.normalizeProduct(p); }.bind(this));
+  this.templateForm = form;
+},
+newTemplate: function(){
   var newId = 'template-' + Date.now();
   var newT = {
     id: newId,
@@ -1832,90 +1962,199 @@ newTemplate:function(){
   this.templates.unshift(newT);
   this.selectTemplate(newT);
 },
-
-addProduct:function(){
+addProduct: function(){
   this.templateForm.products.push({
-    name: 'Новая позиция',
+    name: '',
     description: '',
     price: 0,
     category: 'main',
     applies_to: 'all',
-    image_url: this.placeholder,
+    image_url: '',
     is_available: true
   });
 },
-
-removeProduct:function(idx){
+removeProduct: function(idx){
   this.templateForm.products.splice(idx, 1);
 },
-
-sortProducts:function(){
-  this.templateForm.products.sort(function(a,b){
-    return (a.category || '').localeCompare(b.category || '', 'ru');
+duplicateProduct: function(idx){
+  var p = this.templateForm.products[idx];
+  if (!p) return;
+  var copy = JSON.parse(JSON.stringify(p));
+  copy.name = (p.name || 'Позиция') + ' — копия';
+  this.templateForm.products.splice(idx + 1, 0, copy);
+},
+uploadTemplatePhoto: function(ev, p){
+  var self = this;
+  var f = ev.target.files[0];
+  if (!f) return;
+  self.resizeImage(f, 900, 0.85).then(function(blob){
+    var fn = 'templates/' + Date.now() + '_' + f.name;
+    return db.storage.from('menu-images').upload(fn, blob, {cacheControl: '3600', upsert: true, contentType: 'image/jpeg'})
+      .then(function(r){
+        if (r.error) throw r.error;
+        var url = db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
+        p.image_url = url;
+        alert('Фото загружено');
+      });
+  }).catch(function(e){
+    alert('Ошибка загрузки: ' + e.message);
+  }).finally(function(){
+    ev.target.value = '';
   });
 },
-
-fillTarget:function(){
-  var target = this.templateForm.target_product_count || 1;
-  var current = this.templateForm.products.length;
-  while (current < target) {
-    this.addProduct();
-    current++;
-  }
+duplicateTemplate: function(){
+  var self = this;
+  if (!this.selectedTemplate) return;
+  var base = this.selectedTemplate;
+  var newName = base.name + ' — копия';
+  var newSlug = base.slug + '-copy';
+  // Проверка уникальности slug
+  this.checkSlugUnique(newSlug).then(function(unique){
+    if (!unique) {
+      newSlug = base.slug + '-copy-' + Date.now();
+    }
+    var newT = {
+      name: newName,
+      slug: newSlug,
+      emoji: base.emoji || '🍽️',
+      description: base.description || '',
+      is_active: false,
+      sort_order: (base.sort_order || 100) + 1,
+      niche: base.niche || 'other',
+      scale_code: base.scale_code || 'M',
+      target_product_count: base.target_product_count || 1,
+      products: (base.products || []).map(function(p) {
+        var copy = JSON.parse(JSON.stringify(p));
+        copy.name = p.name + ' (копия)';
+        return copy;
+      })
+    };
+    db.from('menu_templates').insert([newT]).select().single().then(function(res){
+      if (res.error) {
+        alert('Ошибка дублирования: ' + res.error.message);
+        return;
+      }
+      self.loadTemplates();
+      // Выбрать новый шаблон
+      var found = self.templates.find(function(t){ return t.id === res.data.id; });
+      if (found) self.selectTemplate(found);
+      alert('Шаблон дублирован');
+    }).catch(function(e){
+      alert('Ошибка: ' + e.message);
+    });
+  });
 },
-
-saveTemplate:function(){
+checkSlugUnique: function(slug, excludeId){
+  var self = this;
+  return new Promise(function(resolve, reject){
+    if (!slug) { resolve(false); return; }
+    var q = db.from('menu_templates').select('id').eq('slug', slug);
+    if (excludeId) q = q.neq('id', excludeId);
+    q.then(function(r){
+      if (r.error) { reject(r.error); return; }
+      resolve((r.data || []).length === 0);
+    }).catch(reject);
+  });
+},
+saveTemplate: function(){
   var self = this;
   var form = this.templateForm;
-  if (!form.name || !form.slug) {
-    alert('Заполните название и slug');
+  // Валидация
+  if (!form.name || form.name.trim() === '') {
+    alert('⚠️ Название шаблона обязательно');
     return;
   }
-  this.templateBusy = true;
-  var data = {
-    name: form.name,
-    slug: form.slug,
-    emoji: form.emoji || '🍽️',
-    description: form.description || null,
-    is_active: !!form.is_active,
-    sort_order: Number(form.sort_order) || 100,
-    niche: form.niche || 'other',
-    scale_code: form.scale_code || 'M',
-    target_product_count: Number(form.target_product_count) || form.products.length,
-    products: form.products
-  };
-  var promise;
-  if (form.id && form.id.startsWith('template-')) {
-    // Новый шаблон (ещё не сохранён в БД)
-    promise = db.from('menu_templates').insert([data]);
-  } else {
-    promise = db.from('menu_templates').update(data).eq('id', form.id);
+  if (!form.slug || form.slug.trim() === '') {
+    alert('⚠️ Slug обязателен');
+    return;
   }
-  promise.then(function(res){
-    self.templateBusy = false;
-    if (res.error) {
-      alert('Ошибка сохранения: ' + res.error.message);
+  this.checkSlugUnique(form.slug, form.id && !form.id.startsWith('template-') ? form.id : null).then(function(unique){
+    if (!unique) {
+      alert('⚠️ Шаблон с таким slug уже существует');
       return;
     }
-    self.loadTemplates();
-    alert('Шаблон сохранён!');
+    // Проверка позиций
+    var products = form.products || [];
+    for (var i = 0; i < products.length; i++) {
+      var p = products[i];
+      if (!p.name || p.name.trim() === '') {
+        alert('⚠️ Позиция #' + (i+1) + ' не имеет названия');
+        return;
+      }
+      if (typeof p.price !== 'number' || p.price < 0) {
+        alert('⚠️ Позиция #' + (i+1) + ' имеет некорректную цену');
+        return;
+      }
+      if (!p.category) {
+        alert('⚠️ Позиция #' + (i+1) + ' не выбрана категория');
+        return;
+      }
+      if (p.category === 'addon' && !p.applies_to) {
+        alert('⚠️ Для добавки #' + (i+1) + ' не указано применение (applies_to)');
+        return;
+      }
+    }
+
+    self.templateBusy = true;
+    var data = {
+      name: form.name,
+      slug: form.slug,
+      emoji: form.emoji || '🍽️',
+      description: form.description || null,
+      is_active: !!form.is_active,
+      sort_order: Number(form.sort_order) || 100,
+      niche: form.niche || 'other',
+      scale_code: form.scale_code || 'M',
+      target_product_count: Number(form.target_product_count) || form.products.length,
+      products: form.products
+    };
+
+    var promise;
+    if (form.id && form.id.startsWith('template-')) {
+      promise = db.from('menu_templates').insert([data]).select().single();
+    } else {
+      promise = db.from('menu_templates').update(data).eq('id', form.id).select().single();
+    }
+    promise.then(function(res){
+      self.templateBusy = false;
+      if (res.error) {
+        alert('❌ Ошибка сохранения: ' + res.error.message);
+        return;
+      }
+      if (form.id && form.id.startsWith('template-')) {
+        var idx = self.templates.findIndex(function(t){ return t.id === form.id; });
+        if (idx !== -1) {
+          self.templates.splice(idx, 1, res.data);
+        } else {
+          self.templates.push(res.data);
+        }
+        self.selectedTemplate = res.data;
+        self.selectTemplate(res.data);
+      } else {
+        var idx2 = self.templates.findIndex(function(t){ return t.id === res.data.id; });
+        if (idx2 !== -1) self.templates.splice(idx2, 1, res.data);
+        self.selectedTemplate = res.data;
+        self.selectTemplate(res.data);
+      }
+      alert('✅ Шаблон сохранён');
+    }).catch(function(e){
+      self.templateBusy = false;
+      alert('❌ Ошибка: ' + e.message);
+    });
   }).catch(function(e){
-    self.templateBusy = false;
-    alert('Ошибка: ' + e.message);
+    alert('❌ Ошибка проверки slug: ' + e.message);
   });
 },
-
-deleteTemplate:function(){
+deleteTemplate: function(){
   var self = this;
   if (!this.selectedTemplate) return;
   if (!confirm('Удалить шаблон "' + this.selectedTemplate.name + '"?')) return;
   var id = this.selectedTemplate.id;
-  // Если это новый (ещё не в БД), просто удаляем из списка
   if (id && id.startsWith('template-')) {
     var idx = this.templates.indexOf(this.selectedTemplate);
     if (idx > -1) this.templates.splice(idx, 1);
     this.selectedTemplate = null;
-    this.templateForm = {id:null, name:'', slug:'', emoji:'🍽️', description:'', is_active:true, sort_order:100, niche:'other', scale_code:'M', target_product_count:1, products:[]};
+    this.templateForm = this.getEmptyTemplateForm();
     return;
   }
   db.from('menu_templates')
@@ -1932,6 +2171,36 @@ deleteTemplate:function(){
     .catch(function(e){
       alert('Ошибка: ' + e.message);
     });
+},
+sortProducts: function(){
+  this.templateForm.products.sort(function(a,b){
+    var catA = a.category || 'main';
+    var catB = b.category || 'main';
+    if (catA !== catB) return catA.localeCompare(catB, 'ru');
+    return (a.name || '').localeCompare(b.name || '', 'ru');
+  });
+},
+fillTarget: function(){
+  var target = this.templateForm.target_product_count || 1;
+  var current = this.templateForm.products.length;
+  while (current < target) {
+    this.templateForm.products.push({
+      name: 'Позиция ' + (current+1),
+      description: '',
+      price: 0,
+      category: 'main',
+      applies_to: 'all',
+      image_url: '',
+      is_available: true
+    });
+    current++;
+  }
+},
+previewTemplate: function(){
+  if (!this.selectedTemplate) return;
+  var products = (this.templateForm.products || []).map(function(p) { return this.normalizeProduct(p); }.bind(this));
+  this.previewModal.products = products;
+  this.previewModal.show = true;
 }
 },
 mounted:function(){this.init()}
