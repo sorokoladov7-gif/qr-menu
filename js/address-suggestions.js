@@ -111,9 +111,6 @@
     clearSuggestions();
   }
 
-  // The existing menu.html calculates the fee through Nominatim. When a real
-  // DaData suggestion has been selected, return its verified coordinates to
-  // that existing code instead of geocoding the text again.
   if(!window.__qrNominatimPatch){
     var nativeFetch=window.fetch.bind(window);
     window.fetch=function(input,init){
@@ -126,6 +123,23 @@
     };
     window.__qrNominatimPatch=true;
   }
+
+  // Capture clicks before Vue's handlers. Delivery calculation and checkout
+  // are allowed only after the customer has selected a real address suggestion.
+  document.addEventListener('click',function(e){
+    var target=e.target&&e.target.closest?e.target.closest('button'):null;
+    if(!target||getSelectedVenueDelivery()===false)return;
+    var text=(target.textContent||'').trim();
+    if(text.indexOf('Рассчитать')!==-1||text.indexOf('Подтвердить заказ')!==-1){
+      var vm=getVm();
+      var isDelivery=vm&&vm.form&&vm.form.type==='delivery';
+      if(isDelivery&&(!state.selected||!window.__selectedDeliveryAddress)){
+        e.preventDefault();e.stopImmediatePropagation();
+        if(vm)vm.msg='Выберите адрес доставки из предложенных реальных адресов';
+        else alert('Выберите адрес доставки из предложенных реальных адресов');
+      }
+    }
+  },true);
 
   function enforceDeliveryVisibility(){
     var enabled=getSelectedVenueDelivery();
