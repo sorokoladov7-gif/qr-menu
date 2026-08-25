@@ -6,14 +6,46 @@ var isStaff=/(cook|courier|waiter)\.html$/i.test(path);
 var isManagerDemo=/manager-demo\.html$/i.test(path);
 var isPublicMenu=/menu\.html$/i.test(path);
 
-// Demo mode is page-scoped: never let a previous staff/manager demo session
-// affect the real customer menu.
-if(params.get('demo')==='0' || isPublicMenu){
-  localStorage.removeItem('qr_demo_mode');
+if(params.get('demo')==='0' || isPublicMenu){ localStorage.removeItem('qr_demo_mode'); }
+if(params.get('demo')==='1' && (isStaff || isManagerDemo)){ localStorage.setItem('qr_demo_mode','1'); }
+
+/* Production customer SBP bridge: create the order, then create the YooKassa
+   payment server-side and redirect the same tab to confirmation_url. */
+if(isPublicMenu && !window.__qrCustomerSbpPaymentPatched && window.db && typeof window.db.rpc==='function'){
+  window.__qrCustomerSbpPaymentPatched=true;
+  var originalPublicMenuRpc=window.db.rpc.bind(window.db);
+  window.db.rpc=function(name,args,options){
+    var result=originalPublicMenuRpc(name,args,options);
+    if(name!=='create_public_order' || !args || args.p_payment_method!=='sbp') return result;
+    return result.then(function(r){
+      if(!r || r.error) return r;
+      var order=r.data;
+      if(order && typeof order==='object' && order.order) order=order.order;
+      if(Array.isArray(order) && order.length) order=order[0];
+      if(!order || !order.id) return {data:null,error:{message:'Не удалось определить созданный заказ для оплаты СБП'}};
+      return fetch('/api/payments/yookassa/create-order',{
+        method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({order_id:order.id})
+      }).then(function(response){
+        return response.text().then(function(text){
+          var payload=null; try{payload=text?JSON.parse(text):null;}catch(e){}
+          if(!response.ok || !payload || !payload.ok || !payload.confirmation_url){
+            throw new Error(payload&&payload.error?payload.error:('HTTP '+response.status));
+          }
+          return payload;
+        });
+      }).then(function(payload){
+        try{sessionStorage.setItem('qr_sbp_order_id',String(order.id));}catch(e){}
+        window.location.assign(payload.confirmation_url);
+        return r;
+      }).catch(function(e){
+        console.error('[Menu] SBP payment creation:',e);
+        return {data:null,error:{message:'Заказ создан, но не удалось открыть оплату СБП: '+(e.message||e)}};
+      });
+    });
+  };
 }
-if(params.get('demo')==='1' && (isStaff || isManagerDemo)){
-  localStorage.setItem('qr_demo_mode','1');
-}
+
 var isDemo=localStorage.getItem('qr_demo_mode')==='1' && (isStaff || isManagerDemo);
 window.__isDemoMode=isDemo;
 if(!isDemo)return;
