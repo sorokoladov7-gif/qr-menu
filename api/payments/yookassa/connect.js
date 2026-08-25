@@ -4,6 +4,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { ok: false, error: 'method_not_allowed' });
   try {
     const venueId = String((req.query && req.query.venue_id) || '').trim();
+    const requestedScope = String((req.query && req.query.scope) || 'venue').trim() === 'shared' ? 'shared' : 'venue';
     if (!venueId) return json(res, 400, { ok: false, error: 'venue_id_required' });
 
     const user = await getSupabaseUser(bearer(req));
@@ -18,21 +19,18 @@ module.exports = async function handler(req, res) {
       headers: { Prefer: 'return=minimal' },
       body: JSON.stringify({
         provider: 'yookassa',
-        venue_id: venueId,
+        venue_id: requestedScope === 'shared' ? null : venueId,
         manager_id: user.id,
         state_hash: sha256(state),
         redirect_uri: redirectUri,
+        requested_scope: requestedScope,
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
       })
     });
 
     const clientId = process.env.YOOKASSA_CLIENT_ID;
     if (!clientId) return json(res, 503, { ok: false, error: 'yookassa_not_configured' });
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: clientId,
-      state
-    });
+    const params = new URLSearchParams({ response_type: 'code', client_id: clientId, state });
     return redirect(res, `https://yookassa.ru/oauth/v2/authorize?${params.toString()}`);
   } catch (e) {
     console.error('[YooKassa connect]', e);
