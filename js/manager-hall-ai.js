@@ -15,4 +15,5 @@
   load('/js/manager-create-venue-flow.js?v=10','data-manager-create-venue-flow-v11');
   load('/js/manager-personnel-final.js?v=6','data-manager-personnel-final-v11');
   load('/js/manager-payment-settings.js?v=1','data-manager-payment-settings-v11');
+  load('/js/manager-site-import.js?v=1','data-manager-site-import-v1');
 })();
