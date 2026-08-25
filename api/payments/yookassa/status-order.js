@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
     const order = Array.isArray(orders) ? orders[0] : null;
     if (!order) return json(res, 404, { ok: false, error: 'order_not_found' });
 
-    if (order.payment_method !== 'card') {
+    if (order.payment_method !== 'sbp') {
       return json(res, 200, {
         ok: true,
         order_id: order.id,
