@@ -10,7 +10,8 @@ module.exports = async function handler(req, res) {
     const orders = await supabase(`orders?id=eq.${encodeURIComponent(orderId)}&select=id,order_number,venue_id,total_price,payment_method,payment_status,payment_provider,payment_id&limit=1`);
     const order = Array.isArray(orders) ? orders[0] : null;
     if (!order) return json(res, 404, { ok: false, error: 'order_not_found' });
-    if (order.payment_method !== 'card') return json(res, 400, { ok: false, error: 'order_payment_method_not_sbp' });
+
+    if (order.payment_method !== 'sbp') return json(res, 400, { ok: false, error: 'order_payment_method_not_sbp' });
     if (order.payment_status === 'paid' || order.payment_status === 'succeeded') return json(res, 409, { ok: false, error: 'order_already_paid' });
 
     const accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(order.venue_id)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=id,credentials_ref,merchant_id,metadata&limit=1`);
