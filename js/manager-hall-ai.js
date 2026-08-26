@@ -1,20 +1,21 @@
-/* QR Menu — manager compatibility bootstrap v13. */
+/* QR Menu — manager compatibility bootstrap v14. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_HALL_BOOTSTRAP_V13__) return;
-  window.__QR_MANAGER_HALL_BOOTSTRAP_V13__=true;
+  if(window.__QR_MANAGER_HALL_BOOTSTRAP_V14__) return;
+  window.__QR_MANAGER_HALL_BOOTSTRAP_V14__=true;
   function publish(app){try{window.__QR_MANAGER_VUE_APP__=app;window.__managerVue=(app&&app._instance&&app._instance.proxy)||null;window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));}catch(e){console.warn('[QR Menu] publish Vue:',e);}}
   function patchDb(){try{if(!window.db||typeof window.db.rpc!=='function'||window.db.__QR_CANONICAL_CREATE_VENUE__)return;var originalRpc=window.db.rpc.bind(window.db);window.db.__QR_CANONICAL_CREATE_VENUE__=true;function normProducts(items){return(Array.isArray(items)?items:[]).map(function(i){return{name:String(i.name||'').trim(),description:i.description==null?null:String(i.description),price:Number(i.price)||0,category:i.category||'main',image_url:i.image_url||null,applies_to:i.applies_to||'all',is_available:i.is_available!==false};});}function sameTemplateProducts(a,b){a=normProducts(a);b=normProducts(b);if(!a.length||a.length!==b.length)return false;var aa=a.map(function(x){return JSON.stringify(x);}).sort(),bb=b.map(function(x){return JSON.stringify(x);}).sort();for(var i=0;i<aa.length;i++)if(aa[i]!==bb[i])return false;return true;}async function resolveTemplateId(products){var r=await window.db.from('menu_templates').select('id,products').eq('is_active',true);if(r.error)throw r.error;var list=r.data||[],found=list.find(function(t){return sameTemplateProducts(products,t.products);});if(found)return found.id;var incoming=normProducts(products).map(function(x){return x.name+'|'+x.price+'|'+x.category;}).sort().join('\n');found=list.find(function(t){var current=normProducts(t.products).map(function(x){return x.name+'|'+x.price+'|'+x.category;}).sort().join('\n');return current&&current===incoming;});if(found)return found.id;throw new Error('Не удалось определить шаблон каталога. Обновите шаблоны меню.');}window.db.rpc=function(fn,args,options){if(fn!=='create_venue_for_manager'||!args||!args.p_products)return originalRpc(fn,args,options);return resolveTemplateId(args.p_products).then(function(templateId){return originalRpc('create_venue_from_template',{p_template_id:templateId,p_name:args.p_name,p_slug:args.p_slug,p_plan:args.p_plan||'start',p_subscription_end:args.p_subscription_end},options);});} }catch(e){console.warn('[QR Manager] canonical venue RPC patch:',e);}}
-  function patchVue(Vue){if(!Vue||typeof Vue.createApp!=='function'||Vue.__QR_MANAGER_PATCH_V13__)return;Vue.__QR_MANAGER_PATCH_V13__=true;var original=Vue.createApp;Vue.createApp=function(options){if(options&&typeof options==='object'){options.computed=options.computed||{};options.computed.canCreateVenue=function(){var p=this.plans&&this.plans.find(function(x){return x.id==='start'});return this.myVenues.length<(p?p.max_venues:1);};options.methods=options.methods||{};var previousCreateVenue=options.methods.createVenue;options.methods.createVenue=function(){return previousCreateVenue?previousCreateVenue.apply(this,arguments):undefined;};}var app=original.apply(this,arguments),originalMount=app.mount;app.mount=function(){var result=originalMount.apply(this,arguments);publish(this);return result;};return app;};}
+  function patchVue(Vue){if(!Vue||typeof Vue.createApp!=='function'||Vue.__QR_MANAGER_PATCH_V14__)return;Vue.__QR_MANAGER_PATCH_V14__=true;var original=Vue.createApp;Vue.createApp=function(options){if(options&&typeof options==='object'){options.computed=options.computed||{};options.computed.canCreateVenue=function(){var p=this.plans&&this.plans.find(function(x){return x.id==='start'});return this.myVenues.length<(p?p.max_venues:1);};options.methods=options.methods||{};var previousCreateVenue=options.methods.createVenue;options.methods.createVenue=function(){return previousCreateVenue?previousCreateVenue.apply(this,arguments):undefined;};}var app=original.apply(this,arguments),originalMount=app.mount;app.mount=function(){var result=originalMount.apply(this,arguments);publish(this);return result;};return app;};}
   function init(){try{if(window.Vue)patchVue(window.Vue);}catch(e){console.warn('[QR Menu] Vue patch:',e);}patchDb();setTimeout(patchDb,0);setTimeout(patchDb,100);setTimeout(patchDb,500);}
   init();
   function load(src,key){if(document.querySelector('script['+key+']'))return;var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(key,'1');s.onerror=function(){console.error('[QR Manager] failed to load '+src);};document.head.appendChild(s);}
-  load('/js/manager-hall.js?v=5','data-manager-hall-single-v13');
-  load('/js/manager-recipes-ui.js?v=5','data-manager-recipes-ui-v13');
-  load('/js/manager-subscription-owner.js?v=6','data-manager-subscription-owner-v13');
-  load('/js/manager-create-venue-flow.js?v=10','data-manager-create-venue-flow-v13');
-  load('/js/manager-personnel-final.js?v=6','data-manager-personnel-final-v13');
-  load('/js/manager-payment-settings.js?v=1','data-manager-payment-settings-v13');
-  load('/js/manager-permissions-bridge.js?v=2','data-manager-permissions-bridge-v2');
-  load('/js/manager-site-import.js?v=2','data-manager-site-import-v2');
+  load('/js/manager-hall.js?v=5','data-manager-hall-single-v14');
+  load('/js/manager-recipes-ui.js?v=5','data-manager-recipes-ui-v14');
+  load('/js/manager-subscription-owner.js?v=6','data-manager-subscription-owner-v14');
+  load('/js/manager-create-venue-flow.js?v=10','data-manager-create-venue-flow-v14');
+  load('/js/manager-personnel-final.js?v=6','data-manager-personnel-final-v14');
+  load('/js/manager-payment-settings.js?v=1','data-manager-payment-settings-v14');
+  load('/js/manager-permissions-bridge.js?v=2','data-manager-permissions-bridge-v14');
+  load('/js/manager-site-import.js?v=2','data-manager-site-import-v14');
+  load('/js/manager-instruction-tab-v2.js?v=1','data-manager-instruction-tab-v2');
 })();
