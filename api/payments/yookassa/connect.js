@@ -1,4 +1,5 @@
-const { json, redirect, randomToken, sha256, supabase, getSupabaseUser, bearer, assertManagerVenue, callbackUrl } = require('../../_lib/yookassa');
+const { json, redirect, randomToken, sha256, supabase, assertManagerVenue, callbackUrl } = require('../../_lib/yookassa');
+const { bearer, getManagerUser } = require('../../_lib/manager-auth');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
@@ -8,8 +9,7 @@ module.exports = async function handler(req, res) {
     const requestedScope = String(source.scope || 'venue').trim() === 'shared' ? 'shared' : 'venue';
     if (!venueId) return json(res, 400, { ok: false, error: 'venue_id_required' });
 
-    const user = await getSupabaseUser(bearer(req));
-    if (!user) return json(res, 401, { ok: false, error: 'auth_required' });
+    const user = await getManagerUser(bearer(req));
     if (!(await assertManagerVenue(user.id, venueId))) return json(res, 403, { ok: false, error: 'venue_access_denied' });
 
     const clientId = process.env.YOOKASSA_CLIENT_ID;
@@ -28,6 +28,6 @@ module.exports = async function handler(req, res) {
     return redirect(res, authorizationUrl);
   } catch (e) {
     console.error('[YooKassa connect]', e);
-    return json(res, e.status || 500, { ok:false, error:e.message || 'oauth_start_failed' });
+    return json(res, e.status || 500, { ok:false, error:e.message || 'oauth_start_failed', details: e.data || null });
   }
 };
