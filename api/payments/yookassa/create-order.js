@@ -1,4 +1,5 @@
 const { json, randomToken, supabase, yookassaCreatePayment, decryptSecret, origin } = require('../../_lib/yookassa');
+const { blocked } = require('../../_lib/rate-limit');
 
 async function findAccount(venueId) {
   let accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=id,credentials_ref,merchant_id,metadata&limit=1`);
@@ -13,6 +14,7 @@ async function findAccount(venueId) {
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
+  if (blocked(req, res, 'create-order', 30, 60000)) return;
   try {
     const body = req.body || {};
     const orderId = String(body.order_id || '').trim();

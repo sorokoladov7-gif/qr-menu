@@ -1,4 +1,5 @@
 const { json, supabase, decryptSecret, yookassaGetPlatformPayment } = require('../../_lib/yookassa');
+const { blocked } = require('../../_lib/rate-limit');
 
 async function getVenuePayment(paymentId, venueId) {
   let accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=credentials_ref&limit=1`);
@@ -23,6 +24,7 @@ function ledgerStatus(status) { return ['succeeded','canceled','waiting_for_capt
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
+  if (blocked(req, res, 'webhook', 240, 60000)) return;
   try {
     const body = req.body || {}, object = body.object || {}, paymentId = String(object.id || '').trim();
     if (!paymentId) return json(res, 400, { ok: false, error: 'payment_id_required' });
