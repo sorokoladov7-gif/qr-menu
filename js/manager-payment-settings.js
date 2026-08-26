@@ -1,8 +1,8 @@
 /* QR Menu — manager SBP/YooKassa settings. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_PAYMENT_SETTINGS_V1__) return;
-  window.__QR_MANAGER_PAYMENT_SETTINGS_V1__=true;
+  if(window.__QR_MANAGER_PAYMENT_SETTINGS_V2__) return;
+window.__QR_MANAGER_PAYMENT_SETTINGS_V2__=true;
   var state={accounts:null,open:false},modal=null,button=null;
   function app(){return window.__QR_MANAGER_VUE_APP__||null;}
   function currentVenue(){var v=window.__managerCurrentVenue||window.__managerSelectedVenue;if(v&&v.id)return v;var a=app();return a&&a._instance&&a._instance.proxy&&a._instance.proxy.venue?a._instance.proxy.venue:null;}
@@ -14,25 +14,88 @@
     }
     return null;
   }
-  function tokenFromStorage(){
-    try{
-      for(var i=0;i<localStorage.length;i++){
-        var key=localStorage.key(i),raw=localStorage.getItem(key);
-        if(!key||!raw||key.indexOf('sb-')!==0||key.indexOf('-auth-token')===-1) continue;
-        var parsed=JSON.parse(raw);
-        if(parsed&&parsed.access_token)return parsed.access_token;
-        if(Array.isArray(parsed)&&parsed[0]&&parsed[0].access_token)return parsed[0].access_token;
-      }
-    }catch(e){console.warn('[QR SBP] local session lookup failed',e);}
+  function extractAccessToken(value){
+  if(!value) return null;
+
+  try{
+    if(typeof value === 'string') value = JSON.parse(value);
+  }catch(e){
     return null;
   }
-  async function sessionToken(){
-    var c=getAuthClient();
-    if(c){
-      try{var r=await c.auth.getSession();var token=r&&r.data&&r.data.session&&r.data.session.access_token;if(token)return token;}catch(e){console.warn('[QR SBP] getSession failed',e);}
-    }
-    return tokenFromStorage();
+
+  if(value && typeof value.access_token === 'string' && value.access_token){
+    return value.access_token;
   }
+
+  if(value && value.session){
+    return extractAccessToken(value.session);
+  }
+
+  if(value && value.data && value.data.session){
+    return extractAccessToken(value.data.session);
+  }
+
+  return null;
+}
+
+function tokenFromStorage(){
+  try{
+    // Основная авторизация manager.html
+    var managerRaw = sessionStorage.getItem('qr-menu-auth-account');
+    var managerToken = extractAccessToken(managerRaw);
+    if(managerToken) return managerToken;
+  }catch(e){
+    console.warn('[QR SBP] manager session lookup failed', e);
+  }
+
+  // Обычный Supabase fallback
+  try{
+    for(var i=0;i<localStorage.length;i++){
+      var key=localStorage.key(i);
+      if(!key) continue;
+
+      var raw=localStorage.getItem(key);
+      var token=extractAccessToken(raw);
+
+      if(token) return token;
+    }
+  }catch(e){
+    console.warn('[QR SBP] local session lookup failed', e);
+  }
+
+  // SessionStorage fallback
+  try{
+    for(var j=0;j<sessionStorage.length;j++){
+      var skey=sessionStorage.key(j);
+      if(!skey) continue;
+
+      var sraw=sessionStorage.getItem(skey);
+      var stoken=extractAccessToken(sraw);
+
+      if(stoken) return stoken;
+    }
+  }catch(e){
+    console.warn('[QR SBP] session storage lookup failed', e);
+  }
+
+  return null;
+}
+  async function sessionToken(){
+  var c=getAuthClient();
+
+  if(c){
+    try{
+      var r=await c.auth.getSession();
+      var token=extractAccessToken(r);
+
+      if(token) return token;
+    }catch(e){
+      console.warn('[QR SBP] getSession failed',e);
+    }
+  }
+
+  return tokenFromStorage();
+}
   async function api(method,body){var token=await sessionToken();if(!token)throw new Error('Сессия управляющего не найдена. Войдите в кабинет заново.');var o={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};if(body)o.body=JSON.stringify(body);var r=await fetch('/api/payments/yookassa/accounts',o),d={};try{d=await r.json();}catch(e){}if(!r.ok||d.ok===false)throw new Error(d.error||d.message||('HTTP '+r.status));return d;}
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
   function accountForVenue(id){var a=state.accounts,row=(a&&a.venues||[]).find(function(x){return x.venue_id===id;});return row?row.account:null;}
