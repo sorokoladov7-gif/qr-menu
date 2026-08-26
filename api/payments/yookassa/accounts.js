@@ -1,5 +1,5 @@
-const { json, supabase } = require('../../_lib/yookassa');
-const { bearer, getManagerUser } = require('../../_lib/manager-auth');
+const { json, supabase, bearer } = require('../../_lib/yookassa');
+const { getManagerUser } = require('../../_lib/manager-auth');
 
 async function managerVenues(managerId) {
   return supabase(`manager_venues?manager_id=eq.${encodeURIComponent(managerId)}&select=venue_id`);
@@ -101,6 +101,6 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { ok: false, error: 'unsupported_action' });
   } catch (e) {
     console.error('[YooKassa accounts]', e);
-    return json(res, e.status || 500, { ok: false, error: e.message || 'payment_accounts_failed', details: e.data || null });
+    return json(res, e.status || 500, { ok: false, error: e.message || 'payment_accounts_failed' });
   }
 };
