@@ -10,7 +10,8 @@
   },
   "functions": {
     "api/import-site.js": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "runtime": "nodejs22.x"
     }
   },
   "headers": [
