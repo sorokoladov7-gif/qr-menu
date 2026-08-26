@@ -63,6 +63,14 @@ module.exports = async function(req, res) {
       }
       meta.diagnostics = diagnostics;
     }
+
+    // If server-side extraction already produced products, never replace a useful result
+    // with a JS-render-required warning merely because a JS hint was detected.
+    if (Array.isArray(result.products) && result.products.length >= 5) {
+      meta.menu_found = true;
+      meta.error = null;
+      if (!meta.validation) meta.validation = 'validated-server';
+    }
     return res.status(200).json(result);
   } catch (error) {
     return fail(500, 'IMPORT_RUNTIME_ERROR', 'Ошибка универсального анализатора сайта', { name: error?.name || 'Error', message: String(error?.message || error), stack: String(error?.stack || '').split('\n').slice(0, 10) });
