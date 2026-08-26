@@ -20,6 +20,13 @@
       "headers": [
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
+    },
+    {
+      "source": "/js/manager-site-import\\.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0"
+        }
+      ]
     }
   ]
 }
