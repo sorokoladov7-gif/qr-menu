@@ -1,5 +1,10 @@
-const { json, redirect, randomToken, sha256, supabase, assertManagerVenue, callbackUrl } = require('../../_lib/yookassa');
+const { json, redirect, randomToken, sha256, supabase, callbackUrl } = require('../../_lib/yookassa');
 const { bearer, getManagerUser } = require('../../_lib/manager-auth');
+
+async function assertManagerVenue(userId, venueId) {
+  const rows = await supabase(`manager_venues?manager_id=eq.${encodeURIComponent(userId)}&venue_id=eq.${encodeURIComponent(venueId)}&select=id,manager_id,venue_id&limit=1`);
+  return Array.isArray(rows) && rows.length > 0;
+}
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
@@ -19,15 +24,15 @@ module.exports = async function handler(req, res) {
     const redirectUri = callbackUrl(req);
     await supabase('payment_oauth_states', {
       method: 'POST', headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ provider:'yookassa', venue_id:requestedScope==='shared'?null:venueId, manager_id:user.id, state_hash:sha256(state), redirect_uri:redirectUri, requested_scope:requestedScope, expires_at:new Date(Date.now()+10*60*1000).toISOString() })
+      body: JSON.stringify({ provider: 'yookassa', venue_id: requestedScope === 'shared' ? null : venueId, manager_id: user.id, state_hash: sha256(state), redirect_uri: redirectUri, requested_scope: requestedScope, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
     });
 
-    const params = new URLSearchParams({ response_type:'code', client_id:clientId, state });
+    const params = new URLSearchParams({ response_type: 'code', client_id: clientId, state });
     const authorizationUrl = `https://yookassa.ru/oauth/v2/authorize?${params.toString()}`;
-    if(req.method === 'POST') return json(res,200,{ok:true,authorization_url:authorizationUrl});
+    if (req.method === 'POST') return json(res, 200, { ok: true, authorization_url: authorizationUrl });
     return redirect(res, authorizationUrl);
   } catch (e) {
     console.error('[YooKassa connect]', e);
-    return json(res, e.status || 500, { ok:false, error:e.message || 'oauth_start_failed', details: e.data || null });
+    return json(res, e.status || 500, { ok:false, error:e.message || 'oauth_start_failed', details:e.data || null });
   }
 };
