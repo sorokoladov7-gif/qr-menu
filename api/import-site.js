@@ -1,4 +1,4 @@
-const { analyzeSite } = require('../lib/site-menu-analyzer');
+const { analyzeSite } = require('../lib/site-menu-analyzer-v2');
 
 function mergeProducts(existing, rendered) {
   const out = Array.isArray(existing) ? existing.slice() : [];
@@ -26,7 +26,7 @@ module.exports = async function(req, res) {
     const diagnostics = meta.diagnostics || (meta.diagnostics = {});
     const jsPages = Array.isArray(diagnostics.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : [];
     const menuPages = Array.isArray(diagnostics.menu_pages) ? diagnostics.menu_pages : [];
-    const renderTargets = [...new Set([...menuPages, ...jsPages])].slice(0, 8);
+    const renderTargets = [...new Set([...menuPages, ...jsPages])].slice(0, 5);
     const shouldRender = Boolean(diagnostics.js_render?.required || !Array.isArray(result.products) || result.products.length < 5);
 
     if (shouldRender && renderTargets.length) {
@@ -34,19 +34,10 @@ module.exports = async function(req, res) {
       diagnostics.analysis_steps.push(`Запуск browser-rendering: ${renderTargets.length} страниц`);
       let browserResult;
       try {
-        // Lazy-load Chromium so a missing/incompatible browser dependency cannot crash the Vercel function at module initialization.
         const { renderMenuPages } = require('../lib/site-browser-renderer');
         browserResult = await renderMenuPages(renderTargets);
       } catch (browserLoadError) {
-        browserResult = {
-          ok: false,
-          code: 'BROWSER_DEPENDENCY_FAILED',
-          diagnostics: {
-            error_name: browserLoadError?.name || 'Error',
-            error_message: String(browserLoadError?.message || browserLoadError),
-            stack: String(browserLoadError?.stack || '').split('\n').slice(0, 12)
-          }
-        };
+        browserResult = { ok: false, code: 'BROWSER_DEPENDENCY_FAILED', diagnostics: { error_name: browserLoadError?.name || 'Error', error_message: String(browserLoadError?.message || browserLoadError), stack: String(browserLoadError?.stack || '').split('\n').slice(0, 12) } };
       }
       diagnostics.browser_render = browserResult.diagnostics || {};
       diagnostics.browser_render_code = browserResult.code;
@@ -55,15 +46,16 @@ module.exports = async function(req, res) {
         result.products = mergeProducts(result.products, browserResult.products);
         diagnostics.products_found = result.products.length;
         diagnostics.browser_products_found = browserResult.products.length;
+        if (result.products.length >= 5) {
+          meta.menu_found = true;
+          meta.validation = 'validated-browser-rendered';
+          meta.error = null;
+        }
       }
-      if (result.products.length >= 5) {
-        meta.menu_found = true;
-        meta.validation = 'validated-browser-rendered';
-        meta.error = null;
-      } else if (browserResult.code === 'BROWSER_ENGINE_FAILED' || browserResult.code === 'BROWSER_DEPENDENCY_FAILED') {
+      if (result.products.length < 5 && (browserResult.code === 'BROWSER_ENGINE_FAILED' || browserResult.code === 'BROWSER_DEPENDENCY_FAILED')) {
         meta.error = { code: 'MENU_BROWSER_RENDER_FAILED', message: 'Меню требует браузерного JavaScript-анализа, но серверный Chromium недоступен.', details: { browser_code: browserResult.code, browser: browserResult.diagnostics || {}, original: meta.error || null } };
-      } else if (diagnostics.js_render?.required) {
-        meta.error = { code: 'MENU_JS_RENDERED_NOT_EXTRACTED', message: 'Страница была отрисована браузером, но позиции меню не удалось извлечь.', details: { browser: browserResult.diagnostics || {}, original: meta.error || null } };
+      } else if (result.products.length < 5 && diagnostics.js_render?.required) {
+        meta.error = { code: 'MENU_JS_RENDERED_NOT_EXTRACTED', message: 'Страница была обработана браузером, но позиции меню не удалось извлечь.', details: { browser: browserResult.diagnostics || {}, original: meta.error || null } };
       }
       meta.diagnostics = diagnostics;
     }
