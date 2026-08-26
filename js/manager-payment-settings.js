@@ -6,8 +6,34 @@
   var state={accounts:null,open:false},modal=null,button=null;
   function app(){return window.__QR_MANAGER_VUE_APP__||null;}
   function currentVenue(){var v=window.__managerCurrentVenue||window.__managerSelectedVenue;if(v&&v.id)return v;var a=app();return a&&a._instance&&a._instance.proxy&&a._instance.proxy.venue?a._instance.proxy.venue:null;}
-  async function sessionToken(){if(!window.db||!db.auth)return null;var r=await db.auth.getSession();return r.data&&r.data.session?r.data.session.access_token:null;}
-  async function api(method,body){var token=await sessionToken();if(!token)throw new Error('Сессия управляющего истекла. Войдите заново.');var o={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};if(body)o.body=JSON.stringify(body);var r=await fetch('/api/payments/yookassa/accounts',o),d={};try{d=await r.json();}catch(e){}if(!r.ok||d.ok===false)throw new Error(d.error||d.message||('HTTP '+r.status));return d;}
+  function getAuthClient(){
+    var candidates=[window.db,window.supabaseClient,window.supabase,window.sb,window.client];
+    for(var i=0;i<candidates.length;i++){
+      var c=candidates[i];
+      if(c&&c.auth&&typeof c.auth.getSession==='function') return c;
+    }
+    return null;
+  }
+  function tokenFromStorage(){
+    try{
+      for(var i=0;i<localStorage.length;i++){
+        var key=localStorage.key(i),raw=localStorage.getItem(key);
+        if(!key||!raw||key.indexOf('sb-')!==0||key.indexOf('-auth-token')===-1) continue;
+        var parsed=JSON.parse(raw);
+        if(parsed&&parsed.access_token)return parsed.access_token;
+        if(Array.isArray(parsed)&&parsed[0]&&parsed[0].access_token)return parsed[0].access_token;
+      }
+    }catch(e){console.warn('[QR SBP] local session lookup failed',e);}
+    return null;
+  }
+  async function sessionToken(){
+    var c=getAuthClient();
+    if(c){
+      try{var r=await c.auth.getSession();var token=r&&r.data&&r.data.session&&r.data.session.access_token;if(token)return token;}catch(e){console.warn('[QR SBP] getSession failed',e);}
+    }
+    return tokenFromStorage();
+  }
+  async function api(method,body){var token=await sessionToken();if(!token)throw new Error('Сессия управляющего не найдена. Войдите в кабинет заново.');var o={method:method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}};if(body)o.body=JSON.stringify(body);var r=await fetch('/api/payments/yookassa/accounts',o),d={};try{d=await r.json();}catch(e){}if(!r.ok||d.ok===false)throw new Error(d.error||d.message||('HTTP '+r.status));return d;}
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
   function accountForVenue(id){var a=state.accounts,row=(a&&a.venues||[]).find(function(x){return x.venue_id===id;});return row?row.account:null;}
   function activeShared(){return !!(state.accounts&&state.accounts.shared&&state.accounts.shared.status==='active');}
@@ -42,7 +68,7 @@
   async function refresh(){state.accounts=await api('GET');if(state.open)render();}
   async function connect(scope){
     var v=currentVenue();if(!v||!v.id){alert('Сначала выберите заведение.');return;}
-    try{var token=await sessionToken();if(!token)throw new Error('Сессия истекла');var r=await fetch('/api/payments/yookassa/connect',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({venue_id:v.id,scope:scope})});var d=await r.json();if(!r.ok||!d.authorization_url)throw new Error(d.error||'Не удалось начать подключение ЮKassa');location.href=d.authorization_url;}catch(e){showError(e);}
+    try{var token=await sessionToken();if(!token)throw new Error('Сессия управляющего не найдена. Войдите в кабинет заново.');var r=await fetch('/api/payments/yookassa/connect',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({venue_id:v.id,scope:scope})});var d=await r.json();if(!r.ok||!d.authorization_url)throw new Error(d.error||'Не удалось начать подключение ЮKassa');location.href=d.authorization_url;}catch(e){showError(e);}
   }
   async function changeStatus(id,action){try{await api('PATCH',{account_id:id,action:action});await refresh();}catch(e){showError(e);}}
   async function useShared(id){if(!confirm('Выключить отдельный СБП этого заведения и использовать общий?'))return;try{await api('PATCH',{account_id:id,action:'disable'});await refresh();}catch(e){showError(e);}}
