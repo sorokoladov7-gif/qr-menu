@@ -8,6 +8,11 @@
   "github": {
     "enabled": true
   },
+  "functions": {
+    "api/import-site.js": {
+      "maxDuration": 60
+    }
+  },
   "headers": [
     {
       "source": "/(cook|waiter|courier|manager|admin)\\.html",
@@ -24,8 +29,7 @@
     {
       "source": "/js/manager-site-import\\.js",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0"
-        }
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     }
   ]
