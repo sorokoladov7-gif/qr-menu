@@ -1,4 +1,17 @@
 const { analyzeSite } = require('../lib/site-menu-analyzer');
+const { renderMenuPages } = require('../lib/site-browser-renderer');
+
+function mergeProducts(existing, rendered) {
+  const out = Array.isArray(existing) ? existing.slice() : [];
+  const keys = new Set(out.map(x => String(x.name || '').trim().toLowerCase()).filter(Boolean));
+  for (const item of Array.isArray(rendered) ? rendered : []) {
+    const key = String(item.name || '').trim().toLowerCase();
+    if (!key || keys.has(key)) continue;
+    keys.add(key);
+    out.push({ name: item.name, description: item.description || null, price: Number(item.price) || 0, category: item.category || 'main', image_url: item.image_url || null, is_available: true, applies_to: 'all', source_url: item.source_url || null, extraction_source: item.source || 'rendered-dom' });
+  }
+  return out;
+}
 
 module.exports = async function(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -7,14 +20,41 @@ module.exports = async function(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return fail(405, 'METHOD_NOT_ALLOWED', 'Метод не поддерживается');
   const raw = String((req.query && req.query.url) || (req.body && req.body.url) || '').trim();
   if (!raw) return fail(400, 'URL_REQUIRED', 'Не передан адрес сайта');
+
   try {
     const result = await analyzeSite(raw);
+    const meta = result.meta || (result.meta = {});
+    const diagnostics = meta.diagnostics || (meta.diagnostics = {});
+    const jsPages = Array.isArray(diagnostics.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : [];
+    const menuPages = Array.isArray(diagnostics.menu_pages) ? diagnostics.menu_pages : [];
+    const renderTargets = [...new Set([...menuPages, ...jsPages])].slice(0, 8);
+    const shouldRender = Boolean(diagnostics.js_render?.required || !Array.isArray(result.products) || result.products.length < 5);
+
+    if (shouldRender && renderTargets.length) {
+      diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
+      diagnostics.analysis_steps.push(`Запуск browser-rendering: ${renderTargets.length} страниц`);
+      const browserResult = await renderMenuPages(renderTargets);
+      diagnostics.browser_render = browserResult.diagnostics || {};
+      diagnostics.browser_render_code = browserResult.code;
+      diagnostics.analysis_steps.push(`Browser-rendering: ${browserResult.code}`);
+      if (browserResult.ok) {
+        result.products = mergeProducts(result.products, browserResult.products);
+        diagnostics.products_found = result.products.length;
+        diagnostics.browser_products_found = browserResult.products.length;
+      }
+      if (result.products.length >= 5) {
+        meta.menu_found = true;
+        meta.validation = 'validated-browser-rendered';
+        meta.error = null;
+      } else if (browserResult.code === 'BROWSER_ENGINE_FAILED') {
+        meta.error = { code: 'MENU_BROWSER_RENDER_FAILED', message: 'Меню требует браузерного JavaScript-анализа, но headless browser не смог запуститься.', details: { browser: browserResult.diagnostics, original: meta.error || null } };
+      } else if (diagnostics.js_render?.required) {
+        meta.error = { code: 'MENU_JS_RENDERED_NOT_EXTRACTED', message: 'Страница была отрисована JavaScript-браузером, но структурированные позиции меню не удалось извлечь.', details: { browser: browserResult.diagnostics, original: meta.error || null } };
+      }
+      meta.diagnostics = diagnostics;
+    }
     return res.status(200).json(result);
   } catch (error) {
-    return fail(500, 'IMPORT_RUNTIME_ERROR', 'Ошибка универсального анализатора сайта', {
-      name: error?.name || 'Error',
-      message: String(error?.message || error),
-      stack: String(error?.stack || '').split('\n').slice(0, 10)
-    });
+    return fail(500, 'IMPORT_RUNTIME_ERROR', 'Ошибка универсального анализатора сайта', { name: error?.name || 'Error', message: String(error?.message || error), stack: String(error?.stack || '').split('\n').slice(0, 10) });
   }
 };
