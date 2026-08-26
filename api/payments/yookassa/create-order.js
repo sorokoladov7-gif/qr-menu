@@ -7,7 +7,7 @@ async function findAccount(venueId) {
   const relations = await supabase(`manager_venues?venue_id=eq.${encodeURIComponent(venueId)}&select=manager_id&limit=1`);
   const managerId = Array.isArray(relations) && relations[0] ? relations[0].manager_id : null;
   if (!managerId) return null;
-  accounts = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&account_scope=eq.platform&venue_id=is.null&provider=yookassa&status=eq.active&select=id,credentials_ref,merchant_id,metadata&limit=1`);
+  accounts = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&account_scope=eq.platform&venue_id=is.null&provider=eq.yookassa&status=eq.active&select=id,credentials_ref,merchant_id,metadata&limit=1`);
   return Array.isArray(accounts) ? accounts[0] : null;
 }
 
@@ -27,21 +27,12 @@ module.exports = async function handler(req, res) {
     const account = await findAccount(order.venue_id);
     if (!account || !account.credentials_ref) return json(res, 409, { ok: false, error: 'venue_payment_not_configured' });
 
-    // If a payment was already created for this order, return its current confirmation instead of creating a second charge.
     if (order.payment_id && order.payment_provider === 'yookassa') {
       try {
         const { yookassaGetPayment } = require('../../_lib/yookassa');
         const existing = await yookassaGetPayment(decryptSecret(account.credentials_ref), order.payment_id);
-        return json(res, 200, {
-          ok: true,
-          payment_id: existing.id,
-          status: existing.status,
-          confirmation_url: existing.confirmation && existing.confirmation.confirmation_url || null,
-          reused: true
-        });
-      } catch (_) {
-        // The old payment may have expired or disappeared. A fresh payment can be created below.
-      }
+        return json(res, 200, { ok: true, payment_id: existing.id, status: existing.status, confirmation_url: existing.confirmation && existing.confirmation.confirmation_url || null, reused: true });
+      } catch (_) {}
     }
 
     const amount = Number(order.total_price);
@@ -53,46 +44,28 @@ module.exports = async function handler(req, res) {
 
     const idempotenceKey = `order:${order.id}:${order.payment_id || 'new'}`;
     const payment = await yookassaCreatePayment(decryptSecret(account.credentials_ref), {
-      amount: { value: amount.toFixed(2), currency: 'RUB' },
-      capture: true,
+      amount: { value: amount.toFixed(2), currency: 'RUB' }, capture: true,
       payment_method_data: { type: 'sbp' },
       confirmation: { type: 'redirect', return_url: `${origin(req)}/menu.html?payment=order&order_id=${encodeURIComponent(order.id)}` },
       description: `Заказ №${order.order_number}`,
       metadata: { qr_menu_order_id: order.id, qr_menu_venue_id: order.venue_id }
     }, idempotenceKey);
 
-    await supabase(`orders?id=eq.${encodeURIComponent(order.id)}`, {
-      method: 'PATCH', headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ payment_provider: 'yookassa', payment_id: payment.id, payment_status: payment.status || 'pending' })
-    });
+    await supabase(`orders?id=eq.${encodeURIComponent(order.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ payment_provider: 'yookassa', payment_id: payment.id, payment_status: payment.status || 'pending' }) });
 
-    const transactionRows = await supabase(`payment_transactions?order_id=eq.${encodeURIComponent(order.id)}&provider=yookassa&payment_type=eq.order&select=id&limit=1`);
+    const transactionRows = await supabase(`payment_transactions?order_id=eq.${encodeURIComponent(order.id)}&provider=eq.yookassa&payment_type=eq.order&select=id&limit=1`);
     const transactionPayload = {
-      venue_id: order.venue_id,
-      manager_id: managerId,
-      order_id: order.id,
-      subscription_id: null,
-      payment_account_id: account.id,
-      provider: 'yookassa',
-      payment_type: 'order',
-      provider_payment_id: payment.id,
-      amount,
-      currency: 'RUB',
-      status: payment.status || 'pending',
-      payment_method: 'sbp',
+      venue_id: order.venue_id, manager_id: managerId, order_id: order.id, subscription_id: null,
+      payment_account_id: account.id, provider: 'yookassa', payment_type: 'order', provider_payment_id: payment.id,
+      amount, currency: 'RUB', status: payment.status || 'pending', payment_method: 'sbp',
       confirmation_url: payment.confirmation && payment.confirmation.confirmation_url || null,
       description: `Заказ №${order.order_number}`,
-      metadata: { source: 'qr-menu', venue_id: order.venue_id, order_id: order.id },
-      updated_at: new Date().toISOString()
+      metadata: { source: 'qr-menu', venue_id: order.venue_id, order_id: order.id }, updated_at: new Date().toISOString()
     };
     if (Array.isArray(transactionRows) && transactionRows.length) {
-      await supabase(`payment_transactions?id=eq.${encodeURIComponent(transactionRows[0].id)}`, {
-        method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(transactionPayload)
-      });
+      await supabase(`payment_transactions?id=eq.${encodeURIComponent(transactionRows[0].id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(transactionPayload) });
     } else {
-      await supabase('payment_transactions', {
-        method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(transactionPayload)
-      });
+      await supabase('payment_transactions', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(transactionPayload) });
     }
 
     const confirmationUrl = payment.confirmation && payment.confirmation.confirmation_url;
