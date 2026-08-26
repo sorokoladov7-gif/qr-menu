@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "engines": { "node": ">=20" },
   "dependencies": {
-    "@sparticuz/chromium": "149.0.0",
-    "puppeteer-core": "25.9.0"
+    "@sparticuz/chromium": "147.0.0",
+    "puppeteer-core": "24.41.0"
   }
 }
