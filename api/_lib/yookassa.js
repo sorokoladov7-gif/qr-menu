@@ -12,38 +12,33 @@ function fromBase64url(value){const n=String(value).replace(/-/g,'+').replace(/_
 function randomToken(bytes=32){return base64url(crypto.randomBytes(bytes));}
 function sha256(value){return crypto.createHash('sha256').update(String(value)).digest('hex');}
 
+const SUPABASE_URL = 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const PUBLIC_SUPABASE_ANON_KEY = 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 
 function supabaseConfig(){
   return {
-    url: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co',
+    url: SUPABASE_URL,
     key: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY,
-    authKey: process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || PUBLIC_SUPABASE_ANON_KEY
+    authKey: PUBLIC_SUPABASE_ANON_KEY
   };
 }
 async function supabase(path,options={}){
   const cfg=supabaseConfig();
   if(!cfg.url||!cfg.key)throw new Error('Supabase server environment is not configured');
   const headers=Object.assign({apikey:cfg.key,Authorization:`Bearer ${cfg.key}`,'Content-Type':'application/json'},options.headers||{});
-  const response=await fetch(`${cfg.url.replace(/\/$/,'')}/rest/v1/${path}`,Object.assign({},options,{headers}));
+  const response=await fetch(`${cfg.url}/rest/v1/${path}`,Object.assign({},options,{headers}));
   const text=await response.text();let data=null;try{data=text?JSON.parse(text):null}catch(_){data=text}
   if(!response.ok){const message=data&&(data.message||data.error||data.hint)||`Supabase HTTP ${response.status}`;const error=new Error(message);error.status=response.status;error.data=data;throw error;}
   return data;
 }
 async function getSupabaseUser(accessToken){
   const cfg=supabaseConfig();
-  if(!cfg.url)return null;
-  if(!accessToken)return null;
-  const authKey=cfg.authKey;
-  if(!authKey)return null;
-  const response=await fetch(`${cfg.url.replace(/\/$/,'')}/auth/v1/user`,{headers:{apikey:authKey,Authorization:`Bearer ${accessToken}`}});
-  if(!response.ok){
-    let details=null;try{details=await response.json();}catch(_){}
-    const error=new Error('supabase_user_auth_failed');error.status=response.status;error.data=details;throw error;
-  }
+  if(!cfg.url||!accessToken)return null;
+  const response=await fetch(`${cfg.url}/auth/v1/user`,{headers:{apikey:cfg.authKey,Authorization:`Bearer ${accessToken}`}});
+  if(!response.ok){let details=null;try{details=await response.json();}catch(_){}const error=new Error('supabase_user_auth_failed');error.status=response.status;error.data=details;throw error;}
   return response.json();
 }
-function bearer(req){const value=req.headers.authorization||'';return value.startsWith('Bearer ')?value.slice(7).trim():'';}
+function bearer(req){const value=String(req.headers.authorization||'');return value.startsWith('Bearer ')?value.slice(7).trim():'';}
 async function assertManagerVenue(userId,venueId){if(!userId||!venueId)return null;const rows=await supabase(`manager_venues?manager_id=eq.${encodeURIComponent(userId)}&venue_id=eq.${encodeURIComponent(venueId)}&select=id,manager_id,venue_id&limit=1`);return Array.isArray(rows)&&rows.length?rows[0]:null;}
 function callbackUrl(req){return process.env.YOOKASSA_OAUTH_CALLBACK_URL||`${origin(req)}/api/payments/yookassa/callback`;}
 function origin(req){const configured=process.env.PUBLIC_APP_URL||process.env.NEXT_PUBLIC_APP_URL;if(configured)return configured.replace(/\/$/,'');const host=req.headers['x-forwarded-host']||req.headers.host;const proto=req.headers['x-forwarded-proto']||'https';return `${proto}://${host}`;}
