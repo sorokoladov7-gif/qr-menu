@@ -1,4 +1,5 @@
-const { json, supabase, getSupabaseUser, bearer } = require('../../_lib/yookassa');
+const { json, supabase } = require('../../_lib/yookassa');
+const { bearer, getManagerUser } = require('../../_lib/manager-auth');
 
 async function managerVenues(managerId) {
   return supabase(`manager_venues?manager_id=eq.${encodeURIComponent(managerId)}&select=venue_id`);
@@ -15,8 +16,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const user = await getSupabaseUser(bearer(req));
-    if (!user) return json(res, 401, { ok: false, error: 'auth_required' });
+    const user = await getManagerUser(bearer(req));
 
     const venueRows = await managerVenues(user.id);
     const venueIds = (venueRows || []).map(x => x.venue_id).filter(Boolean);
@@ -101,6 +101,6 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { ok: false, error: 'unsupported_action' });
   } catch (e) {
     console.error('[YooKassa accounts]', e);
-    return json(res, e.status || 500, { ok: false, error: e.message || 'payment_accounts_failed' });
+    return json(res, e.status || 500, { ok: false, error: e.message || 'payment_accounts_failed', details: e.data || null });
   }
 };
