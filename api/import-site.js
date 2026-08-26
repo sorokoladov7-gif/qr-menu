@@ -1,5 +1,4 @@
 const { analyzeSite } = require('../lib/site-menu-analyzer');
-const { renderMenuPages } = require('../lib/site-browser-renderer');
 
 function mergeProducts(existing, rendered) {
   const out = Array.isArray(existing) ? existing.slice() : [];
@@ -33,7 +32,22 @@ module.exports = async function(req, res) {
     if (shouldRender && renderTargets.length) {
       diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
       diagnostics.analysis_steps.push(`Запуск browser-rendering: ${renderTargets.length} страниц`);
-      const browserResult = await renderMenuPages(renderTargets);
+      let browserResult;
+      try {
+        // Lazy-load Chromium so a missing/incompatible browser dependency cannot crash the Vercel function at module initialization.
+        const { renderMenuPages } = require('../lib/site-browser-renderer');
+        browserResult = await renderMenuPages(renderTargets);
+      } catch (browserLoadError) {
+        browserResult = {
+          ok: false,
+          code: 'BROWSER_DEPENDENCY_FAILED',
+          diagnostics: {
+            error_name: browserLoadError?.name || 'Error',
+            error_message: String(browserLoadError?.message || browserLoadError),
+            stack: String(browserLoadError?.stack || '').split('\n').slice(0, 12)
+          }
+        };
+      }
       diagnostics.browser_render = browserResult.diagnostics || {};
       diagnostics.browser_render_code = browserResult.code;
       diagnostics.analysis_steps.push(`Browser-rendering: ${browserResult.code}`);
@@ -46,10 +60,10 @@ module.exports = async function(req, res) {
         meta.menu_found = true;
         meta.validation = 'validated-browser-rendered';
         meta.error = null;
-      } else if (browserResult.code === 'BROWSER_ENGINE_FAILED') {
-        meta.error = { code: 'MENU_BROWSER_RENDER_FAILED', message: 'Меню требует браузерного JavaScript-анализа, но headless browser не смог запуститься.', details: { browser: browserResult.diagnostics, original: meta.error || null } };
+      } else if (browserResult.code === 'BROWSER_ENGINE_FAILED' || browserResult.code === 'BROWSER_DEPENDENCY_FAILED') {
+        meta.error = { code: 'MENU_BROWSER_RENDER_FAILED', message: 'Меню требует браузерного JavaScript-анализа, но серверный Chromium недоступен.', details: { browser_code: browserResult.code, browser: browserResult.diagnostics || {}, original: meta.error || null } };
       } else if (diagnostics.js_render?.required) {
-        meta.error = { code: 'MENU_JS_RENDERED_NOT_EXTRACTED', message: 'Страница была отрисована JavaScript-браузером, но структурированные позиции меню не удалось извлечь.', details: { browser: browserResult.diagnostics, original: meta.error || null } };
+        meta.error = { code: 'MENU_JS_RENDERED_NOT_EXTRACTED', message: 'Страница была отрисована браузером, но позиции меню не удалось извлечь.', details: { browser: browserResult.diagnostics || {}, original: meta.error || null } };
       }
       meta.diagnostics = diagnostics;
     }
