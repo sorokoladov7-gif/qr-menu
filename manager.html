@@ -1425,14 +1425,15 @@ Vue.createApp({
 <script id="integrated-recipes-js">
 (function(){
   'use strict';
-  var recipeStarted=false;
-  function startRecipes(){
-    if(recipeStarted) return;
-    if(!document.getElementById('productSearch') || !document.getElementById('ingredientsModal')) return;
-    recipeStarted=true;
-    (function(){
+  var recipeRoot=null;
+  var recipeVenueListenerBound=false;
 
-function initIntegratedRecipes(){
+  function startRecipes(){
+    var root=document.querySelector('.recipe-tab-container .recipe-wrap');
+    if(!root) return;
+    if(recipeRoot===root) return;
+    recipeRoot=root;
+
 
 'use strict';
 var db=window.db, venueId=localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId');
@@ -1693,21 +1694,17 @@ Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){m.
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){m.hidden=true;m.setAttribute('hidden','')})}});
 window.addEventListener('manager-venue-selected',function(e){if(e.detail&&e.detail.id){venueId=e.detail.id;try{localStorage.setItem('manager_venue_id',String(venueId))}catch(_e){}loadAll()}});
 loadAll();
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initIntegratedRecipes);
-} else {
-  initIntegratedRecipes();
-}
-
-    })();
   }
-  // Vue creates the recipe DOM only after the user selects the Recipes tab.
-  // Observe DOM changes and initialize exactly once when all controls exist.
-  var obs=new MutationObserver(function(){ startRecipes(); });
-  obs.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
-  startRecipes();
+
+  function observeRecipes(){
+    var app=document.getElementById('app')||document.body;
+    var obs=new MutationObserver(function(){ startRecipes(); });
+    obs.observe(app,{childList:true,subtree:true});
+    startRecipes();
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',observeRecipes,{once:true});
+  else observeRecipes();
 })();
 </script>
 </body>
