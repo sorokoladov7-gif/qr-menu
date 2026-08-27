@@ -37,29 +37,48 @@
 .template-preview-row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
 .template-preview-row:last-child{border-bottom:0}
 #qr-quick-nav { display: none !important; }
-/* Стили для рецептур */
+.recipe-tab-container{min-height:820px}
+
+</style>
+<script src="/js/manager-hall-ai.js"></script>
+<style id="integrated-recipes-css">
+body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}
+.recipe-wrap{max-width:1250px;margin:0 auto;padding:20px 18px 40px}
+.recipe-head{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.recipe-head h2{margin:0}
+.recipe-actions{display:flex;gap:8px;flex-wrap:wrap}
+.recipe-grid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px}
+.glass{border-radius:16px}
+.card{padding:18px}
+.muted{color:#94a3b8}
+.list button{width:100%;text-align:left;margin:4px 0}
+.product-active{border-color:#6366f1!important;background:rgba(99,102,241,.13)!important}
+.recipe-row{display:grid;grid-template-columns:minmax(180px,1fr) 110px 75px minmax(130px,1fr) auto;gap:8px;align-items:center;margin-bottom:8px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.msg{padding:10px 12px;border-radius:10px;margin:10px 0}
+.ok{background:#064e3b}.err{background:#7f1d1d}
+.cost-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.cost-card{padding:12px;border:1px solid #ffffff12;border-radius:12px;background:#ffffff06}
+.cost-card .n{font-size:20px;font-weight:800}.cost-card .l{font-size:11px;color:#94a3b8;margin-top:3px}
+.ingredient-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #ffffff12}
+.ingredient-actions{display:flex;gap:6px;flex-wrap:wrap}
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.tech-card{padding:12px;border:1px solid #ffffff12;border-radius:14px;background:#ffffff05}
+.tech-card img{width:100%;height:130px;object-fit:cover;border-radius:10px;background:#111827}
+.catalog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.catalog-card{padding:14px;border:1px solid #ffffff12;border-radius:14px;background:#ffffff05}
+.catalog-card:hover{border-color:#6366f1}
 .badge2{display:inline-flex;padding:3px 7px;border-radius:999px;background:rgba(99,102,241,.15);color:#c4b5fd;font-size:11px}
 .modalx{position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;display:flex;align-items:center;justify-content:center;padding:18px}
 .modalx>div{width:min(1100px,100%);max-height:90vh;overflow:auto}
-.recipe-row{display:grid;grid-template-columns:minmax(180px,1fr) 110px 75px minmax(130px,1fr) auto;gap:8px;align-items:center;margin-bottom:8px}
-.cost-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
-.cost-card{padding:12px;border:1px solid #ffffff12;border-radius:12px;background:#ffffff06}
-.cost-card .n{font-size:20px;font-weight:800}
-.cost-card .l{font-size:11px;color:#94a3b8;margin-top:3px}
-.ingredient-row{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid #ffffff12}
+.progress{height:8px;border-radius:99px;background:#ffffff12;overflow:hidden}.progress>i{display:block;height:100%;background:#6366f1;width:0}
+.ocr-lines{max-height:300px;overflow:auto;white-space:pre-wrap;background:#020617;border:1px solid #ffffff12;padding:12px;border-radius:10px;font-size:12px}
 .gen-row{display:grid;grid-template-columns:minmax(160px,1.3fr) 100px 70px minmax(160px,1fr);gap:8px;margin:6px 0}
-@media(max-width:850px){.recipe-row{grid-template-columns:1fr 100px 70px 1fr auto}.cost-grid{grid-template-columns:repeat(2,1fr)}.gen-row{grid-template-columns:1fr 90px 60px 1fr}}
-@media(max-width:520px){.recipe-row{grid-template-columns:1fr 90px 60px auto}.recipe-row input:last-of-type{grid-column:1/-1}.cost-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:850px){.recipe-grid{grid-template-columns:1fr}.recipe-row{grid-template-columns:1fr 100px 70px 1fr auto}.cost-grid{grid-template-columns:repeat(2,1fr)}.gen-row{grid-template-columns:1fr 90px 60px 1fr}}
+@media(max-width:520px){.recipe-wrap{padding:12px 10px 30px}.cost-grid{grid-template-columns:1fr 1fr}.recipe-row{grid-template-columns:1fr 90px 60px auto}.recipe-row input:last-of-type{grid-column:1/-1}}
+.modalx[hidden]{display:none!important}
+
 </style>
-<!-- Подключаем только один раз все необходимые скрипты -->
-<script src="/js/config.js"></script>
-<script src="/js/manager-hall.js"></script>
-<script src="/js/manager-hall-view.js"></script>
-<script src="/js/manager-hall-ai.js"></script>
-<script src="/js/manager-design.js"></script>
-<script src="/js/demo-data.js"></script>
-<script src="/js/demo-mode.js"></script>
-<script src="/js/app.js"></script>
 </head>
 <body>
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
@@ -124,57 +143,121 @@
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
 <button v-bind:class="{on:tab==='hall'}" data-manager-hall-tab v-on:click="tab='hall'">🪑 Зал / Столы</button>
 <button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">👥 Персонал</button>
-<button v-bind:class="{on:tab==='recipes'}" v-on:click="tab='recipes'; initRecipesPanel()">🧾 Рецептуры</button>
+<button v-bind:class="{on:tab==='recipes'}" v-on:click="tab='recipes'">🧾 Рецептуры</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
 <button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
-<!-- ===================== ВКЛАДКА ПЕРСОНАЛ ===================== -->
+<!-- ===================== ВКЛАДКА ПЕРСОНАЛ (с аналитикой и управлением) ===================== -->
 <div v-if="tab==='staff'">
   <h3 style="margin-top:0">👥 Персонал — сводка и управление</h3>
   <p class="muted" style="font-size:13px;margin-bottom:14px">
     Данные за последние {{ staffAnalytics.period_days || 30 }} дней
   </p>
+
+  <!-- АНАЛИТИКА -->
   <div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
     <div class="glass stat"><div class="num" style="color:#6366f1">{{ staffAnalytics.cooks.reduce((s,c)=>s+c.orders_count,0) }}</div><div class="lbl">Всего заказов (повара)</div></div>
     <div class="glass stat"><div class="num" style="color:#f59e0b">{{ staffAnalytics.couriers.reduce((s,c)=>s+c.deliveries_count,0) }}</div><div class="lbl">Всего доставок</div></div>
     <div class="glass stat"><div class="num" style="color:#67e8f9">{{ staffAnalytics.waiters.reduce((s,w)=>s+w.served_count,0) }}</div><div class="lbl">Всего выдач</div></div>
   </div>
+
+  <!-- ПОВАРА -->
   <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
-    <div class="spread"><h4 style="margin:0">👨‍🍳 Повара</h4><button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button></div>
+    <div class="spread">
+      <h4 style="margin:0">👨‍🍳 Повара</h4>
+      <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button>
+    </div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</div>
-    <table class="tbl"><tr><th>Имя</th><th>Телефон</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th><th>Действия</th></tr>
-    <tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name"><td><b>{{ c.name }}</b></td><td class="muted">{{ getStaffPhone('cook', c.name) || '—' }}</td><td>{{ c.orders_count }}</td><td v-bind:style="{color: c.avg_time_min <= 10 ? '#6ee7b7' : c.avg_time_min <= 20 ? '#fcd34d' : '#fca5a5'}">{{ c.avg_time_min }} мин</td><td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td><td><button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'cook')" title="Сбросить PIN">🔄 PIN</button><button class="btn btn-ghost btn-sm" v-on:click="copyCookAccess(c)" title="Скопировать инструкцию">📋</button><button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button></td></tr>
-    <tr v-if="!staffAnalytics.cooks.length"><td colspan="6" class="muted">Нет поваров</td></tr></table>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Телефон</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th><th>Действия</th></tr>
+      <tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
+        <td><b>{{ c.name }}</b></td>
+        <td class="muted">{{ getStaffPhone('cook', c.name) || '—' }}</td>
+        <td>{{ c.orders_count }}</td>
+        <td v-bind:style="{color: c.avg_time_min <= 10 ? '#6ee7b7' : c.avg_time_min <= 20 ? '#fcd34d' : '#fca5a5'}">{{ c.avg_time_min }} мин</td>
+        <td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'cook')" title="Сбросить PIN">🔄 PIN</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="copyCookAccess(c)" title="Скопировать инструкцию">📋</button>
+          <button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button>
+        </td>
+      </tr>
+      <tr v-if="!staffAnalytics.cooks.length"><td colspan="6" class="muted">Нет поваров</td></tr>
+    </table>
   </div>
+
+  <!-- КУРЬЕРЫ -->
   <div class="glass card" style="margin-bottom:14px;border-color:#f59e0b">
-    <div class="spread"><h4 style="margin:0">🚗 Курьеры</h4><button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button></div>
+    <div class="spread">
+      <h4 style="margin:0">🚗 Курьеры</h4>
+      <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button>
+    </div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxCouriers }} ({{ couriers.length }} занято)</div>
-    <table class="tbl"><tr><th>Имя</th><th>Телефон</th><th>Доставок</th><th>Выручка</th><th>Действия</th></tr>
-    <tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name"><td><b>{{ c.name }}</b></td><td class="muted">{{ getStaffPhone('courier', c.name) || '—' }}</td><td>{{ c.deliveries_count }}</td><td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td><td><button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'courier')" title="Сбросить PIN">🔄 PIN</button><button class="btn btn-ghost btn-sm" v-on:click="copyCourierAccess(c)" title="Скопировать инструкцию">📋</button><button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button></td></tr>
-    <tr v-if="!staffAnalytics.couriers.length"><td colspan="5" class="muted">Нет курьеров</td></tr></table>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Телефон</th><th>Доставок</th><th>Выручка</th><th>Действия</th></tr>
+      <tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
+        <td><b>{{ c.name }}</b></td>
+        <td class="muted">{{ getStaffPhone('courier', c.name) || '—' }}</td>
+        <td>{{ c.deliveries_count }}</td>
+        <td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'courier')" title="Сбросить PIN">🔄 PIN</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="copyCourierAccess(c)" title="Скопировать инструкцию">📋</button>
+          <button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button>
+        </td>
+      </tr>
+      <tr v-if="!staffAnalytics.couriers.length"><td colspan="5" class="muted">Нет курьеров</td></tr>
+    </table>
   </div>
+
+  <!-- ОФИЦИАНТЫ -->
   <div class="glass card" style="margin-bottom:14px;border-color:#67e8f9">
-    <div class="spread"><h4 style="margin:0">🤵 Официанты</h4><button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button></div>
+    <div class="spread">
+      <h4 style="margin:0">🤵 Официанты</h4>
+      <button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button>
+    </div>
     <div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxWaiters }} ({{ waiters.length }} занято)</div>
-    <table class="tbl"><tr><th>Имя</th><th>Телефон</th><th>Выдач</th><th>Выручка</th><th>Действия</th></tr>
-    <tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name"><td><b>{{ w.name }}</b></td><td class="muted">{{ getStaffPhone('waiter', w.name) || '—' }}</td><td>{{ w.served_count }}</td><td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td><td><button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button><button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋</button><button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button></td></tr>
-    <tr v-if="!staffAnalytics.waiters.length"><td colspan="5" class="muted">Нет официантов</td></tr></table>
+    <table class="tbl">
+      <tr><th>Имя</th><th>Телефон</th><th>Выдач</th><th>Выручка</th><th>Действия</th></tr>
+      <tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
+        <td><b>{{ w.name }}</b></td>
+        <td class="muted">{{ getStaffPhone('waiter', w.name) || '—' }}</td>
+        <td>{{ w.served_count }}</td>
+        <td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋</button>
+          <button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button>
+        </td>
+      </tr>
+      <tr v-if="!staffAnalytics.waiters.length"><td colspan="5" class="muted">Нет официантов</td></tr>
+    </table>
   </div>
+
+  <!-- Инструкция по доступу для сотрудников -->
   <div class="glass card" style="border-color:#6366f1; margin-top:14px;">
     <label>🔑 Данные для входа сотрудников</label>
-    <div class="row" style="margin-top:8px"><b style="font-size:16px">Код заведения: {{ venue.slug }}</b><button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button></div>
-    <p class="muted" style="font-size:11px;margin:8px 0 0">Повар открывает cook.html, курьер – courier.html, официант – waiter.html и вводит: код заведения + свой PIN.</p>
+    <div class="row" style="margin-top:8px">
+      <b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
+      <button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button>
+    </div>
+    <p class="muted" style="font-size:11px;margin:8px 0 0">
+      Повар открывает cook.html, курьер – courier.html, официант – waiter.html и вводит: код заведения + свой PIN.
+    </p>
   </div>
 </div>
 
-<!-- ===================== ВКЛАДКА РЕЦЕПТУРЫ (интегрирована) ===================== -->
-<div v-if="tab==='recipes'" id="recipes-panel" class="glass card" style="padding:18px;overflow:auto;max-height:calc(100vh - 280px)">
-  <!-- Контент из manager-recipes.html -->
-  <div class="recipe-head" style="display:flex;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px">
-    <div><h2 style="margin:0">🧾 Рецептуры</h2><div class="muted" style="font-size:12px">Техкарты → распознавание → сопоставление → рецептура → себестоимость</div></div>
-    <div class="recipe-actions" style="display:flex;gap:8px;flex-wrap:wrap">
+<!-- ===================== ЕДИНАЯ ВКЛАДКА РЕЦЕПТУР ===================== -->
+<div v-if="tab==='recipes'" class="glass card recipe-tab-container" style="padding:0;overflow:auto">
+<div class="recipe-wrap">
+  <div class="recipe-head">
+    <div>
+      <h2>🧾 Рецептуры</h2>
+      <div class="muted" style="font-size:12px">Техкарты → распознавание → сопоставление → рецептура → себестоимость</div>
+    </div>
+    <div class="recipe-actions">
       <button class="btn btn-primary" id="uploadTechBtn">📷 Добавить техкарты</button>
       <button class="btn btn-ghost" id="catalogBtn">📚 База блюд и техкарт</button>
       <button class="btn btn-ghost" id="ingredientsDbBtn">🧂 База ингредиентов</button>
@@ -184,22 +267,25 @@
   <div id="msg"></div>
   <div id="generationSummary" class="muted" style="font-size:12px;margin:-4px 0 12px"></div>
 
-  <div class="glass card" style="margin-bottom:16px;padding:14px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-      <div style="flex:1;min-width:220px"><b>Автоматическое заполнение</b><div class="muted" style="font-size:11px;margin-top:3px">Если техкарт нет, рецептуры берутся из общей базы стандартных техкарт и сопоставляются с меню заведения.</div></div>
+  <div class="glass card" style="margin-bottom:16px">
+    <div class="toolbar">
+      <div style="flex:1;min-width:220px">
+        <b>Автоматическое заполнение</b>
+        <div class="muted" style="font-size:11px;margin-top:3px">Если техкарт нет, рецептуры берутся из общей базы стандартных техкарт и сопоставляются с меню заведения.</div>
+      </div>
       <button class="btn btn-green" id="generateAllBtn">⚡ Автозаполнить рецептуры</button>
     </div>
   </div>
 
-  <div style="display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px">
-    <div class="glass card" style="padding:14px">
-      <div style="display:flex;gap:8px;align-items:center"><h3 style="margin:0;flex:1">Блюда</h3><span class="badge2" id="productCount" style="background:rgba(99,102,241,.15);color:#c4b5fd;padding:3px 7px;border-radius:999px;font-size:11px">0</span></div>
-      <input id="productSearch" placeholder="Поиск блюда..." style="width:100%;margin:10px 0;background:#1e293b;border:1px solid #ffffff12;border-radius:8px;padding:8px;color:#eef2ff">
+  <div class="recipe-grid">
+    <div class="glass card">
+      <div class="toolbar"><h3 style="margin:0;flex:1">Блюда</h3><span class="badge2" id="productCount">0</span></div>
+      <input id="productSearch" placeholder="Поиск блюда..." style="width:100%;margin:10px 0">
       <div id="products" class="list"></div>
     </div>
 
-    <div class="glass card" style="padding:14px">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <div class="glass card">
+      <div class="toolbar">
         <div style="flex:1"><h3 id="title" style="margin:0">Выберите товар</h3><div id="matchInfo" class="muted" style="font-size:11px;margin-top:3px"></div></div>
         <button id="save" class="btn btn-primary" hidden>Сохранить рецептуру</button>
       </div>
@@ -207,17 +293,56 @@
       <div id="recipe"></div>
 
       <hr style="border-color:#ffffff12;margin:22px 0">
-      <div style="display:flex;gap:8px;align-items:center"><h3 style="margin:0;flex:1">Ингредиенты заведения</h3><button id="refreshIngredients" class="btn btn-ghost btn-sm">🔄 Обновить</button></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
-        <input id="iname" placeholder="Название" style="flex:1;min-width:120px">
-        <select id="iunit" style="width:auto"><option value="g">г</option><option value="kg">кг</option><option value="ml">мл</option><option value="l">л</option><option value="pcs">шт</option></select>
-        <input id="iqty" type="number" min="0.001" step="0.001" value="1" placeholder="Закуп. кол-во" style="width:100px">
-        <input id="iprice" type="number" min="0" step="0.01" value="0" placeholder="Цена закупки" style="width:100px">
+      <div class="toolbar">
+        <h3 style="margin:0;flex:1">Ингредиенты заведения</h3>
+        <button id="refreshIngredients" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+      </div>
+      <div class="toolbar" style="margin-top:10px">
+        <input id="iname" placeholder="Название">
+        <select id="iunit"><option value="g">г</option><option value="kg">кг</option><option value="ml">мл</option><option value="l">л</option><option value="pcs">шт</option></select>
+        <input id="iqty" type="number" min="0.001" step="0.001" value="1" placeholder="Закуп. кол-во">
+        <input id="iprice" type="number" min="0" step="0.01" value="0" placeholder="Цена закупки">
         <button id="addIng" class="btn btn-green">Добавить</button>
       </div>
       <div id="ingredients" style="margin-top:12px"></div>
     </div>
   </div>
+</div>
+
+<div id="techModal" class="modalx" hidden>
+  <div class="glass card">
+    <div class="toolbar"><div style="flex:1"><h3 style="margin:0">📷 Техкарты заведения</h3><div class="muted" style="font-size:11px">OCR работает в браузере. OpenAI API не используется.</div></div><button class="btn btn-ghost" data-close="techModal">×</button></div>
+    <div id="techList" class="tech-grid" style="margin-top:14px"></div>
+    <div id="ocrPanel" hidden style="margin-top:16px">
+      <h4>Результат распознавания</h4>
+      <div class="progress"><i id="ocrProgress"></i></div>
+      <div id="ocrStatus" class="muted" style="font-size:12px;margin:7px 0"></div>
+      <div id="ocrText" class="ocr-lines"></div>
+      <div id="ocrRecipeRows" style="margin-top:12px"></div>
+      <div class="toolbar" style="margin-top:12px">
+        <select id="ocrProduct" style="flex:1"></select>
+        <button class="btn btn-primary" id="applyOcr">Создать рецептуру из распознанной техкарты</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="catalogModal" class="modalx" hidden>
+  <div class="glass card">
+    <div class="toolbar"><div style="flex:1"><h3 style="margin:0">📚 База блюд и техкарт</h3><div class="muted" style="font-size:11px">Общая база используется только как источник стандартных техкарт. Рецептура копируется в конкретное заведение и затем редактируется.</div></div><button class="btn btn-ghost" data-close="catalogModal">×</button></div>
+    <input id="catalogSearch" placeholder="Поиск блюда или ингредиента..." style="width:100%;margin:12px 0">
+    <div id="catalogList" class="catalog-grid"></div>
+  </div>
+</div>
+
+<div id="ingredientsModal" class="modalx" hidden>
+  <div class="glass card">
+    <div class="toolbar"><div style="flex:1"><h3 style="margin:0">🧂 База ингредиентов</h3><div class="muted" style="font-size:11px">Стандартные ингредиенты и единицы измерения. Закупочные цены всегда задаются заведением.</div></div><button class="btn btn-ghost" data-close="ingredientsModal">×</button></div>
+    <input id="ingredientsSearch" placeholder="Поиск ингредиента..." style="width:100%;margin:12px 0">
+    <div id="ingredientsDbList"></div>
+  </div>
+</div>
+
 </div>
 
 <!-- ===================== ВКЛАДКА МЕНЮ ===================== -->
@@ -243,11 +368,17 @@
 <!-- ===================== ВКЛАДКА ЗАКАЗЫ ===================== -->
 <div v-if="tab==='orders'">
 <div v-for="o in orders" v-bind:key="o.id" class="glass order-card" v-bind:style="{borderTopColor:statusColor(o.status)}">
-<div class="spread"><div><b>№{{ o.order_number }}</b> <span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span> {{ deliveryIcon(o.order_type) }}</div><b>{{ fmt(o.total_price) }} ₽</b></div>
+<div class="spread">
+<div><b>№{{ o.order_number }}</b> <span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span> {{ deliveryIcon(o.order_type) }}</div>
+<b>{{ fmt(o.total_price) }} ₽</b>
+</div>
 <div class="muted" style="font-size:13px;margin-top:6px">{{ o.customer_phone }} {{ o.customer_name }}</div>
 <div class="muted" style="font-size:12px;margin-top:4px">👨‍ Готовит: <b style="color:#a5b4fc">{{ o.cook_name||'ещё не назначен' }}</b></div>
 <div class="muted" style="font-size:12px;margin-top:4px" v-if="o.courier_name">🚗 Курьер: <b style="color:#c4b5fd">{{ o.courier_name }}</b></div>
-<div style="margin-top:6px;font-size:13px"><div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div><div v-for="a in o.addons" v-bind:key="a.id" class="muted">+ {{ a.name }} <span v-if="a.item_name">({{ a.item_name }})</span></div></div>
+<div style="margin-top:6px;font-size:13px">
+<div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div>
+<div v-for="a in o.addons" v-bind:key="a.id" class="muted">+ {{ a.name }} <span v-if="a.item_name">({{ a.item_name }})</span></div>
+</div>
 <div class="row" style="margin-top:10px">
 <button v-if="o.status==='new'" class="btn btn-primary btn-sm" v-on:click="setStatus(o.id,'cooking')">В работу</button>
 <button v-if="o.status==='cooking'" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'ready')">Готово</button>
@@ -261,7 +392,12 @@
 
 <!-- ===================== ВКЛАДКА АНАЛИТИКА ===================== -->
 <div v-if="tab==='analytics'">
-<div class="spread" style="margin-bottom:14px"><h3>Аналитика заведения</h3><select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto"><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="all">Всё время</option></select></div>
+<div class="spread" style="margin-bottom:14px">
+<h3>Аналитика заведения</h3>
+<select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto">
+<option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="all">Всё время</option></select>
+</div>
+
 <div class="analytics-grid">
 <div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
 <div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.orders }}</div><div class="lbl">Заказов</div></div>
@@ -270,30 +406,158 @@
 <div class="glass stat"><div class="num" style="color:#f472b6">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. время готовки</div></div>
 <div class="glass stat"><div class="num" style="color:#6ee7b7">{{ analytics.repeatClients }}</div><div class="lbl">Повторных клиентов</div></div>
 </div>
-<div class="glass card" style="margin-bottom:14px"><h4 style="margin:0 0 14px">📅 Динамика заказов по дням</h4><div v-if="analytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:120px;overflow-x:auto"><div v-for="d in analytics.daily" v-bind:key="d.date" style="display:flex;flex-direction:column;align-items:center;min-width:34px"><div style="background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:22px" v-bind:style="{height:(d.count/maxDaily*100)+'px'}"></div><div class="muted" style="font-size:10px;margin-top:4px">{{ d.label }}</div><div style="font-size:11px;color:#a5b4fc">{{ d.count }}</div></div></div><p v-else class="muted">Нет данных за период.</p></div>
-<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
-<div class="glass card" style="flex:2;min-width:280px"><h4 style="margin:0 0 10px">🍔 Топ-10 блюд</h4><table class="tbl" style="min-width:auto"><tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th></tr><tr v-for="i in analytics.topItems" v-bind:key="i.name"><td><b>{{ i.name }}</b></td><td>{{ i.count }} шт.</td><td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td></tr><tr v-if="!analytics.topItems.length"><td colspan="3" class="muted">Нет данных</td></tr></table></div>
-<div class="glass card" style="flex:1;min-width:220px"><h4 style="margin:0 0 10px">🧂 Топ добавок</h4><ul class="top-list"><li v-for="a in analytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }}</b></li><li v-if="!analytics.topAddons.length" class="muted">Нет данных</li></ul></div>
+
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 14px">📅 Динамика заказов по дням</h4>
+<div v-if="analytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:120px;overflow-x:auto">
+<div v-for="d in analytics.daily" v-bind:key="d.date" style="display:flex;flex-direction:column;align-items:center;min-width:34px">
+<div style="background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:22px" v-bind:style="{height:(d.count/maxDaily*100)+'px'}"></div>
+<div class="muted" style="font-size:10px;margin-top:4px">{{ d.label }}</div>
+<div style="font-size:11px;color:#a5b4fc">{{ d.count }}</div>
 </div>
-<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
-<div class="glass card" style="flex:1;min-width:220px"><h4 style="margin:0 0 10px">🏠 Тип получения</h4><div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Самовывоз</span><div class="bar"><div class="bar-fill" v-bind:style="{width:typePercent('pickup')+'%'}"></div></div><b>{{ analytics.typeStats.pickup }}</b></div><div><span class="muted" style="font-size:12px">Доставка</span><div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#f59e0b,#ef4444)" v-bind:style="{width:typePercent('delivery')+'%'}"></div></div><b>{{ analytics.typeStats.delivery }}</b></div></div>
-<div class="glass card" style="flex:1;min-width:220px"><h4 style="margin:0 0 10px">💳 Способ оплаты</h4><div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Наличные</span><div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#34d399,#10b981)" v-bind:style="{width:payPercent('cash')+'%'}"></div></div><b>{{ analytics.payStats.cash }}</b></div><div><span class="muted" style="font-size:12px">Карта</span><div class="bar"><div class="bar-fill" v-bind:style="{width:payPercent('card')+'%'}"></div></div><b>{{ analytics.payStats.card }}</b></div></div>
-<div class="glass card" style="flex:1;min-width:220px"><h4 style="margin:0 0 10px">🕒 Часы пик</h4><ul class="top-list"><li v-for="h in analytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }}</b></li><li v-if="!analytics.topHours.length" class="muted">Нет данных</li></ul></div>
 </div>
-<div class="glass card" style="margin-bottom:14px"><h4 style="margin:0 0 10px">👨‍🍳 Повара (скорость и нагрузка)</h4><table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время готовки</th></tr><tr v-for="c in analytics.cooks" v-bind:key="c.name"><td>👨‍🍳 {{ c.name }}</td><td>{{ c.count }}</td><td><b v-bind:style="{color:c.avg<=10?'#6ee7b7':c.avg<=20?'#fcd34d':'#fca5a5'}">{{ c.avg }} мин</b></td></tr><tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr></table></div>
+<p v-else class="muted">Нет данных за период.</p>
+</div>
+
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:2;min-width:280px">
+<h4 style="margin:0 0 10px">🍔 Топ-10 блюд</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th></tr>
+<tr v-for="i in analytics.topItems" v-bind:key="i.name"><td><b>{{ i.name }}</b></td><td>{{ i.count }} шт.</td><td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td></tr>
+<tr v-if="!analytics.topItems.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🧂 Топ добавок</h4>
+<ul class="top-list">
+<li v-for="a in analytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }}</b></li>
+<li v-if="!analytics.topAddons.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🏠 Тип получения</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Самовывоз</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:typePercent('pickup')+'%'}"></div></div>
+<b>{{ analytics.typeStats.pickup }}</b></div>
+<div><span class="muted" style="font-size:12px">Доставка</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#f59e0b,#ef4444)" v-bind:style="{width:typePercent('delivery')+'%'}"></div></div>
+<b>{{ analytics.typeStats.delivery }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">💳 Способ оплаты</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Наличные</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#34d399,#10b981)" v-bind:style="{width:payPercent('cash')+'%'}"></div></div>
+<b>{{ analytics.payStats.cash }}</b></div>
+<div><span class="muted" style="font-size:12px">Карта</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:payPercent('card')+'%'}"></div></div>
+<b>{{ analytics.payStats.card }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🕒 Часы пик</h4>
+<ul class="top-list">
+<li v-for="h in analytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }}</b></li>
+<li v-if="!analytics.topHours.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 10px">👨‍🍳 Повара (скорость и нагрузка)</h4>
+<table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время готовки</th></tr>
+<tr v-for="c in analytics.cooks" v-bind:key="c.name"><td>👨‍🍳 {{ c.name }}</td><td>{{ c.count }}</td>
+<td><b v-bind:style="{color:c.avg<=10?'#6ee7b7':c.avg<=20?'#fcd34d':'#fca5a5'}">{{ c.avg }} мин</b></td></tr>
+<tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr></table>
+</div>
+
 <div class="row" style="align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
-<div class="glass card" style="flex:1;min-width:260px"><h4 style="margin:0 0 10px">🚗 Курьеры (доставки)</h4><table class="tbl" style="min-width:auto"><tr><th>Курьер</th><th>Доставлено</th></tr><tr v-for="c in analytics.couriers" v-bind:key="c.name"><td>🚗 {{ c.name }}</td><td>{{ c.count }}</td></tr><tr v-if="!analytics.couriers.length"><td colspan="2" class="muted">Нет доставок</td></tr></table></div>
-<div class="glass card" style="flex:1;min-width:260px"><h4 style="margin:0 0 10px">🤵 Официанты (выдачи)</h4><table class="tbl" style="min-width:auto"><tr><th>Официант</th><th>Выдано</th></tr><tr v-for="w in analytics.waiters" v-bind:key="w.name"><td>🤵 {{ w.name }}</td><td>{{ w.count }}</td></tr><tr v-if="!analytics.waiters.length"><td colspan="2" class="muted">Нет выдач</td></tr></table></div>
+<div class="glass card" style="flex:1;min-width:260px">
+<h4 style="margin:0 0 10px">🚗 Курьеры (доставки)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Курьер</th><th>Доставлено</th></tr>
+<tr v-for="c in analytics.couriers" v-bind:key="c.name"><td>🚗 {{ c.name }}</td><td>{{ c.count }}</td></tr>
+<tr v-if="!analytics.couriers.length"><td colspan="2" class="muted">Нет доставок</td></tr></table>
 </div>
-<div class="glass card"><div class="spread" style="margin-bottom:12px"><h4 style="margin:0">📊 Производительность персонала</h4><select v-model="staffAnalyticsDays" v-on:change="loadStaffAnalytics" style="width:auto"><option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option></select></div><p class="muted" style="font-size:12px;margin-bottom:12px">За последние {{ staffAnalytics.period_days }} дней · данные из заказов</p><div class="row" style="align-items:stretch;flex-wrap:wrap"><div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)"><h5 style="margin:0 0 8px;color:#fcd34d">👨‍🍳 Повара</h5><table class="tbl"><tr><th>Имя</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th></tr><tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name"><td>{{ c.name }}</td><td>{{ c.orders_count }}</td><td v-bind:style="{color:c.avg_time_min<=10?'#6ee7b7':c.avg_time_min<=20?'#fcd34d':'#fca5a5'}">{{ c.avg_time_min }} мин</td><td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td></tr><tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных</td></tr></table></div><div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)"><h5 style="margin:0 0 8px;color:#c4b5fd">🚗 Курьеры</h5><table class="tbl"><tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr><tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name"><td>{{ c.name }}</td><td>{{ c.deliveries_count }}</td><td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td></tr><tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных</td></tr></table></div><div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)"><h5 style="margin:0 0 8px;color:#67e8f9">🤵 Официанты</h5><table class="tbl"><tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr><tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name"><td>{{ w.name }}</td><td>{{ w.served_count }}</td><td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td></tr><tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных</td></tr></table></div></div></div>
+<div class="glass card" style="flex:1;min-width:260px">
+<h4 style="margin:0 0 10px">🤵 Официанты (выдачи)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Официант</th><th>Выдано</th></tr>
+<tr v-for="w in analytics.waiters" v-bind:key="w.name"><td>🤵 {{ w.name }}</td><td>{{ w.count }}</td></tr>
+<tr v-if="!analytics.waiters.length"><td colspan="2" class="muted">Нет выдач</td></tr></table>
+</div>
+</div>
+
+<div class="glass card">
+<div class="spread" style="margin-bottom:12px">
+<h4 style="margin:0">📊 Производительность персонала</h4>
+<select v-model="staffAnalyticsDays" v-on:change="loadStaffAnalytics" style="width:auto">
+<option value="7">7 дней</option>
+<option value="30">30 дней</option>
+<option value="90">90 дней</option>
+</select>
+</div>
+<p class="muted" style="font-size:12px;margin-bottom:12px">За последние {{ staffAnalytics.period_days }} дней · данные из заказов</p>
+<div class="row" style="align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#fcd34d">👨‍🍳 Повара</h5>
+<table class="tbl"><tr><th>Имя</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th></tr>
+<tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
+<td>{{ c.name }}</td><td>{{ c.orders_count }}</td>
+<td v-bind:style="{color:c.avg_time_min<=10?'#6ee7b7':c.avg_time_min<=20?'#fcd34d':'#fca5a5'}">{{ c.avg_time_min }} мин</td>
+<td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#c4b5fd">🚗 Курьеры</h5>
+<table class="tbl"><tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr>
+<tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
+<td>{{ c.name }}</td><td>{{ c.deliveries_count }}</td><td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#67e8f9">🤵 Официанты</h5>
+<table class="tbl"><tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr>
+<tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
+<td>{{ w.name }}</td><td>{{ w.served_count }}</td><td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+</div>
+</div>
 </div>
 
 <!-- ===================== ВКЛАДКА ТАРИФЫ ===================== -->
 <div v-if="tab==='billing'">
-<div class="glass card" style="margin-bottom:16px;text-align:center"><h3>Тариф: {{ currentPlanName }}</h3><p class="muted">Активен до <b style="color:#fff">{{ fmtDate(subscriptionEnd) }}</b></p></div>
-<div class="plans-grid"><div v-for="p in plans" v-bind:key="p.id" class="glass plan-card" v-bind:class="{popular:p.id==='business'}"><h3>{{ p.name }}</h3><div style="font-size:30px;font-weight:800;margin:14px 0">{{ planPriceLabel(p) }}<span style="font-size:13px;color:#9ca3af">/мес</span></div><ul style="list-style:none;padding:0;margin:0 0 16px;font-size:12px;color:#d1d5db;text-align:left"><li style="margin-bottom:6px">Заведений: {{ p.max_venues }}</li><li style="margin-bottom:6px">Поваров: {{ p.max_cooks }}</li><li style="margin-bottom:6px">Курьеров: {{ p.max_couriers||10 }}</li><li style="margin-bottom:6px">Официантов: {{ p.max_waiters||10 }}</li><li style="margin-bottom:6px">Позиций: {{ p.max_products }}</li></ul><button class="btn" v-bind:class="planBtnClass(p)" style="width:100%" v-bind:disabled="isCurrentPlan(p)" v-on:click="choosePlan(p)">{{ planBtnLabel(p) }}</button></div></div>
-<div v-if="payPlan" class="sbp-box"><b style="color:#6ee7b7">Оплата по СБП</b><p style="margin:10px 0">Переведите <b style="font-size:18px">{{ fmt(payPlan.price) }} ₽</b> на номер:</p><div class="row"><b style="font-size:22px;letter-spacing:1px">8 905 320-43-50</b><button class="btn btn-ghost btn-sm" v-on:click="copySbp">Копировать</button></div><p class="muted" style="font-size:12px;margin:10px 0">В комментарии: <b>{{ venue.slug }}</b></p><button class="btn btn-green" style="width:100%" v-on:click="markPaid">Я оплатил</button></div>
-<div v-if="myPayments.length" class="glass card" style="margin-top:16px"><h4>Мои оплаты</h4><table class="tbl"><tr><th>Дата</th><th>Тариф</th><th>Сумма</th><th>Статус</th></tr><tr v-for="pay in myPayments" v-bind:key="pay.id"><td>{{ fmtDate(pay.created_at) }}</td><td>{{ pay.plan_id }}</td><td>{{ fmt(pay.amount) }} ₽</td><td><span class="badge" v-bind:class="payBadge(pay.status)">{{ payLabel(pay.status) }}</span></td></tr></table></div>
+<div class="glass card" style="margin-bottom:16px;text-align:center">
+<h3>Тариф: {{ currentPlanName }}</h3>
+<p class="muted">Активен до <b style="color:#fff">{{ fmtDate(subscriptionEnd) }}</b></p></div>
+<div class="plans-grid">
+<div v-for="p in plans" v-bind:key="p.id" class="glass plan-card" v-bind:class="{popular:p.id==='business'}">
+<h3>{{ p.name }}</h3>
+<div style="font-size:30px;font-weight:800;margin:14px 0">{{ planPriceLabel(p) }}<span style="font-size:13px;color:#9ca3af">/мес</span></div>
+<ul style="list-style:none;padding:0;margin:0 0 16px;font-size:12px;color:#d1d5db;text-align:left">
+<li style="margin-bottom:6px">Заведений: {{ p.max_venues }}</li>
+<li style="margin-bottom:6px">Поваров: {{ p.max_cooks }}</li>
+<li style="margin-bottom:6px">Курьеров: {{ p.max_couriers||10 }}</li>
+<li style="margin-bottom:6px">Официантов: {{ p.max_waiters||10 }}</li>
+<li style="margin-bottom:6px">Позиций: {{ p.max_products }}</li></ul>
+<button class="btn" v-bind:class="planBtnClass(p)" style="width:100%" v-bind:disabled="isCurrentPlan(p)" v-on:click="choosePlan(p)">{{ planBtnLabel(p) }}</button>
+</div></div>
+<div v-if="payPlan" class="sbp-box">
+<b style="color:#6ee7b7">Оплата по СБП</b>
+<p style="margin:10px 0">Переведите <b style="font-size:18px">{{ fmt(payPlan.price) }} ₽</b> на номер:</p>
+<div class="row"><b style="font-size:22px;letter-spacing:1px">8 905 320-43-50</b>
+<button class="btn btn-ghost btn-sm" v-on:click="copySbp">Копировать</button></div>
+<p class="muted" style="font-size:12px;margin:10px 0">В комментарии: <b>{{ venue.slug }}</b></p>
+<button class="btn btn-green" style="width:100%" v-on:click="markPaid">Я оплатил</button></div>
+<div v-if="myPayments.length" class="glass card" style="margin-top:16px">
+<h4>Мои оплаты</h4>
+<table class="tbl"><tr><th>Дата</th><th>Тариф</th><th>Сумма</th><th>Статус</th></tr>
+<tr v-for="pay in myPayments" v-bind:key="pay.id">
+<td>{{ fmtDate(pay.created_at) }}</td><td>{{ pay.plan_id }}</td><td>{{ fmt(pay.amount) }} ₽</td>
+<td><span class="badge" v-bind:class="payBadge(pay.status)">{{ payLabel(pay.status) }}</span></td></tr></table>
+</div>
 </div>
 
 <!-- ===================== ВКЛАДКА НАСТРОЙКИ ===================== -->
@@ -301,25 +565,66 @@
 <div class="field"><label>Название</label><input v-model="vform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
 <div class="field"><label>Логотип</label>
-<div v-if="vform.logo_url" style="margin-bottom:10px;position:relative;display:inline-block"><img v-bind:src="vform.logo_url" style="width:90px;height:90px;object-fit:cover;border-radius:16px" alt=""><button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="vform.logo_url=''">×</button></div><br>
-<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex"><span v-if="!uploadingLogo">🖼 Загрузить логотип</span><span v-else>⏳ Загружаю...</span><input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
+<div v-if="vform.logo_url" style="margin-bottom:10px;position:relative;display:inline-block">
+<img v-bind:src="vform.logo_url" style="width:90px;height:90px;object-fit:cover;border-radius:16px" alt="">
+<button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="vform.logo_url=''">×</button></div><br>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">
+<span v-if="!uploadingLogo">🖼 Загрузить логотип</span><span v-else>⏳ Загружаю...</span>
+<input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
 <div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
+
+<!-- АДРЕС И ДОСТАВКА (если разрешено) -->
 <div v-if="perms.delivery" style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
 <h4 style="margin:0 0 14px">📍 Адрес и геолокация</h4>
-<div class="field"><label>Фактический адрес заведения</label><div class="row" style="align-items:stretch"><input v-model.trim="vform.address" placeholder="Город, улица, дом" style="flex:1"><button type="button" class="btn btn-ghost" v-on:click="geocodeVenueAddress" v-bind:disabled="geoBusy || !vform.address.trim()">{{ geoBusy ? '⏳ Определяю...' : '📍 Определить' }}</button></div></div>
-<div class="row" style="gap:10px"><div class="field" style="flex:1"><label>Широта</label><input v-model.number="vform.latitude" type="number" step="0.0000001" placeholder="51.5178123"></div><div class="field" style="flex:1"><label>Долгота</label><input v-model.number="vform.longitude" type="number" step="0.0000001" placeholder="45.9705955"></div></div>
-<div v-if="vform.latitude && vform.longitude" style="padding:10px 12px;border-radius:10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);font-size:12px;color:#6ee7b7;">✓ Координаты определены: {{ Number(vform.latitude).toFixed(7) }}, {{ Number(vform.longitude).toFixed(7) }}</div>
+<div class="field">
+<label>Фактический адрес заведения</label>
+<div class="row" style="align-items:stretch">
+<input v-model.trim="vform.address" placeholder="Город, улица, дом" style="flex:1">
+<button type="button" class="btn btn-ghost" v-on:click="geocodeVenueAddress" v-bind:disabled="geoBusy || !vform.address.trim()">
+{{ geoBusy ? '⏳ Определяю...' : '📍 Определить' }}
+</button>
+</div>
+</div>
+<div class="row" style="gap:10px">
+<div class="field" style="flex:1"><label>Широта</label><input v-model.number="vform.latitude" type="number" step="0.0000001" placeholder="51.5178123"></div>
+<div class="field" style="flex:1"><label>Долгота</label><input v-model.number="vform.longitude" type="number" step="0.0000001" placeholder="45.9705955"></div>
+</div>
+<div v-if="vform.latitude && vform.longitude" style="padding:10px 12px;border-radius:10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);font-size:12px;color:#6ee7b7;">
+✓ Координаты определены: {{ Number(vform.latitude).toFixed(7) }}, {{ Number(vform.longitude).toFixed(7) }}
+</div>
+
 <div style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);">
 <h4 style="margin:0 0 14px">🚗 Тариф доставки</h4>
-<div class="field"><label>Минимальная сумма заказа для доставки, ₽</label><input v-model.number="vform.delivery_min_order" type="number" min="0" step="1" placeholder="0"><div class="muted" style="font-size:11px;margin-top:5px">Если сумма заказа ниже этого значения, доставка недоступна.</div></div>
-<div class="field"><label>Бесплатная доставка от, ₽</label><input v-model.number="vform.delivery_min_order_free" type="number" min="0" step="1" placeholder="0"><div class="muted" style="font-size:11px;margin-top:5px">0 — бесплатная доставка не используется.</div></div>
-<div class="row" style="gap:10px"><div class="field" style="flex:1"><label>Базовая стоимость, ₽</label><input v-model.number="vform.delivery_base_fee" type="number" min="0" step="1"></div><div class="field" style="flex:1"><label>Стоимость за 1 км, ₽</label><input v-model.number="vform.delivery_rate_per_km" type="number" min="0" step="1"></div></div>
+<div class="field">
+<label>Минимальная сумма заказа для доставки, ₽</label>
+<input v-model.number="vform.delivery_min_order" type="number" min="0" step="1" placeholder="0">
+<div class="muted" style="font-size:11px;margin-top:5px">Если сумма заказа ниже этого значения, доставка недоступна.</div>
+</div>
+<div class="field">
+<label>Бесплатная доставка от, ₽</label>
+<input v-model.number="vform.delivery_min_order_free" type="number" min="0" step="1" placeholder="0">
+<div class="muted" style="font-size:11px;margin-top:5px">0 — бесплатная доставка не используется.</div>
+</div>
+<div class="row" style="gap:10px">
+<div class="field" style="flex:1"><label>Базовая стоимость, ₽</label><input v-model.number="vform.delivery_base_fee" type="number" min="0" step="1"></div>
+<div class="field" style="flex:1"><label>Стоимость за 1 км, ₽</label><input v-model.number="vform.delivery_rate_per_km" type="number" min="0" step="1"></div>
+</div>
 <div class="field"><label>Максимальная дистанция, км</label><input v-model.number="vform.delivery_max_km" type="number" min="0" step="0.1" placeholder="15"><div class="muted" style="font-size:11px;margin-top:5px">0 — ограничение расстояния не используется.</div></div>
-<div style="padding:12px;border-radius:10px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);font-size:12px;line-height:1.5;"><b>Пример</b><br>Минимальный заказ: 500 ₽<br>Бесплатная доставка: от 1500 ₽<br>База: 100 ₽<br>За 1 км: 30 ₽</div>
+<div style="padding:12px;border-radius:10px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);font-size:12px;line-height:1.5;">
+<b>Пример</b><br>Минимальный заказ: 500 ₽<br>Бесплатная доставка: от 1500 ₽<br>База: 100 ₽<br>За 1 км: 30 ₽
 </div>
 </div>
+</div>
+
 <button class="btn btn-primary" v-on:click="saveVenue" style="margin-top:16px">Сохранить</button>
-<div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)"><label>QR-код для клиентов</label><div class="row"><img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR"><div style="flex:1"><div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div><button class="btn btn-primary btn-sm" style="margin-top:8px" v-on:click="downloadQr">⬇️ Скачать QR</button><button class="btn btn-ghost btn-sm" style="margin-top:8px" v-on:click="copyText(clientLink)">Копировать</button><a class="btn btn-ghost btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a></div></div><p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px.</p></div>
+<div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
+<label>QR-код для клиентов</label>
+<div class="row"><img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
+<div style="flex:1"><div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div>
+<button class="btn btn-primary btn-sm" style="margin-top:8px" v-on:click="downloadQr">⬇️ Скачать QR</button>
+<button class="btn btn-ghost btn-sm" style="margin-top:8px" v-on:click="copyText(clientLink)">Копировать</button>
+<a class="btn btn-ghost btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a></div></div>
+<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px.</p></div>
 <div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
 </div>
 </template>
@@ -332,11 +637,24 @@
 <h3 style="margin-bottom:4px">Новое заведение</h3>
 <p class="muted" style="margin-top:0">Выберите готовый шаблон меню. Товары, цены и описания будут добавлены автоматически — после создания их можно полностью изменить.</p>
 <label style="display:block;margin-top:14px">Шаблон ниши</label>
-<div class="template-grid"><div v-for="t in venueTemplates" v-bind:key="t.id" class="template-card" v-bind:class="{selected:newVenueForm.template===t.id}" v-on:click="selectVenueTemplate(t.id)"><div class="emoji">{{ t.emoji }}</div><b>{{ t.name }}</b><div class="count">{{ t.products.length }} готовых позиций</div></div></div>
-<div v-if="selectedVenueTemplate" class="template-preview"><div class="spread" style="margin-bottom:4px"><b>{{ selectedVenueTemplate.emoji }} {{ selectedVenueTemplate.name }}</b><span class="muted">{{ selectedVenueTemplate.products.length }} позиций</span></div><div v-for="item in selectedVenueTemplate.products" v-bind:key="item.name" class="template-preview-row"><span>{{ item.name }}</span><b>{{ fmt(item.price) }} ₽</b></div></div>
+<div class="template-grid">
+<div v-for="t in venueTemplates" v-bind:key="t.id" class="template-card" v-bind:class="{selected:newVenueForm.template===t.id}" v-on:click="selectVenueTemplate(t.id)">
+<div class="emoji">{{ t.emoji }}</div><b>{{ t.name }}</b>
+<div class="count">{{ t.products.length }} готовых позиций</div>
+</div>
+</div>
+<div v-if="selectedVenueTemplate" class="template-preview">
+<div class="spread" style="margin-bottom:4px"><b>{{ selectedVenueTemplate.emoji }} {{ selectedVenueTemplate.name }}</b><span class="muted">{{ selectedVenueTemplate.products.length }} позиций</span></div>
+<div v-for="item in selectedVenueTemplate.products" v-bind:key="item.name" class="template-preview-row">
+<span>{{ item.name }}</span><b>{{ fmt(item.price) }} ₽</b>
+</div>
+</div>
 <div class="field"><label>Название заведения *</label><input v-model.trim="newVenueForm.name" placeholder="Например: Coffee Point"></div>
 <div class="field"><label>Код (slug) *</label><input v-model.trim="newVenueForm.slug" placeholder="coffee-point"></div>
-<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="createVenue" v-bind:disabled="busy">{{ busy?'⏳ Создаю...':'Создать заведение' }}</button><button class="btn btn-ghost" v-on:click="showCreateVenue=false" v-bind:disabled="busy">Отмена</button></div>
+<div class="row">
+<button class="btn btn-primary" style="flex:1" v-on:click="createVenue" v-bind:disabled="busy">{{ busy?'⏳ Создаю...':'Создать заведение' }}</button>
+<button class="btn btn-ghost" v-on:click="showCreateVenue=false" v-bind:disabled="busy">Отмена</button>
+</div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
@@ -345,65 +663,66 @@
 <h3>{{ modalTitle }}</h3>
 <div class="field"><label>Название *</label><input v-model.trim="pform.name"></div>
 <div class="field"><label>Описание</label><textarea v-model="pform.description" rows="2"></textarea></div>
-<div class="row"><div class="field" style="flex:1"><label>Цена ₽</label><input v-model.number="pform.price" type="number" min="0" v-bind:disabled="!perms.prices"></div><div class="field" style="flex:1"><label>Категория</label><select v-model="pform.category"><option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option><option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option><option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option><option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option></select></div></div>
-<div class="field" v-if="pform.category==='addon'"><label>Подходит к</label><select v-model="pform.applies_to"><option value="all">Ко всему</option><option value="main">К блюдам</option><option value="drink">К напиткам</option><option value="main,drink">К блюдам и напиткам</option></select></div>
-<div class="field"><label>Фото</label><div v-if="pform.image_url" style="margin-bottom:10px"><img v-bind:src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt=""></div><label class="btn btn-ghost btn-sm" style="cursor:pointer"><span v-if="!uploading">📸 Загрузить фото</span><span v-else>⏳ Загружаю...</span><input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none"></label><input v-model="pform.image_url" placeholder="или ссылка" style="margin-top:8px"></div>
-<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveProduct" v-bind:disabled="uploading">Сохранить</button><button class="btn btn-ghost" v-on:click="closeModal">Отмена</button></div>
+<div class="row">
+<div class="field" style="flex:1"><label>Цена ₽</label><input v-model.number="pform.price" type="number" min="0" v-bind:disabled="!perms.prices"></div>
+<div class="field" style="flex:1"><label>Категория</label>
+<select v-model="pform.category">
+<option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option>
+<option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
+<option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+<option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
+</select>
+</div>
+</div>
+<div class="field" v-if="pform.category==='addon'"><label>Подходит к</label>
+<select v-model="pform.applies_to">
+<option value="all">Ко всему</option><option value="main">К блюдам</option>
+<option value="drink">К напиткам</option><option value="main,drink">К блюдам и напиткам</option></select></div>
+<div class="field"><label>Фото</label>
+<div v-if="pform.image_url" style="margin-bottom:10px"><img v-bind:src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt=""></div>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer">
+<span v-if="!uploading">📸 Загрузить фото</span><span v-else>⏳ Загружаю...</span>
+<input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none"></label>
+<input v-model="pform.image_url" placeholder="или ссылка" style="margin-top:8px"></div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveProduct" v-bind:disabled="uploading">Сохранить</button>
+<button class="btn btn-ghost" v-on:click="closeModal">Отмена</button></div>
 <div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
 </div></div>
 
 <!-- Создание сотрудника -->
 <div v-if="createStaffModal" class="modal" v-on:click.self="createStaffModal=false">
-<div class="glass box" style="max-width:440px"><h3 style="margin-bottom:4px">Новый {{ createStaffType==='cook'?'повар':createStaffType==='courier'?'курьер':'официант' }}</h3><p class="muted" style="margin:0 0 14px;font-size:12px">PIN будет показан только один раз после создания. Сообщите его сотруднику.</p>
+<div class="glass box" style="max-width:440px">
+<h3 style="margin-bottom:4px">Новый {{ createStaffType==='cook'?'повар':createStaffType==='courier'?'курьер':'официант' }}</h3>
+<p class="muted" style="margin:0 0 14px;font-size:12px">PIN будет показан только один раз после создания. Сообщите его сотруднику.</p>
 <div class="field"><label>Имя *</label><input v-model.trim="createStaffForm.name" placeholder="Иван Петров"></div>
 <div class="field"><label>Телефон</label><input v-model.trim="createStaffForm.phone" placeholder="+7 900 000-00-00"></div>
-<div class="field"><label>PIN (4 цифры) *</label><input v-model="createStaffForm.pin" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="1234" style="text-align:center;letter-spacing:10px;font-size:22px;font-weight:700"><div class="row" style="margin-top:6px"><span class="muted" style="font-size:11px">Только цифры, 4 знака</span><button type="button" class="btn btn-ghost btn-sm" v-on:click="generateRandomPin" style="margin-left:auto;font-size:11px">🎲 Случайный</button></div></div>
+<div class="field">
+<label>PIN (4 цифры) *</label>
+<input v-model="createStaffForm.pin" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="1234" style="text-align:center;letter-spacing:10px;font-size:22px;font-weight:700">
+<div class="row" style="margin-top:6px">
+<span class="muted" style="font-size:11px">Только цифры, 4 знака</span>
+<button type="button" class="btn btn-ghost btn-sm" v-on:click="generateRandomPin" style="margin-left:auto;font-size:11px">🎲 Случайный</button>
+</div>
+</div>
 <div v-if="createStaffError" class="msg error" style="margin-bottom:10px">{{ createStaffError }}</div>
-<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveStaff" v-bind:disabled="createStaffBusy">{{ createStaffBusy?'Создание...':'Создать' }}</button><button class="btn btn-ghost" v-on:click="createStaffModal=false">Отмена</button></div>
+<div class="row">
+<button class="btn btn-primary" style="flex:1" v-on:click="saveStaff" v-bind:disabled="createStaffBusy">{{ createStaffBusy?'Создание...':'Создать' }}</button>
+<button class="btn btn-ghost" v-on:click="createStaffModal=false">Отмена</button>
+</div>
 </div></div>
 
 <div v-if="toast" class="toast" v-bind:class="toast.type">{{ toast.text }}</div>
 </div>
 
-<!-- ===================== МОДАЛЬНЫЕ ОКНА РЕЦЕПТУР (вне Vue) ===================== -->
-<div id="techModal" class="modalx" hidden>
-  <div class="glass card" style="width:min(1100px,100%);max-height:90vh;overflow:auto;padding:20px">
-    <div style="display:flex;gap:8px;align-items:center"><div style="flex:1"><h3 style="margin:0">📷 Техкарты заведения</h3><div class="muted" style="font-size:11px">OCR работает в браузере. OpenAI API не используется.</div></div><button class="btn btn-ghost" data-close="techModal">×</button></div>
-    <div id="techList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-top:14px"></div>
-    <div id="ocrPanel" hidden style="margin-top:16px">
-      <h4>Результат распознавания</h4>
-      <div style="height:8px;border-radius:99px;background:#ffffff12;overflow:hidden"><i id="ocrProgress" style="display:block;height:100%;background:#6366f1;width:0"></i></div>
-      <div id="ocrStatus" class="muted" style="font-size:12px;margin:7px 0"></div>
-      <div id="ocrText" style="max-height:300px;overflow:auto;white-space:pre-wrap;background:#020617;border:1px solid #ffffff12;padding:12px;border-radius:10px;font-size:12px"></div>
-      <div id="ocrRecipeRows" style="margin-top:12px"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <select id="ocrProduct" style="flex:1"></select>
-        <button class="btn btn-primary" id="applyOcr">Создать рецептуру из распознанной техкарты</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<div id="catalogModal" class="modalx" hidden>
-  <div class="glass card" style="width:min(1100px,100%);max-height:90vh;overflow:auto;padding:20px">
-    <div style="display:flex;gap:8px;align-items:center"><div style="flex:1"><h3 style="margin:0">📚 База блюд и техкарт</h3><div class="muted" style="font-size:11px">Общая база используется только как источник стандартных техкарт. Рецептура копируется в конкретное заведение и затем редактируется.</div></div><button class="btn btn-ghost" data-close="catalogModal">×</button></div>
-    <input id="catalogSearch" placeholder="Поиск блюда или ингредиента..." style="width:100%;margin:12px 0;background:#1e293b;border:1px solid #ffffff12;border-radius:8px;padding:8px;color:#eef2ff">
-    <div id="catalogList" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px"></div>
-  </div>
-</div>
-
-<div id="ingredientsModal" class="modalx" hidden>
-  <div class="glass card" style="width:min(1100px,100%);max-height:90vh;overflow:auto;padding:20px">
-    <div style="display:flex;gap:8px;align-items:center"><div style="flex:1"><h3 style="margin:0">🧂 База ингредиентов</h3><div class="muted" style="font-size:11px">Стандартные ингредиенты и единицы измерения. Закупочные цены всегда задаются заведением.</div></div><button class="btn btn-ghost" data-close="ingredientsModal">×</button></div>
-    <input id="ingredientsSearch" placeholder="Поиск ингредиента..." style="width:100%;margin:12px 0;background:#1e293b;border:1px solid #ffffff12;border-radius:8px;padding:8px;color:#eef2ff">
-    <div id="ingredientsDbList"></div>
-  </div>
-</div>
-
-<!-- Больше не подключаем скрипты повторно, все уже в head -->
-
+<script src="/js/config.js"></script>
+<script src="/js/manager-hall.js"></script>
+<script src="/js/manager-hall-view.js"></script>
+<script src="/js/manager-hall-ai.js"></script>
+<script src="/js/manager-design.js"></script>
+<script src="/js/demo-data.js"></script>
+<script src="/js/demo-mode.js"></script>
+<script src="/js/app.js"></script>
 <script>
-// Основное Vue-приложение
 Vue.createApp({
   data: function() {
     return {
@@ -425,8 +744,7 @@ Vue.createApp({
       analyticsPeriod: '7',
       analytics: {revenue:0, orders:0, clients:0, avgCheck:0, avgCookTime:0, newClients:0, repeatClients:0, topItems:[], topAddons:[], typeStats:{pickup:0,delivery:0}, payStats:{cash:0,card:0}, topHours:[], daily:[], cooks:[], couriers:[], waiters:[]},
       subscriptionEnd: null, isBlocked: false, payPlan: null, myPayments: [],
-      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>",
-      recipesInitialized: false
+      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>"
     };
   },
   computed: {
@@ -505,6 +823,7 @@ Vue.createApp({
               return self.loadVenueTemplates().then(function() { return self.loadMyVenues(); });
             }).then(function() {
               self.ready=true;
+              // НЕТ АВТОВЫБОРА — оставляем список заведений
             });
           });
         } else {
@@ -562,7 +881,8 @@ Vue.createApp({
       }
 
       this.venue=v;
-      this.tab='menu';
+      try { localStorage.setItem('manager_venue_id', String(v.id)); window.dispatchEvent(new CustomEvent('manager-venue-selected',{detail:{id:v.id,name:v.name||'',slug:v.slug||''}})); } catch(e) {}
+      this.tab='menu'; // по умолчанию открываем меню
       this.subscriptionEnd=v.subscription_end;
       this.vform={
         name:v.name,
@@ -586,9 +906,7 @@ Vue.createApp({
       window.__managerVue=this;
       if(this.isExpired(v)) { this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
 
-      // Сбросим флаг инициализации рецептур, чтобы при переключении на вкладку они перезагрузились
-      this.recipesInitialized = false;
-
+      // Загрузка всех данных
       Promise.all([
         this.loadProducts(),
         this.loadOrders(),
@@ -618,6 +936,7 @@ Vue.createApp({
       var self=this;
       if(!this.venue) return;
       var days = parseInt(this.staffAnalyticsDays) || 30;
+      // Исправлено: вызов правильной RPC для аналитики персонала
       db.rpc('manager_staff_performance', {p_venue_id: this.venue.id, p_days: days}).then(function(r) {
         if(r.error) { console.warn('staff analytics:', r.error.message||r.error); return; }
         if(r.data) self.staffAnalytics = r.data;
@@ -924,7 +1243,7 @@ Vue.createApp({
         if(type==='cook') self.loadCooks();
         else if(type==='courier') self.loadCouriers();
         else self.loadWaiters();
-        self.loadStaffAnalytics();
+        self.loadStaffAnalytics(); // обновляем аналитику
         self.showToast(typeRu + ' добавлен');
       }).catch(function(e) {
         self.createStaffBusy = false;
@@ -936,6 +1255,7 @@ Vue.createApp({
       var typeRu = type==='cook' ? 'повара' : (type==='courier' ? 'курьера' : 'официанта');
       if(!confirm('Сбросить PIN у ' + staff.name + ' (' + typeRu + ')?\nНовый PIN будет показан только один раз.')) return;
       self.busy = true;
+      // Генерируем новый PIN на клиенте и обновляем напрямую
       var newPin = String(Math.floor(1000 + Math.random() * 9000));
       var tableName = type === 'cook' ? 'cooks' : (type === 'courier' ? 'couriers' : 'waiters');
       db.from(tableName)
@@ -949,7 +1269,7 @@ Vue.createApp({
             return;
           }
           alert('✅ Новый PIN для ' + staff.name + ':\n\n🔑 ' + newPin + '\n\n⚠️ Сообщите PIN сотруднику сейчас.\nЭтот PIN больше не будет показан.');
-          self.loadStaffAnalytics();
+          self.loadStaffAnalytics(); // обновляем аналитику
         })
         .catch(function(e) {
           self.busy = false;
@@ -1096,321 +1416,275 @@ Vue.createApp({
       try { db.auth.signOut(); } catch(e) {}
       if(this.timer) clearInterval(this.timer);
       location.href = '/index.html';
-    },
-
-    // Инициализация панели рецептур (вызывается при переключении вкладки)
-    initRecipesPanel: function() {
-      if (this.recipesInitialized) return;
-      this.recipesInitialized = true;
-
-      // Проверяем, что DOM-элементы рецептур существуют
-      var self = this;
-      // Небольшая задержка для рендеринга Vue
-      this.$nextTick(function() {
-        // Проверяем наличие элементов
-        if (document.getElementById('productSearch')) {
-          // Запускаем инициализацию рецептур, если она ещё не выполнена
-          if (typeof window.initRecipesApp === 'function') {
-            var venueId = self.venue ? self.venue.id : null;
-            if (venueId) {
-              window.initRecipesApp(venueId);
-            }
-          } else {
-            // Если функция ещё не определена (скрипт рецептур ещё не загрузился),
-            // подождём и попробуем ещё раз
-            setTimeout(function() {
-              self.initRecipesPanel();
-            }, 300);
-          }
-        }
-      });
     }
   },
   mounted: function() { this.init(); },
   beforeUnmount: function() { if(this.timer) clearInterval(this.timer); }
 }).mount('#app');
 </script>
-
-<!-- ===================== СКРИПТ РЕЦЕПТУР (интегрирован) ===================== -->
-<script>
-// Этот код выполняется после загрузки страницы, но инициализация запускается только по вызову из Vue
+<script id="integrated-recipes-js">
 (function(){
-  'use strict';
-  // Объявляем глобальную функцию для инициализации рецептур
-  window.initRecipesApp = function(venueId) {
-    // Проверяем, что все элементы существуют
-    var el = document.getElementById('productSearch');
-    if (!el) {
-      console.warn('[Recipes] Элементы не найдены, отложим инициализацию');
-      return;
-    }
-    // Если уже инициализировано, не повторяем
-    if (window._recipesInitialized) return;
-    window._recipesInitialized = true;
 
-    var db = window.db;
-    if (!db) { console.error('[Recipes] db не определён'); return; }
+'use strict';
+var db=window.db, venueId=localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId');
 
-    var products=[], ingredients=[], selected=null, rows=[], catalog=[], globalIngredients=[], techCards=[], ocrParsed=[];
-    var $ = function(id){ return document.getElementById(id); };
-    function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
-    function msg(t,e){ $('msg').innerHTML = t ? '<div class="msg '+(e?'err':'ok')+'">'+esc(t)+'</div>' : ''; }
-    function rpc(name,args){ return db.rpc(name,args).then(function(r){ if(r.error) throw r.error; return r.data; }); }
-    function norm(s){ return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim().replace(/\s+/g,' '); }
-    function similarity(a,b){
-      a=norm(a);b=norm(b);if(!a||!b)return 0;if(a===b)return 1;
-      if(a.includes(b)||b.includes(a))return .92;
-      var A=a.split(' '),B=b.split(' '), SA=new Set(A),SB=new Set(B),inter=0;
-      A.forEach(function(x){ if(SB.has(x)) inter++; });
-      var score=inter/(SA.size+SB.size-inter||1);
-      var stop={с:1,сборка:1,классический:1,классическая:1,домашний:1,домашняя:1,фирменный:1,фирменная:1,порция:1,большой:1,большая:1,мини:1,pro:1,демо:1};
-      var coreA=A.filter(function(x){ return x.length>3&&!stop[x]; })[0], coreB=B.filter(function(x){ return x.length>3&&!stop[x]; })[0];
-      if(coreA&&coreB&&coreA===coreB) score=Math.max(score,.78);
-      return score;
-    }
-    function unitLabel(u){ return ({g:'г',kg:'кг',ml:'мл',l:'л',pcs:'шт'})[u]||u||''; }
+var products=[],ingredients=[],selected=null,rows=[],catalog=[],globalIngredients=[],techCards=[],ocrParsed=[];
+var $=function(id){return document.getElementById(id)};
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function msg(t,e){$('msg').innerHTML=t?'<div class="msg '+(e?'err':'ok')+'">'+esc(t)+'</div>':''}
+function rpc(name,args){return db.rpc(name,args).then(function(r){if(r.error)throw r.error;return r.data})}
+function norm(s){return String(s||'').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim().replace(/\s+/g,' ')}
+function similarity(a,b){
+  a=norm(a);b=norm(b);if(!a||!b)return 0;if(a===b)return 1;
+  if(a.includes(b)||b.includes(a))return .92;
+  var A=a.split(' '),B=b.split(' '), SA=new Set(A),SB=new Set(B),inter=0;
+  A.forEach(function(x){if(SB.has(x))inter++});
+  var score=inter/(SA.size+SB.size-inter||1);
+  // Для названий меню вроде «Шаурма PRO», «Шаурма с курицей» и т.п.
+  // совпадение основного слова достаточно, чтобы предложить техкарту.
+  var stop={с:1,сборка:1,классический:1,классическая:1,домашний:1,домашняя:1,фирменный:1,фирменная:1,порция:1,большой:1,большая:1,мини:1,pro:1,демо:1};
+  var coreA=A.filter(function(x){return x.length>3&&!stop[x]})[0], coreB=B.filter(function(x){return x.length>3&&!stop[x]})[0];
+  if(coreA&&coreB&&coreA===coreB)score=Math.max(score,.78);
+  return score;
+}
+function unitLabel(u){return ({g:'г',kg:'кг',ml:'мл',l:'л',pcs:'шт'})[u]||u||''}
 
-    function loadAll(){
-      if(!venueId){ msg('Не найдено выбранное заведение. Откройте кабинет управляющего и выберите заведение.', true); return; }
-      Promise.all([
-        db.from('products').select('id,name,category,price').eq('venue_id',venueId).order('name'),
-        rpc('manager_ingredient_list',{p_venue_id:venueId}),
-        db.from('global_recipe_catalog').select('id,name,category,description,yield_quantity,yield_unit').eq('is_active',true).order('name'),
-        db.from('global_ingredient_catalog').select('id,name,unit,category').eq('is_active',true).order('name'),
-        db.from('manager_tech_cards').select('id,product_id,file_name,file_path,file_url,ocr_text,status,created_at').eq('venue_id',venueId).order('created_at',{ascending:false})
-      ]).then(function(r){
-        if(r[0].error) throw r[0].error;
-        if(r[2].error) throw r[2].error;
-        if(r[3].error) throw r[3].error;
-        if(r[4].error) throw r[4].error;
-        products=r[0].data||[]; ingredients=Array.isArray(r[1])?r[1]:[]; catalog=r[2].data||[]; globalIngredients=r[3].data||[]; techCards=r[4].data||[];
-        return Promise.all(techCards.map(function(t){
-          if(t.file_path) return db.storage.from('tech-cards').createSignedUrl(t.file_path,3600).then(function(x){ if(!x.error&&x.data) t.file_url=x.data.signedUrl; });
-          return Promise.resolve();
-        })).then(function(){
-          renderProducts(); renderIngredients(); renderTechCards(); renderCatalog(); renderGlobalIngredients();
-        });
-      }).catch(function(e){ console.error(e); msg('Ошибка загрузки: '+(e.message||e), true); });
-    }
+function loadAll(){
+ if(!venueId){msg('Не найдено выбранное заведение. Откройте кабинет управляющего и выберите заведение.',true);return}
+ Promise.all([
+   db.from('products').select('id,name,category,price').eq('venue_id',venueId).order('name'),
+   rpc('manager_ingredient_list',{p_venue_id:venueId}),
+   db.from('global_recipe_catalog').select('id,name,category,description,yield_quantity,yield_unit').eq('is_active',true).order('name'),
+   db.from('global_ingredient_catalog').select('id,name,unit,category').eq('is_active',true).order('name'),
+   db.from('manager_tech_cards').select('id,product_id,file_name,file_path,file_url,ocr_text,status,created_at').eq('venue_id',venueId).order('created_at',{ascending:false})
+ ]).then(function(r){
+   if(r[0].error)throw r[0].error;
+   if(r[2].error)throw r[2].error;
+   if(r[3].error)throw r[3].error;
+   if(r[4].error)throw r[4].error;
+   products=r[0].data||[];ingredients=Array.isArray(r[1])?r[1]:[];catalog=r[2].data||[];globalIngredients=r[3].data||[];techCards=r[4].data||[];
+   return Promise.all(techCards.map(function(t){return t.file_path?db.storage.from('tech-cards').createSignedUrl(t.file_path,3600).then(function(x){if(!x.error&&x.data)t.file_url=x.data.signedUrl}):Promise.resolve()})).then(function(){
+   renderProducts();renderIngredients();renderTechCards();renderCatalog();renderGlobalIngredients();
+   });
+ }).catch(function(e){console.error(e);msg('Ошибка загрузки: '+(e.message||e),true)})
+}
 
-    function renderProducts(){
-      var q=norm($('productSearch').value);
-      var arr=products.filter(function(p){ return !q || norm(p.name).includes(q); });
-      $('productCount').textContent=products.length;
-      $('products').innerHTML=arr.length ? arr.map(function(p){
-        return '<button type="button" class="btn '+(selected===p.id?'product-active':'btn-ghost')+'" data-p="'+esc(p.id)+'">'+esc(p.name)+' <span class="muted">'+esc(unitLabel(p.category==='drink'?'':'')||'')+(p.category?' · '+esc(p.category):'')+' · '+Number(p.price||0).toFixed(2)+' ₽</span></button>';
-      }).join('') : '<p class="muted">Нет товаров.</p>';
-      Array.prototype.forEach.call(document.querySelectorAll('[data-p]'), function(b){ b.onclick=function(){ pick(b.getAttribute('data-p')); }; });
-    }
-    $('productSearch').addEventListener('input', renderProducts);
+function renderProducts(){
+ var q=norm($('productSearch').value);var arr=products.filter(function(p){return !q||norm(p.name).includes(q)});
+ $('productCount').textContent=products.length;
+ $('products').innerHTML=arr.length?arr.map(function(p){
+   return '<button type="button" class="btn '+(selected===p.id?'product-active':'btn-ghost')+'" data-p="'+esc(p.id)+'">'+esc(p.name)+' <span class="muted">'+esc(unitLabel(p.category==='drink'?'':'')||'')+(p.category?' · '+esc(p.category):'')+' · '+Number(p.price||0).toFixed(2)+' ₽</span></button>'
+ }).join(''):'<p class="muted">Нет товаров.</p>';
+ Array.prototype.forEach.call(document.querySelectorAll('[data-p]'),function(b){b.onclick=function(){pick(b.getAttribute('data-p'))}})
+}
+$('productSearch').addEventListener('input',renderProducts);
 
-    function pick(id){
-      selected=id; var p=products.find(function(x){ return x.id===id; }); if(!p) return;
-      $('title').textContent='Рецептура: '+p.name; $('save').hidden=false;
-      var cat=catalog.map(function(c){ return {c:c,s:similarity(p.name,c.name)}; }).sort(function(a,b){ return b.s-a.s; })[0];
-      $('matchInfo').textContent=cat&&cat.s>=.55 ? 'Ближайшая техкарта в базе: '+cat.c.name+' · совпадение '+Math.round(cat.s*100)+'%' : 'В базе подходящая техкарта не найдена';
-      rows=[];
-      rpc('manager_recipe_list',{p_venue_id:venueId,p_product_id:id}).then(function(data){
-        rows=(Array.isArray(data)?data:[]).map(function(r){ return {ingredient_id:r.ingredient_id,quantity:Number(r.quantity)||0,note:r.note||''}; });
-        renderRecipe(); renderProducts(); return loadCost();
-      }).catch(function(e){ msg('Ошибка загрузки рецептуры: '+e.message, true); });
-    }
-    function loadCost(){
-      if(!selected){ $('cost').innerHTML=''; return Promise.resolve(); }
-      return rpc('manager_recipe_cost',{p_venue_id:venueId,p_product_id:selected}).then(function(c){
-        c=c||{}; $('cost').innerHTML='<div class="cost-grid"><div class="cost-card"><div class="n">'+Number(c.cost||0).toFixed(2)+' ₽</div><div class="l">Себестоимость</div></div><div class="cost-card"><div class="n">'+Number(c.price||0).toFixed(2)+' ₽</div><div class="l">Цена продажи</div></div><div class="cost-card"><div class="n">'+Number(c.gross_profit||0).toFixed(2)+' ₽</div><div class="l">Валовая прибыль</div></div><div class="cost-card"><div class="n">'+Number(c.margin_percent||0).toFixed(1)+'%</div><div class="l">Маржа</div></div></div>';
-      }).catch(function(e){ $('cost').innerHTML='<div class="msg err">Ошибка себестоимости: '+esc(e.message)+'</div>'; });
-    }
-    function renderRecipe(){
-      var c=$('recipe'); if(!selected){ c.innerHTML='<p class="muted">Выберите товар.</p>'; return; }
-      if(!rows.length){
-        c.innerHTML='<div class="muted" style="padding:12px 0">Рецептура пустая. Можно добавить ингредиент вручную или сгенерировать её из базы/техкарты.</div><button class="btn btn-ghost" id="addRow">+ Ингредиент</button>';
-        var a=$('addRow'); if(a) a.onclick=addRow; return;
-      }
-      c.innerHTML=rows.map(function(r,i){
-        var ing=ingredients.find(function(x){ return x.id===r.ingredient_id; }), unit=ing?ing.unit:'g';
-        return '<div class="recipe-row"><select data-ri="'+i+'">'+ingredients.map(function(x){ return '<option value="'+esc(x.id)+'" '+(x.id===r.ingredient_id?'selected':'')+'>'+esc(x.name)+' ('+esc(unitLabel(x.unit))+')</option>'; }).join('')+'</select><input data-rq="'+i+'" type="number" min=".001" step=".001" value="'+esc(r.quantity)+'"><span class="muted">'+esc(unitLabel(unit))+'</span><input data-rn="'+i+'" placeholder="Примечание" value="'+esc(r.note)+'"><button class="btn btn-danger" data-rd="'+i+'">×</button></div>';
-      }).join('')+'<button class="btn btn-ghost" id="addRow">+ Ингредиент</button>';
-      Array.prototype.forEach.call(c.querySelectorAll('[data-ri]'), function(e){ e.onchange=function(){ var i=+e.dataset.ri; rows[i].ingredient_id=e.value; renderRecipe(); }; });
-      Array.prototype.forEach.call(c.querySelectorAll('[data-rq]'), function(e){ e.oninput=function(){ rows[+e.dataset.rq].quantity=Number(e.value)||0; }; });
-      Array.prototype.forEach.call(c.querySelectorAll('[data-rn]'), function(e){ e.oninput=function(){ rows[+e.dataset.rn].note=e.value; }; });
-      Array.prototype.forEach.call(c.querySelectorAll('[data-rd]'), function(e){ e.onclick=function(){ rows.splice(+e.dataset.rd,1); renderRecipe(); }; });
-      $('addRow').onclick=addRow;
-    }
-    function addRow(){ if(!ingredients.length){ msg('Сначала добавьте ингредиент.', true); return; } rows.push({ingredient_id:ingredients[0].id,quantity:1,note:''}); renderRecipe(); }
-    $('save').onclick=function(){
-      if(!selected) return;
-      if(rows.some(function(r){ return !(r.quantity>0); })){ msg('Количество каждого ингредиента должно быть больше нуля.', true); return; }
-      rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:selected,p_rows:rows}).then(function(){ msg('Рецептура сохранена.'); return loadCost(); }).catch(function(e){ msg('Ошибка сохранения: '+e.message, true); });
-    };
+function pick(id){
+ selected=id;var p=products.find(function(x){return x.id===id});if(!p)return;
+ $('title').textContent='Рецептура: '+p.name;$('save').hidden=false;
+ var cat=catalog.map(function(c){return {c:c,s:similarity(p.name,c.name)}}).sort(function(a,b){return b.s-a.s})[0];
+ $('matchInfo').textContent=cat&&cat.s>=.55?'Ближайшая техкарта в базе: '+cat.c.name+' · совпадение '+Math.round(cat.s*100)+'%':'В базе подходящая техкарта не найдена';
+ rows=[];
+ rpc('manager_recipe_list',{p_venue_id:venueId,p_product_id:id}).then(function(data){
+   rows=(Array.isArray(data)?data:[]).map(function(r){return{ingredient_id:r.ingredient_id,quantity:Number(r.quantity)||0,note:r.note||''}});
+   renderRecipe();renderProducts();return loadCost()
+ }).catch(function(e){msg('Ошибка загрузки рецептуры: '+e.message,true)})
+}
+function loadCost(){
+ if(!selected){$('cost').innerHTML='';return}
+ return rpc('manager_recipe_cost',{p_venue_id:venueId,p_product_id:selected}).then(function(c){
+  c=c||{};$('cost').innerHTML='<div class="cost-grid"><div class="cost-card"><div class="n">'+Number(c.cost||0).toFixed(2)+' ₽</div><div class="l">Себестоимость</div></div><div class="cost-card"><div class="n">'+Number(c.price||0).toFixed(2)+' ₽</div><div class="l">Цена продажи</div></div><div class="cost-card"><div class="n">'+Number(c.gross_profit||0).toFixed(2)+' ₽</div><div class="l">Валовая прибыль</div></div><div class="cost-card"><div class="n">'+Number(c.margin_percent||0).toFixed(1)+'%</div><div class="l">Маржа</div></div></div>'
+ }).catch(function(e){$('cost').innerHTML='<div class="msg err">Ошибка себестоимости: '+esc(e.message)+'</div>'})
+}
+function renderRecipe(){
+ var c=$('recipe');if(!selected){c.innerHTML='<p class="muted">Выберите товар.</p>';return}
+ if(!rows.length){c.innerHTML='<div class="muted" style="padding:12px 0">Рецептура пустая. Можно добавить ингредиент вручную или сгенерировать её из базы/техкарты.</div><button class="btn btn-ghost" id="addRow">+ Ингредиент</button>';var a=$('addRow');if(a)a.onclick=addRow;return}
+ c.innerHTML=rows.map(function(r,i){
+  var ing=ingredients.find(function(x){return x.id===r.ingredient_id}),unit=ing?ing.unit:'g';
+  return '<div class="recipe-row"><select data-ri="'+i+'">'+ingredients.map(function(x){return '<option value="'+esc(x.id)+'" '+(x.id===r.ingredient_id?'selected':'')+'>'+esc(x.name)+' ('+esc(unitLabel(x.unit))+')</option>'}).join('')+'</select><input data-rq="'+i+'" type="number" min=".001" step=".001" value="'+esc(r.quantity)+'"><span class="muted">'+esc(unitLabel(unit))+'</span><input data-rn="'+i+'" placeholder="Примечание" value="'+esc(r.note)+'"><button class="btn btn-danger" data-rd="'+i+'">×</button></div>'
+ }).join('')+'<button class="btn btn-ghost" id="addRow">+ Ингредиент</button>';
+ Array.prototype.forEach.call(c.querySelectorAll('[data-ri]'),function(e){e.onchange=function(){var i=+e.dataset.ri;rows[i].ingredient_id=e.value;renderRecipe()}})
+ Array.prototype.forEach.call(c.querySelectorAll('[data-rq]'),function(e){e.oninput=function(){rows[+e.dataset.rq].quantity=Number(e.value)||0}})
+ Array.prototype.forEach.call(c.querySelectorAll('[data-rn]'),function(e){e.oninput=function(){rows[+e.dataset.rn].note=e.value}})
+ Array.prototype.forEach.call(c.querySelectorAll('[data-rd]'),function(e){e.onclick=function(){rows.splice(+e.dataset.rd,1);renderRecipe()}})
+ $('addRow').onclick=addRow
+}
+function addRow(){if(!ingredients.length){msg('Сначала добавьте ингредиент.',true);return}rows.push({ingredient_id:ingredients[0].id,quantity:1,note:''});renderRecipe()}
+$('save').onclick=function(){
+ if(!selected)return;
+ if(rows.some(function(r){return !(r.quantity>0)})){msg('Количество каждого ингредиента должно быть больше нуля.',true);return}
+ rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:selected,p_rows:rows}).then(function(){msg('Рецептура сохранена.');return loadCost()}).catch(function(e){msg('Ошибка сохранения: '+e.message,true)})
+}
 
-    $('addIng').onclick=function(){
-      var n=$('iname').value.trim(), q=Number($('iqty').value), price=Number($('iprice').value);
-      if(!n){ msg('Введите название ингредиента.', true); return; } if(!(q>0)){ msg('Закупочное количество должно быть больше нуля.', true); return; } if(price<0||!Number.isFinite(price)){ msg('Некорректная закупочная цена.', true); return; }
-      rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:n,p_unit:$('iunit').value,p_purchase_quantity:q,p_purchase_price:price,p_id:null}).then(function(){ msg('Ингредиент добавлен.'); $('iname').value=''; $('iqty').value='1'; $('iprice').value='0'; return reloadIngredients(); }).catch(function(e){ msg('Ошибка: '+e.message, true); });
-    };
-    function reloadIngredients(){ return rpc('manager_ingredient_list',{p_venue_id:venueId}).then(function(d){ ingredients=Array.isArray(d)?d:[]; renderIngredients(); renderRecipe(); if(selected) return loadCost(); }); }
-    $('refreshIngredients').onclick=function(){ reloadIngredients().then(function(){ msg('Ингредиенты обновлены'); }).catch(function(e){ msg('Ошибка: '+e.message, true); }); };
+$('addIng').onclick=function(){
+ var n=$('iname').value.trim(),q=Number($('iqty').value),price=Number($('iprice').value);
+ if(!n){msg('Введите название ингредиента.',true);return}if(!(q>0)){msg('Закупочное количество должно быть больше нуля.',true);return}if(price<0||!Number.isFinite(price)){msg('Некорректная закупочная цена.',true);return}
+ rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:n,p_unit:$('iunit').value,p_purchase_quantity:q,p_purchase_price:price,p_id:null}).then(function(){msg('Ингредиент добавлен.');$('iname').value='';$('iqty').value='1';$('iprice').value='0';return reloadIngredients()}).catch(function(e){msg('Ошибка: '+e.message,true)})
+}
+function reloadIngredients(){return rpc('manager_ingredient_list',{p_venue_id:venueId}).then(function(d){ingredients=Array.isArray(d)?d:[];renderIngredients();renderRecipe();if(selected)return loadCost()})}
+$('refreshIngredients').onclick=function(){reloadIngredients().then(function(){msg('Ингредиенты обновлены')}).catch(function(e){msg('Ошибка: '+e.message,true)})}
 
-    function renderIngredients(){
-      $('ingredients').innerHTML=ingredients.length ? ingredients.map(function(i){
-        return '<div class="ingredient-row"><div style="flex:1"><b>'+esc(i.name)+'</b><div class="muted" style="font-size:11px">'+esc(unitLabel(i.unit))+' · закупка '+Number(i.purchase_price||0).toFixed(2)+' ₽ / '+esc(i.purchase_quantity)+' '+esc(unitLabel(i.unit))+'</div></div></div>';
-      }).join('') : '<span class="muted">Пока нет ингредиентов.</span>';
-    }
-    function renderTechCards(){
-      var c=$('techList'); c.innerHTML=techCards.length ? techCards.map(function(t){
-        return '<div class="tech-card">'+(t.file_url?'<img src="'+esc(t.file_url)+'" alt="">':'')+'<b>'+esc(t.file_name||'Техкарта')+'</b><div class="muted" style="font-size:11px;margin:5px 0">'+(t.status==='processed'?'Распознано':'Загружено')+'</div><button class="btn btn-ghost btn-sm" data-tech="'+esc(t.id)+'">Открыть / распознать</button></div>';
-      }).join('') : '<div class="muted">Техкарт пока нет. Добавьте изображения — система распознает их локально.</div>';
-      Array.prototype.forEach.call(c.querySelectorAll('[data-tech]'), function(b){ b.onclick=function(){ var t=techCards.find(function(x){ return x.id===b.dataset.tech; }); if(t) showOcr(t.ocr_text||'',t); }; });
-    }
-    $('uploadTechBtn').onclick=function(){ $('techModal').hidden=false; $('techFiles').click(); };
-    $('techFiles').onchange=function(){ var fs=Array.from(this.files||[]); if(!fs.length) return; fs.reduce(function(pr,f){ return pr.then(function(){ return processImage(f); }); },Promise.resolve()).then(function(){ msg('Техкарты обработаны. Проверяйте сопоставление блюда перед сохранением.'); }).catch(function(e){ msg('Ошибка OCR: '+(e.message||e), true); }).finally(function(){ $('techFiles').value=''; }); };
-    async function processImage(file){
-      $('techModal').hidden=false; $('ocrPanel').hidden=false; $('ocrText').textContent=''; $('ocrRecipeRows').innerHTML=''; $('ocrProgress').style.width='0%'; $('ocrStatus').textContent='Распознавание '+file.name+'...';
-      if(!window.Tesseract) throw new Error('OCR-библиотека не загрузилась');
-      var result=await Tesseract.recognize(file,'rus+eng',{logger:function(x){ if(x.progress!=null) $('ocrProgress').style.width=Math.round(x.progress*100)+'%'; if(x.status) $('ocrStatus').textContent=x.status; }});
-      var text=(result.data&&result.data.text||'').trim(); showOcr(text,{file:file,name:file.name});
-    }
-    function showOcr(text,meta){
-      $('ocrPanel').hidden=false; $('ocrText').textContent=text||'Текст не распознан';
-      ocrParsed=parseTechText(text);
-      $('ocrRecipeRows').innerHTML=ocrParsed.length?'<h4>Найденные ингредиенты</h4>'+ocrParsed.map(function(r,i){ return '<div class="gen-row"><input data-oi="'+i+'" value="'+esc(r.name)+'"><input data-oq="'+i+'" type="number" step=".001" value="'+esc(r.quantity)+'"><select data-ou="'+i+'"><option value="g" '+(r.unit==='g'?'selected':'')+'>г</option><option value="kg" '+(r.unit==='kg'?'selected':'')+'>кг</option><option value="ml" '+(r.unit==='ml'?'selected':'')+'>мл</option><option value="l" '+(r.unit==='l'?'selected':'')+'>л</option><option value="pcs" '+(r.unit==='pcs'?'selected':'')+'>шт</option></select><input data-on="'+i+'" placeholder="Примечание" value="'+esc(r.note||'')+'"></div>'; }).join('') : '<div class="muted">Не удалось выделить строки ингредиентов автоматически. Текст OCR можно использовать для ручного ввода.</div>';
-      var best=products.map(function(p){ return {p:p,s:similarity(text.split('\n')[0]||'',p.name)}; }).sort(function(a,b){ return b.s-a.s; });
-      $('ocrProduct').innerHTML=products.map(function(p){ var b=best.find(function(x){ return x.p.id===p.id; }); return '<option value="'+esc(p.id)+'" '+(b&&b.s>=.45?'selected':'')+'>'+esc(p.name)+'</option>'; }).join('');
-      $('ocrStatus').textContent='Распознано. Найдено строк ингредиентов: '+ocrParsed.length;
-      meta=meta||{}; meta.ocrText=text; meta.parsed=ocrParsed;
-      window.__ocrMeta=meta;
-    }
-    function parseTechText(text){
-      var out=[]; String(text||'').split(/\n+/).forEach(function(line){
-        line=line.replace(/\s+/g,' ').trim(); if(!line||line.length<3) return;
-        var m=line.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)\b(?:\s+(.*))?$/i);
-        if(!m) return;
-        var unit=(m[3]||'g').toLowerCase(); if(unit==='гр'||unit==='g') unit='g'; else if(unit==='кг'||unit==='kg') unit='kg'; else if(unit==='мл'||unit==='ml') unit='ml'; else if(unit==='л'||unit==='l') unit='l'; else unit='pcs';
-        var name=m[1].replace(/^[•·\-–—\d.)\s]+/,'').trim(); if(name.length<2) return;
-        out.push({name:name,quantity:Number(String(m[2]).replace(',','.')),unit:unit,note:m[4]||''});
-      }); return out;
-    }
-    $('applyOcr').onclick=async function(){
-      var pid=$('ocrProduct').value; if(!pid){ msg('Выберите блюдо.', true); return; }
-      var arr=ocrParsed.map(function(r,i){ return {name:$('[data-oi="'+i+'"]').value.trim(),quantity:Number($('[data-oq="'+i+'"]').value),unit:$('[data-ou="'+i+'"]').value,note:$('[data-on="'+i+'"]').value.trim()}; }).filter(function(r){ return r.name&&r.quantity>0; });
-      if(!arr.length){ msg('В техкарте не найдены ингредиенты. Проверьте OCR.', true); return; }
-      try{
-        for(var i=0;i<arr.length;i++){
-          var existing=ingredients.map(function(x){ return {x:x,s:similarity(x.name,arr[i].name)}; }).sort(function(a,b){ return b.s-a.s; })[0];
-          var iid=existing&&existing.s>=.78?existing.x.id:null;
-          if(!iid){ var g=globalIngredients.map(function(x){ return {x:x,s:similarity(x.name,arr[i].name)}; }).sort(function(a,b){ return b.s-a.s; })[0]; var name=g&&g.s>=.78?g.x.name:arr[i].name;
-            var rr=await rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:name,p_unit:arr[i].unit,p_purchase_quantity:1,p_purchase_price:0,p_id:null}); iid=rr&&rr.id?rr.id:(rr&&rr[0]?rr[0].id:null);
-            if(!iid){ await reloadIngredients(); var ni=ingredients.find(function(x){ return similarity(x.name,name)>=.95; }); if(ni) iid=ni.id; }
-          }
-          if(iid) arr[i].ingredient_id=iid;
-        }
-        await reloadIngredients(); var recipeRows=arr.filter(function(x){ return x.ingredient_id; }).map(function(x){ return {ingredient_id:x.ingredient_id,quantity:x.quantity,note:x.note||''}; });
-        await rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:pid,p_rows:recipeRows});
-        var p=products.find(function(x){ return x.id===pid; }); if(p) selected=pid; pick(pid);
-        await saveTechCardRecord(window.__ocrMeta||{ocrText:$('ocrText').textContent,name:'Техкарта'});
-        msg('Техкарта распознана и рецептура создана.'); $('techModal').hidden=true;
-      } catch(e){ console.error(e); msg('Ошибка создания рецептуры: '+(e.message||e), true); }
-    };
-    async function saveTechCardRecord(meta){
-      if(!meta||!meta.file) return;
-      var file=meta.file;
-      var path=venueId+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
-      var up=await db.storage.from('tech-cards').upload(path,file,{upsert:false});
-      if(up.error) throw up.error;
-      var ins=await db.from('manager_tech_cards').insert({venue_id:venueId,product_id:$('ocrProduct').value,file_name:file.name,file_path:path,file_url:null,ocr_text:meta.ocrText||'',status:'processed'});
-      if(ins.error) throw ins.error; return reloadTechCards();
-    }
-    async function reloadTechCards(){
-      var r=await db.from('manager_tech_cards').select('id,product_id,file_name,file_path,file_url,ocr_text,status,created_at').eq('venue_id',venueId).order('created_at',{ascending:false});
-      if(r.error) throw r.error;
-      techCards=r.data||[];
-      for(var i=0;i<techCards.length;i++){
-        if(techCards[i].file_path){
-          var su=await db.storage.from('tech-cards').createSignedUrl(techCards[i].file_path,3600);
-          if(!su.error&&su.data) techCards[i].file_url=su.data.signedUrl;
-        }
-      }
-      renderTechCards();
-    }
-    async function ensureLocalIngredient(globalItem){
-      var gi=globalItem.ingredient; if(!gi) return null;
-      var ranked=ingredients.map(function(x){ return {x:x,s:similarity(x.name,gi.name)}; }).sort(function(a,b){ return b.s-a.s; });
-      if(ranked[0]&&ranked[0].s>=.86) return ranked[0].x;
-      var up=await rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:gi.name,p_unit:gi.unit||globalItem.unit||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null});
-      var iid=up&&up.id?up.id:(Array.isArray(up)&&up[0]?up[0].id:null);
-      await reloadIngredients();
-      if(iid){ var found=ingredients.find(function(x){ return x.id===iid; }); if(found) return found; }
-      var fallback=ingredients.map(function(x){ return {x:x,s:similarity(x.name,gi.name)}; }).sort(function(a,b){ return b.s-a.s; })[0];
-      return fallback?fallback.x:null;
-    }
-    function convertQuantity(q,from,to){
-      q=Number(q)||0; if(!from||!to||from===to) return q;
-      var mass={g:1,kg:1000}, vol={ml:1,l:1000};
-      if(mass[from]&&mass[to]) return q*mass[from]/mass[to];
-      if(vol[from]&&vol[to]) return q*vol[from]/vol[to];
-      return q;
-    }
-    async function generateAll(){
-      if(!catalog.length){ msg('База техкарт пуста. Сначала выполните recipe_database.sql в Supabase.', true); return; }
-      var made=0,skipped=0,errors=0;
-      $('generationSummary').textContent='Сопоставление меню с базой техкарт…';
-      for(var i=0;i<products.length;i++){
-        var p=products[i];
-        try{
-          var existing=await rpc('manager_recipe_list',{p_venue_id:venueId,p_product_id:p.id});
-          if(Array.isArray(existing)&&existing.length){ skipped++; continue; }
-          var best=catalog.map(function(c){ return {c:c,s:similarity(p.name,c.name)}; }).sort(function(a,b){ return b.s-a.s; })[0];
-          if(!best||best.s<.72){ skipped++; continue; }
-          var ir=await db.from('global_recipe_catalog_items').select('ingredient_id,quantity,unit,note,ingredient:global_ingredient_catalog(id,name,unit)').eq('recipe_id',best.c.id).order('sort_order');
-          if(ir.error) throw ir.error;
-          var recipeRows=[];
-          for(var j=0;j<(ir.data||[]).length;j++){
-            var it=ir.data[j], local=await ensureLocalIngredient(it); if(!local) continue;
-            recipeRows.push({ingredient_id:local.id,quantity:convertQuantity(it.quantity,it.unit||it.ingredient.unit,local.unit),note:it.note||'Автотехкарта из базы'});
-          }
-          if(recipeRows.length){ await rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:p.id,p_rows:recipeRows}); made++; } else skipped++;
-        } catch(e){ console.error('[generateAll]',p.name,e); errors++; }
-      }
-      await reloadIngredients();
-      $('generationSummary').textContent='Готово: создано '+made+'; пропущено '+skipped+'; ошибок '+errors+'. Существующие рецептуры не перезаписывались.';
-      msg(made?'Автозаполнение завершено.':'Новых рецептур не создано. Проверьте названия блюд и базу техкарт.',!made);
-    }
-    $('generateAllBtn').onclick=function(){ if(confirm('Автозаполнить только пустые рецептуры подходящих позиций меню из базы стандартных техкарт? Существующие рецептуры не будут изменены.')) generateAll().catch(function(e){ msg('Ошибка генерации: '+e.message, true); }); };
+function renderIngredients(){
+ $('ingredients').innerHTML=ingredients.length?ingredients.map(function(i){
+  return '<div class="ingredient-row"><div style="flex:1"><b>'+esc(i.name)+'</b><div class="muted" style="font-size:11px">'+esc(unitLabel(i.unit))+' · закупка '+Number(i.purchase_price||0).toFixed(2)+' ₽ / '+esc(i.purchase_quantity)+' '+esc(unitLabel(i.unit))+'</div></div></div>'
+ }).join(''):'<span class="muted">Пока нет ингредиентов.</span>'
+}
+function renderTechCards(){
+ var c=$('techList');c.innerHTML=techCards.length?techCards.map(function(t){
+  return '<div class="tech-card">'+(t.file_url?'<img src="'+esc(t.file_url)+'" alt="">':'')+'<b>'+esc(t.file_name||'Техкарта')+'</b><div class="muted" style="font-size:11px;margin:5px 0">'+(t.status==='processed'?'Распознано':'Загружено')+'</div><button class="btn btn-ghost btn-sm" data-tech="'+esc(t.id)+'">Открыть / распознать</button></div>'
+ }).join(''):'<div class="muted">Техкарт пока нет. Добавьте изображения — система распознает их локально.</div>';
+ Array.prototype.forEach.call(c.querySelectorAll('[data-tech]'),function(b){b.onclick=function(){var t=techCards.find(function(x){return x.id===b.dataset.tech});if(t)showOcr(t.ocr_text||'',t)}})
+}
+$('uploadTechBtn').onclick=function(){$('techModal').hidden=false;$('techFiles').click()}
+$('techFiles').onchange=function(){var fs=Array.from(this.files||[]);if(!fs.length)return;fs.reduce(function(pr,f){return pr.then(function(){return processImage(f)})},Promise.resolve()).then(function(){msg('Техкарты обработаны. Проверяйте сопоставление блюда перед сохранением.')}).catch(function(e){msg('Ошибка OCR: '+(e.message||e),true)}).finally(function(){$('techFiles').value=''})}
+async function processImage(file){
+ $('techModal').hidden=false;$('ocrPanel').hidden=false;$('ocrText').textContent='';$('ocrRecipeRows').innerHTML='';$('ocrProgress').style.width='0%';$('ocrStatus').textContent='Распознавание '+file.name+'...';
+ if(!window.Tesseract)throw new Error('OCR-библиотека не загрузилась');
+ var result=await Tesseract.recognize(file,'rus+eng',{logger:function(x){if(x.progress!=null)$('ocrProgress').style.width=Math.round(x.progress*100)+'%';if(x.status)$('ocrStatus').textContent=x.status}});
+ var text=(result.data&&result.data.text||'').trim();showOcr(text,{file:file,name:file.name})
+}
+function showOcr(text,meta){
+ $('ocrPanel').hidden=false;$('ocrText').textContent=text||'Текст не распознан';
+ ocrParsed=parseTechText(text);
+ $('ocrRecipeRows').innerHTML=ocrParsed.length?'<h4>Найденные ингредиенты</h4>'+ocrParsed.map(function(r,i){return '<div class="gen-row"><input data-oi="'+i+'" value="'+esc(r.name)+'"><input data-oq="'+i+'" type="number" step=".001" value="'+esc(r.quantity)+'"><select data-ou="'+i+'"><option value="g" '+(r.unit==='g'?'selected':'')+'>г</option><option value="kg" '+(r.unit==='kg'?'selected':'')+'>кг</option><option value="ml" '+(r.unit==='ml'?'selected':'')+'>мл</option><option value="l" '+(r.unit==='l'?'selected':'')+'>л</option><option value="pcs" '+(r.unit==='pcs'?'selected':'')+'>шт</option></select><input data-on="'+i+'" placeholder="Примечание" value="'+esc(r.note||'')+'"></div>'}).join(''):'<div class="muted">Не удалось выделить строки ингредиентов автоматически. Текст OCR можно использовать для ручного ввода.</div>';
+ var best=products.map(function(p){return{p:p,s:similarity(text.split('\\n')[0]||'',p.name)}}).sort(function(a,b){return b.s-a.s});
+ $('ocrProduct').innerHTML=products.map(function(p){var b=best.find(function(x){return x.p.id===p.id});return '<option value="'+esc(p.id)+'" '+(b&&b.s>=.45?'selected':'')+'>'+esc(p.name)+'</option>'}).join('');
+ $('ocrStatus').textContent='Распознано. Найдено строк ингредиентов: '+ocrParsed.length;
+ meta=meta||{};meta.ocrText=text;meta.parsed=ocrParsed;
+ window.__ocrMeta=meta;
+}
+function parseTechText(text){
+ var out=[];String(text||'').split(/\n+/).forEach(function(line){
+  line=line.replace(/\s+/g,' ').trim();if(!line||line.length<3)return;
+  var m=line.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)\b(?:\s+(.*))?$/i);
+  if(!m)return;
+  var unit=(m[3]||'g').toLowerCase();if(unit==='гр'||unit==='g')unit='g';else if(unit==='кг'||unit==='kg')unit='kg';else if(unit==='мл'||unit==='ml')unit='ml';else if(unit==='л'||unit==='l')unit='l';else unit='pcs';
+  var name=m[1].replace(/^[•·\-–—\d.)\s]+/,'').trim();if(name.length<2)return;
+  out.push({name:name,quantity:Number(String(m[2]).replace(',','.')),unit:unit,note:m[4]||''});
+ });return out
+}
+$('applyOcr').onclick=async function(){
+ var pid=$('ocrProduct').value;if(!pid){msg('Выберите блюдо.',true);return}
+ var arr=ocrParsed.map(function(r,i){return{name:$('[data-oi="'+i+'"]').value.trim(),quantity:Number($('[data-oq="'+i+'"]').value),unit:$('[data-ou="'+i+'"]').value,note:$('[data-on="'+i+'"]').value.trim()}}).filter(function(r){return r.name&&r.quantity>0});
+ if(!arr.length){msg('В техкарте не найдены ингредиенты. Проверьте OCR.',true);return}
+ try{
+  for(var i=0;i<arr.length;i++){
+   var existing=ingredients.map(function(x){return{x:x,s:similarity(x.name,arr[i].name)}}).sort(function(a,b){return b.s-a.s})[0];
+   var iid=existing&&existing.s>=.78?existing.x.id:null;
+   if(!iid){var g=globalIngredients.map(function(x){return{x:x,s:similarity(x.name,arr[i].name)}}).sort(function(a,b){return b.s-a.s})[0];var name=g&&g.s>=.78?g.x.name:arr[i].name;
+     var rr=await rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:name,p_unit:arr[i].unit,p_purchase_quantity:1,p_purchase_price:0,p_id:null});iid=rr&&rr.id?rr.id:(rr&&rr[0]?rr[0].id:null);
+     if(!iid){await reloadIngredients();var ni=ingredients.find(function(x){return similarity(x.name,name)>=.95});if(ni)iid=ni.id}
+   }
+   if(iid)arr[i].ingredient_id=iid;
+  }
+  await reloadIngredients();var recipeRows=arr.filter(function(x){return x.ingredient_id}).map(function(x){return{ingredient_id:x.ingredient_id,quantity:x.quantity,note:x.note||''}});
+  await rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:pid,p_rows:recipeRows});
+  var p=products.find(function(x){return x.id===pid});if(p)selected=pid;pick(pid);
+  await saveTechCardRecord(window.__ocrMeta||{ocrText:$('ocrText').textContent,name:'Техкарта'});
+  msg('Техкарта распознана и рецептура создана.');$('techModal').hidden=true;
+ }catch(e){console.error(e);msg('Ошибка создания рецептуры: '+(e.message||e),true)}
+}
+async function saveTechCardRecord(meta){
+ if(!meta||!meta.file)return;
+ var file=meta.file;
+ var path=venueId+'/'+Date.now()+'_'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_');
+ var up=await db.storage.from('tech-cards').upload(path,file,{upsert:false});
+ if(up.error)throw up.error;
+ var ins=await db.from('manager_tech_cards').insert({venue_id:venueId,product_id:$('ocrProduct').value,file_name:file.name,file_path:path,file_url:null,ocr_text:meta.ocrText||'',status:'processed'});
+ if(ins.error)throw ins.error;return reloadTechCards()
+}
+async function reloadTechCards(){
+ var r=await db.from('manager_tech_cards').select('id,product_id,file_name,file_path,file_url,ocr_text,status,created_at').eq('venue_id',venueId).order('created_at',{ascending:false});
+ if(r.error)throw r.error;
+ techCards=r.data||[];
+ for(var i=0;i<techCards.length;i++){
+   if(techCards[i].file_path){
+     var su=await db.storage.from('tech-cards').createSignedUrl(techCards[i].file_path,3600);
+     if(!su.error&&su.data)techCards[i].file_url=su.data.signedUrl;
+   }
+ }
+ renderTechCards()
+}
 
-    function renderCatalog(){
-      var q=norm($('catalogSearch').value); var arr=catalog.filter(function(c){ return !q||norm(c.name).includes(q)||norm(c.description).includes(q); });
-      $('catalogList').innerHTML=arr.length?arr.map(function(c){ return '<div class="catalog-card"><div class="badge2">'+esc(c.category||'Блюдо')+'</div><h4 style="margin:8px 0 4px">'+esc(c.name)+'</h4><div class="muted" style="font-size:12px">'+esc(c.description||'Стандартная техкарта')+'</div><div class="muted" style="font-size:11px;margin-top:8px">Выход: '+esc(c.yield_quantity)+' '+esc(unitLabel(c.yield_unit))+'</div><button class="btn btn-primary btn-sm" style="margin-top:10px" data-gen="'+esc(c.id)+'">Использовать для меню</button></div>'; }).join('') : '<p class="muted">Ничего не найдено.</p>';
-      Array.prototype.forEach.call($('catalogList').querySelectorAll('[data-gen]'), function(b){ b.onclick=function(){ var c=catalog.find(function(x){ return x.id===b.dataset.gen; }); if(c) useCatalog(c); }; });
-    }
-    $('catalogSearch').addEventListener('input', renderCatalog);
-    async function useCatalog(c){
-      var best=products.map(function(p){ return {p:p,s:similarity(p.name,c.name)}; }).sort(function(a,b){ return b.s-a.s; })[0];
-      if(!best||best.s<.45){ msg('Не удалось уверенно сопоставить техкарту с меню. Откройте нужное блюдо и выберите его вручную.', true); return; }
-      if(!confirm('Применить техкарту «'+c.name+'» к «'+best.p.name+'»?')) return;
-      $('catalogModal').hidden=true;
-      try{
-        var ir=await db.from('global_recipe_catalog_items').select('ingredient_id,quantity,unit,note,ingredient:global_ingredient_catalog(id,name,unit)').eq('recipe_id',c.id); if(ir.error) throw ir.error;
-        var rr=[];
-        for(var i=0;i<ir.data.length;i++){ var it=ir.data[i],gi=it.ingredient; if(!gi) continue; var local=ingredients.map(function(x){ return {x:x,s:similarity(x.name,gi.name)}; }).sort(function(a,b){ return b.s-a.s; })[0], iid=local&&local.s>=.86?local.x.id:null;
-          if(!iid){ var up=await rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:gi.name,p_unit:it.unit||gi.unit||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null}); iid=up&&up.id?up.id:null; await reloadIngredients(); if(!iid){ var ni=ingredients.find(function(x){ return similarity(x.name,gi.name)>=.95; }); if(ni) iid=ni.id; } }
-          if(iid) rr.push({ingredient_id:iid,quantity:Number(it.quantity)||0,note:it.note||''});
-        }
-        await rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:best.p.id,p_rows:rr}); selected=best.p.id; pick(best.p.id); msg('Техкарта применена к «'+best.p.name+'».');
-      } catch(e){ msg('Ошибка: '+e.message, true); }
-    }
-    function renderGlobalIngredients(){
-      var q=norm($('ingredientsSearch').value); var arr=globalIngredients.filter(function(x){ return !q||norm(x.name).includes(q); });
-      $('ingredientsDbList').innerHTML=arr.map(function(x){ return '<div class="ingredient-row"><div style="flex:1"><b>'+esc(x.name)+'</b><span class="muted"> · '+esc(unitLabel(x.unit))+'</span></div><span class="badge2">'+esc(x.category||'Ингредиент')+'</span></div>'; }).join('')||'<p class="muted">Ничего не найдено.</p>';
-    }
-    $('ingredientsSearch').addEventListener('input', renderGlobalIngredients);
-    $('catalogBtn').onclick=function(){ $('catalogModal').hidden=false; renderCatalog(); };
-    $('ingredientsDbBtn').onclick=function(){ $('ingredientsModal').hidden=false; renderGlobalIngredients(); };
-    Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function(b){ b.onclick=function(){ $(b.dataset.close).hidden=true; }; });
+async function ensureLocalIngredient(globalItem){
+ var gi=globalItem.ingredient;if(!gi)return null;
+ var ranked=ingredients.map(function(x){return{x:x,s:similarity(x.name,gi.name)}}).sort(function(a,b){return b.s-a.s});
+ if(ranked[0]&&ranked[0].s>=.86)return ranked[0].x;
+ var up=await rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:gi.name,p_unit:gi.unit||globalItem.unit||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null});
+ var iid=up&&up.id?up.id:(Array.isArray(up)&&up[0]?up[0].id:null);
+ await reloadIngredients();
+ if(iid){var found=ingredients.find(function(x){return x.id===iid});if(found)return found;}
+ var fallback=ingredients.map(function(x){return{x:x,s:similarity(x.name,gi.name)}}).sort(function(a,b){return b.s-a.s})[0];
+ return fallback?fallback.x:null;
+}
+function convertQuantity(q,from,to){
+ q=Number(q)||0;if(!from||!to||from===to)return q;
+ var mass={g:1,kg:1000},vol={ml:1,l:1000};
+ if(mass[from]&&mass[to])return q*mass[from]/mass[to];
+ if(vol[from]&&vol[to])return q*vol[from]/vol[to];
+ return q;
+}
+async function generateAll(){
+ if(!catalog.length){msg('База техкарт пуста. Сначала выполните recipe_database.sql в Supabase.',true);return;}
+ var made=0,skipped=0,errors=0;
+ $('generationSummary').textContent='Сопоставление меню с базой техкарт…';
+ for(var i=0;i<products.length;i++){
+  var p=products[i];
+  try{
+   var existing=await rpc('manager_recipe_list',{p_venue_id:venueId,p_product_id:p.id});
+   if(Array.isArray(existing)&&existing.length){skipped++;continue;}
+   var best=catalog.map(function(c){return{c:c,s:similarity(p.name,c.name)}}).sort(function(a,b){return b.s-a.s})[0];
+   if(!best||best.s<.72){skipped++;continue;}
+   var ir=await db.from('global_recipe_catalog_items').select('ingredient_id,quantity,unit,note,ingredient:global_ingredient_catalog(id,name,unit)').eq('recipe_id',best.c.id).order('sort_order');
+   if(ir.error)throw ir.error;
+   var recipeRows=[];
+   for(var j=0;j<(ir.data||[]).length;j++){
+    var it=ir.data[j],local=await ensureLocalIngredient(it);if(!local)continue;
+    recipeRows.push({ingredient_id:local.id,quantity:convertQuantity(it.quantity,it.unit||it.ingredient.unit,local.unit),note:it.note||'Автотехкарта из базы'});
+   }
+   if(recipeRows.length){await rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:p.id,p_rows:recipeRows});made++;}else skipped++;
+  }catch(e){console.error('[generateAll]',p.name,e);errors++;}
+ }
+ await reloadIngredients();
+ $('generationSummary').textContent='Готово: создано '+made+'; пропущено '+skipped+'; ошибок '+errors+'. Существующие рецептуры не перезаписывались.';
+ msg(made?'Автозаполнение завершено.':'Новых рецептур не создано. Проверьте названия блюд и базу техкарт.',!made);
+}
+$('generateAllBtn').onclick=function(){if(confirm('Автозаполнить только пустые рецептуры подходящих позиций меню из базы стандартных техкарт? Существующие рецептуры не будут изменены.'))generateAll().catch(function(e){msg('Ошибка генерации: '+e.message,true)})}
 
-    // Запуск загрузки
-    loadAll();
-  };
+function renderCatalog(){
+ var q=norm($('catalogSearch').value);var arr=catalog.filter(function(c){return !q||norm(c.name).includes(q)||norm(c.description).includes(q)});
+ $('catalogList').innerHTML=arr.length?arr.map(function(c){return '<div class="catalog-card"><div class="badge2">'+esc(c.category||'Блюдо')+'</div><h4 style="margin:8px 0 4px">'+esc(c.name)+'</h4><div class="muted" style="font-size:12px">'+esc(c.description||'Стандартная техкарта')+'</div><div class="muted" style="font-size:11px;margin-top:8px">Выход: '+esc(c.yield_quantity)+' '+esc(unitLabel(c.yield_unit))+'</div><button class="btn btn-primary btn-sm" style="margin-top:10px" data-gen="'+esc(c.id)+'">Использовать для меню</button></div>'}).join(''):'<p class="muted">Ничего не найдено.</p>';
+ Array.prototype.forEach.call($('catalogList').querySelectorAll('[data-gen]'),function(b){b.onclick=function(){var c=catalog.find(function(x){return x.id===b.dataset.gen});if(c)useCatalog(c)}})
+}
+$('catalogSearch').addEventListener('input',renderCatalog);
+async function useCatalog(c){
+ var best=products.map(function(p){return{p:p,s:similarity(p.name,c.name)}}).sort(function(a,b){return b.s-a.s})[0];
+ if(!best||best.s<.45){msg('Не удалось уверенно сопоставить техкарту с меню. Откройте нужное блюдо и выберите его вручную.',true);return}
+ if(!confirm('Применить техкарту «'+c.name+'» к «'+best.p.name+'»?'))return;
+ $('catalogModal').hidden=true;
+ try{
+  var ir=await db.from('global_recipe_catalog_items').select('ingredient_id,quantity,unit,note,ingredient:global_ingredient_catalog(id,name,unit)').eq('recipe_id',c.id);if(ir.error)throw ir.error;
+  var rr=[];
+  for(var i=0;i<ir.data.length;i++){var it=ir.data[i],gi=it.ingredient;if(!gi)continue;var local=ingredients.map(function(x){return{x:x,s:similarity(x.name,gi.name)}}).sort(function(a,b){return b.s-a.s})[0],iid=local&&local.s>=.86?local.x.id:null;
+   if(!iid){var up=await rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:gi.name,p_unit:it.unit||gi.unit||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null});iid=up&&up.id?up.id:null;await reloadIngredients();if(!iid){var ni=ingredients.find(function(x){return similarity(x.name,gi.name)>=.95});if(ni)iid=ni.id}}
+   if(iid)rr.push({ingredient_id:iid,quantity:Number(it.quantity)||0,note:it.note||''})
+  }
+  await rpc('manager_product_recipe_save',{p_venue_id:venueId,p_product_id:best.p.id,p_rows:rr});selected=best.p.id;pick(best.p.id);msg('Техкарта применена к «'+best.p.name+'».')
+ }catch(e){msg('Ошибка: '+e.message,true)}
+}
+function renderGlobalIngredients(){
+ var q=norm($('ingredientsSearch').value);var arr=globalIngredients.filter(function(x){return !q||norm(x.name).includes(q)});
+ $('ingredientsDbList').innerHTML=arr.map(function(x){return '<div class="ingredient-row"><div style="flex:1"><b>'+esc(x.name)+'</b><span class="muted"> · '+esc(unitLabel(x.unit))+'</span></div><span class="badge2">'+esc(x.category||'Ингредиент')+'</span></div>'}).join('')||'<p class="muted">Ничего не найдено.</p>'
+}
+$('ingredientsSearch').addEventListener('input',renderGlobalIngredients);
+$('catalogBtn').onclick=function(){$('catalogModal').hidden=false;renderCatalog()}
+$('ingredientsDbBtn').onclick=function(){$('ingredientsModal').hidden=false;renderGlobalIngredients()}
+Array.prototype.forEach.call(document.querySelectorAll('[data-close]'),function(b){b.onclick=function(e){e.preventDefault();e.stopPropagation();var m=$(b.dataset.close);if(m){m.hidden=true;m.setAttribute('hidden','')}}});
+Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){m.addEventListener('click',function(e){if(e.target===m){m.hidden=true;m.setAttribute('hidden','')}})});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){m.hidden=true;m.setAttribute('hidden','')})}});
+window.addEventListener('manager-venue-selected',function(e){if(e.detail&&e.detail.id){venueId=e.detail.id;try{localStorage.setItem('manager_venue_id',String(venueId))}catch(_e){}loadAll()}});
+loadAll();
+
 })();
 </script>
 </body>
