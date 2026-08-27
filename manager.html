@@ -2,7 +2,6 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<link rel="manifest" href="/manifest-manager.webmanifest">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>УПРАВЛЯЮЩИЙ</title>
@@ -11,8 +10,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/pwa-install.js"></script>
 <style>
 .bar{height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;margin:4px 0}
 .bar-fill{height:8px;border-radius:4px;background:linear-gradient(90deg,#6366f1,#8b5cf6)}
@@ -43,7 +40,7 @@
 .recipe-tab-container{min-height:820px}
 
 </style>
-<script src="/js/manager-hall-ai.js"></script>
+<script src="/js/manager-hall-ai.js?v=20"></script>
 <style id="integrated-recipes-css">
 body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}
 .recipe-wrap{max-width:1250px;margin:0 auto;padding:20px 18px 40px}
@@ -1537,10 +1534,59 @@ $('addIng').onclick=function(){
 function reloadIngredients(){return rpc('manager_ingredient_list',{p_venue_id:venueId}).then(function(d){ingredients=Array.isArray(d)?d:[];renderIngredients();renderRecipe();if(selected)return loadCost()})}
 $('refreshIngredients').onclick=function(){reloadIngredients().then(function(){msg('Ингредиенты обновлены')}).catch(function(e){msg('Ошибка: '+e.message,true)})}
 
+function openLocalIngredientEditor(item){
+ var back=document.createElement('div');
+ back.className='qr-local-ingredient-editor';
+ back.innerHTML='<div class="glass card" style="width:min(440px,calc(100vw - 30px));padding:20px">'+
+   '<h3 style="margin-top:0">Изменить ингредиент</h3>'+
+   '<label>Название</label><input id="localIngName" value="'+esc(item.name)+'" style="width:100%;margin:6px 0 10px">'+
+   '<label>Единица измерения</label><select id="localIngUnit" style="width:100%;margin:6px 0 10px">'+
+   '<option value="g" '+(item.unit==='g'?'selected':'')+'>г</option>'+
+   '<option value="kg" '+(item.unit==='kg'?'selected':'')+'>кг</option>'+
+   '<option value="ml" '+(item.unit==='ml'?'selected':'')+'>мл</option>'+
+   '<option value="l" '+(item.unit==='l'?'selected':'')+'>л</option>'+
+   '<option value="pcs" '+(item.unit==='pcs'?'selected':'')+'>шт</option>'+
+   '</select>'+
+   '<label>Закупочное количество</label><input id="localIngQty" type="number" min="0.001" step="0.001" value="'+Number(item.purchase_quantity||1)+'" style="width:100%;margin:6px 0 10px">'+
+   '<label>Закупочная цена</label><input id="localIngPrice" type="number" min="0" step="0.01" value="'+Number(item.purchase_price||0)+'" style="width:100%;margin:6px 0 14px">'+
+   '<div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn btn-ghost" id="localIngCancel">Отмена</button><button type="button" class="btn btn-primary" id="localIngSave">Сохранить</button></div>'+
+   '</div>';
+ back.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.68);z-index:200000;display:flex;align-items:center;justify-content:center;padding:15px';
+ document.body.appendChild(back);
+ back.querySelector('#localIngCancel').onclick=function(){back.remove()};
+ back.onclick=function(e){if(e.target===back)back.remove()};
+ back.querySelector('#localIngSave').onclick=function(){
+   var name=back.querySelector('#localIngName').value.trim();
+   var unit=back.querySelector('#localIngUnit').value;
+   var qty=Number(back.querySelector('#localIngQty').value);
+   var price=Number(back.querySelector('#localIngPrice').value);
+   if(!name){msg('Введите название ингредиента.',true);return}
+   if(!(qty>0)){msg('Закупочное количество должно быть больше нуля.',true);return}
+   if(!Number.isFinite(price)||price<0){msg('Некорректная цена закупки.',true);return}
+   var btn=this;btn.disabled=true;
+   rpc('manager_ingredient_upsert',{p_venue_id:venueId,p_name:name,p_unit:unit,p_purchase_quantity:qty,p_purchase_price:price,p_id:item.id})
+     .then(function(){back.remove();msg('Ингредиент изменён.');return reloadIngredients()})
+     .catch(function(e){btn.disabled=false;msg('Ошибка изменения: '+(e.message||e),true)})
+ };
+}
+function deleteLocalIngredient(item){
+ if(!confirm('Удалить ингредиент «'+item.name+'»?'))return;
+ rpc('manager_ingredient_delete',{p_venue_id:venueId,p_ingredient_id:item.id})
+   .then(function(){msg('Ингредиент удалён.');return reloadIngredients()})
+   .catch(function(e){msg('Не удалось удалить ингредиент: '+(e.message||e),true)})
+}
 function renderIngredients(){
  $('ingredients').innerHTML=ingredients.length?ingredients.map(function(i){
-  return '<div class="ingredient-row"><div style="flex:1"><b>'+esc(i.name)+'</b><div class="muted" style="font-size:11px">'+esc(unitLabel(i.unit))+' · закупка '+Number(i.purchase_price||0).toFixed(2)+' ₽ / '+esc(i.purchase_quantity)+' '+esc(unitLabel(i.unit))+'</div></div></div>'
- }).join(''):'<span class="muted">Пока нет ингредиентов.</span>'
+   return '<div class="ingredient-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px">'+
+     '<div style="flex:1;min-width:0"><b>'+esc(i.name)+'</b><div class="muted" style="font-size:11px">'+esc(unitLabel(i.unit))+' · закупка '+Number(i.purchase_price||0).toFixed(2)+' ₽ / '+esc(i.purchase_quantity)+' '+esc(unitLabel(i.unit))+'</div></div>'+
+     '<div class="ingredient-actions" style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0">'+
+       '<button type="button" class="btn btn-ghost btn-sm" data-local-edit="'+esc(i.id)+'">Изменить</button>'+
+       '<button type="button" class="btn btn-danger btn-sm" data-local-delete="'+esc(i.id)+'">Удалить</button>'+
+     '</div>'+
+   '</div>'
+ }).join(''):'<span class="muted">Пока нет ингредиентов.</span>';
+ Array.prototype.forEach.call($('ingredients').querySelectorAll('[data-local-edit]'),function(b){b.onclick=function(){var item=ingredients.find(function(x){return x.id===b.dataset.localEdit});if(item)openLocalIngredientEditor(item)}});
+ Array.prototype.forEach.call($('ingredients').querySelectorAll('[data-local-delete]'),function(b){b.onclick=function(){var item=ingredients.find(function(x){return x.id===b.dataset.localDelete});if(item)deleteLocalIngredient(item)}});
 }
 function renderTechCards(){
  var c=$('techList');c.innerHTML=techCards.length?techCards.map(function(t){
