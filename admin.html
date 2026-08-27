@@ -2062,7 +2062,10 @@ return db.from('subscriptions').update({plan_id:pay.plan_id,status:'active',curr
 }).then(function(){return db.from('payments').update({status:'confirmed'}).eq('id',pay.id)}).then(function(){self.loadBaseData()})},
 rejectPayment:function(pay){var self=this;
 db.from('payments').update({status:'rejected'}).eq('id',pay.id).then(function(){self.loadBaseData()})},
-logout:function(){try{db.auth.signOut()}catch(e){}location.href='/index.html'},
+logout:function(){
+  try{ db.auth.signOut(); }catch(e){}
+  location.href='/login.html';
+},
 
 // ===================== МЕТОДЫ ДЛЯ ШАБЛОНОВ =====================
 normalizeProduct: function(p) {
