@@ -16,19 +16,19 @@ module.exports = async function handler(req, res) {
     if (order.payment_method !== 'sbp') return json(res, 200, { ok: true, order_id: order.id, payment_required: false, payment_status: order.payment_status || null });
     if (!order.payment_id || order.payment_provider !== 'yookassa') return json(res, 200, { ok: true, order_id: order.id, payment_required: true, payment_status: order.payment_status || 'pending', payment_id: null });
 
-    let accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(order.venue_id)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=id,credentials_ref&limit=1`);
+    let accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(order.venue_id)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=id,credentials_ref,merchant_id&limit=1`);
     let account = Array.isArray(accounts) ? accounts[0] : null;
     if (!account) {
       const relations = await supabase(`manager_venues?venue_id=eq.${encodeURIComponent(order.venue_id)}&select=manager_id&limit=1`);
       const managerId = Array.isArray(relations) && relations[0] ? relations[0].manager_id : null;
       if (managerId) {
-        accounts = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&account_scope=eq.platform&venue_id=is.null&provider=eq.yookassa&status=eq.active&select=id,credentials_ref&limit=1`);
+        accounts = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&account_scope=eq.platform&venue_id=is.null&provider=eq.yookassa&status=eq.active&select=id,credentials_ref,merchant_id&limit=1`);
         account = Array.isArray(accounts) ? accounts[0] : null;
       }
     }
     if (!account || !account.credentials_ref) return json(res, 409, { ok: false, error: 'venue_payment_not_configured' });
 
-    const payment = await yookassaGetPayment(decryptSecret(account.credentials_ref), order.payment_id);
+    const payment = await yookassaGetPayment(decryptSecret(account.credentials_ref), order.payment_id, account.merchant_id);
     const normalized = orderStatus(payment.status);
     const paid = normalized === 'paid';
     if (normalized !== order.payment_status) {

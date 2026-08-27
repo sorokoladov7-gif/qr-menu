@@ -1,4 +1,4 @@
-const { json, redirect, sha256, supabase, yookassaToken, yookassaMe, encryptSecret, origin } = require('../../../_lib/yookassa');
+const { json, redirect, sha256, supabase, yookassaToken, yookassaMe, yookassaListWebhooks, yookassaRegisterWebhook, yookassaDeleteWebhook, encryptSecret, origin } = require('../../../_lib/yookassa');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return json(res, 405, { ok: false, error: 'method_not_allowed' });
@@ -69,6 +69,30 @@ module.exports = async function handler(req, res) {
         await supabase(`payment_accounts?id=eq.${encodeURIComponent(existing[0].id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(payload) });
       } else {
         await supabase('payment_accounts', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(Object.assign({ created_at: new Date().toISOString() }, payload)) });
+      }
+    }
+
+    // Auto-register the YooKassa payment webhook so payments are confirmed
+    // server-side even if the guest closes the page. Best-effort: never blocks connect.
+    const shopId = shop.account_id;
+    if (shopId) {
+      try {
+        const webhookUrl = process.env.YOOKASSA_WEBHOOK_URL || `${origin(req)}/api/payments/yookassa/webhook`;
+        try {
+          const existing = await yookassaListWebhooks(token.access_token, shopId);
+          for (const w of existing) {
+            if (w && w.url === webhookUrl && w.id) { try { await yookassaDeleteWebhook(token.access_token, shopId, w.id); } catch (_) {} }
+          }
+        } catch (_) { /* listing may fail on some shops; proceed to register */ }
+        try {
+          await yookassaRegisterWebhook(token.access_token, shopId, 'payment.succeeded', webhookUrl);
+        } catch (regErr) {
+          // A duplicate webhook for this event+url is fine; treat as already configured.
+          const msg = (regErr && (regErr.message || '')) + '';
+          if (!/already|exist|дубл|существ/i.test(msg)) throw regErr;
+        }
+      } catch (e) {
+        console.warn('[YooKassa callback] webhook auto-registration failed (connect still saved):', e.message || e);
       }
     }
 
