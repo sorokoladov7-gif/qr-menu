@@ -1,44 +1,56 @@
 (function(){
   'use strict';
-  let deferred = null;
+  let deferredPrompt = null;
+  let isAppInstalled = false;
 
   function isStandalone() {
     return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches ||
            window.navigator.standalone === true;
   }
 
-  // Проверяем, что на этой странице есть манифест и он подходит под роль
   function hasRoleManifest() {
     const link = document.querySelector('link[rel="manifest"]');
     if (!link) return false;
     const href = link.getAttribute('href') || '';
-    // Если манифест содержит название роли (cook, courier, waiter, manager, admin),
-    // то считаем, что он настроен для этой страницы.
     return /manifest-(cook|courier|waiter|manager|admin)\.webmanifest/.test(href);
   }
 
-  function install() {
-    // Не показываем кнопку, если уже установлено или нет события
-    if (!deferred || isStandalone()) return;
-    // Если на странице нет манифеста для конкретной роли – не показываем кнопку
-    // (это может быть menu.html, где установка не нужна)
+  function showInstallPrompt() {
+    if (isStandalone() || isAppInstalled || !deferredPrompt) return;
     if (!hasRoleManifest()) return;
-
     if (document.getElementById('pwa-install-box')) return;
 
-    const b = document.createElement('div');
-    b.id = 'pwa-install-box';
-    b.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:16px;border-radius:18px;background:#111827;color:#fff;border:1px solid rgba(255,255,255,.15);box-shadow:0 20px 60px #0008;font:14px system-ui';
-    b.innerHTML = '<b style="font-size:16px">Установить QR-Menu</b><div style="opacity:.75;margin:6px 0 12px">Быстрый доступ и рабочий интерфейс даже при нестабильном интернете.</div><div style="display:flex;gap:8px"><button id="pwa-install" style="flex:1;padding:10px;border:0;border-radius:10px;background:#6366f1;color:#fff;font-weight:700">Установить</button><button id="pwa-later" style="padding:10px 14px;border:1px solid #ffffff22;border-radius:10px;background:#ffffff08;color:#fff">Позже</button></div>';
-    document.body.appendChild(b);
+    const box = document.createElement('div');
+    box.id = 'pwa-install-box';
+    box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:9999;padding:16px;border-radius:18px;background:#111827;color:#fff;border:1px solid rgba(255,255,255,.15);box-shadow:0 20px 60px #0008;font:14px system-ui';
+    box.innerHTML = '<b style="font-size:16px">Установить QR-Menu</b><div style="opacity:.75;margin:6px 0 12px">Быстрый доступ и рабочий интерфейс даже при нестабильном интернете.</div><div style="display:flex;gap:8px"><button id="pwa-install" style="flex:1;padding:10px;border:0;border-radius:10px;background:#6366f1;color:#fff;font-weight:700">Установить</button><button id="pwa-later" style="padding:10px 14px;border:1px solid #ffffff22;border-radius:10px;background:#ffffff08;color:#fff">Позже</button></div>';
+    document.body.appendChild(box);
 
     document.getElementById('pwa-install').onclick = async () => {
-      deferred.prompt();
-      await deferred.userChoice;
-      deferred = null;
-      b.remove();
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const result = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (result.outcome === 'accepted') {
+          isAppInstalled = true;
+        }
+        box.remove();
+      }
     };
-    document.getElementById('pwa-later').onclick = () => b.remove();
+    document.getElementById('pwa-later').onclick = () => {
+      box.remove();
+      sessionStorage.setItem('pwa_install_dismissed', '1');
+    };
+  }
+
+  function registerServiceWorker() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
+        .then(() => console.log('[PWA] Service Worker registered with scope /'))
+        .catch(err => {
+          console.warn('[PWA] SW registration failed:', err);
+        });
+    }
   }
 
   // Восстановление полей входа для официанта (если нужно)
@@ -83,7 +95,6 @@
     }
   }
 
-  // Патч для канонического RPC (если используется)
   function patchCanonicalOrderRpc() {
     const ready = () => {
       const db = window.db;
@@ -123,20 +134,34 @@
     }
   }
 
-  // Слушаем событие установки
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
-    deferred = e;
-    setTimeout(install, 900);
+    deferredPrompt = e;
+    if (!sessionStorage.getItem('pwa_install_dismissed')) {
+      setTimeout(showInstallPrompt, 900);
+    }
   });
 
   window.addEventListener('appinstalled', () => {
-    deferred = null;
-    const b = document.getElementById('pwa-install-box');
-    if (b) b.remove();
+    isAppInstalled = true;
+    deferredPrompt = null;
+    const box = document.getElementById('pwa-install-box');
+    if (box) box.remove();
+    sessionStorage.removeItem('pwa_install_dismissed');
   });
 
-  // Запуск вспомогательных функций
+  document.addEventListener('click', function(e) {
+    const laterBtn = e.target && e.target.id === 'pwa-later';
+    if (laterBtn) {
+      sessionStorage.setItem('pwa_install_dismissed', '1');
+    }
+  });
+
+  registerServiceWorker();
   installWaiterLoginRecovery();
   patchCanonicalOrderRpc();
+
+  if (isStandalone()) {
+    isAppInstalled = true;
+  }
 })();
