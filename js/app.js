@@ -23,18 +23,18 @@ async function requireAuth(roles){
     if(error){console.error('Profile fetch error:',error);safeRedirect('index.html','ошибка чтения профиля: '+error.message);return null;}
     if(!profile){
       const {data:newProfile,error:insertError} = await db.from('profiles').insert({id:session.user.id,email:session.user.email,display_name:session.user.user_metadata?.display_name||session.user.email,role:'manager'}).select().single();
-      if(insertError||!newProfile){safeRedirect('index.html','профиль не найден и не создан. Выполните SQL в Supabase');return null;}
+      if(insertError||!newProfile){safeRedirect('login.html','профиль не найден и не создан. Выполните SQL в Supabase');return null;}
       return newProfile;
     }
-    if(roles && roles.length && roles.indexOf(profile.role)===-1){safeRedirect('index.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role);return null;}
+    if(roles && roles.length && roles.indexOf(profile.role)===-1){safeRedirect('login.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role);return null;}
     return profile;
-  }catch(e){console.error(e);safeRedirect('index.html','исключение: '+e.message);return null;}
+  }catch(e){console.error(e);safeRedirect('login.html','исключение: '+e.message);return null;}
 }
 
 async function logout(){
   try{await db.auth.signOut();}catch(e){}
   sessionStorage.clear();
-  location.href='index.html';
+  location.href='/login.html';
 }
 
 (function(){
