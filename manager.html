@@ -115,7 +115,7 @@ body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}
 <div v-else-if="!venue">
 <div class="spread" style="margin-bottom:20px"><h2>Ваши заведения</h2>
 <button class="btn btn-primary" v-on:click="showCreateVenue=true" v-bind:disabled="!canCreateVenue">+ Создать</button></div>
-<div v-if="!myVenues.length" class="glass card" style="text-align:center;padding:50px">У вас пока нет заведений.<br>Создайте первое — 3 дня бесплатно!</div>
+<div v-if="!myVenues.length" class="glass card" style="text-align:center;padding:50px">У вас пока нет заведений.<br>Создайте первое — 10 дней бесплатно!</div>
 <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
 <div v-for="v in myVenues" v-bind:key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" v-on:click="selectVenue(v)">
 <div class="spread"><div style="font-size:19px;font-weight:800">{{ v.name }}</div>
