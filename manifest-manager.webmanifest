@@ -1,16 +1,13 @@
 {
-  "name": "Кабинет управляющего — QR-Меню для Бизнеса",
-  "short_name": "Кабинет",
-  "description": "Управление заведением: меню, заказы, аналитика, тарифы",
+  "name": "QR Menu — Управляющий",
+  "short_name": "Управляющий",
   "start_url": "/manager.html",
-  "scope": "/",
+  "id": "/manager.html",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#0b1020",
-  "theme_color": "#0b1020",
-  "lang": "ru",
+  "background_color": "#0b1120",
+  "theme_color": "#8b5cf6",
   "icons": [
-    { "src": "/icon-manager-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-manager-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
