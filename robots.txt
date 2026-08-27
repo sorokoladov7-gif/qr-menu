@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://www.qr-menu-russia.ru/sitemap.xml
