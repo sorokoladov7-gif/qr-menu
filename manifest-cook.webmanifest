@@ -1,8 +1,8 @@
 {
   "name": "QR Menu — Повар",
   "short_name": "Повар",
-  "start_url": "/cook.html",
-  "id": "/cook.html",
+  "start_url": "/cook.html?pwa=cook",
+  "id": "/cook.html?pwa=cook",
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#6366f1",
