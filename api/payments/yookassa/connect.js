@@ -1,4 +1,4 @@
-const { json, redirect, randomToken, sha256, supabase, callbackUrl } = require('../../_lib/yookassa');
+const { json, redirect, randomToken, sha256, supabase, callbackUrl, pkceChallenge, authorizeUrl } = require('../../_lib/yookassa');
 const { bearer, getManagerUser } = require('../../_lib/manager-auth');
 
 async function assertManagerVenue(userId, venueId) {
@@ -21,14 +21,15 @@ module.exports = async function handler(req, res) {
     if (!clientId) return json(res, 503, { ok: false, error: 'yookassa_not_configured' });
 
     const state = randomToken(32);
+    const codeVerifier = randomToken(64);
     const redirectUri = callbackUrl(req);
     await supabase('payment_oauth_states', {
       method: 'POST', headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ provider: 'yookassa', venue_id: requestedScope === 'shared' ? null : venueId, manager_id: user.id, state_hash: sha256(state), redirect_uri: redirectUri, requested_scope: requestedScope, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
+      body: JSON.stringify({ provider: 'yookassa', venue_id: requestedScope === 'shared' ? null : venueId, manager_id: user.id, state_hash: sha256(state), redirect_uri: redirectUri, requested_scope: requestedScope, code_verifier: codeVerifier, expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString() })
     });
 
-    const params = new URLSearchParams({ response_type: 'code', client_id: clientId, state });
-    const authorizationUrl = `https://yookassa.ru/oauth/v2/authorize?${params.toString()}`;
+    const params = new URLSearchParams({ response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state, code_challenge: pkceChallenge(codeVerifier), code_challenge_method: 'S256' });
+    const authorizationUrl = `${authorizeUrl()}?${params.toString()}`;
     if (req.method === 'POST') return json(res, 200, { ok: true, authorization_url: authorizationUrl });
     return redirect(res, authorizationUrl);
   } catch (e) {
