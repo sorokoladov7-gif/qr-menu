@@ -1,63 +1,407 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-<title>OS QR-Меню для Бизнеса — Вход</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<style>
-[v-cloak]{display:none}
-.btn-client{display:flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;border-radius:12px;text-decoration:none;color:#fff;font-weight:800;font-size:13px;background:linear-gradient(135deg,#10b981,#06b6d4);border:1px solid rgba(255,255,255,.2);box-shadow:0 6px 20px rgba(16,185,129,.28),inset 0 1px 0 rgba(255,255,255,.18);transition:.2s ease;white-space:nowrap}
-.btn-client:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(16,185,129,.4),inset 0 1px 0 rgba(255,255,255,.22)}
-.btn-client:active{transform:translateY(0)}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR-меню для кафе и ресторанов — QR Menu Russia</title>
+  <meta name="description" content="QR-меню, заказы на кухню, управление официантами и статистика для кафе и ресторанов.">
+  <meta property="og:title" content="QR-меню для кафе и ресторанов — QR Menu Russia">
+  <meta property="og:description" content="Принимайте заказы по QR-коду, управляйте кухней, официантами и доставкой в одной системе.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.qr-menu-russia.ru/">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.qr-menu-russia.ru/">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .hero {
+      padding: 60px 20px 50px;
+      text-align: center;
+      background: linear-gradient(135deg, #0b1120 0%, #1e293b 100%);
+      border-radius: 24px;
+      margin-bottom: 40px;
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .hero h1 {
+      font-size: clamp(32px, 6vw, 52px);
+      margin: 0 0 16px;
+      background: linear-gradient(135deg, #818cf8, #c084fc, #f472b6);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .hero p {
+      font-size: clamp(16px, 2vw, 22px);
+      color: #cbd5e1;
+      max-width: 640px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+    }
+    .hero .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .hero .mockup {
+      margin-top: 40px;
+      background: #1e293b;
+      border-radius: 20px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,.08);
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
+      box-shadow: 0 30px 60px rgba(0,0,0,.4);
+    }
+    .hero .mockup img {
+      width: 100%;
+      border-radius: 12px;
+      display: block;
+      background: #0f172a;
+    }
+    .section-title {
+      font-size: clamp(26px, 4vw, 38px);
+      font-weight: 800;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .section-sub {
+      text-align: center;
+      color: #94a3b8;
+      max-width: 640px;
+      margin: 0 auto 40px;
+      font-size: 16px;
+    }
+    .benefits-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
+    }
+    .benefit {
+      padding: 24px 16px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 20px;
+      background: rgba(255,255,255,.02);
+      transition: .2s;
+    }
+    .benefit:hover {
+      border-color: #6366f1;
+      transform: translateY(-4px);
+      box-shadow: 0 12px 30px rgba(99,102,241,.08);
+    }
+    .benefit .icon {
+      font-size: 36px;
+      margin-bottom: 12px;
+    }
+    .benefit h3 {
+      font-size: 18px;
+      margin: 0 0 8px;
+    }
+    .benefit p {
+      font-size: 14px;
+      color: #94a3b8;
+      margin: 0;
+      line-height: 1.5;
+    }
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .step {
+      text-align: center;
+      padding: 20px 12px;
+      border-radius: 20px;
+      background: rgba(255,255,255,.02);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .step .num {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: #6366f1;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      margin: 0 auto 12px;
+    }
+    .step h4 {
+      font-size: 16px;
+      margin: 0 0 6px;
+    }
+    .step p {
+      font-size: 13px;
+      color: #94a3b8;
+      margin: 0;
+    }
+    .roles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .role-card {
+      padding: 20px 12px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.06);
+      text-align: center;
+    }
+    .role-card .emoji {
+      font-size: 32px;
+    }
+    .role-card h4 {
+      font-size: 16px;
+      margin: 8px 0 4px;
+    }
+    .role-card p {
+      font-size: 13px;
+      color: #94a3b8;
+      margin: 0;
+    }
+    .tariffs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .tariff {
+      padding: 24px 16px;
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 20px;
+      background: rgba(255,255,255,.02);
+      text-align: center;
+    }
+    .tariff.popular {
+      border-color: #6366f1;
+      background: rgba(99,102,241,.06);
+    }
+    .tariff h3 {
+      font-size: 20px;
+      margin: 0 0 4px;
+    }
+    .tariff .price {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 12px 0 6px;
+    }
+    .tariff .price small {
+      font-size: 16px;
+      font-weight: 400;
+      color: #94a3b8;
+    }
+    .tariff ul {
+      list-style: none;
+      padding: 0;
+      margin: 16px 0;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+    .tariff ul li {
+      padding: 6px 0;
+      border-bottom: 1px solid rgba(255,255,255,.04);
+    }
+    .faq-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+    .faq-item {
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: 16px;
+      padding: 18px 16px;
+      background: rgba(255,255,255,.015);
+    }
+    .faq-item h4 {
+      font-size: 16px;
+      margin: 0 0 6px;
+    }
+    .faq-item p {
+      font-size: 14px;
+      color: #94a3b8;
+      margin: 0;
+      line-height: 1.5;
+    }
+    .footer {
+      border-top: 1px solid rgba(255,255,255,.06);
+      padding: 30px 0 20px;
+      margin-top: 40px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 20px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .footer a {
+      color: #94a3b8;
+      text-decoration: none;
+      margin-right: 16px;
+    }
+    .footer a:hover {
+      color: #e2e8f0;
+    }
+    .footer .copy {
+      margin-top: 16px;
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+    }
+    @media (max-width: 600px) {
+      .hero { padding: 40px 16px 30px; }
+      .hero .actions { flex-direction: column; align-items: center; }
+      .hero .actions .btn { width: 100%; max-width: 280px; }
+      .benefits-grid { grid-template-columns: 1fr 1fr; }
+      .tariffs-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
-<div id="app" v-cloak>
-<div class="topbar"><div class="brand"><div class="logo">QR</div><span>OS QR-Меню для Бизнеса</span></div></div>
-<div class="wrap"><div class="glass card" style="max-width:420px;margin:30px auto">
-<div class="tabs" style="margin-bottom:16px">
-<button v-bind:class="{on:tab==='login'}" v-on:click="tab='login'">Вход</button>
-<button v-bind:class="{on:tab==='reg'}" v-on:click="tab='reg'">Регистрация</button>
-<a href="menu.html" class="btn-client">📱 Я клиент</a>
-</div>
-<div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);text-align:center">
-<div style="color:#94a3b8;font-size:13px;margin-bottom:12px">🎮 Посмотреть без регистрации:</div>
-<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-<button onclick="startDemo('cook')" class="btn btn-ghost">👨‍🍳 Демо кухни</button>
-<button onclick="startDemo('courier')" class="btn btn-ghost">🚗 Демо курьера</button>
-<button onclick="startDemo('waiter')" class="btn btn-ghost">🤵 Демо официанта</button>
-<button onclick="startDemo('manager-demo.html')" class="btn btn-primary">🏢 Демо кабинета</button>
-</div></div>
-<script>function startDemo(target){if(target==='manager-demo.html'){location.href=target;return}location.href='demo-staff.html?role='+encodeURIComponent(target);}</script>
-<template v-if="tab==='login'">
-<div class="field"><label>Email</label><input v-model.trim="lform.email" type="email" autocomplete="username" v-on:keyup.enter="login"></div>
-<div class="field"><label>Пароль</label><input v-model="lform.password" type="password" autocomplete="current-password" v-on:keyup.enter="login"></div>
-<button class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">{{ busy?'Входим...':'Войти' }}</button>
-</template>
-<template v-else-if="tab==='reg'">
-<div class="field"><label>Ваше имя</label><input v-model.trim="rform.name"></div>
-<div class="field"><label>Email</label><input v-model.trim="rform.email" type="email" autocomplete="email"></div>
-<div class="field"><label>Пароль (мин. 6)</label><input v-model="rform.password" type="password" autocomplete="new-password"></div>
-<button class="btn btn-primary" style="width:100%" v-on:click="register" v-bind:disabled="busy">{{ busy?'Создаём...':'Создать аккаунт управляющего' }}</button>
-</template>
-<div v-if="msg" class="msg" v-bind:class="msgType" style="margin-top:12px">{{ msg }}</div>
-<p class="muted" style="font-size:12px;margin-top:14px">Регистрируются управляющие. Повара, курьеры и официанты входят по PIN — их добавляет управляющий или админ.</p>
-</div></div></div>
-<script src="/js/config.js"></script><script src="/js/demo-data.js"></script><script src="/js/demo-mode.js"></script><script src="/js/app.js"></script>
-<script>
-Vue.createApp({data:function(){return{tab:'login',busy:false,msg:'',msgType:'',lform:{email:'',password:''},rform:{name:'',email:'',password:''}}},methods:{
-login:function(){var self=this;self.msg='';if(!self.lform.email||!self.lform.password){self.msg='Заполните email и пароль';self.msgType='error';return}self.busy=true;db.auth.signInWithPassword({email:self.lform.email,password:self.lform.password}).then(function(r){if(r.error){self.msg='Ошибка входа: '+r.error.message;self.msgType='error';self.busy=false;return}self.routeByRole(r.data.user.id)}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
-register:function(){var self=this;self.msg='';if(!self.rform.email||!self.rform.password||!self.rform.name){self.msg='Заполните все поля';self.msgType='error';return}if(self.rform.password.length<6){self.msg='Пароль минимум 6 символов';self.msgType='error';return}self.busy=true;db.auth.signUp({email:self.rform.email,password:self.rform.password,options:{data:{display_name:self.rform.name,role:'manager'}}}).then(function(r){if(r.error){var m=String(r.error.message).toLowerCase();self.msg=m.indexOf('already registered')!==-1?'Этот email уже зарегистрирован. Войдите.':'Ошибка: '+r.error.message;self.msgType='error';self.busy=false;return}self.busy=false;if(r.data.session){self.routeByRole(r.data.user.id)}else{self.msg='✓ Аккаунт создан! Подтвердите email и войдите.';self.msgType='ok';self.tab='login'}}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
-routeByRole:function(userId){var self=this;db.from('profiles').select('*').eq('id',userId).maybeSingle().then(function(r){if(!r.data){self.msg='⚠️ Аккаунт создан, но профиль не найден. Выполните SQL и нажмите «Войти».';self.msgType='error';self.busy=false;return}location.href=(r.data.role==='admin')?'admin.html':'manager.html'})}},mounted:function(){var self=this;db.auth.getSession().then(function(r){if(r.data&&r.data.session){self.routeByRole(r.data.session.user.id)}})}}).mount('#app');
-</script></body></html>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">QR</div>
+      <span>QR Menu Russia</span>
+    </div>
+    <div class="row">
+      <a href="login.html" class="btn btn-ghost btn-sm">Вход</a>
+      <a href="register.html" class="btn btn-primary btn-sm">Регистрация</a>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- Hero -->
+    <section class="hero">
+      <h1>QR-меню и управление заказами для кафе и ресторанов</h1>
+      <p>Принимайте заказы по QR-коду, управляйте кухней, официантами и доставкой в одной системе.</p>
+      <div class="actions">
+        <a href="register.html" class="btn btn-primary">Попробовать бесплатно</a>
+        <a href="manager-demo.html" class="btn btn-ghost">Посмотреть демо</a>
+      </div>
+      <div class="mockup">
+        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%230f172a'/%3E%3Crect x='40' y='40' width='720' height='370' rx='12' fill='%231e293b'/%3E%3Crect x='60' y='60' width='200' height='30' rx='6' fill='%233b82f6'/%3E%3Crect x='280' y='60' width='120' height='30' rx='6' fill='%233b82f6'/%3E%3Crect x='420' y='60' width='100' height='30' rx='6' fill='%233b82f6'/%3E%3Crect x='60' y='110' width='220' height='280' rx='8' fill='%232d3748'/%3E%3Crect x='300' y='110' width='460' height='280' rx='8' fill='%232d3748'/%3E%3Crect x='320' y='130' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3Crect x='320' y='190' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3Crect x='320' y='250' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3Crect x='320' y='310' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3C/svg%3E"
+             alt="Интерфейс системы управления заказами">
+      </div>
+    </section>
+
+    <!-- Преимущества -->
+    <h2 class="section-title">Всё для управления заведением</h2>
+    <p class="section-sub">Замените бумажное меню и хаос заказов на единую цифровую систему</p>
+    <div class="benefits-grid">
+      <div class="benefit"><div class="icon">📱</div><h3>Меню без печати</h3><p>Обновляйте блюда, цены и наличие в реальном времени — клиенты видят актуальную версию.</p></div>
+      <div class="benefit"><div class="icon">👨‍🍳</div><h3>Заказы на кухню</h3><p>Заказы поступают напрямую поварам и официантам, исключая ошибки передачи.</p></div>
+      <div class="benefit"><div class="icon">🪑</div><h3>Управление столами</h3><p>Схема зала, посадка гостей и отслеживание сессий — всё в одном месте.</p></div>
+      <div class="benefit"><div class="icon">📊</div><h3>Статистика продаж</h3><p>Аналитика по выручке, популярным блюдам и эффективности сотрудников.</p></div>
+      <div class="benefit"><div class="icon">👥</div><h3>Роли сотрудников</h3><p>Отдельные кабинеты для управляющего, поваров, курьеров и официантов.</p></div>
+      <div class="benefit"><div class="icon">🚚</div><h3>Доставка и самовывоз</h3><p>Поддерживайте разные способы получения, рассчитывайте стоимость доставки.</p></div>
+    </div>
+
+    <!-- Как это работает -->
+    <h2 class="section-title">Как это работает</h2>
+    <p class="section-sub">Пять шагов к цифровому ресторану</p>
+    <div class="steps-grid">
+      <div class="step"><div class="num">1</div><h4>Создайте меню</h4><p>Загрузите блюда, цены и описания в кабинет управляющего.</p></div>
+      <div class="step"><div class="num">2</div><h4>Разместите QR</h4><p>Распечатайте QR-коды для столов или возьмите готовые.</p></div>
+      <div class="step"><div class="num">3</div><h4>Клиент сканирует</h4><p>Гости открывают меню со смартфона и выбирают блюда.</p></div>
+      <div class="step"><div class="num">4</div><h4>Заказ на кухню</h4><p>Повара видят заказ, готовят и меняют статус.</p></div>
+      <div class="step"><div class="num">5</div><h4>Выдача или доставка</h4><p>Официант или курьер завершает заказ — статистика обновляется.</p></div>
+    </div>
+
+    <!-- Для кого -->
+    <h2 class="section-title">Для кого подходит</h2>
+    <p class="section-sub">Решение для любого формата общепита</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;margin-bottom:40px;">
+      <span class="chip" style="font-size:15px;padding:10px 18px;">☕ Кафе</span>
+      <span class="chip" style="font-size:15px;padding:10px 18px;">🍽️ Рестораны</span>
+      <span class="chip" style="font-size:15px;padding:10px 18px;">🍸 Бары</span>
+      <span class="chip" style="font-size:15px;padding:10px 18px;">🥡 Фуд-корты</span>
+      <span class="chip" style="font-size:15px;padding:10px 18px;">🏫 Столовые</span>
+      <span class="chip" style="font-size:15px;padding:10px 18px;">🏨 Гостиницы</span>
+      <span class="chip" style="font-size:15px;padding:10px 18px;">🚚 Службы доставки</span>
+    </div>
+
+    <!-- Роли -->
+    <h2 class="section-title">Роли в системе</h2>
+    <p class="section-sub">Каждый сотрудник видит только то, что ему нужно</p>
+    <div class="roles-grid">
+      <div class="role-card"><div class="emoji">🏢</div><h4>Управляющий</h4><p>Меню, сотрудники, залы, статистика, настройки.</p></div>
+      <div class="role-card"><div class="emoji">👨‍🍳</div><h4>Кухня</h4><p>Новые заказы, статусы готовности, тайминг.</p></div>
+      <div class="role-card"><div class="emoji">🤵</div><h4>Официант</h4><p>Зал, посадка, выдача заказов, счета.</p></div>
+      <div class="role-card"><div class="emoji">🚗</div><h4>Курьер</h4><p>Доставка, статусы, адреса, оплата.</p></div>
+      <div class="role-card"><div class="emoji">📱</div><h4>Клиент</h4><p>Просмотр меню, оформление заказа, оплата.</p></div>
+    </div>
+
+    <!-- Тарифы (временные карточки) -->
+    <h2 class="section-title">Гибкие тарифы</h2>
+    <p class="section-sub">Выберите подходящий план для вашего бизнеса</p>
+    <div class="tariffs-grid">
+      <div class="tariff">
+        <h3>Старт</h3>
+        <div class="price">0 ₽ <small>/мес</small></div>
+        <ul><li>1 заведение</li><li>До 5 поваров</li><li>До 50 позиций</li><li>Базовый функционал</li></ul>
+        <a href="register.html" class="btn btn-primary" style="width:100%;">Начать</a>
+      </div>
+      <div class="tariff popular">
+        <h3>Бизнес</h3>
+        <div class="price">1 990 ₽ <small>/мес</small></div>
+        <ul><li>3 заведения</li><li>До 10 поваров</li><li>До 100 позиций</li><li>Доставка и аналитика</li></ul>
+        <a href="register.html" class="btn btn-primary" style="width:100%;">Выбрать</a>
+      </div>
+      <div class="tariff">
+        <h3>Корпоративный</h3>
+        <div class="price">По запросу</div>
+        <ul><li>Неограниченно заведений</li><li>Индивидуальные лимиты</li><li>Приоритетная поддержка</li></ul>
+        <a href="#contact" class="btn btn-ghost" style="width:100%;">Связаться</a>
+      </div>
+    </div>
+
+    <!-- Доверие (контакты) -->
+    <h2 class="section-title">Остались вопросы?</h2>
+    <p class="section-sub">Свяжитесь с нами любым удобным способом</p>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-bottom:40px;">
+      <span class="chip">📞 <a href="tel:+79053204350" style="color:inherit;">8 905 320-43-50</a></span>
+      <span class="chip">✉️ <a href="mailto:info@qr-menu-russia.ru" style="color:inherit;">info@qr-menu-russia.ru</a></span>
+      <span class="chip">📱 <a href="#" style="color:inherit;">Telegram: @qr_menu_support</a></span>
+    </div>
+
+    <!-- FAQ -->
+    <h2 class="section-title">Часто задаваемые вопросы</h2>
+    <div class="faq-grid">
+      <div class="faq-item"><h4>Нужно ли устанавливать приложение клиенту?</h4><p>Нет, клиент открывает меню в браузере по QR-коду, без установки.</p></div>
+      <div class="faq-item"><h4>Можно ли менять меню и цены?</h4><p>Да, управляющий может редактировать меню в реальном времени, изменения видны сразу.</p></div>
+      <div class="faq-item"><h4>Как сотрудники получают заказы?</h4><p>Повара и официанты видят заказы в своих кабинетах с обновлением в реальном времени.</p></div>
+      <div class="faq-item"><h4>Можно ли использовать несколько заведений?</h4><p>Да, тарифы позволяют управлять несколькими заведениями из одного аккаунта.</p></div>
+      <div class="faq-item"><h4>Есть ли доставка?</h4><p>Да, система поддерживает доставку с расчётом стоимости и зоной доставки.</p></div>
+      <div class="faq-item"><h4>Можно ли подключить оплату?</h4><p>Да, доступна оплата через СБП и ЮKassa (настройка в кабинете управляющего).</p></div>
+      <div class="faq-item"><h4>Как создаётся QR-код?</h4><p>QR-код генерируется автоматически для каждого стола в разделе «Зал».</p></div>
+      <div class="faq-item"><h4>Есть ли пробный период?</h4><p>Да, при регистрации предоставляется 5 дней бесплатного использования.</p></div>
+    </div>
+
+    <!-- Футер -->
+    <footer class="footer">
+      <div>
+        <a href="/">Главная</a>
+        <a href="login.html">Вход</a>
+        <a href="register.html">Регистрация</a>
+        <a href="/privacy.html">Политика конфиденциальности</a>
+        <a href="/terms.html">Пользовательское соглашение</a>
+        <a href="/offer.html">Оферта</a>
+      </div>
+      <div>
+        <a href="tel:+79053204350">📞 8 905 320-43-50</a>
+        <a href="mailto:info@qr-menu-russia.ru">✉️ info@qr-menu-russia.ru</a>
+      </div>
+      <div class="copy">© 2026 QR Menu Russia. Все права защищены.</div>
+    </footer>
+  </div>
+</body>
+</html>
