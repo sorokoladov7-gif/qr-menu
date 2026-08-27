@@ -10,7 +10,6 @@
   init();
   function load(src,key){if(document.querySelector('script['+key+']'))return;var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(key,'1');s.onerror=function(){console.error('[QR Manager] failed to load '+src);};document.head.appendChild(s);}
   load('/js/manager-hall.js?v=5','data-manager-hall-single-v14');
-  load('/js/manager-recipes-ui.js?v=5','data-manager-recipes-ui-v14');
   load('/js/manager-subscription-owner.js?v=6','data-manager-subscription-owner-v14');
   load('/js/manager-create-venue-flow.js?v=10','data-manager-create-venue-flow-v14');
   load('/js/manager-personnel-final.js?v=6','data-manager-personnel-final-v14');
