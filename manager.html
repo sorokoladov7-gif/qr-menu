@@ -1462,7 +1462,7 @@ function unitLabel(u){return ({g:'г',kg:'кг',ml:'мл',l:'л',pcs:'шт'})[u]
 function loadAll(){
  if(!venueId){msg('Не найдено выбранное заведение. Откройте кабинет управляющего и выберите заведение.',true);return}
  Promise.all([
-   db.from('products').select('id,name,category,price').eq('venue_id',venueId).order('name'),
+   db.from('products').select('id,name,description,category,price').eq('venue_id',venueId).order('name'),
    rpc('manager_ingredient_list',{p_venue_id:venueId}),
    db.from('global_recipe_catalog').select('id,name,category,description,yield_quantity,yield_unit').eq('is_active',true).order('name'),
    db.from('global_ingredient_catalog').select('id,name,unit,category,aliases').eq('is_active',true).order('name'),
@@ -1489,14 +1489,71 @@ function renderProducts(){
 }
 $('productSearch').addEventListener('input',renderProducts);
 
+function descriptionIngredientCandidates(description){
+ var text=String(description||'').replace(/\r/g,' ').replace(/\n+/g,' ');
+ if(!text.trim())return [];
+ var found=[],seen={};
+ var aliases=[];
+ (Array.isArray(globalIngredients)?globalIngredients:[]).forEach(function(g){
+   aliases.push({name:g.name,unit:g.unit,alias:g.name,source:g});
+   if(Array.isArray(g.aliases))g.aliases.forEach(function(a){if(a)aliases.push({name:g.name,unit:g.unit,alias:a,source:g})});
+ });
+ (Array.isArray(ingredients)?ingredients:[]).forEach(function(g){
+   aliases.push({name:g.name,unit:g.unit,alias:g.name,source:null,local:g});
+ });
+ aliases.sort(function(a,b){return norm(b.alias).length-norm(a.alias).length});
+ aliases.forEach(function(a){
+   var raw=String(a.alias||'').trim();if(raw.length<2)return;
+   var re=new RegExp('(?:^|[^а-яa-z0-9])'+raw.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:[^а-яa-z0-9]|$)','i');
+   var m=re.exec(text);
+   if(!m)return;
+   var before=text.slice(Math.max(0,m.index-12),m.index);
+   var after=text.slice(m.index+m[0].length,m.index+m[0].length+24);
+   var q=0,unit=a.unit||'g';
+   var qm=after.match(/(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?/i) || before.match(/(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?\s*$/i);
+   if(qm){q=Number(String(qm[1]).replace(',','.'))||0;unit=canonUnitForDescription(qm[2])||unit;}
+   if(!(q>0))q=1;
+   var key=norm(a.name);if(seen[key])return;seen[key]=1;
+   found.push({name:a.name,unit:unit,quantity:q,source:a.source,local:a.local,note:'Из описания блюда'});
+ });
+ return found;
+}
+function canonUnitForDescription(u){
+ u=String(u||'').toLowerCase().replace(/ё/g,'е').replace(/^гр?\.?$/,'g').replace(/^кг$/,'kg').replace(/^мл$/,'ml').replace(/^л$/,'l').replace(/^шт$/,'pcs');
+ return ['g','kg','ml','l','pcs'].indexOf(u)>=0?u:null;
+}
+async function buildRowsFromDescription(p){
+ var candidates=descriptionIngredientCandidates(p&&p.description);
+ if(!candidates.length)return [];
+ var result=[];
+ for(var i=0;i<candidates.length;i++){
+   var c=candidates[i],local=c.local;
+   if(!local){
+     var ranked=ingredients.map(function(x){return{x:x,s:similarity(x.name,c.name)}}).sort(function(a,b){return b.s-a.s})[0];
+     if(ranked&&ranked.s>=.86)local=ranked.x;
+   }
+   if(!local&&c.source){
+     try{local=await ensureLocalIngredient({ingredient:c.source,unit:c.unit});}catch(e){console.warn('[Description] local ingredient:',c.name,e)}
+   }
+   if(local)result.push({ingredient_id:local.id,quantity:convertQuantity(c.quantity,c.unit,local.unit),note:c.note});
+ }
+ return result;
+}
+
 function pick(id){
  selected=id;var p=products.find(function(x){return x.id===id});if(!p)return;
  $('title').textContent='Рецептура: '+p.name;$('save').hidden=false;
  var cat=catalog.map(function(c){return {c:c,s:similarity(p.name,c.name)}}).sort(function(a,b){return b.s-a.s})[0];
  $('matchInfo').textContent=cat&&cat.s>=.55?'Ближайшая техкарта в базе: '+cat.c.name+' · совпадение '+Math.round(cat.s*100)+'%':'В базе подходящая техкарта не найдена';
  rows=[];
- rpc('manager_recipe_list',{p_venue_id:venueId,p_product_id:id}).then(function(data){
+ rpc('manager_recipe_list',{p_venue_id:venueId,p_product_id:id}).then(async function(data){
    rows=(Array.isArray(data)?data:[]).map(function(r){return{ingredient_id:r.ingredient_id,quantity:Number(r.quantity)||0,note:r.note||''}});
+   if(!rows.length && p.description){
+     try{
+       var autoRows=await buildRowsFromDescription(p);
+       if(autoRows.length)rows=autoRows;
+     }catch(e){console.warn('[Description] auto recipe:',e)}
+   }
    renderRecipe();renderProducts();return loadCost()
  }).catch(function(e){msg('Ошибка загрузки рецептуры: '+e.message,true)})
 }
