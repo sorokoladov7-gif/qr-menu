@@ -1413,10 +1413,10 @@ Vue.createApp({
     },
 
     logout: function() {
-      try { db.auth.signOut(); } catch(e) {}
-      if(this.timer) clearInterval(this.timer);
-      location.href = '/index.html';
-    }
+  try { db.auth.signOut(); } catch(e) {}
+  if(this.timer) clearInterval(this.timer);
+  location.href = '/login.html';
+}
   },
   mounted: function() { this.init(); },
   beforeUnmount: function() { if(this.timer) clearInterval(this.timer); }
