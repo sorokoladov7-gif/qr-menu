@@ -31,7 +31,11 @@ createApp({
     fmtDate(s){if(!s)return '';return new Date(s).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});},
     parseItems(o){try{return typeof o.items==='string'?JSON.parse(o.items):(o.items||[]);}catch(e){return o.items||[];}},
     async login(){this.busy=true;this.err='';const slug=this.form.slug.trim(),pin=this.form.pin.trim();if(!slug||!/^[0-9]{4}$/.test(pin)){this.err='Введите код и 4-значный PIN';this.busy=false;return;}try{const r=await db.rpc('staff_login',{p_type:'courier',p_slug:slug,p_pin:pin});if(r.error||!r.data||r.data.error){this.err=r.error?.message||r.data?.error||'Неверные данные';return;}this.session={courierName:r.data.staffName,venueId:r.data.venueId,venueName:r.data.venueName};sessionStorage.setItem('courier_token',r.data.token);sessionStorage.setItem('staff_token',r.data.token);sessionStorage.setItem('courier_session',JSON.stringify(this.session));await this.load();}catch(e){this.err=e.message||'Ошибка входа';}finally{this.busy=false;}},
-    logout(){['courier_session','courier_token','staff_token'].forEach(k=>sessionStorage.removeItem(k));if(window.StaffAuth&&window.StaffAuth.clear)window.StaffAuth.clear();location.reload();},
+    logout(){
+  ['courier_session','courier_token','staff_token'].forEach(k=>sessionStorage.removeItem(k));
+  if(window.StaffAuth&&window.StaffAuth.clear)window.StaffAuth.clear();
+  location.href='/login.html';
+},
     async load(){if(!this.session)return;const token=sessionStorage.getItem('courier_token')||sessionStorage.getItem('staff_token');if(!token)return;const r=await db.rpc('staff_orders_json',{p_token:token});if(r.error){this.logout();return;}const data=Array.isArray(r.data)?r.data:[];this.orders=data.filter(o=>o.order_type==='delivery'&&!['done','cancelled'].includes(o.status));this.history=data.filter(o=>o.status==='done').slice(0,20);this.courierStats.done=this.history.length;this.courierStats.total=data.length;this.courierStats.inProgress=this.colDelivery.length;this.courierStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0);},
     async setStatus(o,status){const token=sessionStorage.getItem('courier_token')||sessionStorage.getItem('staff_token');const r=await db.rpc('staff_update_order',{p_token:token,p_order_id:o.id,p_status:status});if(r.error){alert('Ошибка: '+(r.error.message||r.error));return;}await this.load();},
     restore(){const s=sessionStorage.getItem('courier_session');if(s){try{this.session=JSON.parse(s);this.load();}catch(e){}}}
