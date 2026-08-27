@@ -1,10 +1,10 @@
-/* QR Menu — manager instruction as a real in-cabinet tab. */
+/* QR Menu — manager instruction as the single in-cabinet instruction tab. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_INSTRUCTION_TAB_V3__) return;
-  window.__QR_MANAGER_INSTRUCTION_TAB_V3__=true;
+  if(window.__QR_MANAGER_INSTRUCTION_TAB_V4__) return;
+  window.__QR_MANAGER_INSTRUCTION_TAB_V4__=true;
 
-  var active=false, panel=null, button=null, host=null;
+  var active=false, panel=null, button=null, host=null, vueProxy=null;
   var sections=[
     ['overview','🏠','Как начать','Пошаговая работа управляющего с заведением.'],
     ['menu','🍽️','Меню','Категории, блюда, цены, фото и доступность.'],
@@ -32,6 +32,10 @@
     sbp:[['Подключение','Запустите подключение ЮKassa из раздела СБП.'],['Отдельный СБП','Используется выбранным заведением.'],['Общий СБП','Один магазин может использоваться несколькими заведениями.'],['Приоритет','Активный отдельный СБП имеет приоритет перед общим.'],['Безопасность','Секретные ключи не должны храниться в браузере.'],['Проверка','После подключения выполните тестовый заказ с СБП.']]
   };
   function esc(s){return String(s==null?'':s).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});}
+  function restore(){
+    document.querySelectorAll('[data-it-hidden]').forEach(function(el){el.style.display='';el.removeAttribute('data-it-hidden');});
+    var tabs=document.querySelector('.tabs'); if(tabs) tabs.style.display='';
+  }
   function ensure(){
     var wrap=document.querySelector('.wrap'), tabs=document.querySelector('.tabs');
     if(!wrap||!tabs)return false;
@@ -46,11 +50,7 @@
       button=[].slice.call(tabs.querySelectorAll('button')).find(function(x){return /Инструкция/.test(x.textContent||'');});
       if(button){
         button.setAttribute('data-manager-instruction-tab','1');
-        button.__qrInstructionBound=true;
-        button.addEventListener('click',function(e){
-          e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
-          active=true;show();
-        },true);
+        button.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();show();},true);
       }
     }
     return !!button;
@@ -69,21 +69,25 @@
     panel.querySelectorAll('[data-it-section]').forEach(function(b){b.onclick=function(e){e.preventDefault();window.__QR_MANAGER_INSTRUCTION_SECTION__=b.getAttribute('data-it-section');render();};});
   }
   function show(){
-    if(!panel) return;
-    document.querySelectorAll('.wrap > .glass.card, .wrap > .glass:not(#manager-instruction-panel)').forEach(function(el){
-      if(el!==panel && el!==document.querySelector('.stats')){el.setAttribute('data-it-hidden','1');el.style.display='none';}
-    });
+    if(!ensure())return;
+    active=true;
+    document.querySelectorAll('.wrap > .glass.card, .wrap > .glass:not(#manager-instruction-panel)').forEach(function(el){if(el!==panel && el!==document.querySelector('.stats')){el.setAttribute('data-it-hidden','1');el.style.display='none';}});
     var tabs=document.querySelector('.tabs');if(tabs)tabs.style.display='none';
     panel.style.display='block';render();
   }
-  function hideIfOtherTab(){
-    if(!active||!panel)return;
-    var clicked=document.activeElement;
-    if(clicked&&button&&clicked!==button&&clicked.closest&&clicked.closest('.tabs')&&/Инструкция/.test(clicked.textContent||'')===false){
-      active=false;panel.style.display='none';var tabs=document.querySelector('.tabs');if(tabs)tabs.style.display='flex';document.querySelectorAll('[data-it-hidden]').forEach(function(el){el.style.display='';el.removeAttribute('data-it-hidden');});
-    }
+  function close(){active=false;if(panel)panel.style.display='none';restore();}
+  function patchVueInstruction(){
+    try{
+      vueProxy=window.__managerVue || (window.__QR_MANAGER_VUE_APP__&&window.__QR_MANAGER_VUE_APP__._instance&&window.__QR_MANAGER_VUE_APP__._instance.proxy);
+      if(!vueProxy)return false;
+      vueProxy.openStaffGuide=function(){show();};
+      return true;
+    }catch(e){console.warn('[QR Instruction] Vue patch failed:',e);return false;}
   }
-  function install(){if(!ensure())return;document.addEventListener('click',hideIfOtherTab,true);}
+  window.__QR_MANAGER_INSTRUCTION_SHOW__=show;
+  window.__QR_MANAGER_INSTRUCTION_CLOSE__=close;
+  window.addEventListener('qr-manager-vue-ready',function(){patchVueInstruction();setTimeout(patchVueInstruction,100);});
+  function install(){ensure();patchVueInstruction();}
   function start(){install();setInterval(install,700);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
 })();
