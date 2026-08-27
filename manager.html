@@ -1424,6 +1424,7 @@ Vue.createApp({
 </script>
 <script id="integrated-recipes-js">
 (function(){
+function initIntegratedRecipes(){
 
 'use strict';
 var db=window.db, venueId=localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId');
@@ -1684,7 +1685,13 @@ Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){m.
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){m.hidden=true;m.setAttribute('hidden','')})}});
 window.addEventListener('manager-venue-selected',function(e){if(e.detail&&e.detail.id){venueId=e.detail.id;try{localStorage.setItem('manager_venue_id',String(venueId))}catch(_e){}loadAll()}});
 loadAll();
+}
 
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initIntegratedRecipes);
+} else {
+  initIntegratedRecipes();
+}
 })();
 </script>
 </body>
