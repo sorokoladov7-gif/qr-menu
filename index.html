@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR-Меню для кафе и ресторанов — OS QR-Menu</title>
-  <meta name="description" content="QR-меню, заказы на кухню, управление официантами и статистика для кафе и ресторанов.">
-  <meta property="og:title" content="QR-меню для кафе и ресторанов — OS QR-Menu">
-  <meta property="og:description" content="Принимайте заказы по QR-коду, управляйте кухней, официантами и доставкой в одной системе.">
+  <title>OS QR-Menu — управление заведениями и заказами</title>
+  <meta name="description" content="QR-меню, заказы на кухню, управление официантами, столами и доставкой для кафе, ресторанов и баров.">
+  <meta property="og:title" content="OS QR-Menu — платформа для управления заведениями">
+  <meta property="og:description" content="Принимайте заказы по QR-коду, управляйте кухней, залом и сотрудниками в одной системе.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.qr-menu-russia.ru/">
   <meta name="robots" content="index, follow">
@@ -15,6 +15,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <style>
+    :root {
+      --indigo: #6366f1;
+      --violet: #8b5cf6;
+      --green: #10b981;
+      --muted: #94a3b8;
+    }
     .hero {
       padding: 60px 20px 50px;
       text-align: center;
@@ -89,24 +95,14 @@
       transition: .2s;
     }
     .benefit:hover {
-      border-color: #6366f1;
+      border-color: var(--indigo);
       transform: translateY(-4px);
       box-shadow: 0 12px 30px rgba(99,102,241,.08);
     }
-    .benefit .icon {
-      font-size: 36px;
-      margin-bottom: 12px;
-    }
-    .benefit h3 {
-      font-size: 18px;
-      margin: 0 0 8px;
-    }
-    .benefit p {
-      font-size: 14px;
-      color: #94a3b8;
-      margin: 0;
-      line-height: 1.5;
-    }
+    .benefit .icon { font-size: 36px; margin-bottom: 12px; }
+    .benefit h3 { font-size: 18px; margin: 0 0 8px; }
+    .benefit p { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.5; }
+
     .steps-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -124,7 +120,7 @@
       width: 48px;
       height: 48px;
       border-radius: 50%;
-      background: #6366f1;
+      background: var(--indigo);
       color: #fff;
       display: flex;
       align-items: center;
@@ -133,15 +129,9 @@
       font-size: 20px;
       margin: 0 auto 12px;
     }
-    .step h4 {
-      font-size: 16px;
-      margin: 0 0 6px;
-    }
-    .step p {
-      font-size: 13px;
-      color: #94a3b8;
-      margin: 0;
-    }
+    .step h4 { font-size: 16px; margin: 0 0 6px; }
+    .step p { font-size: 13px; color: var(--muted); margin: 0; }
+
     .roles-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -155,18 +145,10 @@
       border: 1px solid rgba(255,255,255,.06);
       text-align: center;
     }
-    .role-card .emoji {
-      font-size: 32px;
-    }
-    .role-card h4 {
-      font-size: 16px;
-      margin: 8px 0 4px;
-    }
-    .role-card p {
-      font-size: 13px;
-      color: #94a3b8;
-      margin: 0;
-    }
+    .role-card .emoji { font-size: 32px; }
+    .role-card h4 { font-size: 16px; margin: 8px 0 4px; }
+    .role-card p { font-size: 13px; color: var(--muted); margin: 0; }
+
     .tariffs-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -179,36 +161,50 @@
       border-radius: 20px;
       background: rgba(255,255,255,.02);
       text-align: center;
+      display: flex;
+      flex-direction: column;
     }
     .tariff.popular {
-      border-color: #6366f1;
+      border-color: var(--indigo);
       background: rgba(99,102,241,.06);
+      box-shadow: 0 0 0 1px var(--indigo);
     }
-    .tariff h3 {
-      font-size: 20px;
-      margin: 0 0 4px;
+    .tariff .badge {
+      display: inline-block;
+      background: var(--indigo);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+      align-self: center;
     }
+    .tariff h3 { font-size: 20px; margin: 0 0 4px; }
     .tariff .price {
       font-size: 28px;
       font-weight: 800;
-      margin: 12px 0 6px;
+      margin: 8px 0 4px;
     }
-    .tariff .price small {
-      font-size: 16px;
-      font-weight: 400;
-      color: #94a3b8;
-    }
+    .tariff .price small { font-size: 16px; font-weight: 400; color: var(--muted); }
     .tariff ul {
       list-style: none;
       padding: 0;
       margin: 16px 0;
       font-size: 14px;
       color: #cbd5e1;
+      text-align: left;
+      flex: 1;
     }
     .tariff ul li {
       padding: 6px 0;
       border-bottom: 1px solid rgba(255,255,255,.04);
+      display: flex;
+      justify-content: space-between;
     }
+    .tariff ul li span:last-child { font-weight: 700; color: #e2e8f0; }
+    .tariff .btn { margin-top: auto; }
+
     .faq-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -221,16 +217,41 @@
       padding: 18px 16px;
       background: rgba(255,255,255,.015);
     }
-    .faq-item h4 {
-      font-size: 16px;
-      margin: 0 0 6px;
+    .faq-item h4 { font-size: 16px; margin: 0 0 6px; }
+    .faq-item p { font-size: 14px; color: var(--muted); margin: 0; line-height: 1.5; }
+
+    .screenshots {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+      margin-bottom: 40px;
     }
-    .faq-item p {
+    .screenshot-card {
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.025);
+      transition: .2s;
+    }
+    .screenshot-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--indigo);
+      box-shadow: 0 12px 30px rgba(99,102,241,.1);
+    }
+    .screenshot-card img {
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #0f172a;
+    }
+    .screenshot-card .caption {
+      padding: 14px 16px;
       font-size: 14px;
-      color: #94a3b8;
-      margin: 0;
-      line-height: 1.5;
+      color: #e2e8f0;
+      font-weight: 600;
+      text-align: center;
     }
+
     .footer {
       border-top: 1px solid rgba(255,255,255,.06);
       padding: 30px 0 20px;
@@ -240,16 +261,14 @@
       justify-content: space-between;
       gap: 20px;
       font-size: 13px;
-      color: #94a3b8;
+      color: var(--muted);
     }
     .footer a {
-      color: #94a3b8;
+      color: var(--muted);
       text-decoration: none;
       margin-right: 16px;
     }
-    .footer a:hover {
-      color: #e2e8f0;
-    }
+    .footer a:hover { color: #e2e8f0; }
     .footer .copy {
       margin-top: 16px;
       width: 100%;
@@ -263,6 +282,7 @@
       .hero .actions .btn { width: 100%; max-width: 280px; }
       .benefits-grid { grid-template-columns: 1fr 1fr; }
       .tariffs-grid { grid-template-columns: 1fr; }
+      .screenshots { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -270,7 +290,7 @@
   <div class="topbar">
     <div class="brand">
       <div class="logo">QR</div>
-      <span>QR Menu Russia</span>
+      <span>OS QR-Menu</span>
     </div>
     <div class="row">
       <a href="login.html" class="btn btn-ghost btn-sm">Вход</a>
@@ -281,15 +301,14 @@
   <div class="wrap">
     <!-- Hero -->
     <section class="hero">
-      <h1>QR-меню и управление заведением для кафе и ресторанов</h1>
-      <p>Принимайте заказы по QR-коду, управляйте кухней, официантами и доставкой в одной системе.</p>
+      <h1>Управляйте заведениями с помощью QR-меню</h1>
+      <p>Принимайте заказы по QR-коду, управляйте кухней, залом, официантами и доставкой в единой системе.</p>
       <div class="actions">
-        <a href="register.html" class="btn btn-primary">Попробовать бесплатно</a>
+        <a href="register.html" class="btn btn-primary">Попробовать бесплатно 10 дней</a>
         <a href="manager-demo.html" class="btn btn-ghost">Посмотреть демо</a>
       </div>
       <div class="mockup">
-        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='450' viewBox='0 0 800 450'%3E%3Crect width='800' height='450' fill='%230f172a'/%3E%3Crect x='40' y='40' width='720' height='370' rx='12' fill='%231e293b'/%3E%3Crect x='60' y='60' width='200' height='30' rx='6' fill='%233b82f6'/%3E%3Crect x='280' y='60' width='120' height='30' rx='6' fill='%233b82f6'/%3E%3Crect x='420' y='60' width='100' height='30' rx='6' fill='%233b82f6'/%3E%3Crect x='60' y='110' width='220' height='280' rx='8' fill='%232d3748'/%3E%3Crect x='300' y='110' width='460' height='280' rx='8' fill='%232d3748'/%3E%3Crect x='320' y='130' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3Crect x='320' y='190' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3Crect x='320' y='250' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3Crect x='320' y='310' width='420' height='40' rx='6' fill='%233b82f6'/%3E%3C/svg%3E"
-             alt="Интерфейс системы управления заказами">
+        <img src="img/dashboard.png" alt="Интерфейс кабинета управляющего" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22800%22 height=%22450%22%3E%3Crect width=%22800%22 height=%22450%22 fill=%22%230f172a%22/%3E%3Ctext x=%22400%22 y=%22230%22 text-anchor=%22middle%22 fill=%22%2364748b%22 font-size=%2232%22 font-family=%22sans-serif%22%3EСкриншот кабинета%3C/text%3E%3C/svg%3E'">
       </div>
     </section>
 
@@ -303,6 +322,28 @@
       <div class="benefit"><div class="icon">📊</div><h3>Статистика продаж</h3><p>Аналитика по выручке, популярным блюдам и эффективности сотрудников.</p></div>
       <div class="benefit"><div class="icon">👥</div><h3>Роли сотрудников</h3><p>Отдельные кабинеты для управляющего, поваров, курьеров и официантов.</p></div>
       <div class="benefit"><div class="icon">🚚</div><h3>Доставка и самовывоз</h3><p>Поддерживайте разные способы получения, рассчитывайте стоимость доставки.</p></div>
+    </div>
+
+    <!-- Скриншоты интерфейса (реальные картинки) -->
+    <h2 class="section-title">Как выглядит система</h2>
+    <p class="section-sub">Интерфейсы для каждой роли — простые и интуитивные</p>
+    <div class="screenshots">
+      <div class="screenshot-card">
+        <img src="img/dashboard.png" alt="Кабинет управляющего" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22250%22%3E%3Crect width=%22400%22 height=%22250%22 fill=%22%23111a2a%22/%3E%3Ctext x=%22200%22 y=%22135%22 text-anchor=%22middle%22 fill=%22%2364748b%22 font-size=%2220%22 font-family=%22sans-serif%22%3EУправляющий%3C/text%3E%3C/svg%3E'">
+        <div class="caption">🏢 Кабинет управляющего — меню, зал, аналитика</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="img/hall.png" alt="План зала" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22250%22%3E%3Crect width=%22400%22 height=%22250%22 fill=%22%23111a2a%22/%3E%3Ctext x=%22200%22 y=%22135%22 text-anchor=%22middle%22 fill=%22%2364748b%22 font-size=%2220%22 font-family=%22sans-serif%22%3EПлан зала%3C/text%3E%3C/svg%3E'">
+        <div class="caption">🪑 План зала — управление столами и посадкой</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="img/orders.png" alt="Заказы" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22250%22%3E%3Crect width=%22400%22 height=%22250%22 fill=%22%23111a2a%22/%3E%3Ctext x=%22200%22 y=%22135%22 text-anchor=%22middle%22 fill=%22%2364748b%22 font-size=%2220%22 font-family=%22sans-serif%22%3EЗаказы%3C/text%3E%3C/svg%3E'">
+        <div class="caption">📦 Управление заказами — статусы, кухня, доставка</div>
+      </div>
+      <div class="screenshot-card">
+        <img src="img/menu.png" alt="Редактор меню" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22400%22 height=%22250%22%3E%3Crect width=%22400%22 height=%22250%22 fill=%22%23111a2a%22/%3E%3Ctext x=%22200%22 y=%22135%22 text-anchor=%22middle%22 fill=%22%2364748b%22 font-size=%2220%22 font-family=%22sans-serif%22%3EМеню%3C/text%3E%3C/svg%3E'">
+        <div class="caption">🍔 Редактор меню — категории, цены, фото</div>
+      </div>
     </div>
 
     <!-- Как это работает -->
@@ -340,28 +381,82 @@
       <div class="role-card"><div class="emoji">📱</div><h4>Клиент</h4><p>Просмотр меню, оформление заказа, оплата.</p></div>
     </div>
 
-    <!-- Тарифы (временные карточки) -->
-    <h2 class="section-title">Гибкие тарифы</h2>
-    <p class="section-sub">Выберите подходящий план для вашего бизнеса</p>
+    <!-- Тарифы (реальные) -->
+    <h2 class="section-title">Тарифы</h2>
+    <p class="section-sub">Выберите план, который подходит вашему бизнесу. Для сетей и крупных заведений доступны индивидуальные условия.</p>
     <div class="tariffs-grid">
+      <!-- Start -->
       <div class="tariff">
-        <h3>Старт</h3>
-        <div class="price">0 ₽ <small>/мес</small></div>
-        <ul><li>1 заведение</li><li>До 5 поваров</li><li>До 50 позиций</li><li>Базовый функционал</li></ul>
-        <a href="register.html" class="btn btn-primary" style="width:100%;">Начать</a>
+        <h3>Start</h3>
+        <div class="price">499 ₽ <small>/мес</small></div>
+        <ul>
+          <li><span>Заведений</span><span>1</span></li>
+          <li><span>Поваров</span><span>1</span></li>
+          <li><span>Курьеров</span><span>1</span></li>
+          <li><span>Официантов</span><span>1</span></li>
+          <li><span>Позиций меню</span><span>50</span></li>
+        </ul>
+        <a href="register.html" class="btn btn-primary">Начать 10-дневный триал</a>
       </div>
+
+      <!-- Business (популярный) -->
       <div class="tariff popular">
-        <h3>Бизнес</h3>
-        <div class="price">1 990 ₽ <small>/мес</small></div>
-        <ul><li>3 заведения</li><li>До 10 поваров</li><li>До 100 позиций</li><li>Доставка и аналитика</li></ul>
-        <a href="register.html" class="btn btn-primary" style="width:100%;">Выбрать</a>
+        <span class="badge">Популярный</span>
+        <h3>Business</h3>
+        <div class="price">1 999 ₽ <small>/мес</small></div>
+        <ul>
+          <li><span>Заведений</span><span>3</span></li>
+          <li><span>Поваров на заведение</span><span>2</span></li>
+          <li><span>Курьеров на заведение</span><span>2</span></li>
+          <li><span>Официантов на заведение</span><span>2</span></li>
+          <li><span>Позиций меню</span><span>100</span></li>
+        </ul>
+        <a href="register.html" class="btn btn-primary">Начать 10-дневный триал</a>
       </div>
+
+      <!-- Premium -->
       <div class="tariff">
-        <h3>Корпоративный</h3>
-        <div class="price">По запросу</div>
-        <ul><li>Неограниченно заведений</li><li>Индивидуальные лимиты</li><li>Приоритетная поддержка</li></ul>
-        <a href="#contact" class="btn btn-ghost" style="width:100%;">Связаться</a>
+        <h3>Premium</h3>
+        <div class="price">3 999 ₽ <small>/мес</small></div>
+        <ul>
+          <li><span>Заведений</span><span>6</span></li>
+          <li><span>Поваров на заведение</span><span>4</span></li>
+          <li><span>Курьеров на заведение</span><span>4</span></li>
+          <li><span>Официантов на заведение</span><span>4</span></li>
+          <li><span>Позиций меню</span><span>200</span></li>
+        </ul>
+        <a href="register.html" class="btn btn-primary">Начать 10-дневный триал</a>
       </div>
+
+      <!-- Network -->
+      <div class="tariff">
+        <h3>Network</h3>
+        <div class="price">9 999 ₽ <small>/мес</small></div>
+        <ul>
+          <li><span>Заведений</span><span>10</span></li>
+          <li><span>Поваров на заведение</span><span>6</span></li>
+          <li><span>Курьеров на заведение</span><span>6</span></li>
+          <li><span>Официантов на заведение</span><span>6</span></li>
+          <li><span>Позиций меню</span><span>400</span></li>
+        </ul>
+        <a href="register.html" class="btn btn-primary">Начать 10-дневный триал</a>
+      </div>
+    </div>
+
+    <!-- Дополнительные услуги и индивидуальные тарифы -->
+    <div style="text-align:center;margin: -20px 0 40px; background: rgba(99,102,241,.06); border-radius: 20px; padding: 24px 16px; border: 1px solid rgba(99,102,241,.15);">
+      <p style="font-size: 15px; color: #cbd5e1; margin-bottom: 8px;">
+        🔧 <strong>Индивидуальный тариф</strong> — настройте количество заведений, сотрудников и позиций под свой бизнес.
+      </p>
+      <p style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">
+        🧾 <strong>Под ключ</strong> — полная настройка системы, обучение персонала и интеграция с вашим оборудованием (дополнительно, индивидуально).
+      </p>
+      <p style="font-size: 14px; color: #94a3b8; margin-bottom: 8px;">
+        💳 <strong>Безналичная оплата</strong> — подключите приём платежей по картам и СБП прямо в кабинете управляющего. Готовое решение для онлайн-оплаты заказов.
+      </p>
+      <p style="font-size: 14px; color: #94a3b8; margin-bottom: 0;">
+        🎁 <strong>Пробный период 10 дней</strong> — полный доступ ко всем функциям без ограничений. Оплата только после окончания триала.
+      </p>
     </div>
 
     <!-- Доверие (контакты) -->
@@ -369,7 +464,8 @@
     <p class="section-sub">Свяжитесь с нами любым удобным способом</p>
     <div style="display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin-bottom:40px;">
       <span class="chip">📞 <a href="tel:+79053204350" style="color:inherit;">8 905 320-43-50</a></span>
-      <span class="chip">✉️ <a href="os.qr.menu@gmail.com" style="color:inherit;">os.qr.menu@gmail.com</a></span>
+      <span class="chip">✉️ <a href="mailto:os.qr.menu@gmail.com" style="color:inherit;">os.qr.menu@gmail.com</a></span>
+      <span class="chip">💬 <a href="#" style="color:inherit;">Telegram-чат</a></span>
     </div>
 
     <!-- FAQ -->
@@ -382,7 +478,8 @@
       <div class="faq-item"><h4>Есть ли доставка?</h4><p>Да, система поддерживает доставку с расчётом стоимости и зоной доставки.</p></div>
       <div class="faq-item"><h4>Можно ли подключить оплату?</h4><p>Да, доступна оплата через СБП и ЮKassa (настройка в кабинете управляющего).</p></div>
       <div class="faq-item"><h4>Как создаётся QR-код?</h4><p>QR-код генерируется автоматически для каждого стола в разделе «Зал».</p></div>
-      <div class="faq-item"><h4>Есть ли пробный период?</h4><p>Да, при регистрации предоставляется 5 дней бесплатного использования.</p></div>
+      <div class="faq-item"><h4>Есть ли пробный период?</h4><p>Да, при регистрации предоставляется <strong>10 дней</strong> бесплатного использования.</p></div>
+      <div class="faq-item"><h4>Можно ли изменить тариф позже?</h4><p>Да, в любой момент перейдите на другой тариф в кабинете управляющего.</p></div>
     </div>
 
     <!-- Футер -->
@@ -394,7 +491,7 @@
       </div>
       <div>
         <a href="tel:+79053204350">📞 8 905 320-43-50</a>
-        <a href="mailto:info@qr-menu-russia.ru">✉️ os.qr.menu@gmail.com</a>
+        <a href="mailto:os.qr.menu@gmail.com">✉️ os.qr.menu@gmail.com</a>
       </div>
       <div class="copy">© 2026 OS QR-Menu. Все права защищены.</div>
     </footer>
