@@ -1424,6 +1424,14 @@ Vue.createApp({
 </script>
 <script id="integrated-recipes-js">
 (function(){
+  'use strict';
+  var recipeStarted=false;
+  function startRecipes(){
+    if(recipeStarted) return;
+    if(!document.getElementById('productSearch') || !document.getElementById('ingredientsModal')) return;
+    recipeStarted=true;
+    (function(){
+
 function initIntegratedRecipes(){
 
 'use strict';
@@ -1692,6 +1700,14 @@ if (document.readyState === 'loading') {
 } else {
   initIntegratedRecipes();
 }
+
+    })();
+  }
+  // Vue creates the recipe DOM only after the user selects the Recipes tab.
+  // Observe DOM changes and initialize exactly once when all controls exist.
+  var obs=new MutationObserver(function(){ startRecipes(); });
+  obs.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+  startRecipes();
 })();
 </script>
 </body>
