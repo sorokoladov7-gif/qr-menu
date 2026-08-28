@@ -29,7 +29,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .detail-total{margin-top:10px;font-weight:700;font-size:16px;color:#a5b4fc}
 .detail-meta{font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.6}.detail-meta strong{color:#e2e8f0}
 
-/* Стили для вызовов */
 .call-card{padding:12px;border-radius:12px;background:#111827;border:1px solid #ffffff12;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .call-card .call-info{display:flex;align-items:center;gap:10px}
 .call-card .call-table{font-weight:800;color:#fbbf24;font-size:18px}
@@ -73,7 +72,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="stat"><b>{{fmt(cookStats.revenue)}} ₽</b><span>Выручка</span></div>
   </div>
 
-  <!-- Три колонки заказов (если не вкладка вызовов) -->
   <div class="cols" v-if="tab !== 'calls'">
     <div class="col col-new"><h3><span>🆕 Новые</span><span>{{colNew.length}}</span></h3>
       <div v-for="o in colNew" :key="o.id" class="order" @click="openOrderDetail(o)">
@@ -123,7 +121,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
   </div>
 
-  <!-- Новая вкладка вызовов (прямая панель) -->
   <div v-if="tab === 'calls'" style="padding:16px;">
     <h3 style="margin-top:0;display:flex;justify-content:space-between;align-items:center;">
       🛎️ Вызовы от гостей
@@ -144,7 +141,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Модалка деталей блюда -->
+<!-- Модалки -->
 <div v-if="detailModal.open" class="modal detail-modal" @click.self="closeDetail">
   <div class="sheet">
     <div class="sheet-head">
@@ -167,7 +164,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Модалка деталей заказа -->
 <div v-if="orderDetailModal.open" class="modal order-detail-modal" @click.self="closeOrderDetail">
   <div class="sheet">
     <div class="sheet-head">
@@ -201,7 +197,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Основная модалка (для истории, столов) -->
 <div v-if="modal.open" class="modal" @click.self="closeModal">
   <div class="sheet">
     <div class="sheet-head"><h2>{{modal.title}}</h2><button class="close" @click="closeModal">✕</button></div>
@@ -265,7 +260,7 @@ createApp({
    session:null,busy:false,err:'',form:{slug:'',pin:''},
    token:sessionStorage.getItem('cook_token')||'',
    orders:[],history:[],tables:[],canControlTables:false,
-   calls:[], // активные вызовы
+   calls:[],
    timer:null,
    tab:'new',
    modal:{open:false,loading:false,error:'',type:'',title:'',items:[],canControl:false},
@@ -290,8 +285,8 @@ createApp({
    openOrderDetail(o){this.orderDetailModal={open:true, order:o}},
    closeOrderDetail(){this.orderDetailModal.open=false},
    async resolveCall(id){
-     const r=await db.from('cook_calls').update({status:'resolved', resolved_at:new Date().toISOString()}).eq('id',id);
-     if(r.error) alert('Ошибка: '+r.error.message);
+     const r=await db.rpc('resolve_cook_call', { p_token: this.token, p_call_id: id });
+     if(r.error) alert('Ошибка: ' + r.error.message);
      else this.load();
    },
    async enrichOrdersWithDescriptions(orders){
@@ -331,7 +326,7 @@ createApp({
      if(!this.token)return;
      const [r, calls] = await Promise.all([
        db.rpc('staff_orders_json',{p_token:this.token}),
-       db.from('cook_calls').select('*').eq('venue_id',this.session.venueId).eq('status','pending').order('created_at',{ascending:false})
+       db.rpc('get_cook_calls',{p_token:this.token})
      ]);
      if(r.error){this.logout();return}
      const data=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.orders)?r.data.orders:[]);
@@ -340,8 +335,7 @@ createApp({
      this.cookStats.total=data.length;
      this.loadHistorySummary();
 
-     // Обновляем вызовы
-     this.calls=calls.data||[];
+     this.calls=Array.isArray(calls)?calls:[];
      if(this.calls.length>this.prevCallsCount){
        try{new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=").play()}catch(e){}
      }
@@ -362,12 +356,8 @@ createApp({
    async tableActionFromModal(t,action){const fn=action==='release'?'cook_release_table':'cook_start_table_session';const r=await db.rpc(fn,{p_token:this.token,p_table_id:t.id});if(r.error){alert(r.error.message);return}await this.fetchTables();this.modal.items=this.tables},
    restore(){const s=sessionStorage.getItem('cook_session'),t=sessionStorage.getItem('cook_token');if(s&&t)try{this.session=JSON.parse(s);this.token=t;this.load()}catch(e){sessionStorage.removeItem('cook_session')}}
  },
- watch: {
-   tab(newTab) {
-     if (newTab === 'calls') this.load();
-   }
- },
- mounted(){this.restore();this.timer=setInterval(()=>this.session&&this.token&&this.load(),3000)}, // обновляем каждые 3 секунды
+ watch: { tab(newTab){ if(newTab==='calls') this.load(); } },
+ mounted(){this.restore();this.timer=setInterval(()=>this.session&&this.token&&this.load(),3000)},
  beforeUnmount(){clearInterval(this.timer)}
 }).mount('#app');
 </script>
