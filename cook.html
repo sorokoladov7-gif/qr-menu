@@ -179,7 +179,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Основная модалка (для списков, истории, столов) -->
+<!-- Основная модалка (для списков, истории, столов, вызовов) -->
 <div v-if="modal.open" class="modal" @click.self="closeModal">
   <div class="sheet">
     <div class="sheet-head"><h2>{{modal.title}}</h2><button class="close" @click="closeModal">✕</button></div>
@@ -220,7 +220,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div v-if="!modal.items.length" class="empty">История заказов пуста</div>
     </div>
     <div v-else-if="modal.type==='tables'" class="modal-grid"><div v-for="t in modal.items" :key="t.id" class="card table-card" :class="t.occupancy_status"><div class="order-head"><b>🪑 {{t.name||('Стол '+t.table_number)}}</b><span>{{tableStatusIcon(t.occupancy_status)}}</span></div><div class="status">{{tableStatus(t.occupancy_status)}}</div><div v-if="t.session" class="muted" style="margin-top:8px">Заказов: {{t.session.order_count||0}} · {{fmt(t.session.total_price||0)}} ₽</div><div v-else class="muted" style="margin-top:8px">Нет активной сессии</div><div class="actions" v-if="modal.canControl"><button v-if="t.occupancy_status==='occupied'" class="btn btn-red" @click="tableActionFromModal(t,'release')">Освободить</button><button v-else-if="t.occupancy_status==='free'" class="btn btn-green" @click="tableActionFromModal(t,'seat')">Посадить</button><button v-else class="btn btn-ghost" disabled>Резерв</button></div></div><div v-if="!modal.items.length" class="empty">Столы не настроены</div></div>
-    <!-- Новая вкладка вызовов -->
+    <!-- Новая вкладка вызовов (для повара) -->
     <div v-else-if="modal.type==='calls'" class="modal-grid">
       <div v-for="c in modal.items" :key="c.id" class="call-card">
         <div class="call-info">
@@ -310,6 +310,10 @@ createApp({
        db.rpc('staff_orders_json',{p_token:this.token}),
        db.from('cook_calls').select('*').eq('venue_id',this.session.venueId).eq('status','pending').order('created_at',{ascending:false})
      ]);
+     // Логирование для диагностики
+     console.log('[Cook] calls data:', calls);
+     console.log('[Cook] session.venueId:', this.session.venueId);
+
      if(r.error){this.logout();return}
      const data=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.orders)?r.data.orders:[]);
      await this.enrichOrdersWithDescriptions(data);
@@ -318,10 +322,15 @@ createApp({
      this.loadHistorySummary();
 
      this.calls=calls.data||[];
+     console.log('[Cook] calls array:', this.calls);
      if(this.calls.length>this.prevCallsCount){
        try{new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=").play()}catch(e){}
      }
      this.prevCallsCount=this.calls.length;
+     // Если открыта модалка вызовов, обновляем её содержимое
+     if(this.modal.open && this.modal.type==='calls'){
+       this.modal.items=this.calls.slice();
+     }
    },
    async loadHistorySummary(){try{const r=await db.rpc('staff_history_json',{p_token:this.token});if(!r.error&&Array.isArray(r.data)){this.history=r.data;this.cookStats.done=this.history.length;this.cookStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0)}}catch(e){}},
    async fetchTables(){const r=await db.rpc('cook_get_table_dashboard',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить столы');this.tables=Array.isArray(r.data?.tables)?r.data.tables:[];this.canControlTables=r.data?.can_control_tables===true},
