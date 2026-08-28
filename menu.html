@@ -73,14 +73,13 @@
 .status-big{text-align:center;padding:20px 0 10px;font-size:52px}
 .msg.ok{background:rgba(52,211,153,.15);color:#6ee7b7;padding:10px;border-radius:10px}
 
-/* Кнопка вызова официанта */
-.call-waiter-btn {
+/* Кнопки вызова */
+.call-btn {
   position: fixed;
   bottom: 80px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 39;
-  background: linear-gradient(135deg, #f59e0b, #d97706);
   border: none;
   border-radius: 999px;
   color: #fff;
@@ -91,15 +90,15 @@
   cursor: pointer;
   transition: all .3s;
 }
-.call-waiter-btn:hover {
+.call-btn:hover {
   transform: translateX(-50%) scale(1.05);
   box-shadow: 0 12px 40px rgba(245, 158, 11, .6);
 }
-.call-waiter-btn:disabled {
+.call-btn:disabled {
   opacity: .5;
   pointer-events: none;
 }
-.call-waiter-btn .waiter-badge {
+.call-btn .badge {
   background: #fff;
   color: #d97706;
   border-radius: 50%;
@@ -107,8 +106,10 @@
   font-size: 12px;
   margin-left: 4px;
 }
+.call-waiter { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.call-cook { background: linear-gradient(135deg, #6366f1, #4f46e5); }
 @media (max-width: 700px) {
-  .call-waiter-btn {
+  .call-btn {
     bottom: 72px;
     font-size: 14px;
     padding: 12px 20px;
@@ -183,13 +184,19 @@
 </div>
 <p v-if="!filtered.length" class="muted">В этой категории пока пусто.</p>
 
-<!-- Кнопка "Позвать официанта" (только для заказа за столом) -->
-<button v-if="form.table_token && form.table_number" 
-        class="call-waiter-btn" 
-        @click="callWaiter" 
-        :disabled="callWaiterCooldown">
-  🛎️ Позвать официанта
-  <span v-if="callWaiterCooldown" class="waiter-badge">⏳</span>
+<!-- Кнопка вызова (автоматически выбирает официанта или повара) -->
+<button v-if="form.table_token && form.table_number && !callCooldown" 
+        class="call-btn" 
+        :class="hasWaiters ? 'call-waiter' : 'call-cook'"
+        @click="callStaff">
+  {{ hasWaiters ? '🛎️ Позвать официанта' : '👨‍🍳 Позвать повара' }}
+</button>
+<button v-else-if="form.table_token && form.table_number && callCooldown" 
+        class="call-btn" 
+        :class="hasWaiters ? 'call-waiter' : 'call-cook'"
+        disabled>
+  {{ hasWaiters ? '🛎️ Официант вызван' : '👨‍🍳 Повар вызван' }}
+  <span class="badge">⏳</span>
 </button>
 
 <div class="cartbar" v-if="cart.length">
@@ -373,9 +380,10 @@ deliveryMinOrderFree: 0,
 deliveryBaseFee: 50,
 abortController: null,
 design: {},
-// Для вызова официанта
-callWaiterCooldown: false,
-callWaiterTimeout: null
+// Для вызова
+callCooldown: false,
+callTimeout: null,
+hasWaiters: false
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -413,31 +421,43 @@ categoryLabel:function(c){
   return m[c]||'🍽 Блюдо';
 },
 
-// === Вызов официанта ===
-async callWaiter() {
-  if (this.callWaiterCooldown) return;
+// === Вызов персонала (автоматический выбор) ===
+async callStaff() {
+  if (this.callCooldown) return;
   if (!this.venue || !this.form.table_token) {
     this.showToast('Ошибка: неизвестный стол', 'error');
     return;
   }
   this.busy = true;
   try {
-    const r = await db.rpc('create_waiter_call', {
+    // Определяем, кого звать: если есть официанты – их, иначе повара
+    const rpcName = this.hasWaiters ? 'create_waiter_call' : 'create_cook_call';
+    const r = await db.rpc(rpcName, {
       p_venue_id: this.venue.id,
       p_table_token: this.form.table_token
     });
     if (r.error) throw r.error;
-    this.showToast('🛎️ Официант вызван!');
-    // Устанавливаем кулдаун на 30 секунд
-    this.callWaiterCooldown = true;
-    if (this.callWaiterTimeout) clearTimeout(this.callWaiterTimeout);
-    this.callWaiterTimeout = setTimeout(() => {
-      this.callWaiterCooldown = false;
+    this.showToast(this.hasWaiters ? '🛎️ Официант вызван!' : '👨‍🍳 Повар вызван!');
+    this.callCooldown = true;
+    if (this.callTimeout) clearTimeout(this.callTimeout);
+    this.callTimeout = setTimeout(() => {
+      this.callCooldown = false;
     }, 30000);
   } catch(e) {
-    this.showToast('Ошибка: ' + (e.message || 'не удалось вызвать официанта'), 'error');
+    this.showToast('Ошибка: ' + (e.message || 'не удалось вызвать'), 'error');
   } finally {
     this.busy = false;
+  }
+},
+
+// Проверка наличия официантов
+async checkWaiters() {
+  if (!this.venue) return;
+  try {
+    const r = await db.from('waiters').select('id').eq('venue_id', this.venue.id).limit(1);
+    this.hasWaiters = !r.error && (r.data || []).length > 0;
+  } catch(e) {
+    this.hasWaiters = false;
   }
 },
 
@@ -556,6 +576,8 @@ init:function(){
           self.msg = '🪑 Вы заказываете за столом №' + tableParam;
           self.msgType = 'ok';
         }
+        // Проверяем наличие официантов
+        self.checkWaiters();
         return self.loadProducts();
       })
       .then(function(){
@@ -589,6 +611,7 @@ init:function(){
 selectVenue:function(v){
   this.venue = v;
   this.loadVenueSettings(v);
+  this.checkWaiters();
   this.loadProducts();
 },
 
