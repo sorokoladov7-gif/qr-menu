@@ -13,7 +13,6 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="js/pwa-install.js"></script>
 <style>
-/* ... стили без изменений ... */
 [v-cloak]{display:none}
 .hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 .hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
@@ -431,7 +430,6 @@ async callStaff() {
   }
   this.busy = true;
   try {
-    // Определяем, кого звать: если есть официанты – их, иначе повара
     const rpcName = this.hasWaiters ? 'create_waiter_call' : 'create_cook_call';
     const r = await db.rpc(rpcName, {
       p_venue_id: this.venue.id,
@@ -456,11 +454,17 @@ async checkWaiters() {
   if (!this.venue) return;
   try {
     const r = await db.rpc('public_venue_has_waiters', { p_venue_id: this.venue.id });
-    if (r.error) throw r.error;
+    if (r.error) {
+      console.error('Ошибка RPC public_venue_has_waiters:', r.error);
+      this.hasWaiters = false;
+      return;
+    }
     this.hasWaiters = r.data === true;
-    console.log('[Menu] hasWaiters:', this.hasWaiters); // для отладки
+    console.log('[Menu] hasWaiters:', this.hasWaiters);
+    // Принудительное обновление, чтобы кнопка отобразилась
+    this.$forceUpdate();
   } catch(e) {
-    console.warn('Ошибка проверки официантов:', e);
+    console.error('Ошибка проверки официантов:', e);
     this.hasWaiters = false;
   }
 },
@@ -557,7 +561,7 @@ goToTracking:function(){
   this.startTrackingTimer();
 },
 
-init:function(){
+async init() {
   var self = this;
   self.ready = false;
   self.loadError = null;
@@ -565,58 +569,54 @@ init:function(){
   var tableParam = new URLSearchParams(location.search).get('table');
   var tokenParam = new URLSearchParams(location.search).get('token');
   if (slug) {
-    db.rpc('public_venue_by_slug', { p_slug: slug })
-      .then(function(r){
-        if (r.error) { self.loadError = 'Ошибка загрузки заведения: ' + r.error.message; self.ready = true; return; }
-        var venueData = Array.isArray(r.data) ? r.data[0] : r.data;
-        if (!venueData) { self.loadError = 'Заведение с кодом "' + slug + '" не найдено. Проверьте ссылку.'; self.ready = true; return; }
-        if (venueData.status !== 'active') { self.loadError = 'Заведение "' + (venueData.name || slug) + '" временно недоступно.'; self.ready = true; return; }
-        self.venue = venueData;
-        self.loadVenueSettings(self.venue);
-        if (tableParam) {
-          self.form.type = 'table';
-          self.form.table_number = tableParam;
-          self.form.table_token = tokenParam || '';
-          self.msg = '🪑 Вы заказываете за столом №' + tableParam;
-          self.msgType = 'ok';
-        }
-        // Проверяем наличие официантов
-        self.checkWaiters();
-        return self.loadProducts();
-      })
-      .then(function(){
-        self.ready = true;
-        var last = localStorage.getItem('last_phone');
-        if (last && self.venue) {
-          self.trackPhone = last;
-          self.goToTracking();
-        }
-      })
-      .catch(function(err){
-        self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
-        self.ready = true;
-        console.error('Ошибка инициализации:', err);
-      });
+    try {
+      const r = await db.rpc('public_venue_by_slug', { p_slug: slug });
+      if (r.error) { self.loadError = 'Ошибка загрузки заведения: ' + r.error.message; self.ready = true; return; }
+      var venueData = Array.isArray(r.data) ? r.data[0] : r.data;
+      if (!venueData) { self.loadError = 'Заведение с кодом "' + slug + '" не найдено.'; self.ready = true; return; }
+      if (venueData.status !== 'active') { self.loadError = 'Заведение "' + (venueData.name || slug) + '" временно недоступно.'; self.ready = true; return; }
+      self.venue = venueData;
+      self.loadVenueSettings(self.venue);
+      if (tableParam) {
+        self.form.type = 'table';
+        self.form.table_number = tableParam;
+        self.form.table_token = tokenParam || '';
+        self.msg = '🪑 Вы заказываете за столом №' + tableParam;
+        self.msgType = 'ok';
+      }
+      // Дожидаемся проверки официантов
+      await self.checkWaiters();
+      await self.loadProducts();
+      self.ready = true;
+      var last = localStorage.getItem('last_phone');
+      if (last && self.venue) {
+        self.trackPhone = last;
+        self.goToTracking();
+      }
+    } catch(err) {
+      self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
+      self.ready = true;
+      console.error('Ошибка инициализации:', err);
+    }
   } else {
-    db.rpc('public_venues_list')
-      .then(function(r){
-        if (r.error) { self.loadError = 'Ошибка загрузки заведений: ' + r.error.message; self.ready = true; return; }
-        self.venues = r.data || [];
-        self.ready = true;
-      })
-      .catch(function(err){
-        self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
-        self.ready = true;
-        console.error('Ошибка загрузки заведений:', err);
-      });
+    try {
+      const r = await db.rpc('public_venues_list');
+      if (r.error) { self.loadError = 'Ошибка загрузки заведений: ' + r.error.message; self.ready = true; return; }
+      self.venues = r.data || [];
+      self.ready = true;
+    } catch(err) {
+      self.loadError = 'Ошибка: ' + (err.message || 'неизвестная ошибка');
+      self.ready = true;
+      console.error('Ошибка загрузки заведений:', err);
+    }
   }
 },
 
-selectVenue:function(v){
+async selectVenue(v) {
   this.venue = v;
   this.loadVenueSettings(v);
-  this.checkWaiters();
-  this.loadProducts();
+  await this.checkWaiters();
+  await this.loadProducts();
 },
 
 loadVenueSettings:function(v){
