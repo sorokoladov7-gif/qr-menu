@@ -72,7 +72,7 @@ async function fetchJwks() {
   });
   if (!response.ok) return null;
   const data = await response.json();
-  return Array.isArray(data.keys) ? data.keys : null;
+  return Array.isArray(data.keys) ? data.keys : [];
 }
 
 async function verifyAccessToken(accessToken) {
@@ -123,7 +123,8 @@ async function getManagerUser(accessToken) {
     throw error;
   }
 
-  // First use Supabase Auth directly, retaining compatibility with the existing session.
+  // Supabase Auth validates the access token. Do not trust the mere existence of a user:
+  // manager access must still be established from an authoritative role source.
   try {
     const authResponse = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: {
@@ -133,7 +134,19 @@ async function getManagerUser(accessToken) {
     });
     if (authResponse.ok) {
       const user = await authResponse.json();
-      if (user && user.id) return user;
+      if (user && user.id) {
+        const appRole = user.app_metadata && user.app_metadata.role;
+        if (appRole === 'manager') return user;
+
+        const profile = await getProfile(user.id);
+        if (profile && profile.id === user.id && profile.role === 'manager') {
+          return {
+            ...user,
+            role: profile.role,
+            user_metadata: { ...(user.user_metadata || {}), display_name: profile.display_name || user.user_metadata?.display_name || null }
+          };
+        }
+      }
     }
   } catch (_) {}
 
