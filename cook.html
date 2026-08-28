@@ -11,6 +11,7 @@
 <script src="/js/config.js?v=2026082402"></script>
 <script src="js/pwa-install.js"></script>
 <style>
+/* ... все стили как были, плюс добавим для вызовов ... */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
 .topbar{position:sticky;top:0;background:rgba(11,17,32,.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}
@@ -36,6 +37,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .call-card .call-time{color:#94a3b8;font-size:12px}
 .call-card .call-actions{display:flex;gap:6px}
 .call-badge{background:#ef4444;color:#fff;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:5px}
+.calls-grid{display:grid;grid-template-columns:1fr;gap:10px;padding:16px;}
 </style>
 </head>
 <body>
@@ -61,7 +63,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="work-tab" @click="openTab('ready')">✅ Выдача <span class="count">{{colReady.length}}</span></button>
     <button class="work-tab" @click="openTab('tables')">🪑 Столы <span class="count">{{tables.length}}</span></button>
     <button class="work-tab" @click="openTab('history')">📜 История</button>
-    <button class="work-tab" @click="openTab('calls')">🛎️ Вызовы<span class="call-badge" v-if="calls.length">{{calls.length}}</span></button>
+    <button class="work-tab" @click="tab='calls'">🛎️ Вызовы<span class="call-badge" v-if="calls.length">{{calls.length}}</span></button>
     <button class="btn refresh-top" @click="load" v-if="session">🔄 Обновить</button>
   </nav>
 
@@ -72,7 +74,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="stat"><b>{{fmt(cookStats.revenue)}} ₽</b><span>Выручка</span></div>
   </div>
 
-  <div class="cols">
+  <!-- Три колонки заказов (как были) -->
+  <div class="cols" v-if="tab !== 'calls'">
     <div class="col col-new"><h3><span>🆕 Новые</span><span>{{colNew.length}}</span></h3>
       <div v-for="o in colNew" :key="o.id" class="order" @click="openOrderDetail(o)">
         <div class="order-head"><b>№{{o.order_number}}</b><span v-if="o.table_number||o.table_name" class="table-badge">🪑 {{o.table_name||('Стол '+o.table_number)}}</span></div>
@@ -118,6 +121,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div class="order-total">Итого: {{fmt(o.total_price)}} ₽</div><div class="order-actions" @click.stop><button class="btn btn-green" @click="setStatusDirect(o,'done')">Выдан клиенту</button></div>
       </div><div v-if="!colReady.length" class="empty">Заказов, ожидающих выдачи, нет</div>
+    </div>
+  </div>
+
+  <!-- Новая вкладка вызовов (прямая панель) -->
+  <div v-if="tab === 'calls'" style="padding:16px;">
+    <h3 style="margin-top:0;display:flex;justify-content:space-between;align-items:center;">
+      🛎️ Вызовы от гостей
+      <span class="call-badge" style="font-size:14px;">{{calls.length}}</span>
+    </h3>
+    <div class="calls-grid">
+      <div v-if="!calls.length" class="empty">Нет активных вызовов</div>
+      <div v-for="c in calls" :key="c.id" class="call-card">
+        <div class="call-info">
+          <span class="call-table">🛎️ Стол {{c.table_number}}</span>
+          <span class="call-time">⏱ {{formatDate(c.created_at)}}</span>
+        </div>
+        <div class="call-actions">
+          <button class="btn green" @click="resolveCall(c.id)">✅ Принять</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -179,7 +202,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Основная модалка (для списков, истории, столов, вызовов) -->
+<!-- Основная модалка (для истории, столов) -->
 <div v-if="modal.open" class="modal" @click.self="closeModal">
   <div class="sheet">
     <div class="sheet-head"><h2>{{modal.title}}</h2><button class="close" @click="closeModal">✕</button></div>
@@ -219,19 +242,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div v-if="!modal.items.length" class="empty">История заказов пуста</div>
     </div>
-    <div v-else-if="modal.type==='tables'" class="modal-grid"><div v-for="t in modal.items" :key="t.id" class="card table-card" :class="t.occupancy_status"><div class="order-head"><b>🪑 {{t.name||('Стол '+t.table_number)}}</b><span>{{tableStatusIcon(t.occupancy_status)}}</span></div><div class="status">{{tableStatus(t.occupancy_status)}}</div><div v-if="t.session" class="muted" style="margin-top:8px">Заказов: {{t.session.order_count||0}} · {{fmt(t.session.total_price||0)}} ₽</div><div v-else class="muted" style="margin-top:8px">Нет активной сессии</div><div class="actions" v-if="modal.canControl"><button v-if="t.occupancy_status==='occupied'" class="btn btn-red" @click="tableActionFromModal(t,'release')">Освободить</button><button v-else-if="t.occupancy_status==='free'" class="btn btn-green" @click="tableActionFromModal(t,'seat')">Посадить</button><button v-else class="btn btn-ghost" disabled>Резерв</button></div></div><div v-if="!modal.items.length" class="empty">Столы не настроены</div></div>
-    <!-- Новая вкладка вызовов (для повара) -->
-    <div v-else-if="modal.type==='calls'" class="modal-grid">
-      <div v-for="c in modal.items" :key="c.id" class="call-card">
-        <div class="call-info">
-          <span class="call-table">🛎️ Стол {{c.table_number}}</span>
-          <span class="call-time">⏱ {{formatDate(c.created_at)}}</span>
-        </div>
-        <div class="call-actions">
-          <button class="btn green" @click="resolveCall(c.id)">✅ Принять</button>
+    <div v-else-if="modal.type==='tables'" class="modal-grid">
+      <div v-for="t in modal.items" :key="t.id" class="card table-card" :class="t.occupancy_status">
+        <div class="order-head"><b>🪑 {{t.name||('Стол '+t.table_number)}}</b><span>{{tableStatusIcon(t.occupancy_status)}}</span></div>
+        <div class="status">{{tableStatus(t.occupancy_status)}}</div>
+        <div v-if="t.session" class="muted" style="margin-top:8px">Заказов: {{t.session.order_count||0}} · {{fmt(t.session.total_price||0)}} ₽</div>
+        <div v-else class="muted" style="margin-top:8px">Нет активной сессии</div>
+        <div class="actions" v-if="modal.canControl">
+          <button v-if="t.occupancy_status==='occupied'" class="btn btn-red" @click="tableActionFromModal(t,'release')">Освободить</button>
+          <button v-else-if="t.occupancy_status==='free'" class="btn btn-green" @click="tableActionFromModal(t,'seat')">Посадить</button>
+          <button v-else class="btn btn-ghost" disabled>Резерв</button>
         </div>
       </div>
-      <div v-if="!modal.items.length" class="empty">Нет вызовов</div>
+      <div v-if="!modal.items.length" class="empty">Столы не настроены</div>
     </div>
   </div>
 </div>
@@ -245,6 +268,7 @@ createApp({
    orders:[],history:[],tables:[],canControlTables:false,
    calls:[], // активные вызовы
    timer:null,
+   tab:'new',
    modal:{open:false,loading:false,error:'',type:'',title:'',items:[],canControl:false},
    cookStats:{total:0,done:0,avgTime:0,revenue:0},
    detailModal:{open:false,item:null,addons:[]},
@@ -310,10 +334,6 @@ createApp({
        db.rpc('staff_orders_json',{p_token:this.token}),
        db.from('cook_calls').select('*').eq('venue_id',this.session.venueId).eq('status','pending').order('created_at',{ascending:false})
      ]);
-     // Логирование для диагностики
-     console.log('[Cook] calls data:', calls);
-     console.log('[Cook] session.venueId:', this.session.venueId);
-
      if(r.error){this.logout();return}
      const data=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.orders)?r.data.orders:[]);
      await this.enrichOrdersWithDescriptions(data);
@@ -322,15 +342,10 @@ createApp({
      this.loadHistorySummary();
 
      this.calls=calls.data||[];
-     console.log('[Cook] calls array:', this.calls);
      if(this.calls.length>this.prevCallsCount){
        try{new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=").play()}catch(e){}
      }
      this.prevCallsCount=this.calls.length;
-     // Если открыта модалка вызовов, обновляем её содержимое
-     if(this.modal.open && this.modal.type==='calls'){
-       this.modal.items=this.calls.slice();
-     }
    },
    async loadHistorySummary(){try{const r=await db.rpc('staff_history_json',{p_token:this.token});if(!r.error&&Array.isArray(r.data)){this.history=r.data;this.cookStats.done=this.history.length;this.cookStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0)}}catch(e){}},
    async fetchTables(){const r=await db.rpc('cook_get_table_dashboard',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить столы');this.tables=Array.isArray(r.data?.tables)?r.data.tables:[];this.canControlTables=r.data?.can_control_tables===true},
@@ -339,7 +354,6 @@ createApp({
      try{
        if(type==='tables'){this.modal.title='🪑 Столы';await this.fetchTables();this.modal.items=this.tables;this.modal.canControl=this.canControlTables}
        else if(type==='history'){this.modal.title='📜 История заказов';const r=await db.rpc('staff_history_json',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить историю');this.history=Array.isArray(r.data)?r.data:[];this.modal.items=this.history.slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));this.modal.type='history'}
-       else if(type==='calls'){this.modal.title='🛎️ Вызовы от гостей';this.modal.type='calls';this.modal.items=this.calls.slice()}
        else{this.modal.title=type==='new'?'🆕 Новые заказы':type==='cooking'?'🔥 Готовятся':'✅ Выдача';this.modal.type='orders';this.modal.items=type==='new'?this.colNew.slice():type==='cooking'?this.colCooking.slice():this.colReady.slice()}
      }catch(e){this.modal.error=e.message||'Ошибка загрузки'}finally{this.modal.loading=false}},
    closeModal(){this.modal.open=false},
