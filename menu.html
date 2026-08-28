@@ -21,7 +21,6 @@
 .chip.on{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;font-weight:700}
 .chip:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.3)}
 
-/* Карточки меню — улучшенный дизайн */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
 .dish{
   border-radius:18px;
@@ -48,7 +47,6 @@
 .dish .name{font-weight:700;font-size:15px;line-height:1.2;margin-bottom:4px}
 .dish .price{font-weight:800;color:#a5b4fc;font-size:16px;margin-top:4px}
 
-/* Модалка деталей */
 .detail-modal .box{max-width:500px;width:95%;padding:24px}
 .detail-modal .detail-img{width:100%;max-height:260px;object-fit:cover;border-radius:16px;margin-bottom:16px;background:#1f2937}
 .detail-modal .detail-name{font-size:24px;font-weight:800;margin-bottom:4px}
@@ -64,7 +62,6 @@
 .detail-modal .addon-row .addon-controls{display:flex;align-items:center;gap:4px}
 .detail-modal .addon-row .addon-controls button{padding:2px 8px;font-size:14px}
 
-/* Корзина и прочее */
 .cartbar,.reorder-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
 .cartbar button,.reorder-bar button{width:100%;border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer}
 .cartbar button{background:linear-gradient(90deg,#f59e0b,#ef4444)}
@@ -75,6 +72,48 @@
 .alert-box{background:rgba(251,146,60,.1);border:1px solid rgba(251,146,60,.3);border-radius:12px;padding:15px;margin:15px 0}
 .status-big{text-align:center;padding:20px 0 10px;font-size:52px}
 .msg.ok{background:rgba(52,211,153,.15);color:#6ee7b7;padding:10px;border-radius:10px}
+
+/* Кнопка вызова официанта */
+.call-waiter-btn {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 39;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  border: none;
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  padding: 14px 28px;
+  box-shadow: 0 8px 30px rgba(245, 158, 11, .4);
+  cursor: pointer;
+  transition: all .3s;
+}
+.call-waiter-btn:hover {
+  transform: translateX(-50%) scale(1.05);
+  box-shadow: 0 12px 40px rgba(245, 158, 11, .6);
+}
+.call-waiter-btn:disabled {
+  opacity: .5;
+  pointer-events: none;
+}
+.call-waiter-btn .waiter-badge {
+  background: #fff;
+  color: #d97706;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 12px;
+  margin-left: 4px;
+}
+@media (max-width: 700px) {
+  .call-waiter-btn {
+    bottom: 72px;
+    font-size: 14px;
+    padding: 12px 20px;
+  }
+}
 </style>
 </head>
 <body>
@@ -143,6 +182,16 @@
 </div>
 </div>
 <p v-if="!filtered.length" class="muted">В этой категории пока пусто.</p>
+
+<!-- Кнопка "Позвать официанта" (только для заказа за столом) -->
+<button v-if="form.table_token && form.table_number" 
+        class="call-waiter-btn" 
+        @click="callWaiter" 
+        :disabled="callWaiterCooldown">
+  🛎️ Позвать официанта
+  <span v-if="callWaiterCooldown" class="waiter-badge">⏳</span>
+</button>
+
 <div class="cartbar" v-if="cart.length">
 <button v-on:click="showCart=true">🛒 Оформить · {{ fmt(cartTotal) }} ₽</button>
 </div>
@@ -208,7 +257,6 @@
     {{ detailModal.product.is_available ? '✅ Доступен' : '❌ Недоступен' }}
   </div>
 
-  <!-- Дополнения -->
   <div v-if="detailModal.addons.length" style="margin:16px 0 12px;">
     <div class="muted" style="font-size:12px;margin-bottom:8px;">✨ Добавьте к блюду:</div>
     <div v-for="a in detailModal.addons" v-bind:key="a.id" class="addon-row">
@@ -307,7 +355,7 @@ data:function(){return{
 ready:false,
 loadError: null,
 venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:false,
-detailModal:{show:false, product:null, addons:[]}, // новая модалка деталей
+detailModal:{show:false, product:null, addons:[]},
 form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:'', table_token:''},
 msg:'', msgType:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
 DEFAULT_IMG:window.DEFAULT_IMG,
@@ -324,7 +372,10 @@ deliveryMinOrder: 0,
 deliveryMinOrderFree: 0,
 deliveryBaseFee: 50,
 abortController: null,
-design: {}
+design: {},
+// Для вызова официанта
+callWaiterCooldown: false,
+callWaiterTimeout: null
 }},
 computed:{
 categories:function(){var s={};this.products.forEach(function(p){if(p.category!=='addon')s[p.category]=1});return Object.keys(s)},
@@ -360,6 +411,34 @@ categoryLabel:function(c){
   var m={'main':'🍽 Блюдо','drink':'🥤 Напиток','addon':'🧂 Доп','breakfast':'🍳 Завтрак','salad':'🥗 Салат','soup':'🍲 Суп',
     'dessert':'🍰 Десерт','sauce':'🌶 Соус','snack':'🥨 Закуска','hot':'🔥 Горячее','bbq':'🥩 Гриль'};
   return m[c]||'🍽 Блюдо';
+},
+
+// === Вызов официанта ===
+async callWaiter() {
+  if (this.callWaiterCooldown) return;
+  if (!this.venue || !this.form.table_token) {
+    this.showToast('Ошибка: неизвестный стол', 'error');
+    return;
+  }
+  this.busy = true;
+  try {
+    const r = await db.rpc('create_waiter_call', {
+      p_venue_id: this.venue.id,
+      p_table_token: this.form.table_token
+    });
+    if (r.error) throw r.error;
+    this.showToast('🛎️ Официант вызван!');
+    // Устанавливаем кулдаун на 30 секунд
+    this.callWaiterCooldown = true;
+    if (this.callWaiterTimeout) clearTimeout(this.callWaiterTimeout);
+    this.callWaiterTimeout = setTimeout(() => {
+      this.callWaiterCooldown = false;
+    }, 30000);
+  } catch(e) {
+    this.showToast('Ошибка: ' + (e.message || 'не удалось вызвать официанта'), 'error');
+  } finally {
+    this.busy = false;
+  }
 },
 
 setOrderType:function(type){
@@ -686,7 +765,17 @@ trackOrder: function(){
 
 confirmChanged:function(){ var self=this; db.from('orders').update({status:'cooking'}).eq('id',self.tracking.id).then(function(){ self.trackOrder(); }); },
 
-revertOrder:function(){ var self=this; db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){ self.trackOrder(); self.view='menu'; }); }
+revertOrder:function(){ var self=this; db.from('orders').update({status:'new'}).eq('id',self.tracking.id).then(function(){ self.trackOrder(); self.view='menu'; }); },
+
+showToast: function(text, type) {
+  type = type || 'ok';
+  this.msg = text;
+  this.msgType = type;
+  clearTimeout(this._toastTimer);
+  this._toastTimer = setTimeout(() => {
+    this.msg = '';
+  }, 3000);
+}
 },
 watch: {
 'view': function(newVal) {
