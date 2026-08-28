@@ -18,11 +18,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .work-tabs{display:flex;justify-content:center;gap:8px;padding:14px 16px;position:sticky;top:57px;z-index:90;background:rgba(11,17,32,.92);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.06);flex-wrap:wrap;align-items:center}.work-tab{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:#cbd5e1;border-radius:12px;padding:10px 16px;cursor:pointer;font-weight:800}.work-tab:hover{background:rgba(255,255,255,.09)}.work-tab .count{opacity:.75;margin-left:5px}.refresh-top{background:#2d3748;color:#fff;border:1px solid #4a5568;padding:9px 16px;border-radius:12px;cursor:pointer;font-weight:700;margin-left:auto}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat b{display:block;font-size:22px;margin-bottom:4px}
 .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:0 16px 16px;align-items:start}.col{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;min-height:320px;box-shadow:0 10px 30px rgba(0,0,0,.12)}.col-new{border-color:rgba(99,102,241,.28)}.col-cooking{border-color:rgba(245,158,11,.28)}.col-ready{border-color:rgba(52,211,153,.28)}.col h3{font-size:15px;margin-bottom:12px;color:#e2e8f0;display:flex;justify-content:space-between;align-items:center}.order{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;transition:.2s}.order:hover{border-color:#6366f1;box-shadow:0 4px 16px rgba(99,102,241,.08)}.order-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.order-items{font-size:13px;color:#cbd5e1;line-height:1.55}.item-row{margin-bottom:9px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}.item-name{font-weight:800;color:#fff;cursor:pointer;transition:color .2s}.item-name:hover{color:#a5b4fc;text-decoration:underline}.item-details{font-size:12px;color:#94a3b8;margin:2px 0 0 18px}.addons{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#fbbf24}.comment{margin-top:9px;padding:8px 10px;border-radius:8px;background:rgba(245,158,11,.08);color:#fde68a;font-size:12px}.order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.order-actions .btn{flex:1;min-width:110px}.empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}.table-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:rgba(99,102,241,.2);color:#c7d2fe;font-size:11px;font-weight:700;margin-left:6px}.order-total{margin-top:9px;font-weight:800;color:#e2e8f0}.pulse{animation:pulseCard 1.4s ease-in-out infinite}@keyframes pulseCard{0%,100%{box-shadow:0 0 0 rgba(99,102,241,0)}50%{box-shadow:0 0 0 3px rgba(99,102,241,.12)}}
-.modal{position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px}.sheet{width:min(1100px,100%);max-height:92vh;overflow:auto;background:#0f172a;border:1px solid rgba(255,255,255,.12);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.5);padding:18px}.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.sheet-head h2{font-size:20px}.close{border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 11px;cursor:pointer}.modal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px}.muted{color:#94a3b8;font-size:12px}.status{font-size:11px;color:#cbd5e1;margin-top:3px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.table-card.free{border-color:rgba(52,211,153,.28)}.table-card.occupied{border-color:rgba(251,191,36,.35)}.table-card.reserved{border-color:rgba(99,102,241,.35)}.loading{text-align:center;color:#94a3b8;padding:40px}.error{text-align:center;color:#f87171;padding:30px}.history-date{font-size:11px;color:#94a3b8;margin-top:4px}
-.detail-modal .modal{z-index:100000}.detail-modal .sheet{max-width:560px;width:100%}.detail-item-name{font-size:22px;font-weight:800;margin-bottom:4px}.detail-item-qty{font-size:15px;color:#94a3b8}.detail-item-price{font-size:18px;color:#a5b4fc;margin:6px 0}.detail-item-desc{color:#cbd5e1;font-size:14px;line-height:1.6;margin:10px 0;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;white-space:pre-wrap}.detail-item-addons{margin-top:8px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px}.detail-item-addons b{color:#fbbf24}
+.modal{position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px}
+/* Поверх всех модалок – детали блюда и детали заказа */
+.detail-modal.modal,
+.order-detail-modal.modal { z-index:100000; }
+.sheet{width:min(1100px,100%);max-height:92vh;overflow:auto;background:#0f172a;border:1px solid rgba(255,255,255,.12);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.5);padding:18px}.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.sheet-head h2{font-size:20px}.close{border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 11px;cursor:pointer}.modal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px}.muted{color:#94a3b8;font-size:12px}.status{font-size:11px;color:#cbd5e1;margin-top:3px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.table-card.free{border-color:rgba(52,211,153,.28)}.table-card.occupied{border-color:rgba(251,191,36,.35)}.table-card.reserved{border-color:rgba(99,102,241,.35)}.loading{text-align:center;color:#94a3b8;padding:40px}.error{text-align:center;color:#f87171;padding:30px}.history-date{font-size:11px;color:#94a3b8;margin-top:4px}
+.detail-modal .sheet{max-width:560px;width:100%}.detail-item-name{font-size:22px;font-weight:800;margin-bottom:4px}.detail-item-qty{font-size:15px;color:#94a3b8}.detail-item-price{font-size:18px;color:#a5b4fc;margin:6px 0}.detail-item-desc{color:#cbd5e1;font-size:14px;line-height:1.6;margin:10px 0;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;white-space:pre-wrap}.detail-item-addons{margin-top:8px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px}.detail-item-addons b{color:#fbbf24}
 @media(max-width:900px){.cols{grid-template-columns:1fr}.col{min-height:180px}}@media(max-width:720px){.work-tabs{top:52px;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap}.work-tab{white-space:nowrap}.cols{grid-template-columns:1fr;padding:0 12px 12px}.stats{padding:12px}.sheet{max-height:94vh;padding:14px}}
 #staff-table-control-btn{display:none!important}
 .history-item-line{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #ffffff08}.history-item-line:last-child{border-bottom:0}
+/* Модалка заказа поверх */
+.order-detail-modal .sheet{max-width:600px;width:100%}
+.detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}.detail-row:last-child{border-bottom:0}
+.detail-total{margin-top:10px;font-weight:700;font-size:16px;color:#a5b4fc}
+.detail-meta{font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.6}.detail-meta strong{color:#e2e8f0}
 </style>
 </head>
 <body>
@@ -108,7 +117,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Модалка деталей блюда (z-index выше) -->
+<!-- Модалка деталей блюда (z-index повышен) -->
 <div v-if="detailModal.open" class="modal detail-modal" @click.self="closeDetail">
   <div class="sheet">
     <div class="sheet-head">
@@ -131,9 +140,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Модалка деталей заказа (для клика по заказу) -->
-<div v-if="orderDetailModal.open" class="modal" @click.self="closeOrderDetail">
-  <div class="sheet" style="max-width:600px;">
+<!-- Модалка деталей заказа (z-index повышен) -->
+<div v-if="orderDetailModal.open" class="modal order-detail-modal" @click.self="closeOrderDetail">
+  <div class="sheet">
     <div class="sheet-head">
       <h2>📋 Заказ №{{ orderDetailModal.order?.order_number }}</h2>
       <button class="close" @click="closeOrderDetail">✕</button>
@@ -145,12 +154,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </span>
         <span style="margin-left:12px;color:#94a3b8;font-size:12px">{{ formatDate(orderDetailModal.order.created_at) }}</span>
       </div>
-      <div v-for="it in parseItems(orderDetailModal.order)" :key="it.product_id||it.name" class="detail-row" style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)">
+      <div v-for="it in parseItems(orderDetailModal.order)" :key="it.product_id||it.name" class="detail-row">
         <span>{{ it.qty || 1 }}× {{ it.name || 'Товар' }}</span>
         <span>{{ fmt((it.price || 0) * (it.qty || 1)) }} ₽</span>
       </div>
-      <div class="detail-total" style="margin-top:10px;font-weight:700;font-size:16px;color:#a5b4fc;">Итого: {{ fmt(orderDetailModal.order.total_price) }} ₽</div>
-      <div class="detail-meta" style="font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.6;">
+      <div class="detail-total">Итого: {{ fmt(orderDetailModal.order.total_price) }} ₽</div>
+      <div class="detail-meta">
         <div><strong>Тип:</strong> {{ orderDetailModal.order.order_type || '—' }}</div>
         <div v-if="orderDetailModal.order.table_number"><strong>Стол:</strong> {{ orderDetailModal.order.table_name || ('Стол '+orderDetailModal.order.table_number) }}</div>
         <div><strong>Клиент:</strong> {{ orderDetailModal.order.customer_name || '—' }} ({{ orderDetailModal.order.customer_phone || '—' }})</div>
