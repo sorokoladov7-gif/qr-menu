@@ -17,15 +17,54 @@
 .hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 .hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
-.chip{padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);cursor:pointer;font-size:13px;color:#e5e7eb}
+.chip{padding:9px 16px;border-radius:999px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);cursor:pointer;font-size:13px;color:#e5e7eb;transition:.2s}
 .chip.on{background:linear-gradient(90deg,#6366f1,#8b5cf6);color:#fff;font-weight:700}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:12px}
-.dish{border-radius:18px;overflow:hidden;transition:.2s}
-.dish:hover{transform:translateY(-3px);border-color:#8b5cf6}
-.dish img{width:100%;height:130px;object-fit:cover;display:block}
-.dish .body{padding:12px}
-.price-pill{display:inline-block;background:linear-gradient(90deg,#f59e0b,#ef4444);color:#fff;padding:5px 12px;border-radius:999px;font-weight:800;font-size:13px;margin:8px 0}
-.add-btn{width:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border:none;color:#fff;border-radius:12px;padding:10px;font-weight:700;cursor:pointer;font-size:14px}
+.chip:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.3)}
+
+/* Карточки меню — улучшенный дизайн */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.dish{
+  border-radius:18px;
+  overflow:hidden;
+  background:linear-gradient(145deg,rgba(255,255,255,.05),rgba(255,255,255,.01));
+  border:1px solid rgba(255,255,255,.08);
+  transition:all .25s ease;
+  cursor:pointer;
+  box-shadow:0 4px 12px rgba(0,0,0,.1);
+}
+.dish:hover{
+  transform:translateY(-5px);
+  border-color:rgba(99,102,241,.5);
+  box-shadow:0 12px 32px rgba(0,0,0,.25);
+}
+.dish img{
+  width:100%;
+  height:140px;
+  object-fit:cover;
+  display:block;
+  background:#1f2937;
+}
+.dish .body{padding:14px 12px 12px}
+.dish .name{font-weight:700;font-size:15px;line-height:1.2;margin-bottom:4px}
+.dish .price{font-weight:800;color:#a5b4fc;font-size:16px;margin-top:4px}
+
+/* Модалка деталей */
+.detail-modal .box{max-width:500px;width:95%;padding:24px}
+.detail-modal .detail-img{width:100%;max-height:260px;object-fit:cover;border-radius:16px;margin-bottom:16px;background:#1f2937}
+.detail-modal .detail-name{font-size:24px;font-weight:800;margin-bottom:4px}
+.detail-modal .detail-price{font-size:22px;color:#a5b4fc;margin-bottom:6px}
+.detail-modal .detail-category{display:inline-block;background:rgba(99,102,241,.15);color:#c4b5fd;padding:2px 14px;border-radius:999px;font-size:12px;margin-bottom:10px}
+.detail-modal .detail-desc{color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:12px}
+.detail-modal .detail-status{font-size:13px;font-weight:600;margin-bottom:12px}
+.detail-modal .detail-status.available{color:#34d399}
+.detail-modal .detail-status.unavailable{color:#f87171}
+.detail-modal .addon-row{display:flex;align-items:center;gap:8px;margin:6px 0;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.detail-modal .addon-row .addon-name{flex:1;font-size:13px}
+.detail-modal .addon-row .addon-price{font-size:13px;color:#94a3b8}
+.detail-modal .addon-row .addon-controls{display:flex;align-items:center;gap:4px}
+.detail-modal .addon-row .addon-controls button{padding:2px 8px;font-size:14px}
+
+/* Корзина и прочее */
 .cartbar,.reorder-bar{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:40;width:min(560px,calc(100% - 32px))}
 .cartbar button,.reorder-bar button{width:100%;border:none;font-size:16px;color:#fff;border-radius:12px;padding:14px;font-weight:700;cursor:pointer}
 .cartbar button{background:linear-gradient(90deg,#f59e0b,#ef4444)}
@@ -95,14 +134,12 @@
   <button class="chip" v-bind:class="{on:cat==='addon'}" v-on:click="cat='addon'" v-if="hasAddons">🧂 Дополнительно</button>
 </div>
 <div class="grid">
-<div v-for="p in filtered" v-bind:key="p.id" class="glass dish">
-<img v-bind:src="p.image_url||DEFAULT_IMG" alt="">
-<div class="body">
-<b>{{ p.name }}</b>
-<div class="muted" style="font-size:11px;margin-top:4px">{{ p.description }}</div>
-<div class="price-pill">{{ fmt(p.price) }} ₽</div>
-<button class="add-btn" v-on:click="openDish(p)">＋ В корзину</button>
-</div>
+<div v-for="p in filtered" v-bind:key="p.id" class="dish" v-on:click="openDish(p)">
+  <img v-bind:src="p.image_url||DEFAULT_IMG" alt="">
+  <div class="body">
+    <div class="name">{{ p.name }}</div>
+    <div class="price">{{ fmt(p.price) }} ₽</div>
+  </div>
 </div>
 </div>
 <p v-if="!filtered.length" class="muted">В этой категории пока пусто.</p>
@@ -154,20 +191,44 @@
 </template>
 </div>
 
-<!-- Dish modal -->
-<div v-if="dishModal.show" class="modal" v-on:click.self="dishModal.show=false"><div class="glass box">
-<h3 style="margin-top:0">{{ dishModal.product.name }}</h3>
-<div class="muted" style="font-size:13px">{{ dishModal.product.description }}</div>
-<div class="price-pill">{{ fmt(dishModal.product.price) }} ₽</div>
-<div v-if="dishModal.addons.length" class="muted" style="font-size:12px;margin:10px 0 8px">✨ Добавьте к блюду:</div>
-<div v-for="a in dishModal.addons" v-bind:key="a.id" class="row" style="margin-bottom:6px">
-<div style="flex:1;font-size:13px">{{ a.name }} · {{ a.price }} ₽</div>
-<button class="btn btn-ghost btn-sm" v-on:click="decDishAddon(a)">−</button><b>{{ a.qty }}</b><button class="btn btn-ghost btn-sm" v-on:click="a.qty++">+</button>
-</div>
-<button class="btn btn-primary" style="width:100%;margin-top:12px" v-on:click="addDishToCart">+ В корзину · {{ fmt(dishTotal) }} ₽</button>
-</div></div>
+<!-- Модалка деталей блюда -->
+<div v-if="detailModal.show" class="modal detail-modal" v-on:click.self="closeDetail">
+<div class="glass box">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+    <h2 style="margin:0;font-size:24px;">{{ detailModal.product.name }}</h2>
+    <button class="btn btn-ghost btn-sm" v-on:click="closeDetail" style="font-size:20px;line-height:1;">✕</button>
+  </div>
+  <img v-if="detailModal.product.image_url" v-bind:src="detailModal.product.image_url" class="detail-img" alt="">
+  <div v-else style="width:100%;height:140px;background:#1f2937;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;margin-bottom:16px;">Нет фото</div>
+  <div class="detail-price">{{ fmt(detailModal.product.price) }} ₽</div>
+  <div class="detail-category">{{ categoryLabel(detailModal.product.category) }}</div>
+  <div class="detail-desc" v-if="detailModal.product.description">{{ detailModal.product.description }}</div>
+  <div v-else class="muted" style="font-size:13px;margin-bottom:12px;">Описание отсутствует.</div>
+  <div class="detail-status" v-bind:class="{available: detailModal.product.is_available, unavailable: !detailModal.product.is_available}">
+    {{ detailModal.product.is_available ? '✅ Доступен' : '❌ Недоступен' }}
+  </div>
 
-<!-- Cart modal -->
+  <!-- Дополнения -->
+  <div v-if="detailModal.addons.length" style="margin:16px 0 12px;">
+    <div class="muted" style="font-size:12px;margin-bottom:8px;">✨ Добавьте к блюду:</div>
+    <div v-for="a in detailModal.addons" v-bind:key="a.id" class="addon-row">
+      <span class="addon-name">{{ a.name }}</span>
+      <span class="addon-price">{{ a.price }} ₽</span>
+      <div class="addon-controls">
+        <button class="btn btn-ghost btn-sm" v-on:click="a.qty > 0 ? a.qty-- : null">−</button>
+        <span style="min-width:20px;text-align:center;">{{ a.qty }}</span>
+        <button class="btn btn-ghost btn-sm" v-on:click="a.qty++">+</button>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" style="width:100%;margin-top:12px;" v-on:click="addDetailToCart" :disabled="!detailModal.product || !detailModal.product.is_available">
+    + В корзину · {{ fmt(detailTotal) }} ₽
+  </button>
+</div>
+</div>
+
+<!-- Модалка корзины -->
 <div v-if="showCart" class="modal" v-on:click.self="showCart=false"><div class="glass box">
 <h3 style="margin-top:0">🛒 Корзина</h3>
 <div v-for="i in cart" v-bind:key="i.id" style="margin-bottom:10px">
@@ -246,7 +307,7 @@ data:function(){return{
 ready:false,
 loadError: null,
 venue:null, venues:[], products:[], view:'menu', cat:'all', cart:[], showCart:false,
-dishModal:{show:false, product:null, addons:[]},
+detailModal:{show:false, product:null, addons:[]}, // новая модалка деталей
 form:{name:'', phone:'', type:'pickup', address:'', comment:'', pay:'cash', table_number:'', table_token:''},
 msg:'', msgType:'', busy:false, trackPhone:'', tracking:null, trackSearched:false,
 DEFAULT_IMG:window.DEFAULT_IMG,
@@ -280,7 +341,12 @@ cartTotalWithDelivery:function(){
   }
   return total;
 },
-dishTotal:function(){if(!this.dishModal.product)return 0;var s=Number(this.dishModal.product.price)||0;this.dishModal.addons.forEach(function(a){s+=a.price*a.qty});return s},
+detailTotal:function(){
+  if(!this.detailModal.product) return 0;
+  var s = Number(this.detailModal.product.price) || 0;
+  this.detailModal.addons.forEach(function(a){ s += a.price * (a.qty || 0); });
+  return s;
+},
 hasAddons:function(){return this.products.some(function(p){return p.category==='addon'})}
 },
 methods:{
@@ -288,8 +354,13 @@ fmt:function(v){return window.fmt(v)},
 norm:function(p){return window.normPhone(p)},
 statusName:function(s){return window.statusName(s)},
 statusColor:function(s){return window.statusColor(s)},
-statusEmoji:function(s){return{new:'🆕',cooking:'👨‍',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
+statusEmoji:function(s){return{new:'🆕',cooking:'👨‍🍳',ready:'✅',delivery:'🚗',done:'🎉',changed:'⚠️'}[s]||'📦'},
 statusHint:function(s){return{new:'Мы получили заказ и скоро начнём готовить!',cooking:'Повар уже колдует над вашим заказом 🔥',ready:'Всё готово! Можете забирать 🎉',delivery:'Курьер мчится к вам 🚗',done:'Спасибо! Ждём вас снова ❤️',changed:'Повар изменил состав — подтвердите ниже'}[s]||''},
+categoryLabel:function(c){
+  var m={'main':'🍽 Блюдо','drink':'🥤 Напиток','addon':'🧂 Доп','breakfast':'🍳 Завтрак','salad':'🥗 Салат','soup':'🍲 Суп',
+    'dessert':'🍰 Десерт','sauce':'🌶 Соус','snack':'🥨 Закуска','hot':'🔥 Горячее','bbq':'🥩 Гриль'};
+  return m[c]||'🍽 Блюдо';
+},
 
 setOrderType:function(type){
   this.form.type = type;
@@ -309,9 +380,7 @@ calcDeliveryFee:function(){
   self.deliveryCalcError = '';
   self.calculatedDeliveryFee = null;
   self.deliveryDistance = 0;
-  if(self.form.type !== 'delivery') {
-    return;
-  }
+  if(self.form.type !== 'delivery') return;
   var address = String(self.form.address || '').trim();
   if(!address) {
     self.deliveryCalcError = 'Укажите адрес доставки';
@@ -459,20 +528,30 @@ loadProducts:function(){ var self=this; return db.from('products').select('*').e
 addonsFor:function(p){ return this.products.filter(function(a){ if(a.category !== 'addon') return false; var at = a.applies_to || 'all'; return at === 'all' || at.indexOf(p.category) !== -1; }); },
 
 openDish:function(p){
-  var list = this.addonsFor(p);
-  if(!list.length){ this.cart.push({ id:p.id, name:p.name, price:Number(p.price)||0, qty:1, addons:[] }); return; }
-  this.dishModal = { show:true, product:p, addons:list.map(function(a){ return { id:a.id, name:a.name, price:Number(a.price)||0, qty:0 }; }) };
+  if(!p) return;
+  var adds = this.addonsFor(p).map(function(a){ return { id:a.id, name:a.name, price:Number(a.price)||0, qty:0 }; });
+  this.detailModal = { show:true, product:p, addons:adds };
 },
 
-decDishAddon:function(a){ if(a.qty > 0) a.qty--; },
+closeDetail:function(){
+  this.detailModal.show = false;
+},
 
-addDishToCart:function(){
-  var m = this.dishModal;
+addDetailToCart:function(){
+  var m = this.detailModal;
+  if(!m.product) return;
   var adds = m.addons.filter(function(a){ return a.qty > 0; }).map(function(a){ return { id:a.id, name:a.name, price:a.price, qty:a.qty }; });
   var f = this.cart.find(function(i){ return i.id === m.product.id; });
-  if(f){ f.qty++; adds.forEach(function(a){ var ex = f.addons.find(function(x){ return x.id === a.id; }); if(ex){ ex.qty += a.qty; } else { f.addons.push(a); } }); }
-  else { this.cart.push({ id:m.product.id, name:m.product.name, price:Number(m.product.price)||0, qty:1, addons:adds }); }
-  this.dishModal.show = false;
+  if(f){
+    f.qty++;
+    adds.forEach(function(a){
+      var ex = f.addons.find(function(x){ return x.id === a.id; });
+      if(ex){ ex.qty += a.qty; } else { f.addons.push(a); }
+    });
+  } else {
+    this.cart.push({ id:m.product.id, name:m.product.name, price:Number(m.product.price)||0, qty:1, addons:adds });
+  }
+  this.closeDetail();
 },
 
 dec:function(i){ if(i.qty > 1) i.qty--; else { this.cart.splice(this.cart.indexOf(i), 1); } },
