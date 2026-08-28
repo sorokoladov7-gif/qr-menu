@@ -141,7 +141,7 @@ body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}
 <button v-bind:class="{on:tab==='menu'}" v-on:click="tab='menu'">Меню</button>
 <button v-bind:class="{on:tab==='orders'}" v-on:click="tab='orders'">Заказы</button>
 <button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
-<button v-bind:class="{on:tab==='hall'}" data-manager-hall-tab v-on:click="tab='hall'">🪑 Зал / Столы</button>
+<button v-bind:class="{on:tab==='hall'}" v-on:click="tab='hall'">🪑 Зал / Столы</button>
 <button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">👥 Персонал</button>
 <button v-bind:class="{on:tab==='recipes'}" v-on:click="tab='recipes'">🧾 Рецептуры</button>
 <button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
@@ -149,7 +149,7 @@ body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}
 <button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
 </div>
 
-<!-- ===================== ВКЛАДКА ПЕРСОНАЛ (с аналитикой и управлением) ===================== -->
+<!-- ===================== ВКЛАДКА ПЕРСОНАЛ ===================== -->
 <div v-if="tab==='staff'">
   <h3 style="margin-top:0">👥 Персонал — сводка и управление</h3>
   <p class="muted" style="font-size:13px;margin-bottom:14px">
@@ -247,6 +247,11 @@ body{background:#0b1020;color:#eef2ff;font-family:system-ui,sans-serif}
       Повар открывает cook.html, курьер – courier.html, официант – waiter.html и вводит: код заведения + свой PIN.
     </p>
   </div>
+</div>
+
+<!-- ===================== ВКЛАДКА ЗАЛ / СТОЛЫ ===================== -->
+<div v-if="tab==='hall'" style="position:relative;z-index:1;">
+  <div id="hall-container" style="width:100%;min-height:600px;background:#07101d;border-radius:16px;overflow:hidden;padding:16px;box-sizing:border-box;"></div>
 </div>
 
 <!-- ===================== ЕДИНАЯ ВКЛАДКА РЕЦЕПТУР ===================== -->
@@ -744,7 +749,8 @@ Vue.createApp({
       analyticsPeriod: '7',
       analytics: {revenue:0, orders:0, clients:0, avgCheck:0, avgCookTime:0, newClients:0, repeatClients:0, topItems:[], topAddons:[], typeStats:{pickup:0,delivery:0}, payStats:{cash:0,card:0}, topHours:[], daily:[], cooks:[], couriers:[], waiters:[]},
       subscriptionEnd: null, isBlocked: false, payPlan: null, myPayments: [],
-      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>"
+      DEFAULT_IMG: window.DEFAULT_IMG || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>",
+      hallRendered: false
     };
   },
   computed: {
@@ -780,6 +786,15 @@ Vue.createApp({
       };
     }
   },
+  watch: {
+    tab: function(newTab) {
+      if (newTab === 'hall' && this.venue) {
+        this.$nextTick(() => {
+          this.renderHall();
+        });
+      }
+    }
+  },
   methods: {
     fmt: function(v) { return window.fmt ? window.fmt(v) : Number(v||0).toLocaleString('ru-RU'); },
     fmtDate: function(d) { return d ? new Date(d).toLocaleDateString('ru-RU') : '-'; },
@@ -809,6 +824,19 @@ Vue.createApp({
     copyCookAccess: function(c) { this.copyText('Вход для повара '+c.name+':\nСайт: '+location.origin+'/cook.html\nКод заведения: '+this.venue.slug+'\n\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
     openStaffGuide: function() { window.open('/staff-guide.html', '_blank'); },
 
+    renderHall: function() {
+      var container = document.getElementById('hall-container');
+      if (!container) return;
+      if (window.QRManagerHall && typeof window.QRManagerHall.renderIn === 'function') {
+        if (!this.hallRendered) {
+          window.QRManagerHall.renderIn(container, this.venue);
+          this.hallRendered = true;
+        }
+      } else {
+        console.warn('QRManagerHall.renderIn not available');
+      }
+    },
+
     init: function() {
       var self=this; self.loadError=''; self.ready=false;
       try {
@@ -823,7 +851,6 @@ Vue.createApp({
               return self.loadVenueTemplates().then(function() { return self.loadMyVenues(); });
             }).then(function() {
               self.ready=true;
-              // НЕТ АВТОВЫБОРА — оставляем список заведений
             });
           });
         } else {
@@ -867,7 +894,12 @@ Vue.createApp({
       });
     },
 
-    backToList: function() { this.venue=null; if(this.timer){clearInterval(this.timer); this.timer=null;} this.loadMyVenues(); },
+    backToList: function() { 
+      this.venue=null; 
+      this.hallRendered = false;
+      if(this.timer){clearInterval(this.timer); this.timer=null;} 
+      this.loadMyVenues(); 
+    },
 
     selectVenue: function(v) {
       if (!v || !v.id) return;
@@ -881,8 +913,9 @@ Vue.createApp({
       }
 
       this.venue=v;
+      this.hallRendered = false;
       try { localStorage.setItem('manager_venue_id', String(v.id)); window.dispatchEvent(new CustomEvent('manager-venue-selected',{detail:{id:v.id,name:v.name||'',slug:v.slug||''}})); } catch(e) {}
-      this.tab='menu'; // по умолчанию открываем меню
+      this.tab='menu';
       this.subscriptionEnd=v.subscription_end;
       this.vform={
         name:v.name,
@@ -906,7 +939,6 @@ Vue.createApp({
       window.__managerVue=this;
       if(this.isExpired(v)) { this.isBlocked=true; this.tab='billing'; } else { this.isBlocked=false; }
 
-      // Загрузка всех данных
       Promise.all([
         this.loadProducts(),
         this.loadOrders(),
@@ -936,7 +968,6 @@ Vue.createApp({
       var self=this;
       if(!this.venue) return;
       var days = parseInt(this.staffAnalyticsDays) || 30;
-      // Исправлено: вызов правильной RPC для аналитики персонала
       db.rpc('manager_staff_performance', {p_venue_id: this.venue.id, p_days: days}).then(function(r) {
         if(r.error) { console.warn('staff analytics:', r.error.message||r.error); return; }
         if(r.data) self.staffAnalytics = r.data;
@@ -1243,7 +1274,7 @@ Vue.createApp({
         if(type==='cook') self.loadCooks();
         else if(type==='courier') self.loadCouriers();
         else self.loadWaiters();
-        self.loadStaffAnalytics(); // обновляем аналитику
+        self.loadStaffAnalytics();
         self.showToast(typeRu + ' добавлен');
       }).catch(function(e) {
         self.createStaffBusy = false;
@@ -1255,7 +1286,6 @@ Vue.createApp({
       var typeRu = type==='cook' ? 'повара' : (type==='courier' ? 'курьера' : 'официанта');
       if(!confirm('Сбросить PIN у ' + staff.name + ' (' + typeRu + ')?\nНовый PIN будет показан только один раз.')) return;
       self.busy = true;
-      // Генерируем новый PIN на клиенте и обновляем напрямую
       var newPin = String(Math.floor(1000 + Math.random() * 9000));
       var tableName = type === 'cook' ? 'cooks' : (type === 'courier' ? 'couriers' : 'waiters');
       db.from(tableName)
@@ -1269,7 +1299,7 @@ Vue.createApp({
             return;
           }
           alert('✅ Новый PIN для ' + staff.name + ':\n\n🔑 ' + newPin + '\n\n⚠️ Сообщите PIN сотруднику сейчас.\nЭтот PIN больше не будет показан.');
-          self.loadStaffAnalytics(); // обновляем аналитику
+          self.loadStaffAnalytics();
         })
         .catch(function(e) {
           self.busy = false;
@@ -1478,8 +1508,6 @@ function similarity(a,b){
   var A=a.split(' '),B=b.split(' '), SA=new Set(A),SB=new Set(B),inter=0;
   A.forEach(function(x){if(SB.has(x))inter++});
   var score=inter/(SA.size+SB.size-inter||1);
-  // Для названий меню вроде «Шаурма PRO», «Шаурма с курицей» и т.п.
-  // совпадение основного слова достаточно, чтобы предложить техкарту.
   var stop={с:1,сборка:1,классический:1,классическая:1,домашний:1,домашняя:1,фирменный:1,фирменная:1,порция:1,большой:1,большая:1,мини:1,pro:1,демо:1};
   var coreA=A.filter(function(x){return x.length>3&&!stop[x]})[0], coreB=B.filter(function(x){return x.length>3&&!stop[x]})[0];
   if(coreA&&coreB&&coreA===coreB)score=Math.max(score,.78);
@@ -1715,8 +1743,6 @@ async function processImage(file){
  $('ocrStatus').textContent='Распознавание '+file.name+'...';
  var result=await Tesseract.recognize(source,'rus+eng',{logger:function(x){if(x.progress!=null)$('ocrProgress').style.width=Math.round(x.progress*100)+'%';if(x.status)$('ocrStatus').textContent=x.status}});
  var text=(result.data&&result.data.text||'').trim();
- // Если улучшенное изображение распозналось, но из текста не удалось выделить ингредиенты,
- // повторяем OCR по исходному файлу: некоторые фотографии лучше читаются без предобработки.
  if(!text || !parseTechText(text).length){
    $('ocrStatus').textContent='Повторное распознавание исходного изображения...';
    var fallback=await Tesseract.recognize(file,'rus+eng',{logger:function(x){if(x.progress!=null)$('ocrProgress').style.width=Math.round(x.progress*100)+'%';if(x.status)$('ocrStatus').textContent=x.status}});
@@ -1773,8 +1799,6 @@ function parseTechText(text){
      }
    });
    var nums=numberTokens(line);
-   // Сначала пробуем сопоставить строку с известным ингредиентом каталога.
-   // Если OCR исказил название, используем резервный табличный разбор.
    if(!best){
      if(!nums.length)return;
      var generic=line.replace(/(\d+(?:[.,]\d+)?)(?:\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs))?/gi,' ')
