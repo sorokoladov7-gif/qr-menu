@@ -13,6 +13,7 @@
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
 <script src="js/pwa-install.js"></script>
 <style>
+/* ... стили без изменений ... */
 [v-cloak]{display:none}
 .hero{border-radius:22px;padding:24px;margin-bottom:16px;color:#fff;background:linear-gradient(135deg,var(--brand,#6366f1),#8b5cf6 55%,#ec4899)}
 .hero h2{margin:0 0 6px;font-size:26px;text-shadow:0 2px 8px rgba(0,0,0,.3)}.hero p{margin:0;opacity:.9}
@@ -450,13 +451,15 @@ async callStaff() {
   }
 },
 
-// Проверка наличия официантов
+// Проверка наличия официантов через RPC
 async checkWaiters() {
   if (!this.venue) return;
   try {
-    const r = await db.from('waiters').select('id').eq('venue_id', this.venue.id).limit(1);
-    this.hasWaiters = !r.error && (r.data || []).length > 0;
+    const r = await db.rpc('public_venue_has_waiters', { p_venue_id: this.venue.id });
+    if (r.error) throw r.error;
+    this.hasWaiters = r.data === true;
   } catch(e) {
+    console.warn('Ошибка проверки официантов:', e);
     this.hasWaiters = false;
   }
 },
