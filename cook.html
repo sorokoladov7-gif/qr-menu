@@ -271,7 +271,8 @@ createApp({
    detailModal:{open:false,item:null,addons:[]},
    orderDetailModal:{open:false, order:null},
    productsMap:{},
-   prevCallsCount:0
+   prevCallsIds:[],
+   callsInitialized:false
  }},
  computed:{colNew(){return this.orders.filter(o=>o.status==='new'||o.status==='changed')},colCooking(){return this.orders.filter(o=>o.status==='cooking')},colReady(){return this.orders.filter(o=>o.status==='ready')}},
  methods:{
@@ -299,20 +300,13 @@ createApp({
      const ids=new Set();
      orders.forEach(o=>{
        const items=this.parseItems(o);
-       items.forEach(it=>{
-         if(it.product_id) ids.add(it.product_id);
-       });
+       items.forEach(it=>{ if(it.product_id) ids.add(it.product_id); });
      });
      if(!ids.size) return;
      const r=await db.from('products').select('id,name,description,ingredients,image_url').in('id',Array.from(ids));
-     if(r.error){
-       console.warn('Не удалось загрузить описания товаров:', r.error.message);
-       return;
-     }
+     if(r.error){ console.warn('Не удалось загрузить описания товаров:', r.error.message); return; }
      const map={};
-     (r.data||[]).forEach(p=>{
-       map[p.id]=p;
-     });
+     (r.data||[]).forEach(p=>{ map[p.id]=p; });
      orders.forEach(o=>{
        const items=this.parseItems(o);
        items.forEach(it=>{
@@ -330,7 +324,6 @@ createApp({
    logout(){sessionStorage.removeItem('cook_session');sessionStorage.removeItem('cook_token');location.href='/login.html'},
    async load(){
      if(!this.token)return;
-     // Получаем заказы и вызовы
      const [r, calls] = await Promise.all([
        db.rpc('staff_orders_json',{p_token:this.token}),
        db.rpc('get_cook_calls', { p_venue_id: this.session.venueId })
@@ -342,12 +335,30 @@ createApp({
      this.cookStats.total=data.length;
      this.loadHistorySummary();
 
-     // Обновляем вызовы
-     this.calls = Array.isArray(calls) ? calls : [];
-     if(this.calls.length > this.prevCallsCount){
-       try{new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=").play()}catch(e){}
+     const nextCalls = Array.isArray(calls?.data) ? calls.data : [];
+     const nextCallIds = nextCalls.map(c=>c.id).filter(Boolean);
+     const hasNewCall = this.callsInitialized && nextCallIds.some(id=>!this.prevCallsIds.includes(id));
+     this.calls = nextCalls;
+     if(hasNewCall){
+       try{
+         const Ctx=window.AudioContext||window.webkitAudioContext;
+         if(Ctx){
+           const ctx=new Ctx();
+           const osc=ctx.createOscillator();
+           const gain=ctx.createGain();
+           osc.frequency.value=880;gain.gain.value=0.08;
+           osc.connect(gain);gain.connect(ctx.destination);osc.start();
+           setTimeout(()=>{try{osc.stop();ctx.close()}catch(e){}},250);
+         }
+       }catch(e){}
+       if('Notification' in window && Notification.permission==='granted'){
+         try{new Notification('Новый вызов официанта',{body:'Гость вызывает персонал. Стол '+(nextCalls.find(c=>!this.prevCallsIds.includes(c.id))?.table_number||'')})}catch(e){}
+       }
+       document.title='🛎️ Новый вызов — Кухня';
+       setTimeout(()=>{if(document.hidden===false)document.title='Кухня — OS QR-Меню'},3000);
      }
-     this.prevCallsCount = this.calls.length;
+     this.prevCallsIds=nextCallIds;
+     this.callsInitialized=true;
    },
    async loadHistorySummary(){try{const r=await db.rpc('staff_history_json',{p_token:this.token});if(!r.error&&Array.isArray(r.data)){this.history=r.data;this.cookStats.done=this.history.length;this.cookStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0)}}catch(e){}},
    async fetchTables(){const r=await db.rpc('cook_get_table_dashboard',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить столы');this.tables=Array.isArray(r.data?.tables)?r.data.tables:[];this.canControlTables=r.data?.can_control_tables===true},
@@ -362,11 +373,9 @@ createApp({
    async setStatusDirect(o,status){const r=await db.rpc('staff_update_order',{p_token:this.token,p_order_id:o.id,p_status:status});if(r.error){alert(r.error.message||'Не удалось изменить статус');return}await this.load()},
    async setStatusFromModal(o,status){await this.setStatusDirect(o,status);if(this.modal.open){await this.openTab(status==='cooking'?'new':status==='ready'?'cooking':'ready')}},
    async tableActionFromModal(t,action){const fn=action==='release'?'cook_release_table':'cook_start_table_session';const r=await db.rpc(fn,{p_token:this.token,p_table_id:t.id});if(r.error){alert(r.error.message);return}await this.fetchTables();this.modal.items=this.tables},
-   restore(){const s=sessionStorage.getItem('cook_session'),t=sessionStorage.getItem('cook_token');if(s&&t)try{this.session=JSON.parse(s);this.token=t;this.load()}catch(e){sessionStorage.removeItem('cook_session')}}
+   restore(){const s=sessionStorage.getItem('cook_session'),t= sessionStorage.getItem('cook_token');if(s&&t)try{this.session=JSON.parse(s);this.token=t;this.load()}catch(e){sessionStorage.removeItem('cook_session')}}
  },
- watch: { 
-   tab(newTab){ if(newTab === 'calls') this.load(); } 
- },
+ watch: { tab(newTab){ if(newTab === 'calls') this.load(); } },
  mounted(){this.restore();this.timer=setInterval(()=>this.session&&this.token&&this.load(),3000)},
  beforeUnmount(){clearInterval(this.timer)}
 }).mount('#app');
