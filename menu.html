@@ -458,6 +458,7 @@ async checkWaiters() {
     const r = await db.rpc('public_venue_has_waiters', { p_venue_id: this.venue.id });
     if (r.error) throw r.error;
     this.hasWaiters = r.data === true;
+    console.log('[Menu] hasWaiters:', this.hasWaiters); // для отладки
   } catch(e) {
     console.warn('Ошибка проверки официантов:', e);
     this.hasWaiters = false;
