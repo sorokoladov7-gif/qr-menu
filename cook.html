@@ -19,19 +19,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}.stat{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;text-align:center}.stat b{display:block;font-size:22px;margin-bottom:4px}
 .cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:0 16px 16px;align-items:start}.col{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:14px;min-height:320px;box-shadow:0 10px 30px rgba(0,0,0,.12)}.col-new{border-color:rgba(99,102,241,.28)}.col-cooking{border-color:rgba(245,158,11,.28)}.col-ready{border-color:rgba(52,211,153,.28)}.col h3{font-size:15px;margin-bottom:12px;color:#e2e8f0;display:flex;justify-content:space-between;align-items:center}.order{background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:14px;margin-bottom:10px;cursor:pointer;transition:.2s}.order:hover{border-color:#6366f1;box-shadow:0 4px 16px rgba(99,102,241,.08)}.order-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}.order-items{font-size:13px;color:#cbd5e1;line-height:1.55}.item-row{margin-bottom:9px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}.item-name{font-weight:800;color:#fff;cursor:pointer;transition:color .2s}.item-name:hover{color:#a5b4fc;text-decoration:underline}.item-details{font-size:12px;color:#94a3b8;margin:2px 0 0 18px}.addons{margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.08);font-size:12px;color:#fbbf24}.comment{margin-top:9px;padding:8px 10px;border-radius:8px;background:rgba(245,158,11,.08);color:#fde68a;font-size:12px}.order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.order-actions .btn{flex:1;min-width:110px}.empty{text-align:center;color:#64748b;padding:30px 10px;font-size:13px}.table-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:rgba(99,102,241,.2);color:#c7d2fe;font-size:11px;font-weight:700;margin-left:6px}.order-total{margin-top:9px;font-weight:800;color:#e2e8f0}.pulse{animation:pulseCard 1.4s ease-in-out infinite}@keyframes pulseCard{0%,100%{box-shadow:0 0 0 rgba(99,102,241,0)}50%{box-shadow:0 0 0 3px rgba(99,102,241,.12)}}
 .modal{position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.82);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px}
-/* Поверх всех модалок – детали блюда и детали заказа */
-.detail-modal.modal,
-.order-detail-modal.modal { z-index:100000; }
-.sheet{width:min(1100px,100%);max-height:92vh;overflow:auto;background:#0f172a;border:1px solid rgba(255,255,255,.12);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.5);padding:18px}.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.sheet-head h2{font-size:20px}.close{border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 11px;cursor:pointer}.modal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px}.muted{color:#94a3b8;font-size:12px}.status{font-size:11px;color:#cbd5e1;margin-top:3px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.table-card.free{border-color:rgba(52,211,153,.28)}.table-card.occupied{border-color:rgba(251,191,36,.35)}.table-card.reserved{border-color:rgba(99,102,241,.35)}.loading{text-align:center;color:#94a3b8;padding:40px}.error{text-align:center;color:#f87171;padding:30px}.history-date{font-size:11px;color:#94a3b8;margin-top:4px}
+.detail-modal.modal,.order-detail-modal.modal{z-index:100000}.sheet{width:min(1100px,100%);max-height:92vh;overflow:auto;background:#0f172a;border:1px solid rgba(255,255,255,.12);border-radius:20px;box-shadow:0 24px 80px rgba(0,0,0,.5);padding:18px}.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}.sheet-head h2{font-size:20px}.close{border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:10px;padding:8px 11px;cursor:pointer}.modal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}.card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:12px}.muted{color:#94a3b8;font-size:12px}.status{font-size:11px;color:#cbd5e1;margin-top:3px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.table-card.free{border-color:rgba(52,211,153,.28)}.table-card.occupied{border-color:rgba(251,191,36,.35)}.table-card.reserved{border-color:rgba(99,102,241,.35)}.loading{text-align:center;color:#94a3b8;padding:40px}.error{text-align:center;color:#f87171;padding:30px}.history-date{font-size:11px;color:#94a3b8;margin-top:4px}
 .detail-modal .sheet{max-width:560px;width:100%}.detail-item-name{font-size:22px;font-weight:800;margin-bottom:4px}.detail-item-qty{font-size:15px;color:#94a3b8}.detail-item-price{font-size:18px;color:#a5b4fc;margin:6px 0}.detail-item-desc{color:#cbd5e1;font-size:14px;line-height:1.6;margin:10px 0;padding:10px;background:rgba(255,255,255,.04);border-radius:10px;white-space:pre-wrap}.detail-item-addons{margin-top:8px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px}.detail-item-addons b{color:#fbbf24}
 @media(max-width:900px){.cols{grid-template-columns:1fr}.col{min-height:180px}}@media(max-width:720px){.work-tabs{top:52px;justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap}.work-tab{white-space:nowrap}.cols{grid-template-columns:1fr;padding:0 12px 12px}.stats{padding:12px}.sheet{max-height:94vh;padding:14px}}
 #staff-table-control-btn{display:none!important}
 .history-item-line{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #ffffff08}.history-item-line:last-child{border-bottom:0}
-/* Модалка заказа поверх */
 .order-detail-modal .sheet{max-width:600px;width:100%}
 .detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}.detail-row:last-child{border-bottom:0}
 .detail-total{margin-top:10px;font-weight:700;font-size:16px;color:#a5b4fc}
 .detail-meta{font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.6}.detail-meta strong{color:#e2e8f0}
+
+/* Стили для вызовов */
+.call-card{padding:12px;border-radius:12px;background:#111827;border:1px solid #ffffff12;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.call-card .call-info{display:flex;align-items:center;gap:10px}
+.call-card .call-table{font-weight:800;color:#fbbf24;font-size:18px}
+.call-card .call-time{color:#94a3b8;font-size:12px}
+.call-card .call-actions{display:flex;gap:6px}
+.call-badge{background:#ef4444;color:#fff;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700;margin-left:5px}
 </style>
 </head>
 <body>
@@ -57,6 +61,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="work-tab" @click="openTab('ready')">✅ Выдача <span class="count">{{colReady.length}}</span></button>
     <button class="work-tab" @click="openTab('tables')">🪑 Столы <span class="count">{{tables.length}}</span></button>
     <button class="work-tab" @click="openTab('history')">📜 История</button>
+    <button class="work-tab" @click="openTab('calls')">🛎️ Вызовы<span class="call-badge" v-if="calls.length">{{calls.length}}</span></button>
     <button class="btn refresh-top" @click="load" v-if="session">🔄 Обновить</button>
   </nav>
 
@@ -117,7 +122,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Модалка деталей блюда (z-index повышен) -->
+<!-- Модалка деталей блюда -->
 <div v-if="detailModal.open" class="modal detail-modal" @click.self="closeDetail">
   <div class="sheet">
     <div class="sheet-head">
@@ -140,7 +145,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
-<!-- Модалка деталей заказа (z-index повышен) -->
+<!-- Модалка деталей заказа -->
 <div v-if="orderDetailModal.open" class="modal order-detail-modal" @click.self="closeOrderDetail">
   <div class="sheet">
     <div class="sheet-head">
@@ -215,6 +220,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div v-if="!modal.items.length" class="empty">История заказов пуста</div>
     </div>
     <div v-else-if="modal.type==='tables'" class="modal-grid"><div v-for="t in modal.items" :key="t.id" class="card table-card" :class="t.occupancy_status"><div class="order-head"><b>🪑 {{t.name||('Стол '+t.table_number)}}</b><span>{{tableStatusIcon(t.occupancy_status)}}</span></div><div class="status">{{tableStatus(t.occupancy_status)}}</div><div v-if="t.session" class="muted" style="margin-top:8px">Заказов: {{t.session.order_count||0}} · {{fmt(t.session.total_price||0)}} ₽</div><div v-else class="muted" style="margin-top:8px">Нет активной сессии</div><div class="actions" v-if="modal.canControl"><button v-if="t.occupancy_status==='occupied'" class="btn btn-red" @click="tableActionFromModal(t,'release')">Освободить</button><button v-else-if="t.occupancy_status==='free'" class="btn btn-green" @click="tableActionFromModal(t,'seat')">Посадить</button><button v-else class="btn btn-ghost" disabled>Резерв</button></div></div><div v-if="!modal.items.length" class="empty">Столы не настроены</div></div>
+    <!-- Новая вкладка вызовов -->
+    <div v-else-if="modal.type==='calls'" class="modal-grid">
+      <div v-for="c in modal.items" :key="c.id" class="call-card">
+        <div class="call-info">
+          <span class="call-table">🛎️ Стол {{c.table_number}}</span>
+          <span class="call-time">⏱ {{formatDate(c.created_at)}}</span>
+        </div>
+        <div class="call-actions">
+          <button class="btn green" @click="resolveCall(c.id)">✅ Принять</button>
+        </div>
+      </div>
+      <div v-if="!modal.items.length" class="empty">Нет вызовов</div>
+    </div>
   </div>
 </div>
 
@@ -225,12 +243,14 @@ createApp({
    session:null,busy:false,err:'',form:{slug:'',pin:''},
    token:sessionStorage.getItem('cook_token')||'',
    orders:[],history:[],tables:[],canControlTables:false,
+   calls:[], // активные вызовы
    timer:null,
    modal:{open:false,loading:false,error:'',type:'',title:'',items:[],canControl:false},
    cookStats:{total:0,done:0,avgTime:0,revenue:0},
    detailModal:{open:false,item:null,addons:[]},
    orderDetailModal:{open:false, order:null},
-   productsMap:{}
+   productsMap:{},
+   prevCallsCount:0
  }},
  computed:{colNew(){return this.orders.filter(o=>o.status==='new'||o.status==='changed')},colCooking(){return this.orders.filter(o=>o.status==='cooking')},colReady(){return this.orders.filter(o=>o.status==='ready')}},
  methods:{
@@ -246,6 +266,11 @@ createApp({
    closeDetail(){this.detailModal.open=false},
    openOrderDetail(o){this.orderDetailModal={open:true, order:o}},
    closeOrderDetail(){this.orderDetailModal.open=false},
+   async resolveCall(id){
+     const r=await db.from('cook_calls').update({status:'resolved', resolved_at:new Date().toISOString()}).eq('id',id);
+     if(r.error) alert('Ошибка: '+r.error.message);
+     else this.load();
+   },
    async enrichOrdersWithDescriptions(orders){
      const ids=new Set();
      orders.forEach(o=>{
@@ -279,10 +304,35 @@ createApp({
    },
    async login(){this.busy=true;this.err='';const slug=this.form.slug.trim(),pin=this.form.pin.trim();if(!slug||!/^[0-9]{4}$/.test(pin)){this.err='Введите код и 4-значный PIN';this.busy=false;return}try{const r=await db.rpc('staff_login',{p_type:'cook',p_slug:slug,p_pin:pin});if(r.error||!r.data||r.data.error){this.err=r.error?.message||r.data?.error||'Неверные данные';return}this.token=r.data.token;this.session={cookName:r.data.staffName,venueId:r.data.venueId,venueName:r.data.venueName};sessionStorage.setItem('cook_token',this.token);sessionStorage.setItem('cook_session',JSON.stringify(this.session));await this.load()}catch(e){this.err=e.message||'Ошибка входа'}finally{this.busy=false}},
    logout(){sessionStorage.removeItem('cook_session');sessionStorage.removeItem('cook_token');location.href='/login.html'},
-   async load(){if(!this.token)return;const r=await db.rpc('staff_orders_json',{p_token:this.token});if(r.error){this.logout();return}const data=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.orders)?r.data.orders:[]);await this.enrichOrdersWithDescriptions(data);this.orders=data.filter(o=>!['done','cancelled'].includes(o.status));this.cookStats.total=data.length;this.loadHistorySummary()},
+   async load(){
+     if(!this.token)return;
+     const [r, calls] = await Promise.all([
+       db.rpc('staff_orders_json',{p_token:this.token}),
+       db.from('cook_calls').select('*').eq('venue_id',this.session.venueId).eq('status','pending').order('created_at',{ascending:false})
+     ]);
+     if(r.error){this.logout();return}
+     const data=Array.isArray(r.data)?r.data:(r.data&&Array.isArray(r.data.orders)?r.data.orders:[]);
+     await this.enrichOrdersWithDescriptions(data);
+     this.orders=data.filter(o=>!['done','cancelled'].includes(o.status));
+     this.cookStats.total=data.length;
+     this.loadHistorySummary();
+
+     this.calls=calls.data||[];
+     if(this.calls.length>this.prevCallsCount){
+       try{new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=").play()}catch(e){}
+     }
+     this.prevCallsCount=this.calls.length;
+   },
    async loadHistorySummary(){try{const r=await db.rpc('staff_history_json',{p_token:this.token});if(!r.error&&Array.isArray(r.data)){this.history=r.data;this.cookStats.done=this.history.length;this.cookStats.revenue=this.history.reduce((s,o)=>s+Number(o.total_price||0),0)}}catch(e){}},
    async fetchTables(){const r=await db.rpc('cook_get_table_dashboard',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить столы');this.tables=Array.isArray(r.data?.tables)?r.data.tables:[];this.canControlTables=r.data?.can_control_tables===true},
-   async openTab(type){this.modal={open:true,loading:true,error:'',type,title:'',items:[],canControl:false};try{if(type==='tables'){this.modal.title='🪑 Столы';await this.fetchTables();this.modal.items=this.tables;this.modal.canControl=this.canControlTables}else if(type==='history'){this.modal.title='📜 История заказов';const r=await db.rpc('staff_history_json',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить историю');this.history=Array.isArray(r.data)?r.data:[];this.modal.items=this.history.slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));this.modal.type='history'}else{this.modal.title=type==='new'?'🆕 Новые заказы':type==='cooking'?'🔥 Готовятся':'✅ Выдача';this.modal.type='orders';this.modal.items=type==='new'?this.colNew.slice():type==='cooking'?this.colCooking.slice():this.colReady.slice()}}catch(e){this.modal.error=e.message||'Ошибка загрузки'}finally{this.modal.loading=false}},
+   async openTab(type){
+     this.modal={open:true,loading:true,error:'',type,title:'',items:[],canControl:false};
+     try{
+       if(type==='tables'){this.modal.title='🪑 Столы';await this.fetchTables();this.modal.items=this.tables;this.modal.canControl=this.canControlTables}
+       else if(type==='history'){this.modal.title='📜 История заказов';const r=await db.rpc('staff_history_json',{p_token:this.token});if(r.error)throw new Error(r.error.message||'Не удалось загрузить историю');this.history=Array.isArray(r.data)?r.data:[];this.modal.items=this.history.slice().sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));this.modal.type='history'}
+       else if(type==='calls'){this.modal.title='🛎️ Вызовы от гостей';this.modal.type='calls';this.modal.items=this.calls.slice()}
+       else{this.modal.title=type==='new'?'🆕 Новые заказы':type==='cooking'?'🔥 Готовятся':'✅ Выдача';this.modal.type='orders';this.modal.items=type==='new'?this.colNew.slice():type==='cooking'?this.colCooking.slice():this.colReady.slice()}
+     }catch(e){this.modal.error=e.message||'Ошибка загрузки'}finally{this.modal.loading=false}},
    closeModal(){this.modal.open=false},
    async setStatusDirect(o,status){const r=await db.rpc('staff_update_order',{p_token:this.token,p_order_id:o.id,p_status:status});if(r.error){alert(r.error.message||'Не удалось изменить статус');return}await this.load()},
    async setStatusFromModal(o,status){await this.setStatusDirect(o,status);if(this.modal.open){await this.openTab(status==='cooking'?'new':status==='ready'?'cooking':'ready')}},
