@@ -62,9 +62,73 @@ async function session(t){var m=modal('<div class="qmh-box"><h2>Текущая �
 async function renderSession(m,t){var body=m.querySelector('#session-body');if(!body)return;body.innerHTML='<div class="qmh-small">Загрузка заказов…</div>';try{var d=await sessionData(t),orders=Array.isArray(d.orders)?d.orders:[],total=Number(d.total||0);body.innerHTML='<div class="qmh-session"><div>Сессия: <b>'+esc(d.session_id||t.sessionId||'—')+'</b></div><div>Начало: '+esc(t.sessionStarted?new Date(t.sessionStarted).toLocaleString('ru-RU'):'—')+'</div><div>Гостей: <b>'+t.guests+'</b></div><div>Заказов: <b>'+orders.length+'</b></div><div>Общая сумма: <b>'+money(total)+'</b></div></div>'+(orders.length?orders.map(orderHtml).join(''):'<div class="qmh-session"><div class="qmh-small">Заказов в текущей сессии пока нет.</div></div>')}catch(e){body.innerHTML='<div class="qmh-error" style="display:block">'+esc(e.message||e)+'</div>'}}
 async function qrCards(){var cards=S.root&&S.root.querySelectorAll('.qmh-card');if(!cards||!cards.length)return;try{await loadQR()}catch(e){return}S.tables.forEach(function(t,i){if(!t.qr||!cards[i]||cards[i].querySelector('[data-qr]'))return;var q=qr(t),b=document.createElement('div');b.dataset.qr='1';b.innerHTML='<div class="qmh-qr">'+q.svg+'</div><div class="qmh-qr-url">'+esc(q.url)+'</div><div class="qmh-qr-actions"><button class="qmh-btn" data-open>Открыть</button><button class="qmh-btn" data-print>Печать QR</button></div>';cards[i].appendChild(b);b.querySelector('[data-open]').onclick=function(){window.open(q.url,'_blank')};b.querySelector('[data-print]').onclick=function(){var w=window.open('','_blank','width=600,height=700');if(!w)return;w.document.write('<html><body style="font-family:Arial;text-align:center;padding:30px"><h1>Стол '+esc(t.number)+'</h1>'+q.svg+'<p>'+esc(q.url)+'</p></body></html>');w.document.close();w.print()}})}
 function close(){if(S.root){S.root.remove();S.root=null}}
-function open(v){if(!v||!v.id)return;S.venue=v;S.zoom=1;S.moves=[];if(S.root)S.root.remove();css();var r=document.createElement('div');r.id='qr-manager-hall-final';S.root=r;r.innerHTML='<div class="qmh-in"><div class="qmh-head"><div><h2 style="margin:0">🪑 План зала</h2><div class="qmh-small">'+esc(v.name||'Заведение')+'</div></div><div class="qmh-actions"><button class="qmh-btn qmh-primary" id="add">＋ Добавить стол</button><button class="qmh-btn" id="refresh">↻ Обновить</button><button class="qmh-btn" id="minus">−</button><button class="qmh-btn" id="plus">＋</button><button class="qmh-btn" id="close">Закрыть</button></div></div><div class="qmh-stats" id="qmh-stats"></div><div class="qmh-board-wrap"><div class="qmh-board" id="qmh-board"></div></div><h3>Столы и QR-коды</h3><div class="qmh-cards" id="qmh-cards"></div></div>';document.body.appendChild(r);r.querySelector('#add').onclick=function(){edit(null)};r.querySelector('#refresh').onclick=refresh;r.querySelector('#minus').onclick=function(){S.zoom=Math.max(.6,S.zoom-.1);r.querySelector('#qmh-board').style.transform='scale('+S.zoom+')'};r.querySelector('#plus').onclick=function(){S.zoom=Math.min(1.5,S.zoom+.1);r.querySelector('#qmh-board').style.transform='scale('+S.zoom+')'};r.querySelector('#close').onclick=close;load()}
+
+function open(v){
+  if(!v||!v.id)return;
+  S.venue=v;
+  S.zoom=1;
+  S.moves=[];
+  if(S.root)S.root.remove();
+  css();
+  var r=document.createElement('div');
+  r.id='qr-manager-hall-final';
+  S.root=r;
+  r.innerHTML='<div class="qmh-in"><div class="qmh-head"><div><h2 style="margin:0">🪑 План зала</h2><div class="qmh-small">'+esc(v.name||'Заведение')+'</div></div><div class="qmh-actions"><button class="qmh-btn qmh-primary" id="add">＋ Добавить стол</button><button class="qmh-btn" id="refresh">↻ Обновить</button><button class="qmh-btn" id="minus">−</button><button class="qmh-btn" id="plus">＋</button><button class="qmh-btn" id="close">Закрыть</button></div></div><div class="qmh-stats" id="qmh-stats"></div><div class="qmh-board-wrap"><div class="qmh-board" id="qmh-board"></div></div><h3>Столы и QR-коды</h3><div class="qmh-cards" id="qmh-cards"></div></div>';
+  document.body.appendChild(r);
+  r.querySelector('#add').onclick=function(){edit(null)};
+  r.querySelector('#refresh').onclick=refresh;
+  r.querySelector('#minus').onclick=function(){S.zoom=Math.max(.6,S.zoom-.1);r.querySelector('#qmh-board').style.transform='scale('+S.zoom+')'};
+  r.querySelector('#plus').onclick=function(){S.zoom=Math.min(1.5,S.zoom+.1);r.querySelector('#qmh-board').style.transform='scale('+S.zoom+')'};
+  r.querySelector('#close').onclick=close;
+  load();
+}
+
+// Новая функция – встраивание в контейнер
+function renderIn(container, v){
+  if(!v||!v.id) return;
+  S.venue=v;
+  S.zoom=1;
+  S.moves=[];
+  if(S.root)S.root.remove();
+  css();
+  var r=document.createElement('div');
+  r.id='qr-manager-hall-final';
+  S.root=r;
+  // Контент – как в open, но без внешнего qmh-in (уже обёрнуто в контейнер)
+  r.innerHTML='<div class="qmh-in"><div class="qmh-head"><div><h2 style="margin:0">🪑 План зала</h2><div class="qmh-small">'+esc(v.name||'Заведение')+'</div></div><div class="qmh-actions"><button class="qmh-btn qmh-primary" id="add">＋ Добавить стол</button><button class="qmh-btn" id="refresh">↻ Обновить</button><button class="qmh-btn" id="minus">−</button><button class="qmh-btn" id="plus">＋</button><button class="qmh-btn" id="close">Закрыть</button></div></div><div class="qmh-stats" id="qmh-stats"></div><div class="qmh-board-wrap"><div class="qmh-board" id="qmh-board"></div></div><h3>Столы и QR-коды</h3><div class="qmh-cards" id="qmh-cards"></div></div>';
+  container.innerHTML='';
+  container.appendChild(r);
+  // Переопределяем стили для встраивания
+  r.style.position='relative';
+  r.style.inset='auto';
+  r.style.zIndex='1';
+  r.style.background='transparent';
+  r.style.padding='0';
+  r.style.overflow='visible';
+  // Также можно сделать фон контейнера наследуемым
+  r.style.backgroundColor='transparent';
+  // Убираем фиксированные размеры у board? Оставим как есть, но можно сделать адаптивным – но пока оставим.
+  r.querySelector('#add').onclick=function(){edit(null)};
+  r.querySelector('#refresh').onclick=refresh;
+  r.querySelector('#minus').onclick=function(){S.zoom=Math.max(.6,S.zoom-.1);r.querySelector('#qmh-board').style.transform='scale('+S.zoom+')'};
+  r.querySelector('#plus').onclick=function(){S.zoom=Math.min(1.5,S.zoom+.1);r.querySelector('#qmh-board').style.transform='scale('+S.zoom+')'};
+  r.querySelector('#close').onclick=function(){ 
+    // При закрытии встроенного режима переключаем вкладку обратно на menu
+    try {
+      if(window.__managerVue) window.__managerVue.tab='menu';
+    } catch(e){}
+    close();
+  };
+  load();
+}
+
 function capture(app){if(!app||!app.mount||app.__qrHallWrapped)return app;app.__qrHallWrapped=true;var old=app.mount;app.mount=function(){var z=old.apply(this,arguments);try{var root=document.getElementById('app'),i=root&&root.__vue_app__&&root.__vue_app__._instance;if(i&&i.proxy){window.__managerVue=i.proxy;if(i.proxy.venue&&i.proxy.venue.id){window.__managerSelectedVenue=i.proxy.venue;try{localStorage.setItem('manager_venue_id',i.proxy.venue.id);localStorage.setItem('selectedVenueId',i.proxy.venue.id)}catch(e){}}}}catch(e){}return z};return app}
 if(window.Vue&&window.Vue.createApp){var cc=window.Vue.createApp;window.Vue.createApp=function(){return capture(cc.apply(this,arguments))}}
+
+// Глобальный обработчик клика ЗАКОММЕНТИРОВАН – теперь вкладка управляется из Vue
+/*
 document.addEventListener('click',function(e){var b=e.target&&e.target.closest?e.target.closest('[data-manager-hall-tab]'):null;if(!b)return;setTimeout(async function(){var v=await venue();if(v)open(v);else console.error('[QR Hall] cannot resolve selected venue')},150)},true);
-window.QRManagerHall={open:open,close:close,resolveVenue:venue};
+*/
+
+window.QRManagerHall={open:open,close:close,renderIn:renderIn,resolveVenue:venue};
 })();
