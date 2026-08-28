@@ -1,6 +1,6 @@
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
-const ANALYSIS_BUDGET_MS = 45000;
+const ANALYSIS_BUDGET_MS = 30000;
 
 function mergeProducts(existing, rendered) {
   const out = Array.isArray(existing) ? existing.slice() : [];
