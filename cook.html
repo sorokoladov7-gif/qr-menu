@@ -11,7 +11,6 @@
 <script src="/js/config.js?v=2026082402"></script>
 <script src="js/pwa-install.js"></script>
 <style>
-/* ... все стили как были, плюс добавим для вызовов ... */
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0b1120;color:#fff;min-height:100vh}
 .topbar{position:sticky;top:0;background:rgba(11,17,32,.96);backdrop-filter:blur(12px);border-bottom:1px solid rgba(255,255,255,.08);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;z-index:100}
@@ -58,9 +57,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div v-else>
   <nav class="work-tabs">
-    <button class="work-tab" @click="openTab('new')">🆕 Новые <span class="count">{{colNew.length}}</span></button>
-    <button class="work-tab" @click="openTab('cooking')">🔥 Готовятся <span class="count">{{colCooking.length}}</span></button>
-    <button class="work-tab" @click="openTab('ready')">✅ Выдача <span class="count">{{colReady.length}}</span></button>
+    <button class="work-tab" @click="tab='new'">🆕 Новые <span class="count">{{colNew.length}}</span></button>
+    <button class="work-tab" @click="tab='cooking'">🔥 Готовятся <span class="count">{{colCooking.length}}</span></button>
+    <button class="work-tab" @click="tab='ready'">✅ Выдача <span class="count">{{colReady.length}}</span></button>
     <button class="work-tab" @click="openTab('tables')">🪑 Столы <span class="count">{{tables.length}}</span></button>
     <button class="work-tab" @click="openTab('history')">📜 История</button>
     <button class="work-tab" @click="tab='calls'">🛎️ Вызовы<span class="call-badge" v-if="calls.length">{{calls.length}}</span></button>
@@ -74,7 +73,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="stat"><b>{{fmt(cookStats.revenue)}} ₽</b><span>Выручка</span></div>
   </div>
 
-  <!-- Три колонки заказов (как были) -->
+  <!-- Три колонки заказов (если не вкладка вызовов) -->
   <div class="cols" v-if="tab !== 'calls'">
     <div class="col col-new"><h3><span>🆕 Новые</span><span>{{colNew.length}}</span></h3>
       <div v-for="o in colNew" :key="o.id" class="order" @click="openOrderDetail(o)">
@@ -341,6 +340,7 @@ createApp({
      this.cookStats.total=data.length;
      this.loadHistorySummary();
 
+     // Обновляем вызовы
      this.calls=calls.data||[];
      if(this.calls.length>this.prevCallsCount){
        try{new Audio("data:audio/wav;base64,UklGRlwAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YVoAAACAgICAf39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f39/f38=").play()}catch(e){}
@@ -361,7 +361,15 @@ createApp({
    async setStatusFromModal(o,status){await this.setStatusDirect(o,status);if(this.modal.open){await this.openTab(status==='cooking'?'new':status==='ready'?'cooking':'ready')}},
    async tableActionFromModal(t,action){const fn=action==='release'?'cook_release_table':'cook_start_table_session';const r=await db.rpc(fn,{p_token:this.token,p_table_id:t.id});if(r.error){alert(r.error.message);return}await this.fetchTables();this.modal.items=this.tables},
    restore(){const s=sessionStorage.getItem('cook_session'),t=sessionStorage.getItem('cook_token');if(s&&t)try{this.session=JSON.parse(s);this.token=t;this.load()}catch(e){sessionStorage.removeItem('cook_session')}}
- },mounted(){this.restore();this.timer=setInterval(()=>this.session&&this.token&&this.load(),5000)},beforeUnmount(){clearInterval(this.timer)}}).mount('#app');
+ },
+ watch: {
+   tab(newTab) {
+     if (newTab === 'calls') this.load();
+   }
+ },
+ mounted(){this.restore();this.timer=setInterval(()=>this.session&&this.token&&this.load(),3000)}, // обновляем каждые 3 секунды
+ beforeUnmount(){clearInterval(this.timer)}
+}).mount('#app');
 </script>
 </body>
 </html>
