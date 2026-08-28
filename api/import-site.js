@@ -1,5 +1,7 @@
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
+const ANALYSIS_BUDGET_MS = 45000;
+
 function mergeProducts(existing, rendered) {
   const out = Array.isArray(existing) ? existing.slice() : [];
   const keys = new Set(out.map(x => String(x.name || '').trim().toLowerCase()).filter(Boolean));
@@ -18,6 +20,19 @@ function normalizeError(error) {
   return { code: String(error.code || 'IMPORT_ERROR'), message: String(error.message || 'Ошибка импорта'), details: error.details && typeof error.details === 'object' ? error.details : {} };
 }
 
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('IMPORT_ANALYSIS_TIMEOUT');
+      error.code = 'IMPORT_ANALYSIS_TIMEOUT';
+      error.status = 504;
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 module.exports = async function(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -27,7 +42,7 @@ module.exports = async function(req, res) {
   if (!raw) return fail(400, 'URL_REQUIRED', 'Не передан адрес сайта');
 
   try {
-    const result = await analyzeSite(raw);
+    const result = await withTimeout(analyzeSite(raw), ANALYSIS_BUDGET_MS);
     const meta = result.meta || (result.meta = {});
     const diagnostics = meta.diagnostics || (meta.diagnostics = {});
     const jsPages = Array.isArray(diagnostics.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : [];
@@ -64,8 +79,6 @@ module.exports = async function(req, res) {
       meta.diagnostics = diagnostics;
     }
 
-    // If server-side extraction already produced products, never replace a useful result
-    // with a JS-render-required warning merely because a JS hint was detected.
     if (Array.isArray(result.products) && result.products.length >= 5) {
       meta.menu_found = true;
       meta.error = null;
@@ -73,6 +86,9 @@ module.exports = async function(req, res) {
     }
     return res.status(200).json(result);
   } catch (error) {
+    if (error?.code === 'IMPORT_ANALYSIS_TIMEOUT') {
+      return fail(504, 'IMPORT_ANALYSIS_TIMEOUT', 'Импорт сайта превысил допустимое время анализа. Попробуйте другой адрес или повторите попытку.', { budget_ms: ANALYSIS_BUDGET_MS });
+    }
     return fail(500, 'IMPORT_RUNTIME_ERROR', 'Ошибка универсального анализатора сайта', { name: error?.name || 'Error', message: String(error?.message || error), stack: String(error?.stack || '').split('\n').slice(0, 10) });
   }
 };
