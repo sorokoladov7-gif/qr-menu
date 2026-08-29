@@ -153,29 +153,73 @@ async function logout(){
         }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
       };
 
-      options.methods.extendManagerSub=async function(m){
+      options.methods.extendManagerSub=async function(m,days){
         this.busy=true;
         try{
+          days=Number(days)||30;
+
+          var allowed=[5,10,15,20,30,45,60,90,120,180,365];
+          if(allowed.indexOf(days)===-1){
+            throw new Error('Недопустимый срок подписки');
+          }
+
           var sub=(this.managerSubscription[m.id]&&this.managerSubscription[m.id].sub)||null;
-          var end=sub&&sub.current_period_end&&new Date(sub.current_period_end)>new Date()?new Date(sub.current_period_end):new Date();
-          end.setDate(end.getDate()+30);
-          var planId=sub&&sub.plan_id?sub.plan_id:(this.managerSubscription[m.id]&&this.managerSubscription[m.id].plan?this.managerSubscription[m.id].plan.id:'start');
-          var r=await db.from('subscriptions').upsert({manager_id:m.id,venue_id:null,plan_id:planId,status:'active',current_period_end:end.toISOString()},{onConflict:'manager_id'});
+
+          var end=sub&&sub.current_period_end&&new Date(sub.current_period_end)>new Date()
+            ?new Date(sub.current_period_end)
+            :new Date();
+
+          end.setDate(end.getDate()+days);
+
+          var planId=sub&&sub.plan_id
+            ?sub.plan_id
+            :(this.managerSubscription[m.id]&&this.managerSubscription[m.id].plan
+              ?this.managerSubscription[m.id].plan.id
+              :'start');
+
+          var r=await db.from('subscriptions').upsert({
+            manager_id:m.id,
+            venue_id:null,
+            plan_id:planId,
+            status:'active',
+            current_period_end:end.toISOString()
+          },{onConflict:'manager_id'});
+
           if(r.error)throw r.error;
+
           var ids=managerVenueIds(this,m.id);
-          if(ids.length) await db.from('venues').update({plan:planId,subscription_end:end.toISOString(),status:'active'}).in('id',ids);
+
+          if(ids.length){
+            var vr=await db.from('venues').update({
+              plan:planId,
+              subscription_end:end.toISOString(),
+              status:'active'
+            }).in('id',ids);
+
+            if(vr.error)throw vr.error;
+          }
+
+          this.msg='Подписка продлена на '+days+' дней. До '+end.toLocaleDateString('ru-RU');
+
           await this.loadBaseData();
-        }catch(e){this.msg='Ошибка: '+e.message;}finally{this.busy=false;}
+
+        }catch(e){
+          this.msg='Ошибка: '+e.message;
+        }finally{
+          this.busy=false;
+        }
       };
 
       options.methods.changePlan=async function(v,plan){
         var mid=await managerIdForVenue(this,v.id); if(!mid){this.msg='Не найден управляющий';return;}
         return this.changeManagerPlan(this.managers.find(function(m){return m.id===mid})||{id:mid},plan);
       };
+
       options.methods.extendSub=async function(v){
         var mid=await managerIdForVenue(this,v.id); if(!mid){this.msg='Не найден управляющий';return;}
         return this.extendManagerSub(this.managers.find(function(m){return m.id===mid})||{id:mid});
       };
+
       options.methods.confirmPayment=async function(pay){
         this.busy=true;
         try{
@@ -238,23 +282,81 @@ async function logout(){
               var h=mt.rows[0], accessCell=-1;
               Array.prototype.forEach.call(h.cells,function(c,i){if((c.textContent||'').trim()==='Доступы к заведениям')accessCell=i;});
               if(accessCell<0) accessCell=h.cells.length-1;
-              function th(text){var c=document.createElement('th');c.textContent=text;return c;}
+
+              function th(text){
+                var c=document.createElement('th');
+                c.textContent=text;
+                return c;
+              }
+
               h.insertBefore(th('Тариф'),h.cells[accessCell]);
               h.insertBefore(th('Подписка'),h.cells[accessCell+1]);
               h.insertBefore(th('До'),h.cells[accessCell+2]);
+
               Array.prototype.forEach.call(mt.querySelectorAll('tr'),function(row,ri){
                 if(ri===0)return;
                 if(!row.getAttribute('v-for'))return;
-                var make=function(html){var c=document.createElement('td');c.innerHTML=html;return c;};
-                row.insertBefore(make('<select style="width:auto;padding:6px" v-if="managerSubscription[m.id]" v-bind:value="managerSubscription[m.id].sub ? managerSubscription[m.id].sub.plan_id : \'\'" v-on:change="changeManagerPlan(m,$event.target.value)"><option value="">— Нет тарифа —</option><option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option></select><span v-else class="muted">—</span>'),row.cells[accessCell]);
-                row.insertBefore(make('<span v-if="managerSubscription[m.id] && managerSubscription[m.id].sub" class="badge" v-bind:class="managerSubscription[m.id].sub.status===\'trialing\'?\'b-trial\':\'b-on\'">{{ managerSubscription[m.id].sub.status===\'trialing\'?\'Триал\':\'Активна\' }}</span><span v-else class="muted">Нет</span>'),row.cells[accessCell+1]);
-                row.insertBefore(make('<div v-if="managerSubscription[m.id] && managerSubscription[m.id].sub"><div style="font-size:12px">{{ fmtDate(managerSubscription[m.id].sub.current_period_end) }}</div><button class="btn btn-ghost btn-sm" style="padding:2px 6px;font-size:11px;margin-top:4px" v-on:click="extendManagerSub(m)">+30 дн</button></div><span v-else class="muted">—</span>'),row.cells[accessCell+2]);
+
+                var make=function(html){
+                  var c=document.createElement('td');
+                  c.innerHTML=html;
+                  return c;
+                };
+
+                row.insertBefore(
+                  make(
+                    '<select style="width:auto;padding:6px" v-if="managerSubscription[m.id]" v-bind:value="managerSubscription[m.id].sub ? managerSubscription[m.id].sub.plan_id : \'\'" v-on:change="changeManagerPlan(m,$event.target.value)">'+
+                    '<option value="">— Нет тарифа —</option>'+
+                    '<option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option>'+
+                    '</select>'+
+                    '<span v-else class="muted">—</span>'
+                  ),
+                  row.cells[accessCell]
+                );
+
+                row.insertBefore(
+                  make(
+                    '<span v-if="managerSubscription[m.id] && managerSubscription[m.id].sub" class="badge" v-bind:class="managerSubscription[m.id].sub.status===\'trialing\'?\'b-trial\':\'b-on\'">'+
+                    '{{ managerSubscription[m.id].sub.status===\'trialing\'?\'Триал\':\'Активна\' }}'+
+                    '</span>'+
+                    '<span v-else class="muted">Нет</span>'
+                  ),
+                  row.cells[accessCell+1]
+                );
+
+                row.insertBefore(
+                  make(
+                    '<div v-if="managerSubscription[m.id] && managerSubscription[m.id].sub">'+
+                    '<div style="font-size:12px">{{ fmtDate(managerSubscription[m.id].sub.current_period_end) }}</div>'+
+                    '<div style="display:flex;gap:5px;align-items:center;margin-top:5px;flex-wrap:wrap">'+
+                    '<select v-model.number="managerPeriods[m.id]" style="width:auto;min-width:95px;padding:4px 6px;font-size:11px;border-radius:6px">'+
+                    '<option :value="5">5 дней</option>'+
+                    '<option :value="10">10 дней</option>'+
+                    '<option :value="15">15 дней</option>'+
+                    '<option :value="20">20 дней</option>'+
+                    '<option :value="30">30 дней</option>'+
+                    '<option :value="45">45 дней</option>'+
+                    '<option :value="60">60 дней</option>'+
+                    '<option :value="90">90 дней</option>'+
+                    '<option :value="120">120 дней</option>'+
+                    '<option :value="180">180 дней</option>'+
+                    '<option :value="365">1 год</option>'+
+                    '</select>'+
+                    '<button class="btn btn-ghost btn-sm" style="padding:4px 7px;font-size:11px" v-on:click="extendManagerSub(m,managerPeriods[m.id]||30)">Продлить</button>'+
+                    '</div>'+
+                    '</div><span v-else class="muted">—</span>'
+                  ),
+                  row.cells[accessCell+2]
+                );
               });
             }
           }
-        }catch(e){console.warn('[QR Admin] subscription UI rewrite:',e);}
+        }catch(e){
+          console.warn('[QR Admin] subscription UI rewrite:',e);
+        }
       })();
     }
+
     return originalCreateApp.apply(this,arguments);
   };
 })();
