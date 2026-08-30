@@ -1,16 +1,30 @@
-/* QR Menu — manager compatibility bootstrap v20. */
+/* QR Menu — manager compatibility bootstrap v21. */
 (function(){
   'use strict';
-  if(window.__QR_MANAGER_HALL_BOOTSTRAP_V20__) return;
-  window.__QR_MANAGER_HALL_BOOTSTRAP_V20__=true;
+  if(window.__QR_MANAGER_HALL_BOOTSTRAP_V21__) return;
+  window.__QR_MANAGER_HALL_BOOTSTRAP_V21__=true;
 
-  function publish(app){
-    try{
-      window.__QR_MANAGER_VUE_APP__=app;
-      window.__managerVue=(app&&app._instance&&app._instance.proxy)||null;
-      window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));
-    }catch(e){console.warn('[QR Manager] publish:',e);}
+  function managerId(ctx){
+    if(ctx&&ctx.profile&&ctx.profile.id)return Promise.resolve(ctx.profile.id);
+    if(window.db&&db.auth)return db.auth.getUser().then(function(r){return r&&r.data&&r.data.user?r.data.user.id:null;});
+    return Promise.resolve(null);
   }
+  async function loadManagerSubscription(ctx){
+    var uid=await managerId(ctx);
+    if(!uid||!window.db)return null;
+    var r=await db.from('subscriptions')
+      .select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at')
+      .eq('manager_id',uid)
+      .is('venue_id',null)
+      .in('status',['trialing','active'])
+      .gte('current_period_end',new Date().toISOString())
+      .order('created_at',{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    if(r.error)throw r.error;
+    return r.data||null;
+  }
+  function publish(app){try{window.__QR_MANAGER_VUE_APP__=app;window.__managerVue=(app&&app._instance&&app._instance.proxy)||null;window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));}catch(e){}}
 
   function patchDb(){
     try{
@@ -25,26 +39,29 @@
   }
 
   function patchVue(Vue){
-    if(!Vue||typeof Vue.createApp!=='function'||Vue.__QR_MANAGER_PATCH_V20__)return;
-    Vue.__QR_MANAGER_PATCH_V20__=true;
+    if(!Vue||typeof Vue.createApp!=='function'||Vue.__QR_MANAGER_PATCH_V21__)return;
+    Vue.__QR_MANAGER_PATCH_V21__=true;
     var original=Vue.createApp;
     Vue.createApp=function(options){
       if(options&&typeof options==='object'){
         options.computed=options.computed||{};
-        /* Единственный источник лимита — подписка управляющего, загруженная subscription-owner bridge. */
-        options.computed.canCreateVenue=function(){
-          var s=this.managerSubscription;
-          var valid=!!(s&&['trialing','active'].indexOf(s.status)!==-1&&s.current_period_end&&new Date(s.current_period_end)>=new Date());
-          if(!valid)return false;
-          var p=this.plans&&this.plans.find(function(x){return x.id===s.plan_id;});
-          var limit=p&&Number(p.max_venues);
-          if(!Number.isFinite(limit)||limit<1)return false;
-          var used=Array.isArray(this.myVenues)?this.myVenues.length:0;
-          return used<limit;
+        options.data=(function(oldData){return function(){var state=typeof oldData==='function'?oldData.apply(this,arguments):(oldData||{});state.managerSubscription=state.managerSubscription||null;return state;};})(options.data);
+        options.methods=options.methods||{};
+        options.methods.loadManagerSubscription=async function(){
+          try{var s=await loadManagerSubscription(this);this.managerSubscription=s;if(s&&s.current_period_end)this.subscriptionEnd=s.current_period_end;return s;}
+          catch(e){console.error('[QR Manager] manager subscription:',e);this.managerSubscription=null;return null;}
         };
-        options.computed.venueLimit=function(){var s=this.managerSubscription,p=this.plans&&this.plans.find(function(x){return s&&x.id===s.plan_id;});return p&&Number(p.max_venues)||0;};
+        options.computed.managerPlan=function(){var s=this.managerSubscription,p=this.plans&&this.plans.find(function(x){return s&&x.id===s.plan_id;});return p||null;};
+        options.computed.venueLimit=function(){var p=this.managerPlan,n=p&&Number(p.max_venues);return Number.isFinite(n)&&n>0?n:0;};
         options.computed.venueLimitUsed=function(){return Array.isArray(this.myVenues)?this.myVenues.length:0;};
         options.computed.venueLimitRemaining=function(){return Math.max(0,this.venueLimit-this.venueLimitUsed);};
+        options.computed.canCreateVenue=function(){var s=this.managerSubscription;if(!s||['trialing','active'].indexOf(s.status)===-1||!s.current_period_end||new Date(s.current_period_end)<new Date())return false;return this.venueLimitUsed<this.venueLimit;};
+        var oldMounted=options.mounted;
+        options.mounted=async function(){
+          var result=oldMounted?oldMounted.apply(this,arguments):undefined;
+          try{await this.loadManagerSubscription();if(typeof this.loadMyVenues==='function')await this.loadMyVenues();}catch(e){console.error('[QR Manager] subscription init:',e);}
+          return result;
+        };
       }
       var app=original.apply(this,arguments),originalMount=app.mount;
       app.mount=function(){var result=originalMount.apply(this,arguments);publish(this);return result;};
@@ -53,8 +70,8 @@
   }
 
   function ingredientControls(){
-    if(window.__QR_MANAGER_INGREDIENT_CONTROLS_V4__)return;
-    window.__QR_MANAGER_INGREDIENT_CONTROLS_V4__=true;
+    if(window.__QR_MANAGER_INGREDIENT_CONTROLS_V5__)return;
+    window.__QR_MANAGER_INGREDIENT_CONTROLS_V5__=true;
     var style=document.createElement('style');style.textContent='.qr-ingredient-actions{display:flex!important;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap;margin-left:auto;padding-left:10px}.qr-ingredient-actions button{display:inline-flex!important;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04);color:#eef2ff;border-radius:8px;padding:6px 9px;cursor:pointer;font-size:11px;line-height:1}.qr-ingredient-actions .qr-edit{color:#8fc7ff}.qr-ingredient-actions .qr-delete{color:#ff9a9a}.qr-ingredient-actions .qr-add{color:#7ee7a8}.qr-ingredient-edit-back{position:fixed;inset:0;z-index:200000;background:rgba(0,0,0,.68);display:flex;align-items:center;justify-content:center;padding:16px}.qr-ingredient-edit-box{width:min(440px,calc(100vw - 32px));background:#151922;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.5)}';document.head.appendChild(style);
     function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
     function venueId(){try{return localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId')||'';}catch(e){return '';}}
@@ -71,9 +88,7 @@
     function fetchGlobal(cb){window.db.from('global_ingredient_catalog').select('id,name,unit,category').eq('is_active',true).order('name').then(function(res){cb(res.error?[]:(res.data||[]));}).catch(function(e){console.warn('[QR Manager] global ingredients:',e);cb([]);});}
     function enhanceLocal(){var root=document.getElementById('ingredients');if(!root)return;var domRows=[].slice.call(root.querySelectorAll('.ingredient-row'));if(!domRows.length)return;fetchLocal(function(list){domRows.forEach(function(row){if(row.querySelector('.qr-ingredient-actions'))return;var nameEl=row.querySelector('b');if(!nameEl)return;var name=(nameEl.textContent||'').trim(),item=list.find(function(x){return String(x.name||'').trim()===name;});if(!item)return;var actions=document.createElement('div');actions.className='qr-ingredient-actions';var edit=document.createElement('button');edit.type='button';edit.className='qr-edit';edit.textContent='Изменить';edit.onclick=function(e){e.preventDefault();e.stopPropagation();editLocal(item);};var del=document.createElement('button');del.type='button';del.className='qr-delete';del.textContent='Удалить';del.onclick=function(e){e.preventDefault();e.stopPropagation();deleteLocal(item);};actions.appendChild(edit);actions.appendChild(del);row.appendChild(actions);});});}
     function enhanceGlobal(){var root=document.getElementById('global-ingredients');if(!root)return;fetchGlobal(function(list){var rows=[].slice.call(root.querySelectorAll('.ingredient-row'));rows.forEach(function(row){if(row.querySelector('.qr-ingredient-actions'))return;var nameEl=row.querySelector('b');if(!nameEl)return;var name=(nameEl.textContent||'').trim(),item=list.find(function(x){return String(x.name||'').trim()===name;});if(!item)return;var actions=document.createElement('div');actions.className='qr-ingredient-actions';var edit=document.createElement('button');edit.type='button';edit.className='qr-edit';edit.textContent='Изменить';edit.onclick=function(e){e.preventDefault();e.stopPropagation();editGlobal(item);};var del=document.createElement('button');del.type='button';del.className='qr-delete';del.textContent='Удалить';del.onclick=function(e){e.preventDefault();e.stopPropagation();deleteGlobal(item);};var add=document.createElement('button');add.type='button';add.className='qr-add';add.textContent='Добавить';add.onclick=function(e){e.preventDefault();e.stopPropagation();addGlobal(item);};actions.appendChild(edit);actions.appendChild(del);actions.appendChild(add);row.appendChild(actions);});});}
-    var observer=new MutationObserver(function(){enhanceLocal();enhanceGlobal();});
-    observer.observe(document.documentElement,{childList:true,subtree:true});
-    setTimeout(function(){enhanceLocal();enhanceGlobal();},500);
+    var observer=new MutationObserver(function(){enhanceLocal();enhanceGlobal();});observer.observe(document.documentElement,{childList:true,subtree:true});setTimeout(function(){enhanceLocal();enhanceGlobal();},500);
   }
 
   patchDb();
