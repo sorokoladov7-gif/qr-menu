@@ -134,5 +134,79 @@
     installed=true;
     if (!v.__qrStaffPinIdGuardInstalled) setTimeout(installStaffPinIdGuard, 250);
   }
+
+  /* Trial must use the selected subscription tariff in the manager UI. */
+  (function installManagerPlanLimits(){
+    if (!window.Vue || typeof window.Vue.createApp !== 'function' || window.__QR_MANAGER_PLAN_LIMITS_PATCH__) return;
+    window.__QR_MANAGER_PLAN_LIMITS_PATCH__ = true;
+    var originalCreateApp = window.Vue.createApp;
+
+    function loadManagerPlan(vmInstance) {
+      if (!vmInstance || !window.db || !window.db.auth) return;
+      window.db.auth.getSession().then(function(sessionResult){
+        var session = sessionResult && sessionResult.data && sessionResult.data.session;
+        var managerId = session && session.user && session.user.id;
+        if (!managerId) return;
+        return window.db.from('subscriptions')
+          .select('plan_id,status,current_period_end')
+          .eq('manager_id', managerId)
+          .order('created_at', {ascending:false})
+          .limit(1)
+          .maybeSingle();
+      }).then(function(r){
+        if (!r || r.error || !r.data) return;
+        var s = r.data;
+        var valid = ['trialing','active'].indexOf(s.status) !== -1 && s.current_period_end && new Date(s.current_period_end) >= new Date();
+        if (!valid) return;
+        vmInstance.__qrManagerPlanId = s.plan_id;
+        vmInstance.__qrManagerSubscriptionEnd = s.current_period_end;
+        if (vmInstance.venue) vmInstance.venue.plan = s.plan_id;
+        if (vmInstance.subscriptionEnd) vmInstance.subscriptionEnd = s.current_period_end;
+      }).catch(function(e){ console.warn('[Manager plan limits] subscription load:', e); });
+    }
+
+    window.Vue.createApp = function(options){
+      if (options && typeof options === 'object') {
+        options.data = (function(originalData){
+          return function(){
+            var data = typeof originalData === 'function' ? originalData.apply(this, arguments) : Object.assign({}, originalData || {});
+            data.__qrManagerPlanId = data.__qrManagerPlanId || null;
+            data.__qrManagerSubscriptionEnd = data.__qrManagerSubscriptionEnd || null;
+            return data;
+          };
+        })(options.data);
+
+        options.computed = options.computed || {};
+        var originalCurrentPlan = options.computed.currentPlan;
+        options.computed.currentPlan = function(){
+          var self=this;
+          var id=this.__qrManagerPlanId;
+          if(id && Array.isArray(this.plans)) {
+            var p=this.plans.find(function(x){return x.id===id;});
+            if(p) return p;
+          }
+          return originalCurrentPlan ? originalCurrentPlan.call(this) : null;
+        };
+
+        options.computed.canCreateVenue = function(){
+          var self=this;
+          var id=this.__qrManagerPlanId;
+          var p=id && Array.isArray(this.plans) ? this.plans.find(function(x){return x.id===id;}) : null;
+          if(!p && Array.isArray(this.plans)) p=this.plans.find(function(x){return x.id==='start';});
+          return this.myVenues.length < (p ? Number(p.max_venues || 0) : 1);
+        };
+      }
+
+      var app = originalCreateApp.apply(this, arguments);
+      var originalMount = app.mount;
+      app.mount = function(){
+        var result = originalMount.apply(this, arguments);
+        try { loadManagerPlan(this._instance && this._instance.proxy); } catch(e) { console.warn('[Manager plan limits] mount:', e); }
+        return result;
+      };
+      return app;
+    };
+  })();
+
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();
 })();
