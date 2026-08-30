@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v9';
+const CACHE = 'qr-platform-v10';
 const CORE = [
   '/',
   '/index.html',
@@ -62,9 +62,7 @@ const CORE = [
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
-      .then(c => Promise.all(
-        CORE.map(url => c.add(url).catch(() => {}))
-      ))
+      .then(c => Promise.all(CORE.map(url => c.add(url).catch(() => {})))
       .then(() => self.skipWaiting())
   );
 });
@@ -72,9 +70,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => k !== CACHE).map(k => caches.delete(k))
-      ))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -82,41 +78,23 @@ self.addEventListener('activate', e => {
 async function enhanceHtml(r) {
   const text = await r.text();
   if (!/<\/body>/i.test(text) || /pwa-install\.js/i.test(text)) {
-    return new Response(text, {
-      status: r.status,
-      statusText: r.statusText,
-      headers: r.headers
-    });
+    return new Response(text, { status: r.status, statusText: r.statusText, headers: r.headers });
   }
-  const extra = '<script src="/js/pwa-install.js"></script><script src="/js/offline-sync.js"></script>';
-  return new Response(
-    text.replace(/<\/body>/i, extra + '</body>'),
-    {
-      status: r.status,
-      statusText: r.statusText,
-      headers: r.headers
-    }
-  );
+  const extra = '<script src="/js/pwa-install.js"></script><script src="/js/offline-sync.js"></script><script>\n(function(){\n  function unlockManagerCreateButtons(){\n    try{\n      if(!/manager\.html$/i.test(location.pathname))return;\n      var buttons=document.querySelectorAll("#app button");\n      for(var i=0;i<buttons.length;i++){\n        var b=buttons[i],t=(b.textContent||"").replace(/\\s+/g," ").trim();\n        if(t==="+ Создать"||t==="Создать ещё заведение")b.disabled=false;\n      }\n    }catch(e){}\n  }\n  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",unlockManagerCreateButtons);\n  else unlockManagerCreateButtons();\n  new MutationObserver(unlockManagerCreateButtons).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:["disabled"]});\n})();\n</script>';
+  return new Response(text.replace(/<\/body>/i, extra + '</body>'), { status: r.status, statusText: r.statusText, headers: r.headers });
 }
 
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   if (/supabase|qrserver|fonts\.googleapis|fonts\.gstatic/.test(u.hostname)) return;
-
   e.respondWith(
     fetch(e.request)
       .then(async r => {
-        const out = r.headers.get('content-type')?.includes('text/html')
-          ? await enhanceHtml(r.clone())
-          : r.clone();
-        caches.open(CACHE)
-          .then(c => c.put(e.request, out.clone()))
-          .catch(() => {});
+        const out = r.headers.get('content-type')?.includes('text/html') ? await enhanceHtml(r.clone()) : r.clone();
+        caches.open(CACHE).then(c => c.put(e.request, out.clone())).catch(() => {});
         return out;
       })
-      .catch(() => caches.match(e.request)
-        .then(r => r || caches.match('/index.html'))
-      )
+      .catch(() => caches.match(e.request).then(r => r || caches.match('/index.html')))
   );
 });
