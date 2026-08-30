@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v8';
+const CACHE = 'qr-platform-v9';
 const CORE = [
   '/',
   '/index.html',
