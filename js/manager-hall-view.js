@@ -28,9 +28,9 @@
               };
             }
 
-            // Billing was migrated from venue-owned subscriptions to manager-owned
-            // subscriptions. manager.html still contains the legacy direct-table
-            // operations, so normalize them here before the app is mounted.
+            // Billing is manager-owned. The venue limit during the trial must come
+            // from the manager's active/trialing subscription, not from the legacy
+            // hardcoded Start limit in manager.html.
             var getManagerId=function(ctx){
               if(ctx && ctx.profile && ctx.profile.id) return Promise.resolve(ctx.profile.id);
               if(window.db && db.auth) return db.auth.getUser().then(function(r){
@@ -53,6 +53,10 @@
               var r=await db.from('subscriptions')
                 .select('id,manager_id,plan_id,status,current_period_end,created_at')
                 .eq('manager_id',managerId)
+                .in('status',['trialing','active'])
+                .gte('current_period_end',new Date().toISOString())
+                .order('created_at',{ascending:false})
+                .limit(1)
                 .maybeSingle();
               if(r.error) throw r.error;
               this.managerSubscription=r.data||null;
@@ -134,12 +138,57 @@
             };
 
             options.computed=options.computed||{};
-            options.computed.canCreateVenue=function(){
+            options.computed.managerPlan=function(){
+              var self=this;
               var planId=this.managerSubscription && this.managerSubscription.plan_id;
-              var plan=this.plans.find(function(x){return x.id===planId;});
-              if(!plan) plan=this.plans.find(function(x){return x.id==='start';});
-              return this.myVenues.length < (plan && plan.max_venues ? plan.max_venues : 1);
+              var plan=Array.isArray(this.plans) ? this.plans.find(function(x){return x.id===planId;}) : null;
+              if(!plan && this.venue && this.venue.plan && Array.isArray(this.plans)){
+                plan=this.plans.find(function(x){return x.id===self.venue.plan;});
+              }
+              if(!plan && Array.isArray(this.plans)) plan=this.plans.find(function(x){return x.id==='start';});
+              return plan||null;
             };
+
+            options.computed.venueLimit=function(){
+              var plan=this.managerPlan;
+              var limit=plan && Number(plan.max_venues);
+              return Number.isFinite(limit) && limit>0 ? limit : 1;
+            };
+
+            options.computed.venueLimitUsed=function(){
+              return Array.isArray(this.myVenues) ? this.myVenues.length : 0;
+            };
+
+            options.computed.venueLimitRemaining=function(){
+              return Math.max(0,this.venueLimit-this.venueLimitUsed);
+            };
+
+            options.computed.canCreateVenue=function(){
+              var sub=this.managerSubscription;
+              var validSub=!!(sub && ['trialing','active'].indexOf(sub.status)!==-1 && sub.current_period_end && new Date(sub.current_period_end)>=new Date());
+              if(!validSub) return false;
+              return this.venueLimitUsed < this.venueLimit;
+            };
+
+            // Always refresh the manager subscription immediately before opening
+            // the create flow. This removes stale Start-limit state after login,
+            // plan changes and trial activation.
+            var originalCreateVenue=options.methods.createVenue;
+            if(typeof originalCreateVenue==='function'){
+              options.methods.createVenue=async function(){
+                try{
+                  await this.loadManagerSubscription();
+                }catch(e){
+                  this.formError='Не удалось проверить тариф управляющего';
+                  return;
+                }
+                if(!this.canCreateVenue){
+                  this.formError='Лимит заведений по тарифу исчерпан';
+                  return;
+                }
+                return originalCreateVenue.apply(this,arguments);
+              };
+            }
           }
         }catch(e){ console.warn('[QR Menu] Vue compatibility bridge:',e); }
         return originalCreateApp.apply(this,arguments);
