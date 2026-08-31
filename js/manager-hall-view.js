@@ -95,27 +95,71 @@
             };
             options.computed=options.computed||{};
             options.computed.managerPlan=function(){
-              var self=this; var planId=this.managerSubscription&&this.managerSubscription.plan_id;
+              var self=this;
+              var planId=this.managerSubscription&&this.managerSubscription.plan_id;
               var plan=Array.isArray(this.plans)?this.plans.find(function(x){return x.id===planId;}):null;
+              if(!plan&&Array.isArray(this.myVenues)&&this.myVenues.length){
+                var now=new Date();
+                var active=this.myVenues.find(function(v){return v.subscription_end&&new Date(v.subscription_end)>=now;})||this.myVenues[0];
+                if(active&&active.plan) plan=this.plans.find(function(x){return x.id===active.plan;})||null;
+              }
               if(!plan&&this.venue&&this.venue.plan&&Array.isArray(this.plans)) plan=this.plans.find(function(x){return x.id===self.venue.plan;});
-              if(!plan&&Array.isArray(this.plans)) plan=this.plans.find(function(x){return x.id==='start';});
               return plan||null;
             };
-            options.computed.venueLimit=function(){var plan=this.managerPlan;var limit=plan&&Number(plan.max_venues);return Number.isFinite(limit)&&limit>0?limit:1;};
+            options.computed.venueLimit=function(){
+              var plan=this.managerPlan;
+              var limit=plan&&Number(plan.max_venues);
+              return Number.isFinite(limit)&&limit>0?limit:1;
+            };
             options.computed.venueLimitUsed=function(){return Array.isArray(this.myVenues)?this.myVenues.length:0;};
             options.computed.venueLimitRemaining=function(){return Math.max(0,this.venueLimit-this.venueLimitUsed);};
             options.computed.canCreateVenue=function(){
+              if(!Array.isArray(this.myVenues)||this.myVenues.length===0) return true;
               var sub=this.managerSubscription;
               var validSub=!!(sub&&['trialing','active'].indexOf(sub.status)!==-1&&sub.current_period_end&&new Date(sub.current_period_end)>=new Date());
-              if(!validSub)return false;
+              var hasActiveVenue=this.myVenues.some(function(v){return v.subscription_end&&new Date(v.subscription_end)>=new Date();});
+              if(!validSub&&!hasActiveVenue) return false;
               return this.venueLimitUsed<this.venueLimit;
             };
             var originalCreateVenue=options.methods.createVenue;
             if(typeof originalCreateVenue==='function'){
               options.methods.createVenue=async function(){
-                try{await this.loadManagerSubscription();}catch(e){this.formError='Не удалось проверить тариф управляющего';return;}
-                if(!this.canCreateVenue){this.formError='Лимит заведений по тарифу исчерпан';return;}
-                return originalCreateVenue.apply(this,arguments);
+                var self=this;
+                try{await this.loadManagerSubscription();}catch(e){console.warn('[QR Billing] pre-create sub load:',e);}
+                if(!this.canCreateVenue){
+                  var plan=this.managerPlan;
+                  var name=plan&&plan.name?plan.name:(plan&&plan.id?plan.id:'');
+                  var max=this.venueLimit;
+                  var used=this.venueLimitUsed;
+                  this.formError=name
+                    ?('Вы достигли лимита заведений по тарифу '+name+': '+used+' из '+max+'.')
+                    :('Лимит заведений исчерпан: '+used+' из '+max+'.');
+                  return;
+                }
+                var planId=(this.managerSubscription&&this.managerSubscription.plan_id)||null;
+                var subEnd=(this.managerSubscription&&this.managerSubscription.current_period_end)||null;
+                if(!planId&&Array.isArray(this.myVenues)&&this.myVenues.length){
+                  var now=new Date();
+                  var active=this.myVenues.find(function(v){return v.subscription_end&&new Date(v.subscription_end)>=now;})||this.myVenues[0];
+                  if(active){
+                    if(active.plan) planId=active.plan;
+                    if(!subEnd&&active.subscription_end) subEnd=active.subscription_end;
+                  }
+                }
+                if(!planId) planId='start';
+                if(!subEnd){var e=new Date();e.setDate(e.getDate()+10);subEnd=e.toISOString();}
+                var origRpc=db.rpc.bind(db);
+                db.rpc=function(name,args){
+                  if(name==='create_venue_for_manager'&&args&&typeof args==='object'){
+                    args=Object.assign({},args,{p_plan:planId,p_subscription_end:subEnd});
+                  }
+                  return origRpc(name,args);
+                };
+                try{
+                  return await Promise.resolve(originalCreateVenue.apply(self,arguments));
+                }finally{
+                  db.rpc=origRpc;
+                }
               };
             }
           }
