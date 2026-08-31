@@ -1,51 +1,67 @@
+'use strict';
+
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
 const ANALYSIS_BUDGET_MS = 25000;
 const MAX_RENDER_TARGETS = 6;
+const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык)(?:[\/?#_.-]|$)/iu;
 
 function normalizeName(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
 
-function mergeProducts(existing, rendered) {
-  const out = Array.isArray(existing) ? existing.map(x => ({ ...x })) : [];
+function isMenuPage(url, menuPages) {
+  const value = String(url || '').trim();
+  if (!value) return false;
+  const normalized = value.replace(/#.*$/, '').replace(/\/$/, '').toLowerCase();
+  if (MENU_PATH_RE.test(normalized)) return true;
+  return menuPages.some(page => {
+    const p = String(page || '').replace(/#.*$/, '').replace(/\/$/, '').toLowerCase();
+    return p && (p === normalized || normalized.startsWith(`${p}/`));
+  });
+}
+
+function cleanMenuProduct(item) {
+  const name = String(item?.name || '').replace(/\s+/g, ' ').trim();
+  if (!name) return null;
+  const price = Number(item?.price);
+  return {
+    name,
+    description: item?.description ? String(item.description).replace(/\s+/g, ' ').trim().slice(0, 600) : null,
+    price: Number.isFinite(price) && price > 0 ? price : 0,
+    category: item?.category ? String(item.category).replace(/\s+/g, ' ').trim().slice(0, 120) : 'main',
+    image_url: item?.image_url ? String(item.image_url).trim() : null,
+    is_available: true,
+    applies_to: 'all'
+  };
+}
+
+function mergeProducts(existing, rendered, menuPages) {
+  const out = [];
   const byName = new Map();
-  for (const item of out) {
-    const key = normalizeName(item.name);
-    if (key) byName.set(key, item);
-  }
 
-  for (const item of Array.isArray(rendered) ? rendered : []) {
-    const name = String(item.name || '').replace(/\s+/g, ' ').trim();
-    const image = String(item.image_url || '').trim();
-    if (!name || !image) continue;
-    const key = normalizeName(name);
-    const existingItem = byName.get(key);
-    if (existingItem) {
-      if (!existingItem.image_url) existingItem.image_url = image;
-      if (!existingItem.description && item.description) existingItem.description = item.description;
-      if ((!existingItem.price || Number(existingItem.price) <= 0) && Number(item.price) > 0) existingItem.price = Number(item.price);
-      if (!existingItem.source_url && item.source_url) existingItem.source_url = item.source_url;
-      if (!existingItem.extraction_source) existingItem.extraction_source = item.source || 'rendered-dom';
-      continue;
+  const add = raw => {
+    if (!raw || !isMenuPage(raw.source_url, menuPages)) return;
+    const product = cleanMenuProduct(raw);
+    if (!product) return;
+    const key = normalizeName(product.name);
+    if (!key) return;
+
+    const previous = byName.get(key);
+    if (previous) {
+      if (!previous.image_url && product.image_url) previous.image_url = product.image_url;
+      if (!previous.description && product.description) previous.description = product.description;
+      if ((!previous.price || previous.price <= 0) && product.price > 0) previous.price = product.price;
+      if ((!previous.category || previous.category === 'main') && product.category) previous.category = product.category;
+      return;
     }
-    const product = {
-      name,
-      description: item.description || null,
-      price: Number(item.price) > 0 ? Number(item.price) : 0,
-      category: item.category || 'main',
-      image_url: image,
-      is_available: true,
-      applies_to: 'all',
-      source_url: item.source_url || null,
-      extraction_source: item.source || 'rendered-dom'
-    };
-    out.push(product);
     byName.set(key, product);
-  }
+    out.push(product);
+  };
 
-  // Import only dish records that contain both a name and an image.
-  return out.filter(item => normalizeName(item.name) && String(item.image_url || '').trim());
+  for (const item of Array.isArray(existing) ? existing : []) add(item);
+  for (const item of Array.isArray(rendered) ? rendered : []) add(item);
+  return out;
 }
 
 function normalizeError(error) {
@@ -76,6 +92,7 @@ module.exports = async function(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   const fail = (status, code, message, details = {}) => res.status(status).json({ ok: false, error: { code, message, details } });
   if (req.method !== 'GET' && req.method !== 'POST') return fail(405, 'METHOD_NOT_ALLOWED', 'Метод не поддерживается');
+
   const raw = String((req.query && req.query.url) || (req.body && req.body.url) || '').trim();
   if (!raw) return fail(400, 'URL_REQUIRED', 'Не передан адрес сайта');
 
@@ -110,25 +127,34 @@ module.exports = async function(req, res) {
       diagnostics.browser_render_code = browserResult.code || null;
       diagnostics.browser_products_found = Array.isArray(browserResult.products) ? browserResult.products.length : 0;
       diagnostics.analysis_steps.push(`Browser-анализ: ${browserResult.code || 'UNKNOWN'}`);
-      result.products = mergeProducts(result.products, browserResult.products);
-      diagnostics.products_found = result.products.length;
-      meta.diagnostics = diagnostics;
-      meta.menu_found = result.products.length > 0;
-      meta.validation = result.products.length ? 'validated-browser-menu' : 'not_validated';
-      meta.error = result.products.length ? null : normalizeError(meta.error);
+      result.products = mergeProducts(result.products, browserResult.products, [...new Set([...menuPages, ...renderTargets])]);
+    } else {
+      result.products = mergeProducts(result.products, [], menuPages);
     }
-
-    result.products = (Array.isArray(result.products) ? result.products : []).filter(item =>
-      normalizeName(item.name) && String(item.image_url || '').trim()
-    );
 
     diagnostics.products_found = result.products.length;
-    if (result.products.length) {
-      meta.menu_found = true;
-      meta.error = null;
-      meta.validation = 'validated-name-image-menu';
-    }
-    return res.status(200).json(result);
+    meta.diagnostics = diagnostics;
+    meta.menu_found = result.products.length > 0;
+    meta.validation = result.products.length ? 'validated-menu-pages-only' : 'not_validated';
+    meta.error = result.products.length ? null : normalizeError(meta.error);
+
+    // Strict import contract: only the venue identity, address and menu are returned.
+    const venue = {
+      name: meta.name || meta.venue_name || meta.title || null,
+      address: meta.address || meta.venue_address || null
+    };
+
+    return res.status(200).json({
+      ok: true,
+      venue,
+      products: result.products,
+      meta: {
+        menu_found: Boolean(meta.menu_found),
+        products_found: result.products.length,
+        validation: meta.validation,
+        source_url: raw
+      }
+    });
   } catch (error) {
     if (error?.code === 'IMPORT_ANALYSIS_TIMEOUT') {
       return fail(504, 'IMPORT_ANALYSIS_TIMEOUT', 'Импорт сайта превысил допустимое время анализа. Попробуйте повторить анализ.', { budget_ms: ANALYSIS_BUDGET_MS });
