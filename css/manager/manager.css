@@ -1,0 +1,57 @@
+/* Специфичные для manager.html стили */
+.menu-compact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.menu-item-compact {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 16px;
+  padding: 10px;
+  cursor: pointer;
+  transition: all .2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.menu-item-compact:hover {
+  transform: translateY(-3px);
+  border-color: rgba(99,102,241,.5);
+  box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+.menu-item-compact .thumb {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 8px;
+  background: #1f2937;
+}
+.menu-item-compact .name { font-weight: 700; font-size: 14px; }
+.menu-item-compact .price { font-weight: 700; color: #a5b4fc; font-size: 14px; }
+.menu-item-compact .actions { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.menu-item-compact .actions .btn { font-size: 11px; padding: 4px 10px; }
+/* Рецептуры */
+.recipe-wrap { max-width: 1250px; margin: 0 auto; padding: 20px 18px 40px; }
+.recipe-grid { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 16px; }
+.recipe-row { display: grid; grid-template-columns: minmax(180px,1fr) 110px 75px minmax(130px,1fr) auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.cost-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin: 14px 0; }
+.cost-card { padding: 12px; border: 1px solid #ffffff12; border-radius: 12px; background: #ffffff06; }
+.cost-card .n { font-size: 20px; font-weight: 800; }
+.ingredient-row { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid #ffffff12; }
+.tech-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px,1fr)); gap: 10px; }
+/* Зал */
+#qr-manager-hall-final {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  background: #0b1424;
+  color: #eef2ff;
+  overflow: auto;
+  padding: 16px;
+  box-sizing: border-box;
+}
+/* ... остальные стили из оригинального manager.html */
