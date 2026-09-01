@@ -13,10 +13,33 @@ openProductEditor:function(p){if(!p)return;var v=(this.venues||[]).find(function
 openVenueMenu:function(v){var s=this;s.prodModal={show:true,venueId:v.id,venueName:v.name,list:[],form:{name:'',price:0,category:'main'}};db.from('products').select('*').eq('venue_id',v.id).order('created_at').then(function(r){if(r.error)throw r.error;s.prodModal.list=r.data||[];}).catch(function(e){console.warn('Ошибка загрузки меню:',e);});},
 openVenueMenuById:function(id){if(!id)return;var v=this.venues.find(function(x){return x.id===id;});if(v)this.openVenueMenu(v);},
 uploadProdPhoto:function(ev,p){var s=this,f=ev.target.files[0];if(!f)return;s.resizeImage(f,900,.85).then(function(b){var fn=s.prodModal.venueId+'/prod_'+Date.now()+'.jpg';return db.storage.from('menu-images').upload(fn,b,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){if(r.error)throw r.error;var u=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;return db.from('products').update({image_url:u}).eq('id',p.id).then(function(x){if(x.error)throw x.error;p.image_url=u;var live=(s.menuVenueProducts||[]).find(function(q){return q.id===p.id;});if(live)live.image_url=u;});});}).catch(function(e){alert('Ошибка: '+e.message);}).finally(function(){ev.target.value='';});},
-saveProductRow:function(p){var s=this;db.from('products').update({name:p.name,price:Number(p.price)||0,category:p.category}).eq('id',p.id).then(function(r){if(r.error){alert('Ошибка сохранения: '+r.error.message);return;}var live=(s.menuVenueProducts||[]).find(function(x){return x.id===p.id;});if(live){live.name=p.name;live.price=Number(p.price)||0;live.category=p.category;}});},
+saveProductRow:function(p){var s=this;db.from('products').update({name:p.name,price:Number(p.price)||0,category:p.category,description:p.description||''}).eq('id',p.id).then(function(r){if(r.error){alert('Ошибка сохранения: '+r.error.message);return;}var live=(s.menuVenueProducts||[]).find(function(x){return x.id===p.id;});if(live){live.name=p.name;live.price=Number(p.price)||0;live.category=p.category;live.description=p.description||'';}});},
 toggleAvailRow:function(p){var s=this;p.is_available=!p.is_available;db.from('products').update({is_available:p.is_available}).eq('id',p.id).then(function(r){if(r.error){p.is_available=!p.is_available;return;}var live=(s.menuVenueProducts||[]).find(function(x){return x.id===p.id;});if(live)live.is_available=p.is_available;});},
 delProductRow:function(p){var s=this;if(!confirm('Удалить «'+p.name+'»?'))return;db.from('products').delete().eq('id',p.id).then(function(r){if(r.error)throw r.error;s.prodModal.list=s.prodModal.list.filter(function(x){return x.id!==p.id;});s.menuVenueProducts=(s.menuVenueProducts||[]).filter(function(x){return x.id!==p.id;});}).catch(function(e){alert('Ошибка: '+e.message);});},
-addProductRow:function(){var s=this;if(!s.prodModal.form.name)return;db.from('products').insert({venue_id:s.prodModal.venueId,name:s.prodModal.form.name,price:Number(s.prodModal.form.price)||0,category:s.prodModal.form.category,applies_to:'all',is_available:true}).select().single().then(function(r){if(r.error)throw r.error;if(r.data){s.prodModal.list.push(r.data);if(s.menuVenueId===s.prodModal.venueId)s.menuVenueProducts.push(r.data);}s.prodModal.form={name:'',price:0,category:'main'};}).catch(function(e){alert('Ошибка добавления блюда: '+e.message);});}
+addProductRow:function(){var s=this;if(!s.prodModal.form.name)return;db.from('products').insert({venue_id:s.prodModal.venueId,name:s.prodModal.form.name,price:Number(s.prodModal.form.price)||0,category:s.prodModal.form.category,applies_to:'all',is_available:true,description:''}).select().single().then(function(r){if(r.error)throw r.error;if(r.data){s.prodModal.list.push(r.data);if(s.menuVenueId===s.prodModal.venueId)s.menuVenueProducts.push(r.data);}s.prodModal.form={name:'',price:0,category:'main'};}).catch(function(e){alert('Ошибка добавления блюда: '+e.message);});}
 }};
 window.__QR_ADMIN_MENU_MIXIN__=menuMixin;
+
+/* Add the editable description field to the existing product modal before Vue compiles it. */
+if(window.Vue&&typeof Vue.createApp==='function'&&!window.__QR_ADMIN_PRODUCT_DESCRIPTION_PATCH__){
+window.__QR_ADMIN_PRODUCT_DESCRIPTION_PATCH__=true;
+var originalCreateApp=Vue.createApp;
+Vue.createApp=function(options){
+try{
+var root=document.getElementById('app');
+if(root){
+var modal=root.querySelector('[v-if="prodModal.show"]');
+var row=modal&&modal.querySelector('[v-for="p in prodModal.list"]');
+if(row&&!row.querySelector('[data-product-description="1"]')){
+var field=document.createElement('div');
+field.setAttribute('data-product-description','1');
+field.className='field product-description-editor';
+field.innerHTML='<label>Описание блюда</label><textarea v-model="p.description" rows="4" placeholder="Описание блюда" v-on:change="saveProductRow(p)" style="width:100%;resize:vertical;min-height:90px;box-sizing:border-box"></textarea>';
+row.parentNode.insertBefore(field,row.nextSibling);
+}
+}
+}catch(e){console.warn('[QR Admin] product description field:',e);}
+return originalCreateApp.apply(this,arguments);
+};
+}
 })();
