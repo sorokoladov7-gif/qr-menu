@@ -623,7 +623,25 @@
 <div class="field" style="flex:1"><label>Курьеров</label><input class="num-in" v-model.number="p.max_couriers" type="number" min="1"></div>
 <div class="field" style="flex:1"><label>Официантов</label><input class="num-in" v-model.number="p.max_waiters" type="number" min="1"></div></div>
 <div class="field"><label>Позиций меню</label><input class="num-in" v-model.number="p.max_products" type="number" min="1"></div>
-<button class="btn btn-primary btn-sm" style="width:100%" v-on:click="savePlan(p)">💾 Сохранить тариф</button>
+<div class="plan-visibility" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)">
+  <span class="muted" style="font-size:11px">
+    {{ p.is_public === false ? 'Тариф скрыт от управляющих' : 'Тариф видим управляющим' }}
+  </span>
+
+  <button
+    type="button"
+    class="btn btn-ghost btn-sm"
+    style="padding:5px 9px;font-size:11px"
+    v-on:click="togglePlanVisibility(p)"
+    v-bind:disabled="busy"
+  >
+    {{ p.is_public === false ? '🙈 Скрыт' : '👁 Видим' }}
+  </button>
+</div>
+
+<button class="btn btn-primary btn-sm" style="width:100%" v-on:click="savePlan(p)">
+  💾 Сохранить тариф
+</button>
 </div></div>
 <div class="glass card" style="margin-bottom:24px;border-color:#34d399">
 💳 <b>Приём оплат по СБП:</b> номер <b style="color:#6ee7b7">8 905 320-43-50</b>. Когда управляющий нажимает «Я оплатил», заявка появляется ниже — подтвердите её вручную.</div>
