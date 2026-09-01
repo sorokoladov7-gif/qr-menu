@@ -15,6 +15,7 @@
           { id: 'coffee', name: 'Кофейня', emoji: '☕', description: 'Готовое меню кофейни', niche: 'coffee', scale_code: 'M', target_product_count: 1, products: [{ name: 'Эспрессо', description: '30 мл.', price: 150, category: 'drink' }] },
           { id: 'shawarma', name: 'Шаурма', emoji: '🌯', description: 'Готовое меню шаурмы', niche: 'shawarma_canteen', scale_code: 'M', target_product_count: 1, products: [{ name: 'Шаурма классическая', description: 'Курица, овощи, соус.', price: 320, category: 'main' }] }
         ],
+        templateSearchQuery: '',
         formError: '',
         isBlocked: false,
         hallRendered: false
@@ -32,6 +33,14 @@
           if (subPlan) limit = Number(subPlan.max_venues || 0);
         }
         return used < limit;
+      },
+      filteredVenueTemplates: function() {
+        var q = String(this.templateSearchQuery || '').trim().toLowerCase();
+        if (!q) return this.venueTemplates;
+        return this.venueTemplates.filter(function(t) {
+          var hay = [t.name, t.slug, t.niche, t.description].join(' ').toLowerCase();
+          return hay.indexOf(q) !== -1;
+        });
       },
       selectedVenueTemplate: function() {
         var self = this;
@@ -68,8 +77,6 @@
               if (!modal) { resolve(); return; }
               var content = modal.firstElementChild;
               if (!content) { resolve(); return; }
-              var label = Array.prototype.find.call(content.querySelectorAll('label'), function(x) { return /шаблон ниши/i.test(x.textContent || ''); });
-              var grid = content.querySelector('.template-grid');
               var fields = content.querySelectorAll('.field input');
               var nameInput = null, slugInput = null;
               Array.prototype.forEach.call(fields, function(input) {
@@ -84,6 +91,7 @@
               Array.prototype.forEach.call(buttons, function(b) {
                 if (!submit && /создать заведение/i.test(b.textContent || '')) submit = b;
               });
+              var grid = content.querySelector('.template-grid');
               if (grid) grid.id = 'qr-template-grid-v10';
               if (nameInput) nameInput.id = 'qr-venue-name-v10';
               if (slugInput) slugInput.id = 'qr-venue-slug-v10';
@@ -148,36 +156,128 @@
               products: products
             };
           });
+          if (!self.venueTemplates.some(function(t){ return t.id === self.newVenueForm.template; })) {
+            self.newVenueForm.template = self.venueTemplates[0].id;
+          }
+          self.$nextTick(function(){ self.decorateVenueTemplateCards(); });
         }).catch(function(e) { console.warn('Ошибка загрузки шаблонов:', e.message || e); });
+      },
+      getVenueTemplateByCard: function(card) {
+        var id = card && card.getAttribute('data-template-id');
+        if (id) {
+          return this.venueTemplates.find(function(t){ return String(t.id) === String(id); }) || null;
+        }
+        var name = card && card.getAttribute('data-template-name');
+        if (name) return this.venueTemplates.find(function(t){ return t.name === name; }) || null;
+        return null;
+      },
+      renderVenueTemplateDetail: function(template, pane) {
+        if (!pane) return;
+        var self = this;
+        if (!template) {
+          pane.innerHTML = '<div class="manager-template-empty">Выберите шаблон слева</div>';
+          return;
+        }
+        var nicheMap = {
+          fastfood: 'Fast food', bakery: 'Пекарня', coffee: 'Кофейня', confectionery: 'Кондитерская',
+          cafe: 'Кафе', shawarma_canteen: 'Шаурма-столовая', cafe_bar: 'Кафе-бар', sushi: 'Суши-бар',
+          pizzeria: 'Пиццерия', restaurant: 'Ресторан', other: 'Другое'
+        };
+        var products = Array.isArray(template.products) ? template.products : [];
+        var rows = products.slice(0, 12).map(function(item){
+          return '<div class="manager-template-product"><span>' + String(item.name || 'Без названия').replace(/[<>]/g,'') + '</span><b>' + self.fmt(Number(item.price)||0) + ' ₽</b></div>';
+        }).join('');
+        if (products.length > 12) rows += '<div class="muted" style="font-size:11px;margin-top:6px">И ещё ' + (products.length - 12) + ' позиций…</div>';
+        pane.innerHTML =
+          '<div class="manager-template-detail-head">' +
+            '<div><div class="manager-template-title"><span class="manager-template-emoji">' + String(template.emoji || '🍽️').replace(/[<>]/g,'') + '</span><b>' + String(template.name || '').replace(/[<>]/g,'') + '</b></div>' +
+            '<div class="muted manager-template-description">' + String(template.description || 'Готовый шаблон меню').replace(/[<>]/g,'') + '</div></div>' +
+            '<span class="manager-template-selected">' + (String(this.newVenueForm.template) === String(template.id) ? '✓ Выбран' : 'Выбрать') + '</span>' +
+          '</div>' +
+          '<div class="manager-template-meta-grid">' +
+            '<div><span>Ниша</span><b>' + String(nicheMap[template.niche] || template.niche || 'Другое').replace(/[<>]/g,'') + '</b></div>' +
+            '<div><span>Масштаб</span><b>' + String(template.scale_code || 'M').replace(/[<>]/g,'') + '</b></div>' +
+            '<div><span>Позиции</span><b>' + products.length + '</b></div>' +
+            '<div><span>Целевой объём</span><b>' + Number(template.target_product_count || products.length || 0) + '</b></div>' +
+          '</div>' +
+          '<div class="manager-template-products-head"><b>Состав шаблона</b><span class="muted">' + products.length + ' позиций</span></div>' +
+          '<div class="manager-template-products">' + (rows || '<div class="muted">В шаблоне пока нет позиций</div>') + '</div>' +
+          '<button type="button" class="btn btn-primary manager-template-select-btn">' + (String(this.newVenueForm.template) === String(template.id) ? '✓ Шаблон выбран' : 'Выбрать этот шаблон') + '</button>';
+        var btn = pane.querySelector('.manager-template-select-btn');
+        if (btn) btn.addEventListener('click', function(){ self.selectVenueTemplate(template.id); });
       },
       decorateVenueTemplateCards: function() {
         var self = this;
         this.$nextTick(function() {
           var root = document.getElementById('app');
           if (!root) return;
-          var cards = root.querySelectorAll('.template-card');
+          var grid = root.querySelector('#qr-template-grid-v10') || root.querySelector('.template-grid');
+          if (!grid) return;
+          var cards = Array.prototype.slice.call(grid.querySelectorAll('.template-card'));
           if (!cards.length) return;
-          var nicheMap = {
-            fastfood: 'Fast food', bakery: 'Пекарня', coffee: 'Кофейня', confectionery: 'Кондитерская',
-            cafe: 'Кафе', shawarma_canteen: 'Шаурма-столовая', cafe_bar: 'Кафе-бар', sushi: 'Суши-бар',
-            pizzeria: 'Пиццерия', restaurant: 'Ресторан', other: 'Другое'
-          };
-          Array.prototype.forEach.call(cards, function(card, index) {
+
+          var modal = grid.closest('.modal');
+          var box = modal && modal.firstElementChild;
+          if (!box) return;
+          var catalog = box.querySelector('.manager-template-catalog');
+          if (!catalog) {
+            catalog = document.createElement('div');
+            catalog.className = 'manager-template-catalog';
+            var list = document.createElement('div');
+            list.className = 'manager-template-list';
+            var right = document.createElement('div');
+            right.className = 'manager-template-detail';
+            catalog.appendChild(list);
+            catalog.appendChild(right);
+            grid.parentNode.insertBefore(catalog, grid);
+            grid.style.display = 'none';
+            var oldPreview = box.querySelector('#qr-template-preview-v10');
+            if (oldPreview) oldPreview.style.display = 'none';
+
+            var search = document.createElement('input');
+            search.type = 'search';
+            search.className = 'manager-template-search';
+            search.placeholder = 'Поиск шаблона...';
+            search.value = self.templateSearchQuery || '';
+            list.appendChild(search);
+            search.addEventListener('input', function(){
+              self.templateSearchQuery = search.value;
+              var q = search.value.trim().toLowerCase();
+              Array.prototype.forEach.call(list.querySelectorAll('.template-item'), function(item){
+                item.style.display = !q || item.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+              });
+            });
+            list._templateSearch = search;
+            list._templateDetail = right;
+          }
+
+          var listEl = catalog.querySelector('.manager-template-list');
+          var detailEl = catalog.querySelector('.manager-template-detail');
+          var existing = listEl.querySelectorAll('.template-item');
+          Array.prototype.forEach.call(existing, function(item){ item.remove(); });
+
+          cards.forEach(function(card, index){
             var t = self.venueTemplates[index];
             if (!t) return;
-            var meta = card.querySelector('.qr-template-meta');
-            if (!meta) {
-              meta = document.createElement('div');
-              meta.className = 'qr-template-meta';
-              meta.style.cssText = 'margin-top:8px;display:flex;flex-direction:column;gap:3px;font-size:11px;color:#94a3b8;line-height:1.35;';
-              card.appendChild(meta);
-            }
-            meta.innerHTML = '<span>🏷️ '+String(nicheMap[t.niche] || t.niche || 'Другое').replace(/[<>]/g,'')+'</span>' +
-              '<span>📐 Масштаб: '+String(t.scale_code || 'M').replace(/[<>]/g,'')+'</span>' +
-              '<span>🍽️ '+Number((t.products || []).length || t.target_product_count || 0)+' позиций</span>';
-            card.style.cursor = 'pointer';
-            card.style.transition = 'transform .18s ease, border-color .18s ease, box-shadow .18s ease';
+            card.setAttribute('data-template-id', t.id);
+            card.setAttribute('data-template-name', t.name || '');
+            var item = document.createElement('div');
+            item.className = 'template-item';
+            if (String(self.newVenueForm.template) === String(t.id)) item.classList.add('active');
+            item.innerHTML =
+              '<div class="name">' + String(t.emoji || '🍽️').replace(/[<>]/g,'') + ' ' + String(t.name || '').replace(/[<>]/g,'') + '</div>' +
+              '<div class="meta">' + String(t.scale_code || 'M').replace(/[<>]/g,'') + ' · ' + String(t.niche || 'other').replace(/[<>]/g,'') + ' · ' + Number((t.products || []).length) + ' позиций</div>' +
+              '<div class="meta manager-template-status">' + (String(self.newVenueForm.template) === String(t.id) ? '✓ Выбран' : 'Доступен') + '</div>';
+            item.addEventListener('click', function(){ self.selectVenueTemplate(t.id); });
+            listEl.appendChild(item);
           });
+
+          var searchInput = listEl._templateSearch;
+          var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
+          Array.prototype.forEach.call(listEl.querySelectorAll('.template-item'), function(item){
+            item.style.display = !q || item.textContent.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
+          });
+          self.renderVenueTemplateDetail(self.selectedVenueTemplate, detailEl);
         });
       },
       backToList: function() {
@@ -222,7 +322,7 @@
       },
       selectVenueTemplate: function(id) {
         this.newVenueForm.template = id;
-        this.decorateVenueTemplateCards();
+        this.$nextTick(function(){ this.decorateVenueTemplateCards(); });
       },
       createVenue: function() {
         var self = this;
@@ -274,6 +374,7 @@
         }).then(function(venue) {
           self.showCreateVenue = false;
           self.newVenueForm = { name: '', slug: '', template: self.venueTemplates[0] ? self.venueTemplates[0].id : 'coffee' };
+          self.templateSearchQuery = '';
           return self.loadMyVenues().then(function() {
             self.selectVenue(venue);
             self.showToast('Заведение создано: ' + template.name + ' · ' + template.products.length + ' позиций добавлено');
