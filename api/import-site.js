@@ -1,32 +1,41 @@
 'use strict';
 
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
+const { renderMenuPages } = require('../lib/site-browser-renderer-v2');
 
 const ANALYSIS_BUDGET_MS = 55000;
+const MAX_DISCOVERY_CANDIDATES = 120;
 const MAX_RENDER_TARGETS = 28;
+const MAX_READER_TARGETS = 10;
+const READER_CONCURRENCY = 3;
 const LEARNING_MIN_CONFIDENCE = 0.65;
 const LEARNING_MAX_PATTERNS = 80;
 const LEARNING_MAX_WRITES = 60;
-const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garniry|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям)(?:[\/?#_.-]|$)/iu;
+const SUPABASE_URL_FALLBACK = 'https://ulxfsozdryqrnlxzlblt.supabase.co';
+const SUPPORTED_PATTERN_TYPES = new Set([
+  'card_structure','name_selector','price_selector','description_selector','image_selector',
+  'category_selector','menu_link','api_endpoint','jsonld_structure','platform_signature','rejection_signal'
+]);
+
+const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garniry|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям|mangal|мангал|sousy|соус|napitki|напитки|pervye|перв)(?:[\/?#_.-]|$)/iu;
 const MENU_TEXT_RE = /(?:^|\s)(меню|каталог|карта\s+меню|карта\s+блюд|цены|наше\s+меню|food\s+menu|menu|catalog)(?:\s|$)/iu;
 const COMMON_MENU_PATHS = [
   'menu','menyu','catalog','catalogue','food','food-menu','menu-food','menu-list',
-  'zakuski','salaty','goriachie-zakuski','goriachie-bliuda','goriachie-blyuda',
-  'osnovnye-bliuda','osnovnye-blyuda','pasta','pizza','sushi','rolls','garniry',
-  'steak','steiki','shashlyk','grill','myaso','ryba','soups','soup','supy',
-  'desert','dessert','desserty','zavtraki','breakfast','napitki','drinks','drink',
-  'bar','sauces','sousy','deti','detskoe-menu','det-menu'
+  'zakuski','salaty','goriachie-zakuski','goriachie-bliuda','goriachie-blyuda','osnovnye-bliuda','osnovnye-blyuda',
+  'pasta','pizza','sushi','rolls','garniry','steak','steiki','shashlyk','grill','myaso','ryba',
+  'soups','soup','supy','desert','dessert','desserty','zavtraki','breakfast','napitki','drinks','drink',
+  'bar','sauces','sousy','deti','detskoe-menu','det-menu','mangal','pervye-bliuda'
 ];
+const NOISE_RE = /^(главная|меню|каталог|о нас|о компании|доставка|акции|новости|контакты|отзывы|вакансии|заказать|корзина|войти|регистрация|подробнее|купить|добавить|калории|белки|жиры|углеводы|добавить в корзину|выбрать|колл-центр)$/iu;
+const WEIGHT_RE = /^\d+(?:[.,]\d+)?\s*(?:г|гр|кг|мл|л|шт)\.?$/iu;
+const CATEGORY_RE = /^(закуски|салаты?|супы?|бургеры?|горячие блюда.*|горячие закуски.*|пицца|.*роллы?|суши|десерты?|соусы?|карта бара|барная карта|напитки?|завтраки?|гарниры?|паста|стейки?|основные блюда|детское меню|детям|мангал|первые блюда)$/iu;
 
-function normalizeName(value) { return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
-function cleanText(value, max = 600) { return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max); }
-function firstNonEmpty(...values) { return values.map(v => cleanText(v, 1000)).find(Boolean) || null; }
-function absoluteHttp(value, baseUrl) {
-  try {
-    const url = new URL(String(value || ''), baseUrl);
-    return /^https?:$/i.test(url.protocol) ? url.href : null;
-  } catch (_) { return null; }
+function cleanText(value, max = 600) {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 }
+function normalizeName(value) { return cleanText(value, 300).toLowerCase(); }
+function firstNonEmpty(...values) { return values.map(v => cleanText(v, 1200)).find(Boolean) || null; }
+function getDomain(value) { try { return new URL(value).hostname.replace(/^www\./i, '').toLowerCase(); } catch (_) { return ''; } }
 function normalizeUrl(value, baseUrl) {
   try {
     const url = new URL(String(value || ''), baseUrl);
@@ -35,17 +44,16 @@ function normalizeUrl(value, baseUrl) {
     return url.href.replace(/\/$/, '') || url.origin;
   } catch (_) { return null; }
 }
-function sameHost(a, b) {
-  try { return new URL(a).hostname.replace(/^www\./i, '').toLowerCase() === new URL(b).hostname.replace(/^www\./i, '').toLowerCase(); }
-  catch (_) { return false; }
+function absoluteHttp(value, baseUrl) {
+  const url = normalizeUrl(value, baseUrl);
+  return url || null;
 }
-function getDomain(value) {
-  try { return new URL(value).hostname.replace(/^www\./i, '').toLowerCase(); }
-  catch (_) { return ''; }
+function sameHost(a, b) {
+  try { return getDomain(a) === getDomain(b); } catch (_) { return false; }
 }
 function isAsset(url) { return /\.(?:css|js|mjs|jpg|jpeg|png|gif|webp|svg|ico|woff2?|ttf|mp4|mp3|zip|rar|pdf)(?:[?#].*)?$/iu.test(String(url || '')); }
 function isMenuPage(url, menuPages = []) {
-  const value = String(url || '').trim().replace(/#.*$/, '').replace(/\/$/, '').toLowerCase();
+  const value = String(url || '').replace(/#.*$/, '').replace(/\/$/, '').toLowerCase();
   if (!value) return false;
   if (MENU_PATH_RE.test(value)) return true;
   return menuPages.some(page => {
@@ -53,6 +61,9 @@ function isMenuPage(url, menuPages = []) {
     return p && (p === value || value.startsWith(`${p}/`));
   });
 }
+function pathOf(url) { try { return new URL(url).pathname.toLowerCase() || '/'; } catch (_) { return ''; } }
+function pathDepth(url) { const path = pathOf(url).replace(/^\/+|\/+$/g, ''); return path ? path.split('/').length : 0; }
+
 function targetScore(url, anchorText = '', evidence = {}) {
   const value = String(url || '').toLowerCase();
   let score = 0;
@@ -60,13 +71,14 @@ function targetScore(url, anchorText = '', evidence = {}) {
   if (MENU_TEXT_RE.test(anchorText)) score += 35;
   if (evidence.schemaMenu) score += 50;
   if (evidence.sitemap) score += 5;
-  if (/(product|dish|item|food|menu|catalog|category|pizza|sushi|salad|breakfast|dessert|drink)/i.test(value)) score += 15;
-  if (/(login|account|cart|checkout|privacy|terms|contact|delivery|news|blog|vacancy|career)/i.test(value)) score -= 15;
+  if (/(product|dish|item|food|menu|catalog|category|pizza|sushi|salad|breakfast|dessert|drink|mangal|napitki|sousy)/i.test(value)) score += 15;
+  if (/(login|account|cart|checkout|privacy|terms|contact|delivery|news|blog|vacancy|career|offer)/i.test(value)) score -= 15;
   return score;
 }
+
 function cleanMenuProduct(item) {
   const name = cleanText(item?.name, 220);
-  if (!name) return null;
+  if (!name || NOISE_RE.test(name) || WEIGHT_RE.test(name)) return null;
   const price = Number(item?.price);
   return {
     name,
@@ -75,244 +87,74 @@ function cleanMenuProduct(item) {
     category: item?.category ? cleanText(item.category, 120) : 'main',
     image_url: item?.image_url ? String(item.image_url).trim() : null,
     is_available: true,
-    applies_to: 'all'
+    applies_to: 'all',
+    source_url: item?.source_url || null,
+    extraction_source: item?.extraction_source || 'site-import'
   };
 }
-function mergeProducts(existing, rendered) {
+function mergeProducts(existing, incoming) {
   const out = [];
   const byName = new Map();
   const add = raw => {
     const product = cleanMenuProduct(raw);
     if (!product) return;
     const key = normalizeName(product.name);
-    if (!key) return;
     const previous = byName.get(key);
-    if (previous) {
-      if (!previous.image_url && product.image_url) previous.image_url = product.image_url;
-      if (!previous.description && product.description) previous.description = product.description;
-      if ((!previous.price || previous.price <= 0) && product.price > 0) previous.price = product.price;
-      if ((!previous.category || previous.category === 'main') && product.category) previous.category = product.category;
-      return;
-    }
-    byName.set(key, product);
-    out.push(product);
+    if (!previous) { byName.set(key, product); out.push(product); return; }
+    if (!previous.image_url && product.image_url) previous.image_url = product.image_url;
+    if (!previous.description && product.description) previous.description = product.description;
+    if ((!previous.price || previous.price <= 0) && product.price > 0) previous.price = product.price;
+    if ((!previous.category || previous.category === 'main') && product.category && product.category !== 'main') previous.category = product.category;
+    if ((!previous.source_url || previous.source_url === null) && product.source_url) previous.source_url = product.source_url;
   };
   for (const item of Array.isArray(existing) ? existing : []) add(item);
-  for (const item of Array.isArray(rendered) ? rendered : []) add(item);
+  for (const item of Array.isArray(incoming) ? incoming : []) add(item);
   return out;
 }
-function normalizeError(error) {
-  if (!error) return null;
-  if (typeof error === 'string') return { code: 'IMPORT_ERROR', message: error, details: {} };
-  return { code: String(error.code || 'IMPORT_ERROR'), message: String(error.message || 'Ошибка импорта'), details: error.details && typeof error.details === 'object' ? error.details : {} };
-}
 
-function learningConfig() {
-  const url = firstNonEmpty(process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.VITE_SUPABASE_URL);
-  const key = firstNonEmpty(process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.SUPABASE_SERVICE_KEY, process.env.SUPABASE_SECRET_KEY);
-  return { url: url ? String(url).replace(/\/$/, '') : null, key: key || null, enabled: Boolean(url && key) };
-}
-
-async function learningRequest(path, options = {}) {
-  const config = learningConfig();
-  if (!config.enabled) return null;
-  try {
-    const response = await fetch(`${config.url}/rest/v1/${path}`, {
-      ...options,
-      headers: {
-        apikey: config.key,
-        Authorization: `Bearer ${config.key}`,
-        'Content-Type': 'application/json',
-        Prefer: 'return=representation',
-        ...(options.headers || {})
-      }
-    });
-    if (!response.ok) return null;
-    const text = await response.text();
-    return text ? JSON.parse(text) : [];
-  } catch (_) { return null; }
-}
-
-async function loadLearningPatterns(domain) {
-  const config = learningConfig();
-  if (!config.enabled) return { enabled: false, patterns: [], reused: 0 };
-  const query = [
-    `confidence=gte.${LEARNING_MIN_CONFIDENCE}`,
-    `or=(scope.eq.global,scope.eq.platform,scope.eq.domain)`,
-    'order=confidence.desc,observations.desc',
-    `limit=${LEARNING_MAX_PATTERNS}`
-  ].join('&');
-  const rows = await learningRequest(`site_analyzer_learning_patterns?select=*&${query}`);
-  const patterns = Array.isArray(rows) ? rows.filter(row => {
-    if (row.scope !== 'domain') return true;
-    return String(row.domain || '').toLowerCase() === domain;
-  }) : [];
-  return { enabled: true, patterns, reused: patterns.length };
-}
-
-function applyLearningToDiscovery(discovery, patterns, diagnostics) {
-  if (!Array.isArray(discovery) || !patterns.length) return discovery;
-  const menuLinks = patterns.filter(p => p.pattern_type === 'menu_link');
-  const boosts = new Map();
-  for (const pattern of menuLinks) {
-    const value = pattern.pattern_value || {};
-    const hint = String(value.path || value.url_path || value.url_pattern || value.anchor || '').toLowerCase();
-    if (!hint) continue;
-    for (const item of discovery) {
-      const haystack = `${item.url} ${item.anchor || ''}`.toLowerCase();
-      if (haystack.includes(hint)) boosts.set(item.url, Math.max(boosts.get(item.url) || 0, Math.round(Number(pattern.confidence || 0) * 25)));
-    }
-  }
-  for (const item of discovery) {
-    const boost = boosts.get(item.url) || 0;
-    if (boost) {
-      item.score += boost;
-      if (!Array.isArray(item.reasons)) item.reasons = [];
-      item.reasons.push('learned-menu-pattern');
-    }
-  }
-  diagnostics.learning_reused_menu_hints = boosts.size;
-  return discovery.sort((a, b) => b.score - a.score);
-}
-
-function evaluateProduct(product, source = 'unknown') {
-  const evidence = [];
-  if (product?.name) evidence.push('name');
-  if (Number(product?.price) > 0) evidence.push('price');
-  if (product?.description) evidence.push('description');
-  if (product?.image_url) evidence.push('image');
-  if (product?.category && product.category !== 'main') evidence.push('category');
-  if (product?.extraction_source) evidence.push(`source:${product.extraction_source}`);
-  const completeness = evidence.filter(x => !x.startsWith('source:')).length;
-  let score = 25 + completeness * 14;
-  if (product?.extraction_source) score += 8;
-  if (source === 'browser') score += 5;
-  score = Math.max(0, Math.min(100, score));
-  const level = score >= 75 ? 'high' : score >= 50 ? 'medium' : 'low';
-  return { confidence: score, level, evidence };
-}
-
-function evaluateProducts(products, diagnostics) {
-  const evaluated = [];
-  for (const product of Array.isArray(products) ? products : []) {
-    const evaluation = evaluateProduct(product, product?.extraction_source ? 'analyzer' : 'unknown');
-    product.import_confidence = evaluation.confidence;
-    product.import_confidence_level = evaluation.level;
-    product.import_confidence_reasons = evaluation.evidence;
-    evaluated.push(evaluation);
-  }
-  diagnostics.product_confidence = {
-    high: evaluated.filter(x => x.level === 'high').length,
-    medium: evaluated.filter(x => x.level === 'medium').length,
-    low: evaluated.filter(x => x.level === 'low').length
-  };
-  return evaluated;
-}
-
-function learningPatternKey(type, value) {
-  return `${type}:${normalizeName(value)}`.slice(0, 500);
-}
-
-function buildLearningObservations(products, discovery, browserResult, domain) {
-  const observations = [];
-  const add = (pattern_type, pattern_key, pattern_value, scope = 'global', success = true) => {
-    if (!pattern_key) return;
-    observations.push({ pattern_type, pattern_key: String(pattern_key).slice(0, 500), pattern_value: pattern_value || {}, scope, domain: scope === 'domain' ? domain : null, success });
-  };
-
-  const sourceCounts = new Map();
-  for (const product of Array.isArray(products) ? products : []) {
-    const source = String(product?.extraction_source || 'generic').trim().toLowerCase();
-    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
-    const evaluation = evaluateProduct(product);
-    add('card_structure', learningPatternKey('card_structure', source), { extraction_source: source, fields: evaluation.evidence.filter(x => !x.startsWith('source:')) }, 'global', evaluation.confidence >= 50);
-    add('name_selector', learningPatternKey('name_selector', source), { extraction_source: source }, 'global', Boolean(product?.name));
-    add('price_selector', learningPatternKey('price_selector', source), { extraction_source: source }, 'global', Number(product?.price) > 0);
-    add('description_selector', learningPatternKey('description_selector', source), { extraction_source: source }, 'global', Boolean(product?.description));
-    add('image_selector', learningPatternKey('image_selector', source), { extraction_source: source }, 'global', Boolean(product?.image_url));
-    if (product?.category && product.category !== 'main') add('category_selector', learningPatternKey('category_selector', source), { extraction_source: source }, 'global', true);
-  }
-
-  for (const item of Array.isArray(discovery) ? discovery.slice(0, 40) : []) {
-    if (isMenuPage(item.url, [])) {
-      const path = (() => { try { return new URL(item.url).pathname.toLowerCase(); } catch (_) { return ''; } })();
-      add('menu_link', learningPatternKey('menu_link', path), { path, score: item.score, reasons: item.reasons || [] }, 'global', true);
-    }
-  }
-
-  if (browserResult?.diagnostics?.discovered_menu_links) {
-    for (const url of browserResult.diagnostics.discovered_menu_links.slice(0, 30)) {
-      let path = '';
-      try { path = new URL(url).pathname.toLowerCase(); } catch (_) {}
-      if (path) add('menu_link', learningPatternKey('menu_link', path), { path, discovered_by: 'browser' }, 'global', true);
-    }
-  }
-
-  for (const [source, count] of sourceCounts.entries()) {
-    if (count >= 2) add('platform_signature', learningPatternKey('platform_signature', source), { extraction_source: source, observed_products: count }, 'global', true);
-  }
-  return observations.slice(0, LEARNING_MAX_WRITES);
-}
-
-async function persistLearning(observations, run, diagnostics) {
-  const config = learningConfig();
-  if (!config.enabled) {
-    diagnostics.learning = { enabled: false, patterns_discovered: 0, patterns_reused: Number(diagnostics.learning?.patterns_reused || 0), reason: 'server_supabase_credentials_not_configured' };
-    return;
-  }
-  let written = 0;
-  for (const item of observations) {
-    const body = {
-      p_pattern_type: item.pattern_type,
-      p_pattern_key: item.pattern_key,
-      p_pattern_value: item.pattern_value,
-      p_scope: item.scope,
-      p_domain: item.domain,
-      p_success: Boolean(item.success)
-    };
-    const result = await learningRequest('rpc/update_site_analyzer_learning_pattern', {
-      method: 'POST',
-      body: JSON.stringify(body)
-    });
-    if (result) written += 1;
-  }
-  const runResult = await learningRequest('site_analyzer_learning_runs', {
-    method: 'POST',
-    body: JSON.stringify(run)
-  });
-  diagnostics.learning = {
-    enabled: true,
-    patterns_discovered: observations.length,
-    patterns_written: written,
-    patterns_reused: Number(diagnostics.learning?.patterns_reused || 0),
-    run_recorded: Boolean(runResult)
-  };
-}
-
-async function fetchText(url, timeoutMs = 7000) {
+async function fetchText(url, timeoutMs = 7000, headers = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
-      redirect: 'follow',
-      signal: controller.signal,
+      redirect: 'follow', signal: controller.signal,
       headers: {
-        'user-agent': 'Mozilla/5.0 QR-Menu-Site-Analyzer/40.0',
+        'user-agent': 'Mozilla/5.0 QR-Menu-Site-Analyzer/42.0',
         accept: 'text/html,application/xhtml+xml,application/xml,text/xml,application/json,text/plain,*/*;q=0.7',
-        'accept-language': 'ru-RU,ru;q=0.9,en;q=0.8'
+        'accept-language': 'ru-RU,ru;q=0.9,en;q=0.8',
+        ...headers
       }
     });
-    if (!response.ok) return null;
-    return { url: response.url || url, contentType: response.headers.get('content-type') || '', text: (await response.text()).slice(0, 8 * 1024 * 1024) };
-  } catch (_) { return null; }
-  finally { clearTimeout(timer); }
+    const contentType = response.headers.get('content-type') || '';
+    const text = (await response.text()).slice(0, 10 * 1024 * 1024);
+    return { ok: response.ok, status: response.status, url: response.url || url, contentType, text };
+  } catch (error) {
+    return { ok: false, status: 0, url, contentType: '', text: '', error: String(error?.message || error) };
+  } finally { clearTimeout(timer); }
+}
+
+function looksBlocked(payload) {
+  if (!payload) return true;
+  if (!payload.ok && payload.status >= 400) return true;
+  const text = cleanText(payload.text, 8000).toLowerCase();
+  return /вы не робот|не робот|captcha|проверка безопасности|access denied|just a moment|checking your browser|verify you are human|too many requests|bot detection|antibot|cloudflare|yandex smart captcha/.test(text);
+}
+
+async function fetchThroughReader(url, timeoutMs = 12000) {
+  const encoded = `https://r.jina.ai/${String(url).replace(/^https?:\/\//i, match => match)}`;
+  return fetchText(encoded, timeoutMs, {
+    'x-engine': 'browser',
+    'x-no-cache': 'true',
+    'x-respond-with': 'html',
+    'x-base': 'true'
+  });
 }
 
 function parseLinks(html, baseUrl) {
   const out = [];
   const re = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/giu;
   let match;
-  while ((match = re.exec(String(html || ''))) && out.length < 800) {
+  while ((match = re.exec(String(html || ''))) && out.length < 1000) {
     const url = normalizeUrl(match[1], baseUrl);
     if (!url || !sameHost(url, baseUrl) || isAsset(url)) continue;
     const text = cleanText(String(match[2]).replace(/<[^>]+>/g, ' '), 180);
@@ -320,97 +162,77 @@ function parseLinks(html, baseUrl) {
   }
   return out;
 }
-
 function parseSitemap(xml, baseUrl) {
   const out = [];
   const re = /<loc>\s*([^<]+?)\s*<\/loc>/giu;
   let match;
-  while ((match = re.exec(String(xml || ''))) && out.length < 1200) {
+  while ((match = re.exec(String(xml || ''))) && out.length < 2000) {
     const url = normalizeUrl(match[1], baseUrl);
     if (url && sameHost(url, baseUrl) && !isAsset(url)) out.push(url);
   }
   return [...new Set(out)];
 }
-
 function parseRobotsSitemaps(text, baseUrl) {
   const out = [];
   for (const line of String(text || '').split(/\r?\n/)) {
     const match = line.match(/^\s*sitemap\s*:\s*(\S+)/iu);
-    if (match) {
-      const url = normalizeUrl(match[1], baseUrl);
-      if (url && sameHost(url, baseUrl)) out.push(url);
-    }
+    const url = match ? normalizeUrl(match[1], baseUrl) : null;
+    if (url && sameHost(url, baseUrl)) out.push(url);
   }
   return [...new Set(out)];
 }
 
-function parseJsonLdNodes(html, baseUrl) {
+function parseJsonLdNodes(html) {
   const nodes = [];
   const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/giu;
   let match;
   while ((match = re.exec(String(html || '')))) {
     try {
-      const value = JSON.parse(match[1].trim());
-      const walk = node => {
-        if (!node) return;
-        if (Array.isArray(node)) return node.forEach(walk);
-        if (typeof node !== 'object') return;
-        nodes.push(node);
-        if (Array.isArray(node['@graph'])) node['@graph'].forEach(walk);
-        Object.values(node).forEach(value => {
-          if (value && typeof value === 'object') walk(value);
-        });
+      const parsed = JSON.parse(match[1].trim());
+      const walk = value => {
+        if (!value) return;
+        if (Array.isArray(value)) return value.forEach(walk);
+        if (typeof value !== 'object') return;
+        nodes.push(value);
+        Object.values(value).forEach(walk);
       };
-      walk(value);
+      walk(parsed);
     } catch (_) {}
   }
   return nodes;
 }
-
 function parseSchemaMenuTargets(html, baseUrl) {
   const targets = [];
-  const nodes = parseJsonLdNodes(html, baseUrl);
   const push = value => {
-    if (typeof value !== 'string') return;
-    const url = normalizeUrl(value, baseUrl);
-    if (url && sameHost(url, baseUrl)) targets.push({ url, score: 80, reason: 'schema-menu-url' });
+    const url = typeof value === 'string' ? normalizeUrl(value, baseUrl) : null;
+    if (url && sameHost(url, baseUrl)) targets.push(url);
   };
-  const walk = node => {
-    if (!node || typeof node !== 'object') return;
-    const type = Array.isArray(node['@type']) ? node['@type'].join(' ') : String(node['@type'] || '');
-    if (/(restaurant|cafe|bar|foodestablishment)/i.test(type)) {
-      const menu = node.hasMenu || node.menu;
-      if (typeof menu === 'string') push(menu);
-      else if (menu && typeof menu === 'object') { push(menu.url); push(menu['@id']); }
-    }
-    if (/(menu|menusection)/i.test(type)) push(node.url);
-    Object.values(node).forEach(value => { if (value && typeof value === 'object') walk(value); });
-  };
-  nodes.forEach(walk);
-  return targets;
+  for (const node of parseJsonLdNodes(html)) {
+    const type = Array.isArray(node?.['@type']) ? node['@type'].join(' ') : String(node?.['@type'] || '');
+    if (!/(restaurant|cafe|bar|foodestablishment)/i.test(type)) continue;
+    const menu = node.hasMenu || node.menu;
+    if (typeof menu === 'string') push(menu);
+    else if (menu && typeof menu === 'object') { push(menu.url); push(menu['@id']); }
+  }
+  return [...new Set(targets)];
 }
-
-function parseJsonLdIdentity(html, baseUrl) {
+function parseIdentity(html, baseUrl) {
+  const nodes = parseJsonLdNodes(html);
   const identity = { name: null, description: null, address: null, phone: null, logo_url: null, opening_hours: null, cuisine: [], sources: [] };
-  const nodes = parseJsonLdNodes(html, baseUrl);
-  const addressText = a => {
-    if (!a) return null;
-    if (typeof a === 'string') return cleanText(a, 300);
-    return [a.streetAddress, a.postalCode, a.addressLocality, a.addressRegion, a.addressCountry].filter(Boolean).join(', ');
-  };
-  for (const item of nodes) {
-    const type = Array.isArray(item['@type']) ? item['@type'].join(' ') : String(item['@type'] || '');
+  for (const node of nodes) {
+    const type = Array.isArray(node?.['@type']) ? node['@type'].join(' ') : String(node?.['@type'] || '');
     if (!/(restaurant|cafe|bar|foodestablishment|localbusiness|organization)/i.test(type)) continue;
-    identity.name ||= firstNonEmpty(item.name);
-    identity.description ||= firstNonEmpty(item.description);
-    identity.address ||= addressText(item.address);
-    identity.phone ||= firstNonEmpty(item.telephone, item.phone);
-    identity.opening_hours ||= item.openingHours || item.openingHoursSpecification || null;
-    const logo = typeof item.logo === 'object' ? item.logo?.url : item.logo;
-    const image = typeof item.image === 'object' ? item.image?.url : item.image;
-    identity.logo_url ||= absoluteHttp(logo || image, baseUrl);
-    const cuisine = Array.isArray(item.servesCuisine) ? item.servesCuisine : [item.servesCuisine];
-    identity.cuisine.push(...cuisine.filter(Boolean).map(x => cleanText(x, 80)));
+    identity.name ||= firstNonEmpty(node.name);
+    identity.description ||= firstNonEmpty(node.description);
+    if (!identity.address && node.address) {
+      identity.address = typeof node.address === 'string' ? cleanText(node.address, 300) : cleanText([node.address.streetAddress,node.address.postalCode,node.address.addressLocality,node.address.addressRegion].filter(Boolean).join(', '), 300);
+    }
+    identity.phone ||= firstNonEmpty(node.telephone, node.phone);
+    identity.opening_hours ||= node.openingHours || node.openingHoursSpecification || null;
+    const image = typeof node.logo === 'object' ? node.logo?.url : node.logo;
+    identity.logo_url ||= absoluteHttp(image || node.image, baseUrl);
+    const cuisine = Array.isArray(node.servesCuisine) ? node.servesCuisine : [node.servesCuisine];
+    identity.cuisine.push(...cuisine.filter(Boolean).map(v => cleanText(v, 80)));
     identity.sources.push('json-ld');
   }
   identity.cuisine = [...new Set(identity.cuisine)];
@@ -418,99 +240,316 @@ function parseJsonLdIdentity(html, baseUrl) {
   return identity;
 }
 
-async function discoverSite(rawUrl, diagnostics) {
+function visibleLines(html) {
+  return String(html || '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/giu, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/giu, ' ')
+    .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/giu, ' ')
+    .replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/giu, ' ')
+    .replace(/<br\s*\/?>/giu, '\n')
+    .replace(/<\/(?:div|p|li|section|article|h[1-6]|tr|td|th|a|button|label|option|form|header|footer|nav)>/giu, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .split(/\r?\n/)
+    .map(x => cleanText(x, 700))
+    .filter(Boolean);
+}
+function priceValue(value) {
+  const text = cleanText(value, 700).replace(/[\u00a0\u202f]/g, ' ');
+  const match = text.match(/(?:^|[^\d])((?:\d{1,3}(?:[ .]\d{3})+)|\d{1,6})(?:[.,]\d{1,2})?\s*(?:₽|руб(?:лей|ля|ль)?\.?|р\.?|RUB)(?=$|\s|[.,;:!?])/iu)
+    || text.match(/(?:₽|руб(?:лей|ля|ль)?\.?|RUB)\s*((?:\d{1,3}(?:[ .]\d{3})+)|\d{1,6})(?:[.,]\d{1,2})?/iu);
+  if (!match) return 0;
+  const raw = match[1] || match[0].replace(/[^\d., ]/g, '');
+  const price = Number(String(raw).replace(/[ .]/g, '').replace(',', '.'));
+  return price > 0 && price < 1000000 ? price : 0;
+}
+function readerProductsFromHtml(html, pageUrl) {
+  const products = [];
+  const seen = new Set();
+  const add = (name, price, description = '', image = null, source = 'reader-structure', category = 'main') => {
+    const normalized = normalizeName(name);
+    if (!normalized || seen.has(normalized) || !price) return;
+    if (NOISE_RE.test(name) || WEIGHT_RE.test(name) || CATEGORY_RE.test(name)) return;
+    seen.add(normalized);
+    products.push({ name: cleanText(name, 220), description: cleanText(description, 600), price, image_url: image ? absoluteHttp(image, pageUrl) : null, category: cleanText(category, 120), source_url: pageUrl, extraction_source: source, is_available: true, applies_to: 'all' });
+  };
+
+  for (const node of parseJsonLdNodes(html)) {
+    const type = Array.isArray(node?.['@type']) ? node['@type'].join(' ') : String(node?.['@type'] || '');
+    const offer = Array.isArray(node?.offers) ? node.offers[0] : node?.offers;
+    const price = Number(String(node?.price ?? offer?.price ?? '').replace(/\s/g, '').replace(',', '.'));
+    if (/(product|menuitem)/i.test(type) && node?.name && price > 0) {
+      const image = typeof node.image === 'string' ? node.image : node.image?.url;
+      add(node.name, price, node.description, image, 'reader-jsonld', node.category || 'main');
+    }
+  }
+
+  const safe = String(html || '');
+  const structural = /<(?:article|li|div|section)[^>]*(?:class|id)=["'][^"']*(?:menu|dish|product|food|price|card|item)[^"']*["'][^>]*>[\s\S]{0,12000}?<\/(?:article|li|div|section)>/giu;
+  let match;
+  while ((match = structural.exec(safe)) && products.length < 500) {
+    const block = match[0];
+    const lines = visibleLines(block);
+    const prices = lines.map(priceValue).filter(Boolean);
+    if (!prices.length) continue;
+    const candidates = lines.filter(line => line.length >= 3 && line.length <= 220 && !priceValue(line) && !NOISE_RE.test(line) && !WEIGHT_RE.test(line) && !CATEGORY_RE.test(line) && /[A-Za-zА-Яа-яЁё]/.test(line));
+    if (!candidates.length) continue;
+    const image = block.match(/<(?:img|source)[^>]+(?:src|data-src|data-lazy-src|srcset)=["']([^"']+)/iu)?.[1] || null;
+    const category = lines.find(line => CATEGORY_RE.test(line)) || 'main';
+    add(candidates[0], prices[0], candidates.slice(1, 4).join(' '), image, 'reader-structural-card', category);
+  }
+
+  const lines = visibleLines(html);
+  for (let i = 0; i < lines.length && products.length < 500; i++) {
+    const price = priceValue(lines[i]);
+    if (!price) continue;
+    let name = null;
+    let description = '';
+    for (let d = 1; d <= 10; d++) {
+      const prev = lines[i - d];
+      const next = lines[i + d];
+      for (const candidate of [prev, next]) {
+        if (!candidate || priceValue(candidate) || NOISE_RE.test(candidate) || WEIGHT_RE.test(candidate) || CATEGORY_RE.test(candidate)) continue;
+        if (candidate.length >= 3 && candidate.length <= 220 && /[A-Za-zА-Яа-яЁё]/.test(candidate)) { name = candidate; break; }
+      }
+      if (name) break;
+    }
+    if (name) add(name, price, description, null, 'reader-visible-text', lines.slice(Math.max(0, i - 3), i).find(x => x.length > 40 && x !== name) || 'main');
+  }
+  return products;
+}
+
+async function discoverSite(rawUrl, diagnostics, learningPatterns = []) {
   const start = normalizeUrl(rawUrl, rawUrl);
   const candidates = new Map();
   const add = (url, score, reason, anchor = '') => {
     const normalized = normalizeUrl(url, start);
     if (!normalized || !sameHost(normalized, start) || isAsset(normalized)) return;
-    const existing = candidates.get(normalized);
-    const entry = { url: normalized, score: Number(score || 0), reasons: existing?.reasons || [], anchor: existing?.anchor || anchor };
-    if (reason && !entry.reasons.includes(reason)) entry.reasons.push(reason);
+    const previous = candidates.get(normalized);
+    const entry = previous || { url: normalized, score: 0, reasons: [], anchor: '' };
     entry.score = Math.max(entry.score, Number(score || 0));
+    if (reason && !entry.reasons.includes(reason)) entry.reasons.push(reason);
+    if (anchor && !entry.anchor) entry.anchor = anchor;
     candidates.set(normalized, entry);
   };
   add(start, 1, 'start');
   for (const path of COMMON_MENU_PATHS) add(`${start}/${path}`, 25, 'common-menu-path');
+
   const root = await fetchText(start, 8000);
-  if (root) {
-    const identity = parseJsonLdIdentity(root.text, root.url);
-    diagnostics.site_discovery.identity = identity;
-    const links = parseLinks(root.text, root.url);
-    for (const item of links) add(item.url, item.score, 'homepage-link', item.text);
-    for (const item of parseSchemaMenuTargets(root.text, root.url)) add(item.url, item.score, item.reason);
-    diagnostics.site_discovery.homepage_links = links.length;
-    diagnostics.site_discovery.schema_menu_targets = parseSchemaMenuTargets(root.text, root.url).map(x => x.url);
+  diagnostics.site_discovery.root_status = root.status;
+  diagnostics.site_discovery.root_blocked = looksBlocked(root);
+  if (root.ok) {
+    diagnostics.site_discovery.identity = parseIdentity(root.text, root.url);
+    for (const link of parseLinks(root.text, root.url)) add(link.url, link.score, 'homepage-link', link.text);
+    for (const url of parseSchemaMenuTargets(root.text, root.url)) add(url, 80, 'schema-menu-url');
   }
+
   const robots = await fetchText(new URL('/robots.txt', start).href, 5000);
   const sitemapUrls = new Set();
-  if (robots) parseRobotsSitemaps(robots.text, start).forEach(x => sitemapUrls.add(x));
+  if (robots.ok) parseRobotsSitemaps(robots.text, start).forEach(url => sitemapUrls.add(url));
   sitemapUrls.add(new URL('/sitemap.xml', start).href);
   sitemapUrls.add(new URL('/sitemap_index.xml', start).href);
   diagnostics.site_discovery.sitemaps_checked = [];
   diagnostics.site_discovery.sitemap_urls_found = [];
   for (const sitemapUrl of sitemapUrls) {
     const sitemap = await fetchText(sitemapUrl, 6000);
-    if (!sitemap) continue;
+    if (!sitemap.ok) continue;
     diagnostics.site_discovery.sitemaps_checked.push(sitemapUrl);
     const urls = parseSitemap(sitemap.text, sitemap.url);
     diagnostics.site_discovery.sitemap_urls_found.push(...urls);
     for (const url of urls) add(url, targetScore(url, '', { sitemap: true }), 'sitemap');
-    if (urls.length) {
-      const nested = urls.filter(url => /sitemap/i.test(url)).slice(0, 8);
-      for (const nestedUrl of nested) {
-        const child = await fetchText(nestedUrl, 5000);
-        if (!child) continue;
-        for (const url of parseSitemap(child.text, nestedUrl)) add(url, targetScore(url, '', { sitemap: true }), 'nested-sitemap');
+  }
+
+  const learnedPaths = learningPatterns.filter(p => p.pattern_type === 'menu_link').map(p => String(p.pattern_value?.path || '').toLowerCase()).filter(Boolean);
+  for (const item of candidates.values()) {
+    const haystack = `${pathOf(item.url)} ${item.anchor || ''}`.toLowerCase();
+    for (const hint of learnedPaths) {
+      if (hint && haystack.includes(hint)) {
+        item.score += Math.round(Math.max(0.65, Number(learningPatterns.find(p => p.pattern_value?.path === hint)?.confidence || 0.65)) * 25);
+        if (!item.reasons.includes('learned-menu-pattern')) item.reasons.push('learned-menu-pattern');
+        break;
       }
     }
   }
   diagnostics.site_discovery.candidate_count = candidates.size;
-  return [...candidates.values()].sort((a, b) => b.score - a.score).slice(0, 120);
+  return [...candidates.values()].sort((a,b) => b.score - a.score).slice(0, MAX_DISCOVERY_CANDIDATES);
 }
 
-function fallbackMenuTargets(raw, diagnostics) {
-  const base = String(raw || '').replace(/#.*$/, '').replace(/\/$/, '');
-  if (!/^https?:\/\//i.test(base)) return [];
-  const discovered = [];
-  const push = value => {
-    const url = normalizeUrl(value, base);
-    if (url && !discovered.includes(url)) discovered.push(url);
+function chooseReaderTargets(discovery, rawUrl) {
+  const base = normalizeUrl(rawUrl, rawUrl);
+  const categoryTargets = discovery
+    .filter(item => sameHost(item.url, base) && !isAsset(item.url) && isMenuPage(item.url, []))
+    .sort((a,b) => {
+      const depthA = pathDepth(a.url); const depthB = pathDepth(b.url);
+      const categoryA = depthA <= 1 ? 1 : 0; const categoryB = depthB <= 1 ? 1 : 0;
+      return (categoryB - categoryA) || (b.score - a.score);
+    })
+    .filter(item => pathDepth(item.url) <= 2);
+  return [...new Set(categoryTargets.map(item => item.url))].slice(0, MAX_READER_TARGETS);
+}
+
+async function readerFallbackProducts(targets, diagnostics) {
+  if (!targets.length) return [];
+  const products = [];
+  let cursor = 0;
+  const worker = async () => {
+    while (cursor < targets.length) {
+      const index = cursor++;
+      const url = targets[index];
+      const response = await fetchThroughReader(url, 12000);
+      const blocked = looksBlocked(response);
+      diagnostics.reader_pages = Array.isArray(diagnostics.reader_pages) ? diagnostics.reader_pages : [];
+      const page = { url, status: response.status, ok: response.ok, blocked, bytes: response.text.length };
+      if (response.ok && !blocked) {
+        page.products = 0;
+        try {
+          const parsed = readerProductsFromHtml(response.text, url);
+          page.products = parsed.length;
+          products.push(...parsed);
+        } catch (error) {
+          page.parse_error = String(error?.message || error);
+        }
+      }
+      diagnostics.reader_pages.push(page);
+    }
   };
-  for (const url of Array.isArray(diagnostics?.menu_pages) ? diagnostics.menu_pages : []) push(url);
-  for (const url of Array.isArray(diagnostics?.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : []) push(url);
-  for (const item of Array.isArray(diagnostics?.site_discovery?.candidates) ? diagnostics.site_discovery.candidates : []) push(item.url);
-  for (const path of COMMON_MENU_PATHS) push(`${base}/${path}`);
-  return discovered;
+  await Promise.all(Array.from({ length: Math.min(READER_CONCURRENCY, targets.length) }, () => worker()));
+  return products;
 }
 
 async function analyzeVenueIdentity(rawUrl, discoveryIdentity = null) {
   const base = discoveryIdentity || {};
+  const direct = await fetchText(rawUrl, 7000);
+  let source = direct;
+  if (!direct.ok || looksBlocked(direct)) source = await fetchThroughReader(rawUrl, 12000);
+  if (!source?.ok || looksBlocked(source)) return base;
+  const html = source.text;
+  const identity = parseIdentity(html, source.url || rawUrl);
+  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || null;
+  const meta = name => {
+    const safe = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re1 = new RegExp(`<meta[^>]+(?:property|name)=["']${safe}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i');
+    const re2 = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${safe}["'][^>]*>`, 'i');
+    return html.match(re1)?.[1] || html.match(re2)?.[1] || null;
+  };
+  return {
+    name: firstNonEmpty(identity.name, base.name, meta('og:site_name'), meta('application-name'), title?.replace(/\s*[|—-]\s*(меню|menu|доставка|официальный сайт).*$/iu, '')),
+    description: firstNonEmpty(identity.description, base.description, meta('description'), meta('og:description')),
+    address: firstNonEmpty(identity.address, base.address, meta('street-address')),
+    phone: firstNonEmpty(identity.phone, base.phone, meta('telephone')),
+    logo_url: identity.logo_url || base.logo_url || absoluteHttp(meta('og:image'), source.url || rawUrl),
+    opening_hours: identity.opening_hours || base.opening_hours || null,
+    cuisine: [...new Set([...(base.cuisine || []), ...(identity.cuisine || [])])],
+    sources: [...new Set([...(base.sources || []), ...(identity.sources || []), source === direct ? 'meta/title' : 'reader/meta-title'])]
+  };
+}
+
+function learningAuth(req) {
+  const header = req?.headers?.authorization || req?.headers?.Authorization || '';
+  return String(header || '').trim();
+}
+function learningEndpoint() { return `${String(process.env.SUPABASE_URL || SUPABASE_URL_FALLBACK).replace(/\/$/, '')}/functions/v1/site-analyzer-learning`; }
+async function learningGatewayRequest(req, action, payload) {
+  const auth = learningAuth(req);
+  if (!auth) return null;
   try {
-    const response = await fetchText(rawUrl, 8000);
-    if (!response) return base;
-    const html = response.text;
-    const identity = parseJsonLdIdentity(html, response.url || rawUrl);
-    const meta = name => {
-      const safe = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`<meta[^>]+(?:property|name)=["']${safe}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i');
-      return html.match(re)?.[1] || null;
-    };
-    const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || null;
-    const bodyText = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    const addressMatch = bodyText.match(/(?:адрес|address|г\.|город|city)\s*[:\-]?\s*([^|]{8,180}?)(?=\s+(?:тел|phone|режим|время|часы|email|e-mail)\b|$)/iu);
-    const logo = html.match(/<link[^>]+rel=["'][^"']*(?:icon|apple-touch-icon)[^"']*["'][^>]+href=["']([^"']+)["'][^>]*>/i)?.[1] || null;
-    return {
-      name: firstNonEmpty(identity.name, base.name, meta('og:site_name'), meta('application-name'), title?.replace(/\s*[|—-]\s*(меню|menu|доставка|официальный сайт).*$/iu, '')),
-      description: firstNonEmpty(identity.description, base.description, meta('description'), meta('og:description')),
-      address: firstNonEmpty(identity.address, base.address, meta('street-address'), addressMatch?.[1]),
-      phone: firstNonEmpty(identity.phone, base.phone, meta('telephone')),
-      logo_url: identity.logo_url || base.logo_url || absoluteHttp(meta('og:image'), response.url || rawUrl) || absoluteHttp(logo, response.url || rawUrl),
-      opening_hours: identity.opening_hours || base.opening_hours || null,
-      cuisine: [...new Set([...(base.cuisine || []), ...(identity.cuisine || [])])],
-      sources: [...new Set([...(base.sources || []), ...(identity.sources || []), 'meta/title'])]
-    };
-  } catch (_) { return base; }
+    const response = await fetch(learningEndpoint(), {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, ...payload })
+    });
+    if (!response.ok) return null;
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  } catch (_) { return null; }
+}
+async function loadLearningPatterns(req, domain) {
+  const result = await learningGatewayRequest(req, 'load', { domain, min_confidence: LEARNING_MIN_CONFIDENCE, limit: LEARNING_MAX_PATTERNS });
+  if (!result?.ok || !Array.isArray(result.patterns)) return { enabled: Boolean(learningAuth(req)), patterns: [], reused: 0 };
+  return { enabled: true, patterns: result.patterns, reused: result.patterns.length };
+}
+function evaluateProduct(product) {
+  const reasons = [];
+  if (product?.name) reasons.push('name');
+  if (Number(product?.price) > 0) reasons.push('price');
+  if (product?.description) reasons.push('description');
+  if (product?.image_url) reasons.push('image');
+  if (product?.category && product.category !== 'main') reasons.push('category');
+  if (product?.extraction_source) reasons.push(`source:${product.extraction_source}`);
+  const fields = reasons.filter(x => !x.startsWith('source:')).length;
+  let score = 25 + fields * 14 + (product?.extraction_source ? 8 : 0);
+  if (/reader/i.test(String(product?.extraction_source || ''))) score += 4;
+  score = Math.min(100, score);
+  return { confidence: score, level: score >= 75 ? 'high' : score >= 50 ? 'medium' : 'low', reasons };
+}
+function evaluateProducts(products, diagnostics) {
+  const evaluated = (Array.isArray(products) ? products : []).map(product => {
+    const evaluation = evaluateProduct(product);
+    product.import_confidence = evaluation.confidence;
+    product.import_confidence_level = evaluation.level;
+    product.import_confidence_reasons = evaluation.reasons;
+    return evaluation;
+  });
+  diagnostics.product_confidence = {
+    high: evaluated.filter(x => x.level === 'high').length,
+    medium: evaluated.filter(x => x.level === 'medium').length,
+    low: evaluated.filter(x => x.level === 'low').length
+  };
+}
+function learningPatternKey(type, value) { return `${type}:${normalizeName(value)}`.slice(0, 500); }
+function buildLearningObservations(products, discovery, browserResult, readerProducts, domain, antiBotUsed) {
+  const observations = [];
+  const add = (pattern_type, pattern_key, pattern_value, scope = 'global', success = true) => {
+    if (!SUPPORTED_PATTERN_TYPES.has(pattern_type) || !pattern_key) return;
+    observations.push({ pattern_type, pattern_key: String(pattern_key).slice(0, 500), pattern_value: pattern_value || {}, scope, domain: scope === 'domain' ? domain : null, success });
+  };
+  const sourceCounts = new Map();
+  for (const product of Array.isArray(products) ? products : []) {
+    const source = String(product?.extraction_source || 'generic').toLowerCase();
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+    const evaluation = evaluateProduct(product);
+    add('card_structure', learningPatternKey('card_structure', source), { extraction_source: source, fields: evaluation.reasons.filter(x => !x.startsWith('source:')) }, 'global', evaluation.confidence >= 50);
+    add('name_selector', learningPatternKey('name_selector', source), { extraction_source: source }, 'global', Boolean(product?.name));
+    add('price_selector', learningPatternKey('price_selector', source), { extraction_source: source }, 'global', Number(product?.price) > 0);
+    add('description_selector', learningPatternKey('description_selector', source), { extraction_source: source }, 'global', Boolean(product?.description));
+    add('image_selector', learningPatternKey('image_selector', source), { extraction_source: source }, 'global', Boolean(product?.image_url));
+    if (product?.category && product.category !== 'main') add('category_selector', learningPatternKey('category_selector', source), { extraction_source: source }, 'global', true);
+  }
+  for (const item of Array.isArray(discovery) ? discovery.slice(0, 50) : []) {
+    if (!isMenuPage(item.url, [])) continue;
+    const path = pathOf(item.url);
+    add('menu_link', learningPatternKey('menu_link', path), { path, score: item.score, reasons: item.reasons || [] }, 'domain', true);
+  }
+  if (Array.isArray(browserResult?.diagnostics?.discovered_menu_links)) {
+    for (const url of browserResult.diagnostics.discovered_menu_links.slice(0, 30)) {
+      const path = pathOf(url);
+      if (path) add('menu_link', learningPatternKey('menu_link', path), { path, discovered_by: 'browser' }, 'domain', true);
+    }
+  }
+  if (antiBotUsed) {
+    add('platform_signature', learningPatternKey('platform_signature', 'jina-reader'), { bypass: 'reader', reason: 'anti-bot-or-challenge' }, 'global', Boolean(readerProducts.length));
+  }
+  if (!products.length && antiBotUsed) {
+    add('rejection_signal', learningPatternKey('rejection_signal', 'reader-no-products'), { reason: 'reader_no_products', domain }, 'domain', false);
+  }
+  for (const [source, count] of sourceCounts.entries()) {
+    if (count >= 2) add('platform_signature', learningPatternKey('platform_signature', source), { extraction_source: source, observed_products: count }, 'global', true);
+  }
+  return observations.slice(0, LEARNING_MAX_WRITES);
+}
+async function persistLearning(req, observations, run, diagnostics) {
+  if (!learningAuth(req)) {
+    diagnostics.learning = { enabled: false, patterns_discovered: observations.length, patterns_written: 0, patterns_reused: Number(diagnostics.learning?.patterns_reused || 0), run_recorded: false, reason: 'authorization_header_missing' };
+    return;
+  }
+  const response = await learningGatewayRequest(req, 'learn', { observations, run });
+  diagnostics.learning = {
+    enabled: true,
+    patterns_discovered: observations.length,
+    patterns_written: Number(response?.written || 0),
+    patterns_reused: Number(diagnostics.learning?.patterns_reused || 0),
+    run_recorded: Boolean(response?.run_recorded)
+  };
 }
 
 module.exports = async function(req, res) {
@@ -523,10 +562,10 @@ module.exports = async function(req, res) {
 
   try {
     const domain = getDomain(raw);
-    const learning = await loadLearningPatterns(domain);
+    const learning = await loadLearningPatterns(req, domain);
     const discoveryDiagnostics = { site_discovery: { candidates: [], identity: null, homepage_links: 0, schema_menu_targets: [], sitemaps_checked: [], sitemap_urls_found: [] } };
-    const discovery = await discoverSite(raw, discoveryDiagnostics);
-    discoveryDiagnostics.site_discovery.candidates = applyLearningToDiscovery(discovery, learning.patterns, discoveryDiagnostics);
+    const discovery = await discoverSite(raw, discoveryDiagnostics, learning.patterns);
+    discoveryDiagnostics.site_discovery.candidates = discovery;
 
     const [result, identity] = await Promise.all([
       withTimeout(analyzeSite(raw), ANALYSIS_BUDGET_MS),
@@ -536,75 +575,72 @@ module.exports = async function(req, res) {
     const meta = result.meta || (result.meta = {});
     const diagnostics = meta.diagnostics || (meta.diagnostics = {});
     diagnostics.site_discovery = discoveryDiagnostics.site_discovery;
-    diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
     diagnostics.learning = { enabled: learning.enabled, patterns_loaded: learning.patterns.length, patterns_reused: learning.reused };
+    diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
     diagnostics.analysis_steps.push(`Site reconnaissance: ${discovery.length} кандидатов страниц`);
     diagnostics.analysis_steps.push(`Learning Engine: загружено ${learning.patterns.length} устойчивых паттернов`);
     diagnostics.analysis_steps.push(`Sitemap: найдено ${discoveryDiagnostics.site_discovery.sitemap_urls_found.length} URL`);
-    diagnostics.analysis_steps.push(`Schema.org menu: найдено ${discoveryDiagnostics.site_discovery.schema_menu_targets.length} прямых ссылок на меню`);
 
     const jsPages = Array.isArray(diagnostics.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : [];
     const menuPages = Array.isArray(diagnostics.menu_pages) ? diagnostics.menu_pages : [];
     const discoveredTargets = discovery.map(item => item.url);
     const highValueTargets = discovery.filter(item => item.score >= 20).map(item => item.url);
-    const fallbackTargets = fallbackMenuTargets(raw, diagnostics);
-    const renderTargets = [...new Set([...highValueTargets, ...menuPages, ...jsPages, ...fallbackTargets, ...discoveredTargets])]
+    const renderTargets = [...new Set([...highValueTargets, ...menuPages, ...jsPages, ...discoveredTargets])]
       .filter(url => sameHost(url, raw)).slice(0, MAX_RENDER_TARGETS);
     diagnostics.analysis_steps.push(`Adaptive browser crawl: ${renderTargets.length} приоритетных URL`);
 
     let browserResult = { ok: false, code: 'NOT_RUN', products: [], diagnostics: {} };
     try {
-      const { renderMenuPages } = require('../lib/site-browser-renderer-v2');
       browserResult = await renderMenuPages(renderTargets);
-    } catch (browserLoadError) {
-      browserResult = {
-        ok: false,
-        code: 'BROWSER_DEPENDENCY_FAILED',
-        products: [],
-        diagnostics: {
-          error_name: browserLoadError?.name || 'Error',
-          error_message: String(browserLoadError?.message || browserLoadError),
-          stack: String(browserLoadError?.stack || '').split('\n').slice(0, 12)
-        }
-      };
+    } catch (error) {
+      browserResult = { ok: false, code: 'BROWSER_DEPENDENCY_FAILED', products: [], diagnostics: { error_name: error?.name || 'Error', error_message: String(error?.message || error) } };
     }
-
     diagnostics.browser_render = browserResult.diagnostics || {};
     diagnostics.browser_render_code = browserResult.code || null;
     diagnostics.browser_products_found = Array.isArray(browserResult.products) ? browserResult.products.length : 0;
     diagnostics.analysis_steps.push(`Adaptive browser crawl: ${browserResult.code || 'UNKNOWN'}; найдено ${diagnostics.browser_products_found} позиций`);
-    if (Array.isArray(browserResult.diagnostics?.discovered_menu_links) && browserResult.diagnostics.discovered_menu_links.length) {
-      diagnostics.analysis_steps.push(`Динамически обнаружено ссылок меню: ${browserResult.diagnostics.discovered_menu_links.length}`);
+
+    let readerProducts = [];
+    const antiBotDetected = looksBlocked({ ok: false, status: 403, text: diagnostics.browser_render?.pages?.some(p => /вы не робот|captcha|cloudflare/i.test(String(p?.title || ''))) ? 'captcha' : '' })
+      || diagnostics.browser_products_found === 0
+      || discoveryDiagnostics.site_discovery.root_blocked;
+    const readerTargets = chooseReaderTargets(discovery, raw);
+    diagnostics.reader_fallback = { considered: Boolean(antiBotDetected), targets: readerTargets.length, used: false, products_found: 0 };
+    if (antiBotDetected && readerTargets.length) {
+      readerProducts = await readerFallbackProducts(readerTargets, diagnostics);
+      diagnostics.reader_fallback.used = true;
+      diagnostics.reader_fallback.products_found = readerProducts.length;
+      diagnostics.analysis_steps.push(`Anti-bot Reader fallback: ${readerTargets.length} страниц; найдено ${readerProducts.length} позиций`);
     }
 
     result.products = mergeProducts(result.products, browserResult.products);
+    result.products = mergeProducts(result.products, readerProducts);
     diagnostics.products_found = result.products.length;
     diagnostics.venue_identity = identity;
     diagnostics.product_sources = [...new Set(result.products.map(x => x?.extraction_source).filter(Boolean))];
-    diagnostics.discovery_strategy = 'entity-catalog-multisource-v41-adaptive-learning';
+    diagnostics.discovery_strategy = 'entity-catalog-multisource-v42-antibot-learning';
     evaluateProducts(result.products, diagnostics);
 
-    const evidenceScore = Math.min(100, Math.round(
+    const confidence = Math.min(100, Math.round(
       (result.products.length ? 35 : 0) +
-      (result.products.filter(x => x.price > 0).length ? 20 : 0) +
-      (result.products.filter(x => x.description).length ? 15 : 0) +
-      (result.products.filter(x => x.image_url).length ? 15 : 0) +
-      (discoveryDiagnostics.site_discovery.schema_menu_targets.length ? 10 : 0) +
-      (discoveryDiagnostics.site_discovery.sitemap_urls_found.length ? 5 : 0)
+      (result.products.some(x => x.price > 0) ? 20 : 0) +
+      (result.products.some(x => x.description) ? 15 : 0) +
+      (result.products.some(x => x.image_url) ? 15 : 0) +
+      (discoveryDiagnostics.site_discovery.sitemap_urls_found.length ? 5 : 0) +
+      (diagnostics.reader_fallback.used ? 10 : 0)
     ));
-    diagnostics.confidence = evidenceScore;
+    diagnostics.confidence = confidence;
     diagnostics.confidence_reasons = [
       result.products.length ? `найдено ${result.products.length} структурированных позиций` : 'позиции не найдены',
       result.products.some(x => x.price > 0) ? 'есть ценовые доказательства' : null,
       result.products.some(x => x.description) ? 'есть описания' : null,
       result.products.some(x => x.image_url) ? 'есть изображения' : null,
-      discoveryDiagnostics.site_discovery.schema_menu_targets.length ? 'обнаружена Schema.org связь с меню' : null,
       discoveryDiagnostics.site_discovery.sitemap_urls_found.length ? 'использован sitemap' : null,
-      diagnostics.product_confidence?.high ? `${diagnostics.product_confidence.high} позиций с высокой уверенностью` : null
+      diagnostics.reader_fallback.used ? 'использован anti-bot Reader fallback' : null
     ].filter(Boolean);
 
-    const observations = buildLearningObservations(result.products, discovery, browserResult, domain);
-    await persistLearning(observations, {
+    const observations = buildLearningObservations(result.products, discovery, browserResult, readerProducts, domain, diagnostics.reader_fallback.used);
+    await persistLearning(req, observations, {
       domain,
       source_url: raw,
       products_high: diagnostics.product_confidence?.high || 0,
@@ -613,17 +649,19 @@ module.exports = async function(req, res) {
       patterns_discovered: observations.length,
       patterns_reused: learning.reused,
       diagnostics: {
-        confidence: diagnostics.confidence,
+        confidence,
         product_sources: diagnostics.product_sources,
         browser_code: browserResult.code || null,
-        candidate_count: discovery.length
+        reader_products: readerProducts.length,
+        candidate_count: discovery.length,
+        anti_bot_fallback: diagnostics.reader_fallback.used
       }
     }, diagnostics);
 
     meta.diagnostics = diagnostics;
     meta.menu_found = result.products.length > 0;
     meta.validation = result.products.length ? 'validated-multisource-catalog' : 'not_validated';
-    meta.error = result.products.length ? null : normalizeError(meta.error);
+    meta.error = result.products.length ? null : (meta.error || null);
 
     const sourceVenue = result.venue || {};
     const venue = {
@@ -645,8 +683,8 @@ module.exports = async function(req, res) {
         menu_found: Boolean(meta.menu_found),
         products_found: result.products.length,
         validation: meta.validation,
-        confidence: Number(diagnostics.confidence || 0),
-        confidence_reasons: Array.isArray(diagnostics.confidence_reasons) ? diagnostics.confidence_reasons : [],
+        confidence,
+        confidence_reasons: diagnostics.confidence_reasons || [],
         diagnostics,
         source_url: raw
       }
@@ -660,7 +698,7 @@ module.exports = async function(req, res) {
 function withTimeout(promise, ms) {
   let timer;
   const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => { const error = new Error('IMPORT_ANALYSIS_TIMEOUT'); error.code = 'IMPORT_ANALYSIS_TIMEOUT'; error.status = 504; reject(error); }, ms);
+    timer = setTimeout(() => { const error = new Error('IMPORT_ANALYSIS_TIMEOUT'); error.code = 'IMPORT_ANALYSIS_TIMEOUT'; reject(error); }, ms);
   });
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
