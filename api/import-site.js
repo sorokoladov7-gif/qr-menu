@@ -2,17 +2,20 @@
 
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
-const ANALYSIS_BUDGET_MS = 25000;
-const MAX_RENDER_TARGETS = 6;
+const ANALYSIS_BUDGET_MS = 35000;
+const MAX_RENDER_TARGETS = 12;
 const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garniry|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям)(?:[\/?#_.-]|$)/iu;
 
-// Category-style restaurant sites often expose menu sections as JS buttons rather than
-// normal <a href> links. These paths are only a fallback after the analyzer found no
-// products; normal discovery remains unchanged and therefore costs nothing on healthy sites.
+// Расширенный набор типичных разделов меню. Это не единственный источник поиска:
+// сначала используются реальные URL, найденные анализатором, затем JS-rendered страницы,
+// и только после этого — резервные кандидаты.
 const COMMON_MENU_PATHS = [
-  'menu', 'menyu', 'zakuski', 'salaty', 'soup', 'goriachie-bliuda', 'goriachie-blyuda',
-  'osnovnye-bliuda', 'pasta', 'pizza', 'garniry', 'steak', 'shashlyk', 'dessert',
-  'desert', 'zavtraki', 'breakfast', 'napitki', 'drink', 'bar'
+  'menu', 'menyu', 'catalog', 'catalogue', 'zakuski', 'salaty', 'goriachie-zakuski',
+  'goriachie-bliuda', 'goriachie-blyuda', 'osnovnye-bliuda', 'osnovnye-blyuda',
+  'pasta', 'pizza', 'sushi', 'rolls', 'garniry', 'steak', 'steiki', 'shashlyk',
+  'grill', 'myaso', 'ryba', 'soups', 'soup', 'supy', 'desert', 'dessert', 'desserty',
+  'zavtraki', 'breakfast', 'napitki', 'drinks', 'drink', 'bar', 'sauces', 'sousy',
+  'deti', 'detskoe-menu', 'det-menu'
 ];
 
 function normalizeName(value) {
@@ -85,28 +88,30 @@ function normalizeError(error) {
   };
 }
 
-function withTimeout(promise, ms) {
-  let timer;
-  const timeout = new Promise((_, reject) => {
-    timer = setTimeout(() => {
-      const error = new Error('IMPORT_ANALYSIS_TIMEOUT');
-      error.code = 'IMPORT_ANALYSIS_TIMEOUT';
-      error.status = 504;
-      reject(error);
-    }, ms);
-  });
-  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
-}
-
 function fallbackMenuTargets(raw, diagnostics) {
   const base = String(raw || '').replace(/#.*$/, '').replace(/\/$/, '');
   if (!/^https?:\/\//i.test(base)) return [];
-  const discoveredText = Array.isArray(diagnostics?.analysis_steps) ? diagnostics.analysis_steps.join(' ') : '';
-  const menuSignal = (Array.isArray(diagnostics?.menu_pages) && diagnostics.menu_pages.length)
-    || Number(diagnostics?.raw_price_hits || 0) > 0
-    || /меню|каталог|блюд|цены|menu|food/i.test(discoveredText);
-  if (menuSignal) return COMMON_MENU_PATHS.map(path => `${base}/${path}`);
-  return [];
+
+  const discovered = [];
+  const push = value => {
+    if (!value) return;
+    try {
+      const url = new URL(value, `${base}/`).href.replace(/#.*$/, '').replace(/\/$/, '');
+      if (url === base) return;
+      if (!discovered.includes(url)) discovered.push(url);
+    } catch (_) {}
+  };
+
+  // First use concrete menu candidates already discovered by V3.
+  for (const url of Array.isArray(diagnostics?.menu_pages) ? diagnostics.menu_pages : []) push(url);
+  for (const url of Array.isArray(diagnostics?.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : []) push(url);
+
+  // Then use a broad dictionary of category paths. It is intentionally larger than
+  // the old fallback so category-based restaurant sites without ordinary <a> links
+  // are still reachable by the browser renderer.
+  for (const path of COMMON_MENU_PATHS) push(`${base}/${path}`);
+
+  return discovered;
 }
 
 module.exports = async function(req, res) {
@@ -125,23 +130,18 @@ module.exports = async function(req, res) {
     const jsPages = Array.isArray(diagnostics.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : [];
     const menuPages = Array.isArray(diagnostics.menu_pages) ? diagnostics.menu_pages : [];
 
-    // The analyzer may extract products from category pages even when a site has no literal /menu URL.
-    // Keep those source pages as valid menu pages so category-style sites such as /zakuski, /salaty, etc. are not discarded.
     const productSourcePages = Array.isArray(result.products)
       ? result.products.map(item => item && item.source_url).filter(Boolean)
       : [];
     const effectiveMenuPages = [...new Set([...menuPages, ...productSourcePages.filter(url => isMenuPage(url, menuPages))])];
 
-    // Fallback for sites whose menu navigation is rendered as buttons/JS and therefore
-    // never appears as ordinary <a href> links in server HTML. Only used when extraction
-    // returned zero products, so normal imports keep their previous fast path.
+    // Если обычный HTML-анализ не дал позиций, не прекращаем поиск.
+    // Запускаем расширенный browser crawl по найденным и типовым разделам меню.
     let fallbackTargets = [];
     if (!result.products.length) {
       fallbackTargets = fallbackMenuTargets(raw, diagnostics);
-      if (fallbackTargets.length) {
-        diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
-        diagnostics.analysis_steps.push(`Резервный поиск категорий меню: ${fallbackTargets.length} URL-кандидатов`);
-      }
+      diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
+      diagnostics.analysis_steps.push(`Расширенный резервный поиск меню: ${fallbackTargets.length} URL-кандидатов`);
     }
 
     const renderTargets = [...new Set([...effectiveMenuPages, ...jsPages, ...fallbackTargets])].slice(0, MAX_RENDER_TARGETS);
@@ -216,3 +216,16 @@ module.exports = async function(req, res) {
     });
   }
 };
+
+function withTimeout(promise, ms) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const error = new Error('IMPORT_ANALYSIS_TIMEOUT');
+      error.code = 'IMPORT_ANALYSIS_TIMEOUT';
+      error.status = 504;
+      reject(error);
+    }, ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
