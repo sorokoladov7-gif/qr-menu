@@ -68,6 +68,13 @@
             var self = this;
             this.$nextTick(function(){ self.renderHall(); });
           }
+        },
+        showCreateVenue: function(show){
+          if(!show || typeof this.decorateVenueTemplateCards !== 'function') return;
+          var self = this;
+          this.$nextTick(function(){
+            self.decorateVenueTemplateCards();
+          });
         }
       },
       mounted: function(){
