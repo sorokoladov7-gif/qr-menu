@@ -164,9 +164,7 @@
       },
       getVenueTemplateByCard: function(card) {
         var id = card && card.getAttribute('data-template-id');
-        if (id) {
-          return this.venueTemplates.find(function(t){ return String(t.id) === String(id); }) || null;
-        }
+        if (id) return this.venueTemplates.find(function(t){ return String(t.id) === String(id); }) || null;
         var name = card && card.getAttribute('data-template-name');
         if (name) return this.venueTemplates.find(function(t){ return t.name === name; }) || null;
         return null;
@@ -184,10 +182,25 @@
           pizzeria: 'Пиццерия', restaurant: 'Ресторан', other: 'Другое'
         };
         var products = Array.isArray(template.products) ? template.products : [];
-        var rows = products.slice(0, 12).map(function(item){
-          return '<div class="manager-template-product"><span>' + String(item.name || 'Без названия').replace(/[<>]/g,'') + '</span><b>' + self.fmt(Number(item.price)||0) + ' ₽</b></div>';
+        var cards = products.map(function(item, index){
+          var name = String(item.name || 'Без названия').replace(/[<>]/g,'');
+          var desc = String(item.description || '').replace(/[<>]/g,'');
+          var category = String(item.category || '').replace(/[<>]/g,'');
+          var image = String(item.image_url || item.image || '').replace(/[<>]/g,'');
+          return '<div class="manager-template-product-card">' +
+            '<div class="manager-template-product-card-top">' +
+              '<div class="manager-template-product-emoji">' + (String(item.emoji || '🍽️').replace(/[<>]/g,'')) + '</div>' +
+              '<div class="manager-template-product-number">#' + (index + 1) + '</div>' +
+            '</div>' +
+            (image ? '<img class="manager-template-product-image" src="' + image + '" alt="" loading="lazy">' : '') +
+            '<div class="manager-template-product-name">' + name + '</div>' +
+            (desc ? '<div class="manager-template-product-desc">' + desc + '</div>' : '') +
+            '<div class="manager-template-product-bottom">' +
+              (category ? '<span class="manager-template-product-category">' + category + '</span>' : '<span></span>') +
+              '<b>' + self.fmt(Number(item.price)||0) + ' ₽</b>' +
+            '</div>' +
+          '</div>';
         }).join('');
-        if (products.length > 12) rows += '<div class="muted" style="font-size:11px;margin-top:6px">И ещё ' + (products.length - 12) + ' позиций…</div>';
         pane.innerHTML =
           '<div class="manager-template-detail-head">' +
             '<div><div class="manager-template-title"><span class="manager-template-emoji">' + String(template.emoji || '🍽️').replace(/[<>]/g,'') + '</span><b>' + String(template.name || '').replace(/[<>]/g,'') + '</b></div>' +
@@ -200,8 +213,8 @@
             '<div><span>Позиции</span><b>' + products.length + '</b></div>' +
             '<div><span>Целевой объём</span><b>' + Number(template.target_product_count || products.length || 0) + '</b></div>' +
           '</div>' +
-          '<div class="manager-template-products-head"><b>Состав шаблона</b><span class="muted">' + products.length + ' позиций</span></div>' +
-          '<div class="manager-template-products">' + (rows || '<div class="muted">В шаблоне пока нет позиций</div>') + '</div>' +
+          '<div class="manager-template-products-head"><b>Блюда шаблона</b><span class="muted">' + products.length + ' позиций</span></div>' +
+          '<div class="manager-template-products-grid">' + (cards || '<div class="muted">В шаблоне пока нет позиций</div>') + '</div>' +
           '<button type="button" class="btn btn-primary manager-template-select-btn">' + (String(this.newVenueForm.template) === String(template.id) ? '✓ Шаблон выбран' : 'Выбрать этот шаблон') + '</button>';
         var btn = pane.querySelector('.manager-template-select-btn');
         if (btn) btn.addEventListener('click', function(){ self.selectVenueTemplate(template.id); });
@@ -215,7 +228,6 @@
           if (!grid) return;
           var cards = Array.prototype.slice.call(grid.querySelectorAll('.template-card'));
           if (!cards.length) return;
-
           var modal = grid.closest('.modal');
           var box = modal && modal.firstElementChild;
           if (!box) return;
@@ -233,7 +245,6 @@
             grid.style.display = 'none';
             var oldPreview = box.querySelector('#qr-template-preview-v10');
             if (oldPreview) oldPreview.style.display = 'none';
-
             var search = document.createElement('input');
             search.type = 'search';
             search.className = 'manager-template-search';
@@ -250,12 +261,9 @@
             list._templateSearch = search;
             list._templateDetail = right;
           }
-
           var listEl = catalog.querySelector('.manager-template-list');
           var detailEl = catalog.querySelector('.manager-template-detail');
-          var existing = listEl.querySelectorAll('.template-item');
-          Array.prototype.forEach.call(existing, function(item){ item.remove(); });
-
+          Array.prototype.forEach.call(listEl.querySelectorAll('.template-item'), function(item){ item.remove(); });
           cards.forEach(function(card, index){
             var t = self.venueTemplates[index];
             if (!t) return;
@@ -271,7 +279,6 @@
             item.addEventListener('click', function(){ self.selectVenueTemplate(t.id); });
             listEl.appendChild(item);
           });
-
           var searchInput = listEl._templateSearch;
           var q = searchInput ? searchInput.value.trim().toLowerCase() : '';
           Array.prototype.forEach.call(listEl.querySelectorAll('.template-item'), function(item){
@@ -289,20 +296,13 @@
       selectVenue: function(v) {
         if (!v || !v.id) return;
         var self = this;
-        try {
-          if (window.QRManagerHall && typeof window.QRManagerHall.close === 'function') {
-            window.QRManagerHall.close();
-          }
-        } catch(e) { console.warn('[Manager] Не удалось закрыть старый зал:', e); }
+        try { if (window.QRManagerHall && typeof window.QRManagerHall.close === 'function') window.QRManagerHall.close(); } catch(e) { console.warn('[Manager] Не удалось закрыть старый зал:', e); }
         this.venue = v;
         this.hallRendered = false;
         this.detailProduct = null;
         this.products = [];
         this.orders = [];
-        try {
-          localStorage.setItem('manager_venue_id', String(v.id));
-          window.dispatchEvent(new CustomEvent('manager-venue-selected', { detail: { id: v.id, name: v.name || '', slug: v.slug || '' } }));
-        } catch(e) {}
+        try { localStorage.setItem('manager_venue_id', String(v.id)); window.dispatchEvent(new CustomEvent('manager-venue-selected', { detail: { id: v.id, name: v.name || '', slug: v.slug || '' } })); } catch(e) {}
         this.tab = 'menu';
         this.subscriptionEnd = v.subscription_end;
         window.__managerSelectedVenue = v;
@@ -312,12 +312,7 @@
         if (this.isExpired(v)) { this.isBlocked = true; this.tab = 'billing'; } else { this.isBlocked = false; }
         if (!this.isBlocked && typeof this.loadProducts === 'function') {
           this.busy = true;
-          this.loadProducts()
-            .catch(function(e) {
-              console.error('[Manager] Ошибка загрузки меню:', e);
-              self.showToast('Не удалось загрузить меню: ' + (e.message || e), 'error');
-            })
-            .finally(function() { self.busy = false; });
+          this.loadProducts().catch(function(e) { console.error('[Manager] Ошибка загрузки меню:', e); self.showToast('Не удалось загрузить меню: ' + (e.message || e), 'error'); }).finally(function() { self.busy = false; });
         }
       },
       selectVenueTemplate: function(id) {
@@ -331,58 +326,26 @@
         if (!this.canCreateVenue) { this.formError = 'Лимит заведений'; return; }
         var template = this.selectedVenueTemplate;
         if (!template) { this.formError = 'Выберите шаблон ниши'; return; }
-        if (this.currentPlan && this.currentPlan.max_products && template.products.length > this.currentPlan.max_products) {
-          this.formError = 'В выбранном тарифе недостаточно места для шаблона (' + template.products.length + ' позиций).'; return; }
+        if (this.currentPlan && this.currentPlan.max_products && template.products.length > this.currentPlan.max_products) { this.formError = 'В выбранном тарифе недостаточно места для шаблона (' + template.products.length + ' позиций).'; return; }
         self.busy = true;
         var planId = (this.managerSubscription && this.managerSubscription.plan_id) || (this.currentPlan && this.currentPlan.id) || null;
         var subscriptionEnd = (this.managerSubscription && this.managerSubscription.current_period_end) || this.subscriptionEnd || null;
-        if (!planId && Array.isArray(this.plans) && this.venue && this.venue.plan) {
-          planId = this.venue.plan;
-        }
+        if (!planId && Array.isArray(this.plans) && this.venue && this.venue.plan) planId = this.venue.plan;
         if (!planId) planId = 'start';
-        if (!subscriptionEnd) {
-          var e = new Date();
-          e.setDate(e.getDate() + 10);
-          subscriptionEnd = e.toISOString();
-        }
+        if (!subscriptionEnd) { var e = new Date(); e.setDate(e.getDate() + 10); subscriptionEnd = e.toISOString(); }
         var slug = window.slugify(this.newVenueForm.slug);
         if (!slug) { self.formError = 'Некорректный slug'; self.busy = false; return; }
-        db.rpc('create_venue_for_manager', {
-          p_name: this.newVenueForm.name.trim(),
-          p_slug: slug,
-          p_plan: planId,
-          p_subscription_end: subscriptionEnd
-        }).then(function(r) {
+        db.rpc('create_venue_for_manager', { p_name: this.newVenueForm.name.trim(), p_slug: slug, p_plan: planId, p_subscription_end: subscriptionEnd }).then(function(r) {
           if (r.error) throw r.error;
           var venue = r.data;
-          var rows = template.products.map(function(item) {
-            return {
-              venue_id: venue.id,
-              name: item.name,
-              description: item.description || null,
-              price: Number(item.price) || 0,
-              category: item.category || 'main',
-              image_url: item.image_url || null,
-              applies_to: item.applies_to || 'all',
-              is_available: true
-            };
-          });
-          return db.from('products').insert(rows).then(function(r2) {
-            if (r2.error) throw r2.error;
-            return venue;
-          });
+          var rows = template.products.map(function(item) { return { venue_id: venue.id, name: item.name, description: item.description || null, price: Number(item.price) || 0, category: item.category || 'main', image_url: item.image_url || null, applies_to: item.applies_to || 'all', is_available: true }; });
+          return db.from('products').insert(rows).then(function(r2) { if (r2.error) throw r2.error; return venue; });
         }).then(function(venue) {
           self.showCreateVenue = false;
           self.newVenueForm = { name: '', slug: '', template: self.venueTemplates[0] ? self.venueTemplates[0].id : 'coffee' };
           self.templateSearchQuery = '';
-          return self.loadMyVenues().then(function() {
-            self.selectVenue(venue);
-            self.showToast('Заведение создано: ' + template.name + ' · ' + template.products.length + ' позиций добавлено');
-          });
-        }).catch(function(err) {
-          console.error('createVenue error:', err);
-          self.formError = 'Ошибка: ' + (err.message || String(err));
-        }).finally(function() { self.busy = false; });
+          return self.loadMyVenues().then(function() { self.selectVenue(venue); self.showToast('Заведение создано: ' + template.name + ' · ' + template.products.length + ' позиций добавлено'); });
+        }).catch(function(err) { console.error('createVenue error:', err); self.formError = 'Ошибка: ' + (err.message || String(err)); }).finally(function() { self.busy = false; });
       },
       venueBadge: function(v) { return this.isExpired(v) ? 'b-cancelled' : 'b-ready'; },
       venueLabel: function(v) { return this.isExpired(v) ? 'Истекла' : 'Активна'; }
