@@ -6,6 +6,15 @@ const ANALYSIS_BUDGET_MS = 25000;
 const MAX_RENDER_TARGETS = 6;
 const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garniry|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям)(?:[\/?#_.-]|$)/iu;
 
+// Category-style restaurant sites often expose menu sections as JS buttons rather than
+// normal <a href> links. These paths are only a fallback after the analyzer found no
+// products; normal discovery remains unchanged and therefore costs nothing on healthy sites.
+const COMMON_MENU_PATHS = [
+  'menu', 'menyu', 'zakuski', 'salaty', 'soup', 'goriachie-bliuda', 'goriachie-blyuda',
+  'osnovnye-bliuda', 'pasta', 'pizza', 'garniry', 'steak', 'shashlyk', 'dessert',
+  'desert', 'zavtraki', 'breakfast', 'napitki', 'drink', 'bar'
+];
+
 function normalizeName(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
 }
@@ -89,6 +98,17 @@ function withTimeout(promise, ms) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+function fallbackMenuTargets(raw, diagnostics) {
+  const base = String(raw || '').replace(/#.*$/, '').replace(/\/$/, '');
+  if (!/^https?:\/\//i.test(base)) return [];
+  const discoveredText = Array.isArray(diagnostics?.analysis_steps) ? diagnostics.analysis_steps.join(' ') : '';
+  const menuSignal = (Array.isArray(diagnostics?.menu_pages) && diagnostics.menu_pages.length)
+    || Number(diagnostics?.raw_price_hits || 0) > 0
+    || /меню|каталог|блюд|цены|menu|food/i.test(discoveredText);
+  if (menuSignal) return COMMON_MENU_PATHS.map(path => `${base}/${path}`);
+  return [];
+}
+
 module.exports = async function(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -111,7 +131,20 @@ module.exports = async function(req, res) {
       ? result.products.map(item => item && item.source_url).filter(Boolean)
       : [];
     const effectiveMenuPages = [...new Set([...menuPages, ...productSourcePages.filter(url => isMenuPage(url, menuPages))])];
-    const renderTargets = [...new Set([...effectiveMenuPages, ...jsPages])].slice(0, MAX_RENDER_TARGETS);
+
+    // Fallback for sites whose menu navigation is rendered as buttons/JS and therefore
+    // never appears as ordinary <a href> links in server HTML. Only used when extraction
+    // returned zero products, so normal imports keep their previous fast path.
+    let fallbackTargets = [];
+    if (!result.products.length) {
+      fallbackTargets = fallbackMenuTargets(raw, diagnostics);
+      if (fallbackTargets.length) {
+        diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
+        diagnostics.analysis_steps.push(`Резервный поиск категорий меню: ${fallbackTargets.length} URL-кандидатов`);
+      }
+    }
+
+    const renderTargets = [...new Set([...effectiveMenuPages, ...jsPages, ...fallbackTargets])].slice(0, MAX_RENDER_TARGETS);
 
     if (renderTargets.length) {
       diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
@@ -147,7 +180,6 @@ module.exports = async function(req, res) {
     meta.validation = result.products.length ? 'validated-menu-pages-only' : 'not_validated';
     meta.error = result.products.length ? null : normalizeError(meta.error);
 
-    // Keep the full venue contract expected by manager-site-import.js.
     const sourceVenue = result.venue || {};
     const venue = {
       name: sourceVenue.name || meta.name || meta.venue_name || meta.title || null,
