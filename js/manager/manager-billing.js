@@ -24,6 +24,12 @@
       },
       currentPlanName: function() {
         return this.currentPlan ? this.currentPlan.name : '-';
+      },
+      maxProducts: function() {
+        var plan = this.currentPlan;
+        if (!plan) return 0;
+        var limit = Number(plan.max_products);
+        return Number.isFinite(limit) && limit > 0 ? limit : 0;
       }
     },
     methods: {
