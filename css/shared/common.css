@@ -40,22 +40,25 @@ body {
 .spread { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
 .tabs {
   display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  gap: 5px;
+  flex-wrap: wrap;
+  overflow: visible;
+  align-items: center;
 }
 .tabs button {
-  flex: 0 0 auto;
-  padding: 8px 14px;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 6px 10px;
   border: none;
   background: rgba(255,255,255,.04);
   color: #94a3b8;
   border-radius: 30px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 12px;
+  line-height: 1.2;
   cursor: pointer;
   transition: all .2s;
+  white-space: nowrap;
 }
 .tabs button.on {
   background: rgba(99,102,241,.2);
@@ -166,3 +169,16 @@ body {
 }
 .toast.ok { background: #065f46; }
 .toast.error { background: #7f1d1d; }
+
+/* Компактная навигация админки */
+@media (max-width: 1100px) {
+  .tabs { gap: 4px; }
+  .tabs button { padding: 5px 8px; font-size: 11px; }
+}
+@media (max-width: 760px) {
+  .tabs { gap: 4px; }
+  .tabs button { padding: 5px 7px; font-size: 11px; }
+}
+@media (max-width: 520px) {
+  .tabs button { padding: 5px 6px; font-size: 10px; }
+}
