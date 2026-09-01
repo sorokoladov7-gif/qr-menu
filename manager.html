@@ -24,7 +24,6 @@
 <script src="js/manager/manager-analytics.js"></script>
 <script src="js/manager/manager-settings.js"></script>
 <script src="js/manager/manager-recipes.js"></script>
-<!-- Существующие скрипты (hall, design, demo, app) -->
 <script src="js/manager-hall.js"></script>
 <script src="js/manager-hall-view.js"></script>
 <script src="js/manager-hall-ai.js"></script>
@@ -34,10 +33,627 @@
 <script src="js/manager/manager-app.js"></script>
 </head>
 <body>
-<!-- Содержимое body полностью скопировано из оригинального manager.html, без изменений -->
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
-<!-- ... весь шаблон, модальные окна, вкладки, таблицы ... -->
+<!-- ########################################################### -->
+<!-- ВЕСЬ ШАБЛОН – ТОЧНО КАК В ОРИГИНАЛЬНОМ manager.html         -->
+<!-- (скопирован из оригинального файла, который вы прислали)     -->
+<!-- ########################################################### -->
+<div v-if="isBlocked" class="paywall"><div class="glass box" style="max-width:500px;text-align:center">
+<div style="font-size:48px">🔒</div><h2>Подписка истекла</h2>
+<p class="muted">Доступ к «{{ venue?venue.name:'' }}» ограничен. Продлите подписку через СБП.</p>
+<button class="btn btn-primary" style="width:100%;margin-top:16px" v-on:click="isBlocked=false;tab='billing'">Перейти к оплате</button>
+<button class="btn btn-ghost" style="width:100%;margin-top:10px" v-on:click="logout">Выйти</button>
+</div></div>
+<div class="topbar">
+<div class="brand">
+<img v-if="venue&&venue.logo_url" v-bind:src="venue.logo_url" style="width:38px;height:38px;border-radius:12px;object-fit:cover" alt="">
+<div v-else class="logo">QR</div>
+<span>{{ venueName }}</span>
+</div>
+<div class="row">
+<button v-if="venue" class="btn btn-ghost btn-sm" v-on:click="backToList">К списку</button>
+<span class="muted" style="font-size:13px">{{ profileName }}</span>
+<button class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button>
+</div>
+</div>
+<div class="wrap">
+<div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка...</div>
+<div v-else-if="loadError" class="glass card" style="text-align:center;padding:40px">
+<div style="font-size:40px">⚠️</div><h3>Не удалось загрузить</h3>
+<p class="muted">{{ loadError }}</p>
+<button class="btn btn-primary" v-on:click="init">Повторить</button>
+</div>
+<div v-else-if="!venue">
+<div class="spread" style="margin-bottom:20px"><h2>Ваши заведения</h2>
+<button class="btn btn-primary" v-on:click="showCreateVenue=true" v-bind:disabled="!canCreateVenue">+ Создать</button></div>
+<div v-if="!myVenues.length" class="glass card" style="text-align:center;padding:50px">У вас пока нет заведений.<br>Создайте первое — 10 дней бесплатно!</div>
+<div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+<div v-for="v in myVenues" v-bind:key="v.id" class="glass stat venue-card" style="text-align:left;padding:20px" v-on:click="selectVenue(v)">
+<div class="spread"><div style="font-size:19px;font-weight:800">{{ v.name }}</div>
+<span class="badge" v-bind:class="venueBadge(v)">{{ venueLabel(v) }}</span></div>
+<div class="muted" style="font-size:12px;margin:6px 0">/{{ v.slug }}</div>
+<div class="muted" style="font-size:11px">до {{ fmtDate(v.subscription_end) }}</div>
+</div>
+</div>
+</div>
+<template v-else>
+<div v-if="daysLeft<=3&&daysLeft>0" class="msg" style="background:rgba(251,191,36,.15);color:#fcd34d;margin-bottom:16px">
+Подписка истекает через {{ daysLeft }} дн. <a href="#" v-on:click.prevent="tab='billing'" style="color:#fcd34d">Продлить</a></div>
+<div class="stats" style="margin-bottom:18px">
+<div class="glass stat"><div class="num">{{ fmt(revenue) }} ₽</div><div class="lbl">Выручка</div></div>
+<div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ orders.length }}</div><div class="lbl">Заказов</div></div>
+<div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ activeCount }}</div><div class="lbl">В работе</div></div>
+<div class="glass stat" style="border-color:#34d399"><div class="num">{{ products.length }}/{{ maxProducts }}</div><div class="lbl">Позиций</div></div>
+</div>
+<div class="tabs" style="margin-bottom:18px">
+<button v-bind:class="{on:tab==='menu'}" v-on:click="tab='menu'">Меню</button>
+<button v-bind:class="{on:tab==='orders'}" v-on:click="tab='orders'">Заказы</button>
+<button v-bind:class="{on:tab==='analytics'}" v-on:click="tab='analytics';loadAnalytics()">Аналитика</button>
+<button v-bind:class="{on:tab==='hall'}" v-on:click="tab='hall'">🪑 Зал / Столы</button>
+<button v-bind:class="{on:tab==='staff'}" v-on:click="tab='staff'">👥 Персонал</button>
+<button v-bind:class="{on:tab==='recipes'}" v-on:click="tab='recipes'">🧾 Рецептуры</button>
+<button v-bind:class="{on:tab==='billing'}" v-on:click="tab='billing';loadPayments()">Тарифы</button>
+<button v-bind:class="{on:tab==='settings'}" v-on:click="tab='settings'">Настройки</button>
+<button v-on:click="openStaffGuide" style="background:rgba(255,255,255,.06)">📖 Инструкция</button>
+</div>
+<!-- Персонал -->
+<div v-if="tab==='staff'">
+<h3 style="margin-top:0">👥 Персонал — сводка и управление</h3>
+<p class="muted" style="font-size:13px;margin-bottom:14px">
+Данные за последние {{ staffAnalytics.period_days || 30 }} дней
+</p>
+<div class="analytics-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));">
+<div class="glass stat"><div class="num" style="color:#6366f1">{{ staffAnalytics.cooks.reduce((s,c)=>s+c.orders_count,0) }}</div><div class="lbl">Всего заказов (повара)</div></div>
+<div class="glass stat"><div class="num" style="color:#f59e0b">{{ staffAnalytics.couriers.reduce((s,c)=>s+c.deliveries_count,0) }}</div><div class="lbl">Всего доставок</div></div>
+<div class="glass stat"><div class="num" style="color:#67e8f9">{{ staffAnalytics.waiters.reduce((s,w)=>s+w.served_count,0) }}</div><div class="lbl">Всего выдач</div></div>
+</div>
+<div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
+<div class="spread">
+<h4 style="margin:0">👨‍🍳 Повара</h4>
+<button class="btn btn-green btn-sm" v-on:click="openCreateStaff('cook')" v-bind:disabled="busy">+ Добавить повара</button>
+</div>
+<div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxCooks }} ({{ cooks.length }} занято)</div>
+<table class="tbl">
+<tr><th>Имя</th><th>Телефон</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th><th>Действия</th></tr>
+<tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
+<td><b>{{ c.name }}</b></td>
+<td class="muted">{{ getStaffPhone('cook', c.name) || '—' }}</td>
+<td>{{ c.orders_count }}</td>
+<td v-bind:style="{color: c.avg_time_min <= 10 ? '#6ee7b7' : c.avg_time_min <= 20 ? '#fcd34d' : '#fca5a5'}">{{ c.avg_time_min }} мин</td>
+<td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+<td>
+<button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'cook')" title="Сбросить PIN">🔄 PIN</button>
+<button class="btn btn-ghost btn-sm" v-on:click="copyCookAccess(c)" title="Скопировать инструкцию">📋</button>
+<button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button>
+</td>
+</tr>
+<tr v-if="!staffAnalytics.cooks.length"><td colspan="6" class="muted">Нет поваров</td></tr>
+</table>
+</div>
+<div class="glass card" style="margin-bottom:14px;border-color:#f59e0b">
+<div class="spread">
+<h4 style="margin:0">🚗 Курьеры</h4>
+<button class="btn btn-green btn-sm" v-on:click="openCreateStaff('courier')" v-bind:disabled="busy">+ Добавить курьера</button>
+</div>
+<div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxCouriers }} ({{ couriers.length }} занято)</div>
+<table class="tbl">
+<tr><th>Имя</th><th>Телефон</th><th>Доставок</th><th>Выручка</th><th>Действия</th></tr>
+<tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
+<td><b>{{ c.name }}</b></td>
+<td class="muted">{{ getStaffPhone('courier', c.name) || '—' }}</td>
+<td>{{ c.deliveries_count }}</td>
+<td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+<td>
+<button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(c,'courier')" title="Сбросить PIN">🔄 PIN</button>
+<button class="btn btn-ghost btn-sm" v-on:click="copyCourierAccess(c)" title="Скопировать инструкцию">📋</button>
+<button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button>
+</td>
+</tr>
+<tr v-if="!staffAnalytics.couriers.length"><td colspan="5" class="muted">Нет курьеров</td></tr>
+</table>
+</div>
+<div class="glass card" style="margin-bottom:14px;border-color:#67e8f9">
+<div class="spread">
+<h4 style="margin:0">🤵 Официанты</h4>
+<button class="btn btn-green btn-sm" v-on:click="openCreateStaff('waiter')" v-bind:disabled="busy">+ Добавить официанта</button>
+</div>
+<div class="muted" style="font-size:11px;margin-bottom:8px">Лимит: {{ maxWaiters }} ({{ waiters.length }} занято)</div>
+<table class="tbl">
+<tr><th>Имя</th><th>Телефон</th><th>Выдач</th><th>Выручка</th><th>Действия</th></tr>
+<tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
+<td><b>{{ w.name }}</b></td>
+<td class="muted">{{ getStaffPhone('waiter', w.name) || '—' }}</td>
+<td>{{ w.served_count }}</td>
+<td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+<td>
+<button class="btn btn-ghost btn-sm" v-on:click="resetStaffPin(w,'waiter')" title="Сбросить PIN">🔄 PIN</button>
+<button class="btn btn-ghost btn-sm" v-on:click="copyWaiterAccess(w)" title="Скопировать инструкцию">📋</button>
+<button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button>
+</td>
+</tr>
+<tr v-if="!staffAnalytics.waiters.length"><td colspan="5" class="muted">Нет официантов</td></tr>
+</table>
+</div>
+<div class="glass card" style="border-color:#6366f1; margin-top:14px;">
+<label>🔑 Данные для входа сотрудников</label>
+<div class="row" style="margin-top:8px">
+<b style="font-size:16px">Код заведения: {{ venue.slug }}</b>
+<button class="btn btn-ghost btn-sm" v-on:click="copyText(venue.slug)">Копировать код</button>
+</div>
+<p class="muted" style="font-size:11px;margin:8px 0 0">
+Повар открывает cook.html, курьер – courier.html, официант – waiter.html и вводит: код заведения + свой PIN.
+</p>
+</div>
+</div>
+<!-- Зал -->
+<div v-if="tab==='hall'" style="position:relative;z-index:1;">
+<div id="hall-container" style="width:100%;min-height:600px;background:#07101d;border-radius:16px;overflow:hidden;padding:16px;box-sizing:border-box;"></div>
+</div>
+<!-- Рецептуры -->
+<div v-if="tab==='recipes'" class="glass card recipe-tab-container" style="padding:0;overflow:auto">
+<div class="recipe-wrap">
+<div class="recipe-head">
+<div>
+<h2>🧾 Рецептуры</h2>
+<div class="muted" style="font-size:12px">Техкарты → распознавание → сопоставление → рецептура → себестоимость</div>
+</div>
+<div class="recipe-actions">
+<button class="btn btn-primary" id="uploadTechBtn">📷 Техкарты</button>
+<button class="btn btn-ghost" id="catalogBtn">📚 База блюд</button>
+<button class="btn btn-ghost" id="ingredientsDbBtn">🧂 Ингредиенты</button>
+<input id="techFiles" type="file" accept="image/png,image/jpeg,image/webp" multiple hidden>
+</div>
+</div>
+<div id="msg"></div>
+<div id="generationSummary" class="muted" style="font-size:12px;margin:-4px 0 12px"></div>
+<div class="glass card" style="margin-bottom:16px">
+<div class="toolbar">
+<div style="flex:1;min-width:220px">
+<b>Автоматическое заполнение</b>
+<div class="muted" style="font-size:11px;margin-top:3px">Если техкарт нет, рецептуры берутся из общей базы стандартных техкарт и сопоставляются с меню заведения. При открытии вкладки ингредиенты добавляются к блюдам автоматически.</div>
+</div>
+<button class="btn btn-green" id="generateAllBtn">⚡ Автозаполнить рецептуры</button>
+</div>
+</div>
+<div class="recipe-grid">
+<div class="glass card">
+<div class="toolbar"><h3 style="margin:0;flex:1">Блюда</h3><span class="badge2" id="productCount">0</span></div>
+<input id="productSearch" placeholder="Поиск блюда..." style="width:100%;margin:10px 0">
+<div id="products" class="list"></div>
+</div>
+<div class="glass card">
+<div class="toolbar">
+<div style="flex:1"><h3 id="title" style="margin:0">Выберите товар</h3><div id="matchInfo" class="muted" style="font-size:11px;margin-top:3px"></div></div>
+<button id="save" class="btn btn-primary" hidden>Сохранить рецептуру</button>
+</div>
+<div id="cost"></div>
+<div id="recipe"></div>
+<hr style="border-color:#ffffff12;margin:22px 0">
+<div class="toolbar">
+<h3 style="margin:0;flex:1">Ингредиенты заведения</h3>
+<button id="refreshIngredients" class="btn btn-ghost btn-sm">🔄 Обновить</button>
+</div>
+<div class="toolbar" style="margin-top:10px">
+<input id="iname" placeholder="Название">
+<select id="iunit"><option value="g">г</option><option value="kg">кг</option><option value="ml">мл</option><option value="l">л</option><option value="pcs">шт</option></select>
+<input id="iqty" type="number" min="0.001" step="0.001" value="1" placeholder="Закуп. кол-во">
+<input id="iprice" type="number" min="0" step="0.01" value="0" placeholder="Цена закупки">
+<button id="addIng" class="btn btn-green">Добавить</button>
+</div>
+<div id="ingredients" style="margin-top:12px"></div>
+</div>
+</div>
+</div>
+<div id="techModal" class="modalx" hidden>
+<div class="glass card">
+<div class="toolbar"><div style="flex:1"><h3 style="margin:0">📷 Техкарты заведения</h3><div class="muted" style="font-size:11px">OCR работает в браузере. OpenAI API не используется.</div></div><button class="btn btn-ghost" data-close="techModal">×</button></div>
+<div id="techList" class="tech-grid" style="margin-top:14px"></div>
+<div id="ocrPanel" hidden style="margin-top:16px">
+<h4>Результат распознавания</h4>
+<div class="progress"><i id="ocrProgress"></i></div>
+<div id="ocrStatus" class="muted" style="font-size:12px;margin:7px 0"></div>
+<div id="ocrText" class="ocr-lines"></div>
+<div id="ocrRecipeRows" style="margin-top:12px"></div>
+<div class="toolbar" style="margin-top:12px">
+<select id="ocrProduct" style="flex:1"></select>
+<button class="btn btn-primary" id="applyOcr">Создать рецептуру из распознанной техкарты</button>
+</div>
+</div>
+</div>
+</div>
+<div id="catalogModal" class="modalx" hidden>
+<div class="glass card">
+<div class="toolbar"><div style="flex:1"><h3 style="margin:0">📚 База блюд и техкарт</h3><div class="muted" style="font-size:11px">Общая база используется только как источник стандартных техкарт. Рецептура копируется в конкретное заведение и затем редактируется.</div></div><button class="btn btn-ghost" data-close="catalogModal">×</button></div>
+<input id="catalogSearch" placeholder="Поиск блюда, ингредиента или кухни..." style="width:100%;margin:12px 0">
+<div class="filter-row" style="margin-bottom:12px">
+<select id="catalogCategory"><option value="">Все категории</option></select>
+<select id="catalogDifficulty"><option value="">Любая сложность</option><option value="easy">Легко</option><option value="medium">Средне</option><option value="hard">Сложно</option></select>
+<select id="catalogCuisine"><option value="">Все кухни</option></select>
+</div>
+<div id="catalogStats" class="muted" style="font-size:11px;margin-bottom:10px"></div>
+<div id="catalogList" class="catalog-grid"></div>
+</div>
+</div>
+<div id="catalogDetailModal" class="modalx" hidden>
+<div class="glass card">
+<div class="toolbar"><div style="flex:1"><h3 id="catalogDetailTitle" style="margin:0">Техкарта</h3><div id="catalogDetailSub" class="muted" style="font-size:11px;margin-top:3px"></div></div><button class="btn btn-ghost" data-close="catalogDetailModal">×</button></div>
+<div id="catalogDetailBody" style="margin-top:14px"></div>
+</div>
+</div>
+<div id="ingredientsModal" class="modalx" hidden>
+<div class="glass card">
+<div class="toolbar"><div style="flex:1"><h3 style="margin:0">🧂 База ингредиентов</h3><div class="muted" style="font-size:11px">Стандартные ингредиенты и единицы измерения. Закупочные цены всегда задаются заведением.</div></div><button class="btn btn-ghost" data-close="ingredientsModal">×</button></div>
+<input id="ingredientsSearch" placeholder="Поиск ингредиента..." style="width:100%;margin:12px 0">
+<div id="ingredientsDbList"></div>
+</div>
+</div>
+</div>
+<!-- Меню -->
+<div v-if="tab==='menu'">
+<div class="spread" style="margin-bottom:14px">
+<h3>Позиции меню</h3>
+<button class="btn btn-primary btn-sm" v-on:click="openAdd" v-bind:disabled="busy">+ Добавить</button>
+</div>
+<div class="menu-compact">
+<div v-for="p in products" v-bind:key="p.id" class="menu-item-compact" v-on:click="showProductDetail(p)">
+<img class="thumb" v-bind:src="p.image_url||DEFAULT_IMG" alt="">
+<div class="name">{{ p.name }}</div>
+<div class="price">{{ p.price }} ₽</div>
+<div class="actions" v-on:click.stop>
+<button class="btn btn-ghost btn-sm" v-on:click="toggleAvail(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
+<button class="btn btn-ghost btn-sm" v-on:click="openEdit(p)">✏️</button>
+<button class="btn btn-danger btn-sm" v-on:click="delProduct(p)">🗑</button>
+</div>
+</div>
+</div>
+<p v-if="!products.length" class="muted" style="text-align:center;padding:30px 0;">Меню пустое. Добавьте позиции.</p>
+</div>
+<!-- Заказы -->
+<div v-if="tab==='orders'">
+<div v-for="o in orders" v-bind:key="o.id" class="glass order-card" v-bind:style="{borderTopColor:statusColor(o.status)}">
+<div class="spread">
+<div><b>№{{ o.order_number }}</b> <span class="badge" v-bind:class="orderBadge(o.status)">{{ statusName(o.status) }}</span> {{ deliveryIcon(o.order_type) }}</div>
+<b>{{ fmt(o.total_price) }} ₽</b>
+</div>
+<div class="muted" style="font-size:13px;margin-top:6px">{{ o.customer_phone }} {{ o.customer_name }}</div>
+<div class="muted" style="font-size:12px;margin-top:4px">👨 Готовит: <b style="color:#a5b4fc">{{ o.cook_name||'ещё не назначен' }}</b></div>
+<div class="muted" style="font-size:12px;margin-top:4px" v-if="o.courier_name">🚗 Курьер: <b style="color:#c4b5fd">{{ o.courier_name }}</b></div>
+<div style="margin-top:6px;font-size:13px">
+<div v-for="it in o.items" v-bind:key="it.id">{{ it.qty }}x {{ it.name }}</div>
+<div v-for="a in o.addons" v-bind:key="a.id" class="muted">+ {{ a.name }} <span v-if="a.item_name">({{ a.item_name }})</span></div>
+</div>
+<div class="row" style="margin-top:10px">
+<button v-if="o.status==='new'" class="btn btn-primary btn-sm" v-on:click="setStatus(o.id,'cooking')">В работу</button>
+<button v-if="o.status==='cooking'" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'ready')">Готово</button>
+<button v-if="o.status==='ready'&&o.order_type==='delivery'" class="btn btn-primary btn-sm" v-on:click="setStatus(o.id,'delivery')">Курьеру 🚗</button>
+<button v-if="isReadyOrDelivery(o.status)" class="btn btn-green btn-sm" v-on:click="setStatus(o.id,'done')">Выдан</button>
+<button v-if="isNewOrCooking(o.status)" class="btn btn-danger btn-sm" v-on:click="setStatus(o.id,'cancelled')">Отменить</button>
+</div>
+</div>
+<p v-if="!orders.length" class="muted">Заказов пока нет.</p>
+</div>
+<!-- Аналитика -->
+<div v-if="tab==='analytics'">
+<div class="spread" style="margin-bottom:14px">
+<h3>Аналитика заведения</h3>
+<select v-model="analyticsPeriod" v-on:change="loadAnalytics" style="width:auto">
+<option value="7">7 дней</option><option value="30">30 дней</option><option value="90">90 дней</option><option value="all">Всё время</option></select>
+</div>
+<div class="analytics-grid">
+<div class="glass stat"><div class="num" style="color:#34d399">{{ fmt(analytics.revenue) }} ₽</div><div class="lbl">Выручка</div></div>
+<div class="glass stat"><div class="num" style="color:#60a5fa">{{ analytics.orders }}</div><div class="lbl">Заказов</div></div>
+<div class="glass stat"><div class="num" style="color:#fbbf24">{{ analytics.clients }}</div><div class="lbl">Клиентов</div></div>
+<div class="glass stat"><div class="num" style="color:#a78bfa">{{ fmt(analytics.avgCheck) }} ₽</div><div class="lbl">Средний чек</div></div>
+<div class="glass stat"><div class="num" style="color:#f472b6">{{ analytics.avgCookTime }} мин</div><div class="lbl">Ср. время готовки</div></div>
+<div class="glass stat"><div class="num" style="color:#6ee7b7">{{ analytics.repeatClients }}</div><div class="lbl">Повторных клиентов</div></div>
+</div>
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 14px">📅 Динамика заказов по дням</h4>
+<div v-if="analytics.daily.length" style="display:flex;align-items:flex-end;gap:4px;height:120px;overflow-x:auto">
+<div v-for="d in analytics.daily" v-bind:key="d.date" style="display:flex;flex-direction:column;align-items:center;min-width:34px">
+<div style="background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:22px" v-bind:style="{height:(d.count/maxDaily*100)+'px'}"></div>
+<div class="muted" style="font-size:10px;margin-top:4px">{{ d.label }}</div>
+<div style="font-size:11px;color:#a5b4fc">{{ d.count }}</div>
+</div>
+</div>
+<p v-else class="muted">Нет данных за период.</p>
+</div>
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:2;min-width:280px">
+<h4 style="margin:0 0 10px">🍔 Топ-10 блюд</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Блюдо</th><th>Кол-во</th><th>Выручка</th></tr>
+<tr v-for="i in analytics.topItems" v-bind:key="i.name"><td><b>{{ i.name }}</b></td><td>{{ i.count }} шт.</td><td style="color:#34d399">{{ fmt(i.revenue) }} ₽</td></tr>
+<tr v-if="!analytics.topItems.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🧂 Топ добавок</h4>
+<ul class="top-list">
+<li v-for="a in analytics.topAddons" v-bind:key="a.name"><span>{{ a.name }}</span><b style="color:#a5b4fc">{{ a.count }}</b></li>
+<li v-if="!analytics.topAddons.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+<div class="row" style="margin-bottom:14px;align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🏠 Тип получения</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Самовывоз</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:typePercent('pickup')+'%'}"></div></div>
+<b>{{ analytics.typeStats.pickup }}</b></div>
+<div><span class="muted" style="font-size:12px">Доставка</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#f59e0b,#ef4444)" v-bind:style="{width:typePercent('delivery')+'%'}"></div></div>
+<b>{{ analytics.typeStats.delivery }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">💳 Способ оплаты</h4>
+<div style="margin-bottom:8px"><span class="muted" style="font-size:12px">Наличные</span>
+<div class="bar"><div class="bar-fill" style="background:linear-gradient(90deg,#34d399,#10b981)" v-bind:style="{width:payPercent('cash')+'%'}"></div></div>
+<b>{{ analytics.payStats.cash }}</b></div>
+<div><span class="muted" style="font-size:12px">Карта</span>
+<div class="bar"><div class="bar-fill" v-bind:style="{width:payPercent('card')+'%'}"></div></div>
+<b>{{ analytics.payStats.card }}</b></div>
+</div>
+<div class="glass card" style="flex:1;min-width:220px">
+<h4 style="margin:0 0 10px">🕒 Часы пик</h4>
+<ul class="top-list">
+<li v-for="h in analytics.topHours" v-bind:key="h.h"><span>{{ h.label }}</span><b style="color:#fcd34d">{{ h.count }}</b></li>
+<li v-if="!analytics.topHours.length" class="muted">Нет данных</li>
+</ul>
+</div>
+</div>
+<div class="glass card" style="margin-bottom:14px">
+<h4 style="margin:0 0 10px">👨‍🍳 Повара (скорость и нагрузка)</h4>
+<table class="tbl"><tr><th>Повар</th><th>Заказов</th><th>Ср. время готовки</th></tr>
+<tr v-for="c in analytics.cooks" v-bind:key="c.name"><td>👨‍ {{ c.name }}</td><td>{{ c.count }}</td>
+<td><b v-bind:style="{color:c.avg<=10?'#6ee7b7':c.avg<=20?'#fcd34d':'#fca5a5'}">{{ c.avg }} мин</b></td></tr>
+<tr v-if="!analytics.cooks.length"><td colspan="3" class="muted">Повара ещё не брали заказы</td></tr></table>
+</div>
+<div class="row" style="align-items:stretch;flex-wrap:wrap;margin-bottom:14px">
+<div class="glass card" style="flex:1;min-width:260px">
+<h4 style="margin:0 0 10px">🚗 Курьеры (доставки)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Курьер</th><th>Доставлено</th></tr>
+<tr v-for="c in analytics.couriers" v-bind:key="c.name"><td>🚗 {{ c.name }}</td><td>{{ c.count }}</td></tr>
+<tr v-if="!analytics.couriers.length"><td colspan="2" class="muted">Нет доставок</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:260px">
+<h4 style="margin:0 0 10px">🤵 Официанты (выдачи)</h4>
+<table class="tbl" style="min-width:auto"><tr><th>Официант</th><th>Выдано</th></tr>
+<tr v-for="w in analytics.waiters" v-bind:key="w.name"><td>🤵 {{ w.name }}</td><td>{{ w.count }}</td></tr>
+<tr v-if="!analytics.waiters.length"><td colspan="2" class="muted">Нет выдач</td></tr></table>
+</div>
+</div>
+<div class="glass card">
+<div class="spread" style="margin-bottom:12px">
+<h4 style="margin:0">📊 Производительность персонала</h4>
+<select v-model="staffAnalyticsDays" v-on:change="loadStaffAnalytics" style="width:auto">
+<option value="7">7 дней</option>
+<option value="30">30 дней</option>
+<option value="90">90 дней</option>
+</select>
+</div>
+<p class="muted" style="font-size:12px;margin-bottom:12px">За последние {{ staffAnalytics.period_days }} дней · данные из заказов</p>
+<div class="row" style="align-items:stretch;flex-wrap:wrap">
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#fcd34d">👨‍🍳 Повара</h5>
+<table class="tbl"><tr><th>Имя</th><th>Заказов</th><th>Ср. время</th><th>Выручка</th></tr>
+<tr v-for="c in staffAnalytics.cooks" v-bind:key="c.name">
+<td>{{ c.name }}</td><td>{{ c.orders_count }}</td>
+<td v-bind:style="{color:c.avg_time_min<=10?'#6ee7b7':c.avg_time_min<=20?'#fcd34d':'#fca5a5'}">{{ c.avg_time_min }} мин</td>
+<td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.cooks.length"><td colspan="4" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#c4b5fd">🚗 Курьеры</h5>
+<table class="tbl"><tr><th>Имя</th><th>Доставок</th><th>Выручка</th></tr>
+<tr v-for="c in staffAnalytics.couriers" v-bind:key="c.name">
+<td>{{ c.name }}</td><td>{{ c.deliveries_count }}</td><td style="color:#6ee7b7">{{ fmt(c.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.couriers.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+<div class="glass card" style="flex:1;min-width:220px;background:rgba(255,255,255,.02)">
+<h5 style="margin:0 0 8px;color:#67e8f9">🤵 Официанты</h5>
+<table class="tbl"><tr><th>Имя</th><th>Выдач</th><th>Выручка</th></tr>
+<tr v-for="w in staffAnalytics.waiters" v-bind:key="w.name">
+<td>{{ w.name }}</td><td>{{ w.served_count }}</td><td style="color:#6ee7b7">{{ fmt(w.revenue) }} ₽</td>
+</tr>
+<tr v-if="!staffAnalytics.waiters.length"><td colspan="3" class="muted">Нет данных</td></tr></table>
+</div>
+</div>
+</div>
+</div>
+<!-- Тарифы -->
+<div v-if="tab==='billing'">
+<div class="glass card" style="margin-bottom:16px;text-align:center">
+<h3>Тариф: {{ currentPlanName }}</h3>
+<p class="muted">Активен до <b style="color:#fff">{{ fmtDate(subscriptionEnd) }}</b></p></div>
+<div class="plans-grid">
+<div v-for="p in plans" v-bind:key="p.id" class="glass plan-card" v-bind:class="{popular:p.id==='business'}">
+<h3>{{ p.name }}</h3>
+<div style="font-size:30px;font-weight:800;margin:14px 0">{{ planPriceLabel(p) }}<span style="font-size:13px;color:#9ca3af">/мес</span></div>
+<ul style="list-style:none;padding:0;margin:0 0 16px;font-size:12px;color:#d1d5db;text-align:left">
+<li style="margin-bottom:6px">Заведений: {{ p.max_venues }}</li>
+<li style="margin-bottom:6px">Поваров: {{ p.max_cooks }}</li>
+<li style="margin-bottom:6px">Курьеров: {{ p.max_couriers||10 }}</li>
+<li style="margin-bottom:6px">Официантов: {{ p.max_waiters||10 }}</li>
+<li style="margin-bottom:6px">Позиций: {{ p.max_products }}</li></ul>
+<button class="btn" v-bind:class="planBtnClass(p)" style="width:100%" v-bind:disabled="isCurrentPlan(p)" v-on:click="choosePlan(p)">{{ planBtnLabel(p) }}</button>
+</div></div>
+<div v-if="payPlan" class="sbp-box">
+<b style="color:#6ee7b7">Оплата по СБП</b>
+<p style="margin:10px 0">Переведите <b style="font-size:18px">{{ fmt(payPlan.price) }} ₽</b> на номер:</p>
+<div class="row"><b style="font-size:22px;letter-spacing:1px">8 905 320-43-50</b>
+<button class="btn btn-ghost btn-sm" v-on:click="copySbp">Копировать</button></div>
+<p class="muted" style="font-size:12px;margin:10px 0">В комментарии: <b>{{ venue.slug }}</b></p>
+<button class="btn btn-green" style="width:100%" v-on:click="markPaid">Я оплатил</button></div>
+<div v-if="myPayments.length" class="glass card" style="margin-top:16px">
+<h4>Мои оплаты</h4>
+<table class="tbl"><tr><th>Дата</th><th>Тариф</th><th>Сумма</th><th>Статус</th></tr>
+<tr v-for="pay in myPayments" v-bind:key="pay.id">
+<td>{{ fmtDate(pay.created_at) }}</td><td>{{ pay.plan_id }}</td><td>{{ fmt(pay.amount) }} ₽</td>
+<td><span class="badge" v-bind:class="payBadge(pay.status)">{{ payLabel(pay.status) }}</span></td></tr></table>
+</div>
+</div>
+<!-- Настройки -->
+<div v-if="tab==='settings'" class="glass card" style="max-width:560px">
+<div class="field"><label>Название</label><input v-model="vform.name"></div>
+<div class="field"><label>Описание</label><textarea v-model="vform.description" rows="2"></textarea></div>
+<div class="field"><label>Логотип</label>
+<div v-if="vform.logo_url" style="margin-bottom:10px;position:relative;display:inline-block">
+<img v-bind:src="vform.logo_url" style="width:90px;height:90px;object-fit:cover;border-radius:16px" alt="">
+<button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="vform.logo_url=''">×</button></div><br>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">
+<span v-if="!uploadingLogo">🖼 Загрузить логотип</span><span v-else>⏳ Загружаю...</span>
+<input type="file" accept="image/*" v-on:change="uploadLogo" v-bind:disabled="uploadingLogo" style="display:none"></label></div>
+<div class="field"><label>Фирменный цвет</label><input v-model="vform.brand_color" type="color" style="height:44px;padding:4px"></div>
+<div v-if="perms.delivery" style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
+<h4 style="margin:0 0 14px">📍 Адрес и геолокация</h4>
+<div class="field">
+<label>Фактический адрес заведения</label>
+<div class="row" style="align-items:stretch">
+<input v-model.trim="vform.address" placeholder="Город, улица, дом" style="flex:1">
+<button type="button" class="btn btn-ghost" v-on:click="geocodeVenueAddress" v-bind:disabled="geoBusy || !vform.address.trim()">
+{{ geoBusy ? '⏳ Определяю...' : '📍 Определить' }}
+</button>
+</div>
+</div>
+<div class="row" style="gap:10px">
+<div class="field" style="flex:1"><label>Широта</label><input v-model.number="vform.latitude" type="number" step="0.0000001" placeholder="51.5178123"></div>
+<div class="field" style="flex:1"><label>Долгота</label><input v-model.number="vform.longitude" type="number" step="0.0000001" placeholder="45.9705955"></div>
+</div>
+<div v-if="vform.latitude && vform.longitude" style="padding:10px 12px;border-radius:10px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);font-size:12px;color:#6ee7b7;">
+✓ Координаты определены: {{ Number(vform.latitude).toFixed(7) }}, {{ Number(vform.longitude).toFixed(7) }}
+</div>
+<div style="margin-top:20px;padding-top:18px;border-top:1px solid rgba(255,255,255,.06);">
+<h4 style="margin:0 0 14px">🚗 Тариф доставки</h4>
+<div class="field">
+<label>Минимальная сумма заказа для доставки, ₽</label>
+<input v-model.number="vform.delivery_min_order" type="number" min="0" step="1" placeholder="0">
+<div class="muted" style="font-size:11px;margin-top:5px">Если сумма заказа ниже этого значения, доставка недоступна.</div>
+</div>
+<div class="field">
+<label>Бесплатная доставка от, ₽</label>
+<input v-model.number="vform.delivery_min_order_free" type="number" min="0" step="1" placeholder="0">
+<div class="muted" style="font-size:11px;margin-top:5px">0 — бесплатная доставка не используется.</div>
+</div>
+<div class="row" style="gap:10px">
+<div class="field" style="flex:1"><label>Базовая стоимость, ₽</label><input v-model.number="vform.delivery_base_fee" type="number" min="0" step="1"></div>
+<div class="field" style="flex:1"><label>Стоимость за 1 км, ₽</label><input v-model.number="vform.delivery_rate_per_km" type="number" min="0" step="1"></div>
+</div>
+<div class="field"><label>Максимальная дистанция, км</label><input v-model.number="vform.delivery_max_km" type="number" min="0" step="0.1" placeholder="15"><div class="muted" style="font-size:11px;margin-top:5px">0 — ограничение расстояния не используется.</div></div>
+<div style="padding:12px;border-radius:10px;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.15);font-size:12px;line-height:1.5;">
+<b>Пример</b><br>Минимальный заказ: 500 ₽<br>Бесплатная доставка: от 1500 ₽<br>База: 100 ₽<br>За 1 км: 30 ₽
+</div>
+</div>
+</div>
+<button class="btn btn-primary" v-on:click="saveVenue" style="margin-top:16px">Сохранить</button>
+<div style="margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.08)">
+<label>QR-код для клиентов</label>
+<div class="row"><img v-bind:src="qrUrl" style="width:140px;height:140px;border-radius:12px;background:#fff;padding:6px" alt="QR">
+<div style="flex:1"><div class="muted" style="font-size:12px;word-break:break-all">{{ clientLink }}</div>
+<button class="btn btn-primary btn-sm" style="margin-top:8px" v-on:click="downloadQr">⬇️ Скачать QR</button>
+<button class="btn btn-ghost btn-sm" style="margin-top:8px" v-on:click="copyText(clientLink)">Копировать</button>
+<a class="btn btn-ghost btn-sm" style="margin-top:8px" v-bind:href="clientLink" target="_blank">Открыть меню</a></div></div>
+<p class="muted" style="font-size:11px;margin-top:10px">QR скачивается в качестве 1024px.</p></div>
+<div v-if="msg" class="msg" v-bind:class="msgType">{{ msg }}</div>
+</div>
+</template>
+</div>
+<!-- Модалки -->
+<div v-if="showCreateVenue" class="modal" v-on:click.self="showCreateVenue=false"><div class="glass box" style="max-width:760px;width:95%">
+<h3 style="margin-bottom:4px">Новое заведение</h3>
+<p class="muted" style="margin-top:0">Выберите готовый шаблон меню. Товары, цены и описания будут добавлены автоматически — после создания их можно полностью изменить.</p>
+<label style="display:block;margin-top:14px">Шаблон ниши</label>
+<div class="template-grid">
+<div v-for="t in venueTemplates" v-bind:key="t.id" class="template-card" v-bind:class="{selected:newVenueForm.template===t.id}" v-on:click="selectVenueTemplate(t.id)">
+<div class="emoji">{{ t.emoji }}</div><b>{{ t.name }}</b>
+<div class="count">{{ t.products.length }} готовых позиций</div>
+</div>
+</div>
+<div v-if="selectedVenueTemplate" class="template-preview">
+<div class="spread" style="margin-bottom:4px"><b>{{ selectedVenueTemplate.emoji }} {{ selectedVenueTemplate.name }}</b><span class="muted">{{ selectedVenueTemplate.products.length }} позиций</span></div>
+<div v-for="item in selectedVenueTemplate.products" v-bind:key="item.name" class="template-preview-row">
+<span>{{ item.name }}</span><b>{{ fmt(item.price) }} ₽</b>
+</div>
+</div>
+<div class="field"><label>Название заведения *</label><input v-model.trim="newVenueForm.name" placeholder="Например: Coffee Point"></div>
+<div class="field"><label>Код (slug) *</label><input v-model.trim="newVenueForm.slug" placeholder="coffee-point"></div>
+<div class="row">
+<button class="btn btn-primary" style="flex:1" v-on:click="createVenue" v-bind:disabled="busy">{{ busy?'⏳ Создаю...':'Создать заведение' }}</button>
+<button class="btn btn-ghost" v-on:click="showCreateVenue=false" v-bind:disabled="busy">Отмена</button>
+</div>
+<div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
+</div></div>
+<div v-if="showModal" class="modal" v-on:click.self="closeModal"><div class="glass box">
+<h3>{{ modalTitle }}</h3>
+<div class="field"><label>Название *</label><input v-model.trim="pform.name"></div>
+<div class="field"><label>Описание</label><textarea v-model="pform.description" rows="2"></textarea></div>
+<div class="row">
+<div class="field" style="flex:1"><label>Цена ₽</label><input v-model.number="pform.price" type="number" min="0" v-bind:disabled="!perms.prices"></div>
+<div class="field" style="flex:1"><label>Категория</label>
+<select v-model="pform.category">
+<option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option>
+<option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
+<option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+<option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
+</select>
+</div>
+</div>
+<div class="field" v-if="pform.category==='addon'"><label>Подходит к</label>
+<select v-model="pform.applies_to">
+<option value="all">Ко всему</option><option value="main">К блюдам</option>
+<option value="drink">К напиткам</option><option value="main,drink">К блюдам и напиткам</option></select></div>
+<div class="field"><label>Фото</label>
+<div v-if="pform.image_url" style="margin-bottom:10px"><img v-bind:src="pform.image_url" style="width:110px;height:110px;object-fit:cover;border-radius:12px" alt=""></div>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer">
+<span v-if="!uploading">📸 Загрузить фото</span><span v-else>⏳ Загружаю...</span>
+<input type="file" accept="image/*" v-on:change="uploadImage" v-bind:disabled="uploading" style="display:none"></label>
+<input v-model="pform.image_url" placeholder="или ссылка" style="margin-top:8px"></div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveProduct" v-bind:disabled="uploading">Сохранить</button>
+<button class="btn btn-ghost" v-on:click="closeModal">Отмена</button></div>
+<div v-if="formError" class="msg error" style="margin-top:10px">{{ formError }}</div>
+</div></div>
+<div v-if="detailProduct" class="modal detail-modal" v-on:click.self="closeProductDetail">
+<div class="glass box" style="max-width:480px;width:95%;padding:24px;">
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+<h2 style="margin:0;font-size:22px;">{{ detailProduct.name }}</h2>
+<button class="btn btn-ghost btn-sm" v-on:click="closeProductDetail" style="font-size:20px;line-height:1;">✕</button>
+</div>
+<img v-if="detailProduct.image_url" v-bind:src="detailProduct.image_url" class="detail-img" alt="">
+<div v-else style="width:100%;height:120px;background:#1f2937;border-radius:16px;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:14px;margin-bottom:16px;">Нет фото</div>
+<div class="detail-price">{{ detailProduct.price }} ₽</div>
+<div class="detail-category">{{ categoryLabel(detailProduct.category) }}</div>
+<div class="detail-desc" v-if="detailProduct.description">{{ detailProduct.description }}</div>
+<div v-else class="muted" style="font-size:13px;margin-bottom:12px;">Описание отсутствует.</div>
+<div class="detail-status" v-bind:class="{available: detailProduct.is_available, unavailable: !detailProduct.is_available}">
+{{ detailProduct.is_available ? '✅ Доступен' : '❌ Недоступен' }}
+</div>
+<div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+<button class="btn btn-primary" v-on:click="closeProductDetail">Закрыть</button>
+</div>
+</div>
+</div>
+<div v-if="createStaffModal" class="modal" v-on:click.self="createStaffModal=false">
+<div class="glass box" style="max-width:440px">
+<h3 style="margin-bottom:4px">Новый {{ createStaffType==='cook'?'повар':createStaffType==='courier'?'курьер':'официант' }}</h3>
+<p class="muted" style="margin:0 0 14px;font-size:12px">PIN будет показан только один раз после создания. Сообщите его сотруднику.</p>
+<div class="field"><label>Имя *</label><input v-model.trim="createStaffForm.name" placeholder="Иван Петров"></div>
+<div class="field"><label>Телефон</label><input v-model.trim="createStaffForm.phone" placeholder="+7 900 000-00-00"></div>
+<div class="field">
+<label>PIN (4 цифры) *</label>
+<input v-model="createStaffForm.pin" maxlength="4" inputmode="numeric" pattern="[0-9]*" placeholder="1234" style="text-align:center;letter-spacing:10px;font-size:22px;font-weight:700">
+<div class="row" style="margin-top:6px">
+<span class="muted" style="font-size:11px">Только цифры, 4 знака</span>
+<button type="button" class="btn btn-ghost btn-sm" v-on:click="generateRandomPin" style="margin-left:auto;font-size:11px">🎲 Случайный</button>
+</div>
+</div>
+<div v-if="createStaffError" class="msg error" style="margin-bottom:10px">{{ createStaffError }}</div>
+<div class="row">
+<button class="btn btn-primary" style="flex:1" v-on:click="saveStaff" v-bind:disabled="createStaffBusy">{{ createStaffBusy?'Создание...':'Создать' }}</button>
+<button class="btn btn-ghost" v-on:click="createStaffModal=false">Отмена</button>
+</div>
+</div></div>
+<div v-if="toast" class="toast" v-bind:class="toast.type">{{ toast.text }}</div>
 </div>
 </body>
 </html>
