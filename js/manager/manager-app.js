@@ -57,6 +57,17 @@
     document.head.appendChild(script);
   }
 
+  function loadCreateVenueFlow(){
+    if(window.__QR_MANAGER_CREATE_FLOW_V11__) return;
+    if(document.querySelector('script[data-qr-manager-create-venue-flow]')) return;
+    var script=document.createElement('script');
+    script.src='/js/manager-create-venue-flow.js?v=11';
+    script.async=false;
+    script.setAttribute('data-qr-manager-create-venue-flow','1');
+    script.onerror=function(){console.error('[QR Manager] Не удалось загрузить существующую логику создания заведения:',script.src);};
+    document.head.appendChild(script);
+  }
+
   function mountApp(){
     if(window.__QR_MANAGER_VUE_APP__) return;
     var root = document.getElementById('app');
@@ -68,6 +79,13 @@
       console.error('[QR Manager] Vue is not loaded');
       return;
     }
+
+    /*
+     * The tariff-aware venue creation flow already exists in the repository.
+     * It must be loaded before the manager can press the "+ Создать" button,
+     * otherwise the native Vue create-venue modal hides the tariff switch.
+     */
+    loadCreateVenueFlow();
 
     var app = Vue.createApp({
       data: appData,
