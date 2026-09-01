@@ -70,11 +70,8 @@
           }
         },
         showCreateVenue: function(show){
-          if(!show || typeof this.decorateVenueTemplateCards !== 'function') return;
-          var self = this;
-          this.$nextTick(function(){
-            self.decorateVenueTemplateCards();
-          });
+          if(!show || typeof this.prepareCreateVenueModal !== 'function') return;
+          this.prepareCreateVenueModal();
         }
       },
       mounted: function(){
