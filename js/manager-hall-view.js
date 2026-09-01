@@ -42,16 +42,38 @@
               var r=await db.from('subscriptions')
                 .select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at')
                 .eq('manager_id',managerId)
-                .is('venue_id',null)
                 .in('status',['trialing','active'])
                 .gte('current_period_end',new Date().toISOString())
-                .order('created_at',{ascending:false})
-                .limit(1)
-                .maybeSingle();
+                .order('created_at',{ascending:false});
               if(r.error) throw r.error;
-              this.managerSubscription=r.data||null;
-              if(r.data) this.subscriptionEnd=r.data.current_period_end;
-              return r.data||null;
+              var rows=r.data||[];
+              // A manager's subscription may be attached to a venue. Do not require venue_id IS NULL.
+              // Prefer the plan with the largest venue allowance; this prevents a lower-tier venue
+              // subscription from masking the manager's actual multi-venue entitlement.
+              var planIds=Array.from(new Set(rows.map(function(s){return s.plan_id;}).filter(Boolean)));
+              var plans=[];
+              if(planIds.length){
+                var pr=await db.from('plans').select('id,name,max_venues,is_active').in('id',planIds);
+                if(pr.error) throw pr.error;
+                plans=pr.data||[];
+              }
+              var candidates=rows.map(function(s){
+                var p=plans.find(function(x){return x.id===s.plan_id;});
+                return p&&p.is_active!==false?{subscription:s,plan:p}:null;
+              }).filter(Boolean).sort(function(a,b){
+                var am=Number(a.plan.max_venues||0),bm=Number(b.plan.max_venues||0);
+                if(am!==bm)return bm-am;
+                return new Date(b.subscription.created_at||0)-new Date(a.subscription.created_at||0);
+              });
+              var best=candidates[0]||null;
+              if(best){
+                this.managerSubscription=best.subscription;
+                this.currentPlan=best.plan;
+                this.subscriptionEnd=best.subscription.current_period_end;
+                return best.subscription;
+              }
+              this.managerSubscription=null;
+              return null;
             };
             var originalLoadMyVenues=options.methods.loadMyVenues;
             if(typeof originalLoadMyVenues==='function'){
@@ -98,10 +120,11 @@
               var self=this;
               var planId=this.managerSubscription&&this.managerSubscription.plan_id;
               var plan=Array.isArray(this.plans)?this.plans.find(function(x){return x.id===planId;}):null;
+              if(!plan&&this.currentPlan) plan=this.currentPlan;
               if(!plan&&Array.isArray(this.myVenues)&&this.myVenues.length){
                 var now=new Date();
                 var active=this.myVenues.find(function(v){return v.subscription_end&&new Date(v.subscription_end)>=now;})||this.myVenues[0];
-                if(active&&active.plan) plan=this.plans.find(function(x){return x.id===active.plan;})||null;
+                if(active&&active.plan) plan=Array.isArray(self.plans)?self.plans.find(function(x){return x.id===active.plan;})||null:null;
               }
               if(!plan&&this.venue&&this.venue.plan&&Array.isArray(this.plans)) plan=this.plans.find(function(x){return x.id===self.venue.plan;});
               return plan||null;
@@ -114,12 +137,14 @@
             options.computed.venueLimitUsed=function(){return Array.isArray(this.myVenues)?this.myVenues.length:0;};
             options.computed.venueLimitRemaining=function(){return Math.max(0,this.venueLimit-this.venueLimitUsed);};
             options.computed.canCreateVenue=function(){
-              if(!Array.isArray(this.myVenues)||this.myVenues.length===0) return true;
+              var used=this.venueLimitUsed;
+              var limit=this.venueLimit;
+              if(!this.profile || this.profile.role==='admin') return true;
               var sub=this.managerSubscription;
               var validSub=!!(sub&&['trialing','active'].indexOf(sub.status)!==-1&&sub.current_period_end&&new Date(sub.current_period_end)>=new Date());
-              var hasActiveVenue=this.myVenues.some(function(v){return v.subscription_end&&new Date(v.subscription_end)>=new Date();});
+              var hasActiveVenue=Array.isArray(this.myVenues)&&this.myVenues.some(function(v){return !v.subscription_end||new Date(v.subscription_end)>=new Date();});
               if(!validSub&&!hasActiveVenue) return false;
-              return this.venueLimitUsed<this.venueLimit;
+              return used<limit;
             };
             var originalCreateVenue=options.methods.createVenue;
             if(typeof originalCreateVenue==='function'){
@@ -138,6 +163,8 @@
                 }
                 var planId=(this.managerSubscription&&this.managerSubscription.plan_id)||null;
                 var subEnd=(this.managerSubscription&&this.managerSubscription.current_period_end)||null;
+                if(!planId&&this.currentPlan) planId=this.currentPlan.id;
+                if(!subEnd&&this.currentPlan&&this.subscriptionEnd) subEnd=this.subscriptionEnd;
                 if(!planId&&Array.isArray(this.myVenues)&&this.myVenues.length){
                   var now=new Date();
                   var active=this.myVenues.find(function(v){return v.subscription_end&&new Date(v.subscription_end)>=now;})||this.myVenues[0];
