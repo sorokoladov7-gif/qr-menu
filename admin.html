@@ -442,14 +442,63 @@
       </table>
     </div>
     <div class="glass card tblwrap" style="flex:1;min-width:320px">
-      <h4 style="margin:0 0 12px">👥 Эффективность персонала</h4>
-      <table class="tbl">
-        <tr><th>Сотрудник</th><th>Заведение</th><th>Заказы</th><th>Показатель</th></tr>
-        <tr v-for="c in adminAnalytics.cookActivity.slice(0,8)" v-bind:key="'c'+c.id"><td>👨‍🍳 {{ c.name }}</td><td>{{ c.venue }}</td><td>{{ c.orders }}</td><td>{{ c.avgTime }} мин</td></tr>
-        <tr v-for="c in adminAnalytics.courierActivity.slice(0,4)" v-bind:key="'r'+c.id"><td>🚗 {{ c.name }}</td><td>{{ c.venue }}</td><td>{{ c.delivered }}</td><td>доставок</td></tr>
-        <tr v-if="!adminAnalytics.cookActivity.length && !adminAnalytics.courierActivity.length"><td colspan="4" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr>
-      </table>
-    </div>
+  <h4 style="margin:0 0 12px">👥 Эффективность персонала</h4>
+
+  <table class="tbl">
+    <tr>
+      <th>Сотрудник</th>
+      <th>Заведение</th>
+      <th>Заказы</th>
+      <th>Показатель</th>
+    </tr>
+
+    <!-- Повара -->
+    <tr
+      v-for="c in (adminAnalytics.cookActivity || []).slice(0,8)"
+      v-bind:key="'c'+c.id"
+    >
+      <td>👨‍🍳 {{ c.name }}</td>
+      <td>{{ c.venue }}</td>
+      <td>{{ c.orders }}</td>
+      <td>{{ c.avgTime }} мин</td>
+    </tr>
+
+    <!-- Курьеры -->
+    <tr
+      v-for="c in (adminAnalytics.courierActivity || []).slice(0,4)"
+      v-bind:key="'r'+c.id"
+    >
+      <td>🚗 {{ c.name }}</td>
+      <td>{{ c.venue }}</td>
+      <td>{{ c.delivered }}</td>
+      <td>доставок</td>
+    </tr>
+
+    <!-- Официанты -->
+    <tr
+      v-for="w in (adminAnalytics.waiterActivity || []).slice(0,4)"
+      v-bind:key="'w'+w.id"
+    >
+      <td>🤵 {{ w.name }}</td>
+      <td>{{ w.venue }}</td>
+      <td>{{ w.served }}</td>
+      <td>обслужено</td>
+    </tr>
+
+    <!-- Нет данных -->
+    <tr
+      v-if="
+        !(adminAnalytics.cookActivity || []).length &&
+        !(adminAnalytics.courierActivity || []).length &&
+        !(adminAnalytics.waiterActivity || []).length
+      "
+    >
+      <td colspan="4" class="muted" style="text-align:center;padding:20px">
+        Нет данных
+      </td>
+    </tr>
+  </table>
+</div>
   </div>
   <div class="glass card tblwrap">
     <div class="spread" style="margin-bottom:12px"><h4 style="margin:0">👤 Управляющие — результативность</h4><span class="muted" style="font-size:12px">По заказам и выручке</span></div>
