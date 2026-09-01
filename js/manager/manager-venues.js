@@ -25,8 +25,15 @@
         return this.venue ? this.venue.name : 'Мои заведения';
       },
       canCreateVenue: function() {
-        var p = this.plans.find(function(x) { return x.id === 'start'; });
-        return this.myVenues.length < (p ? p.max_venues : 1);
+        if (!this.profile || this.profile.role === 'admin') return true;
+        var used = Array.isArray(this.myVenues) ? this.myVenues.length : 0;
+        var limit = Number(this.venueLimit || 0);
+        if (!limit && this.currentPlan) limit = Number(this.currentPlan.max_venues || 0);
+        if (!limit && this.managerSubscription && Array.isArray(this.plans)) {
+          var subPlan = this.plans.find(function(x) { return x.id === this.managerSubscription.plan_id; });
+          if (subPlan) limit = Number(subPlan.max_venues || 0);
+        }
+        return used < limit;
       },
       selectedVenueTemplate: function() {
         var self = this;
@@ -102,13 +109,11 @@
         } catch(e) {}
         this.tab = 'menu';
         this.subscriptionEnd = v.subscription_end;
-        // Инициализация vform будет в settings
         window.__managerSelectedVenue = v;
         window.__managerCurrentVenue = { id: v.id, name: v.name || '', slug: v.slug || '', logo_url: v.logo_url || null };
         try { localStorage.setItem('manager_venue_id', String(v.id)); } catch(e) {}
         window.__managerVue = this;
         if (this.isExpired(v)) { this.isBlocked = true; this.tab = 'billing'; } else { this.isBlocked = false; }
-        // Загрузка данных будет в app
       },
 
       selectVenueTemplate: function(id) {
@@ -126,15 +131,24 @@
           this.formError = 'В выбранном тарифе недостаточно места для шаблона (' + template.products.length + ' позиций).'; return;
         }
         self.busy = true;
-        var e = new Date();
-        e.setDate(e.getDate() + 10);
+        var planId = (this.managerSubscription && this.managerSubscription.plan_id) || (this.currentPlan && this.currentPlan.id) || null;
+        var subscriptionEnd = (this.managerSubscription && this.managerSubscription.current_period_end) || this.subscriptionEnd || null;
+        if (!planId && Array.isArray(this.plans) && this.venue && this.venue.plan) {
+          planId = this.venue.plan;
+        }
+        if (!planId) planId = 'start';
+        if (!subscriptionEnd) {
+          var e = new Date();
+          e.setDate(e.getDate() + 10);
+          subscriptionEnd = e.toISOString();
+        }
         var slug = window.slugify(this.newVenueForm.slug);
         if (!slug) { self.formError = 'Некорректный slug'; self.busy = false; return; }
         db.rpc('create_venue_for_manager', {
           p_name: this.newVenueForm.name.trim(),
           p_slug: slug,
-          p_plan: 'start',
-          p_subscription_end: e.toISOString()
+          p_plan: planId,
+          p_subscription_end: subscriptionEnd
         }).then(function(r) {
           if (r.error) throw r.error;
           var venue = r.data;
