@@ -21,9 +21,7 @@
       };
     },
     computed: {
-      venueName: function() {
-        return this.venue ? this.venue.name : 'Мои заведения';
-      },
+      venueName: function() { return this.venue ? this.venue.name : 'Мои заведения'; },
       canCreateVenue: function() {
         if (!this.profile || this.profile.role === 'admin') return true;
         var used = Array.isArray(this.myVenues) ? this.myVenues.length : 0;
@@ -40,14 +38,29 @@
         return this.venueTemplates.find(function(t) { return t.id === self.newVenueForm.template; }) || null;
       },
       isExpired: function() {
-        return function(v) {
-          return v.subscription_end && new Date(v.subscription_end) < new Date();
-        };
+        return function(v) { return v.subscription_end && new Date(v.subscription_end) < new Date(); };
       }
     },
     methods: {
+      ensureSiteImporter: function() {
+        if (window.QRManagerSiteImport) return Promise.resolve();
+        if (window.__QR_MANAGER_SITE_IMPORT_LOADING__) return window.__QR_MANAGER_SITE_IMPORT_LOADING__;
+        window.__QR_MANAGER_SITE_IMPORT_LOADING__ = new Promise(function(resolve) {
+          var s = document.createElement('script');
+          s.src = '/js/manager-site-import.js?v=7';
+          s.async = false;
+          s.onload = function() { resolve(); };
+          s.onerror = function(e) {
+            console.error('[Manager] Не удалось загрузить импорт сайта:', e);
+            resolve();
+          };
+          document.head.appendChild(s);
+        });
+        return window.__QR_MANAGER_SITE_IMPORT_LOADING__;
+      },
       loadMyVenues: function() {
         var self = this;
+        self.ensureSiteImporter();
         return new Promise(function(resolve) {
           var ids = null;
           var p = Promise.resolve();
@@ -72,26 +85,33 @@
           });
         });
       },
-
       loadVenueTemplates: function() {
         var self = this;
-        return db.from('menu_templates').select('id,name,slug,emoji,description,is_active,sort_order,products').eq('is_active', true).order('sort_order').order('name').then(function(r) {
+        return db.from('menu_templates').select('id,name,slug,emoji,description,is_active,sort_order,products,niche,scale_code,target_product_count').eq('is_active', true).order('sort_order').order('name').then(function(r) {
           if (r.error) { console.warn('menu_templates недоступна:', r.error.message); return; }
           if (!r.data || !r.data.length) return;
           self.venueTemplates = r.data.map(function(t) {
             var products = Array.isArray(t.products) ? t.products : [];
-            return { id: t.id, name: t.name, emoji: t.emoji || '🍽️', description: t.description || '', products: products };
+            return {
+              id: t.id,
+              name: t.name,
+              slug: t.slug || '',
+              emoji: t.emoji || '🍽️',
+              description: t.description || '',
+              niche: t.niche || 'other',
+              scale_code: t.scale_code || 'M',
+              target_product_count: Number(t.target_product_count || products.length || 0),
+              products: products
+            };
           });
         }).catch(function(e) { console.warn('Ошибка загрузки шаблонов:', e.message || e); });
       },
-
       backToList: function() {
         this.venue = null;
         this.hallRendered = false;
         if (this.timer) { clearInterval(this.timer); this.timer = null; }
         this.loadMyVenues();
       },
-
       selectVenue: function(v) {
         if (!v || !v.id) return;
         var self = this;
@@ -116,10 +136,6 @@
         try { localStorage.setItem('manager_venue_id', String(v.id)); } catch(e) {}
         window.__managerVue = this;
         if (this.isExpired(v)) { this.isBlocked = true; this.tab = 'billing'; } else { this.isBlocked = false; }
-
-        // При входе в заведение сразу загружаем его меню.
-        // Раньше selectVenue только выбирал venue, но loadProducts здесь не вызывался,
-        // поэтому вкладка «Меню» открывалась с пустым массивом products.
         if (!this.isBlocked && typeof this.loadProducts === 'function') {
           this.busy = true;
           this.loadProducts()
@@ -130,11 +146,7 @@
             .finally(function() { self.busy = false; });
         }
       },
-
-      selectVenueTemplate: function(id) {
-        this.newVenueForm.template = id;
-      },
-
+      selectVenueTemplate: function(id) { this.newVenueForm.template = id; },
       createVenue: function() {
         var self = this;
         self.formError = '';
@@ -194,15 +206,9 @@
           self.formError = 'Ошибка: ' + (err.message || String(err));
         }).finally(function() { self.busy = false; });
       },
-
-      venueBadge: function(v) {
-        return this.isExpired(v) ? 'b-cancelled' : 'b-ready';
-      },
-      venueLabel: function(v) {
-        return this.isExpired(v) ? 'Истекла' : 'Активна';
-      }
+      venueBadge: function(v) { return this.isExpired(v) ? 'b-cancelled' : 'b-ready'; },
+      venueLabel: function(v) { return this.isExpired(v) ? 'Истекла' : 'Активна'; }
     }
   };
-
   window.__QR_MANAGER_VENUES_MIXIN__ = venuesMixin;
 })();
