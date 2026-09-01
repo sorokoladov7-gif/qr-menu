@@ -46,6 +46,17 @@
     };
   }
 
+  function loadPaymentSettings(){
+    if(window.__QR_MANAGER_PAYMENT_SETTINGS_V3__) return;
+    if(document.querySelector('script[data-qr-manager-payment-settings]')) return;
+    var script=document.createElement('script');
+    script.src='/js/manager-payment-settings.js';
+    script.async=false;
+    script.setAttribute('data-qr-manager-payment-settings','1');
+    script.onerror=function(){console.error('[QR Manager] Не удалось загрузить модуль СБП:',script.src);};
+    document.head.appendChild(script);
+  }
+
   function mountApp(){
     if(window.__QR_MANAGER_VUE_APP__) return;
     var root = document.getElementById('app');
@@ -87,6 +98,7 @@
     window.__QR_MANAGER_VUE_APP__ = app;
     window.__QR_MANAGER_APP__ = true;
     window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));
+    loadPaymentSettings();
   }
 
   if(document.readyState === 'loading'){
