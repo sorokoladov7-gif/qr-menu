@@ -4,7 +4,7 @@ const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
 const ANALYSIS_BUDGET_MS = 25000;
 const MAX_RENDER_TARGETS = 6;
-const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык)(?:[\/?#_.-]|$)/iu;
+const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garнир|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям)(?:[\/?#_.-]|$)/iu;
 
 function normalizeName(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -41,7 +41,9 @@ function mergeProducts(existing, rendered, menuPages) {
   const byName = new Map();
 
   const add = raw => {
-    if (!raw || !isMenuPage(raw.source_url, menuPages)) return;
+    if (!raw) return;
+    const sourceUrl = String(raw.source_url || '').trim();
+    if (!isMenuPage(sourceUrl, menuPages)) return;
     const product = cleanMenuProduct(raw);
     if (!product) return;
     const key = normalizeName(product.name);
