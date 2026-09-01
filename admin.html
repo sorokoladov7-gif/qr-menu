@@ -74,9 +74,6 @@
 <button v-bind:class="{on:tab==='menu'}" v-on:click="switchTab('menu')">🍔 Меню</button>
 <button v-bind:class="{on:tab==='activity'}" v-on:click="switchTab('activity')">👥 Активность</button>
 <button v-bind:class="{on:tab==='managers'}" v-on:click="switchTab('managers')">👤 Управляющие</button>
-<button v-bind:class="{on:tab==='cooks'}" v-on:click="switchTab('cooks')">👨‍🍳 Повара</button>
-<button v-bind:class="{on:tab==='couriers'}" v-on:click="switchTab('couriers')">🚗 Курьеры</button>
-<button v-bind:class="{on:tab==='waiters'}" v-on:click="switchTab('waiters')">🤵 Официанты</button>
 <button v-bind:class="{on:tab==='plans'}" v-on:click="switchTab('plans')">💳 Тарифы и оплаты</button>
 <button v-bind:class="{on:tab==='templates'}" v-on:click="switchTab('templates')">🍽️ Шаблоны заведений</button>
 <button v-bind:class="{on:tab==='settings'}" v-on:click="switchTab('settings')">⚙️ Настройки</button>
@@ -607,63 +604,6 @@
 <button class="btn btn-danger btn-sm" v-on:click="delManager(m)" v-bind:disabled="m.id===profile.id">🗑</button></td></tr>
 </table>
 <p v-if="!managers.length" class="muted" style="padding:14px">Нет управляющих.</p></div>
-</div>
-<!-- Повара -->
-<div v-if="tab==='cooks'">
-<div class="glass card" style="margin-bottom:14px"><div class="row">
-<select v-model="cookForm.venue_id" style="flex:1">
-<option value="">— Выберите заведение —</option>
-<option v-for="v in venues" v-bind:key="v.id" v-bind:value="v.id">{{ v.name }}</option></select>
-<input v-model.trim="cookForm.name" placeholder="Имя повара" style="flex:1">
-<input v-model.trim="cookForm.phone" placeholder="Телефон" style="flex:1">
-<button class="btn btn-green btn-sm" v-on:click="addCookAdmin" v-bind:disabled="!cookForm.name||!cookForm.venue_id">+ Добавить повара</button>
-</div></div>
-<div class="glass card tblwrap"><table class="tbl">
-<tr><th>Повар</th><th>Заведение</th><th>Телефон</th><th>PIN</th><th>Действия</th></tr>
-<tr v-for="c in cooksAll" v-bind:key="c.id"><td>👨‍🍳 {{ c.name }}</td>
-<td>{{ c.venues?c.venues.name:'—' }}</td><td class="muted">{{ c.phone||'—' }}</td><td><b style="color:#a5b4fc">{{ c.pin }}</b></td>
-<td style="white-space:nowrap">
-<button class="btn btn-ghost btn-sm" v-on:click="openStaffEdit('cooks',c)">✏️</button>
-<button class="btn btn-danger btn-sm" v-on:click="delCook(c)">🗑</button></td></tr></table>
-<p v-if="!cooksAll.length" class="muted" style="padding:14px">Нет поваров.</p></div>
-</div>
-<!-- Курьеры -->
-<div v-if="tab==='couriers'">
-<div class="glass card" style="margin-bottom:14px"><div class="row">
-<select v-model="courierForm.venue_id" style="flex:1">
-<option value="">— Выберите заведение —</option>
-<option v-for="v in venues" v-bind:key="v.id" v-bind:value="v.id">{{ v.name }}</option></select>
-<input v-model.trim="courierForm.name" placeholder="Имя курьера" style="flex:1">
-<input v-model.trim="courierForm.phone" placeholder="Телефон" style="flex:1">
-<button class="btn btn-green btn-sm" v-on:click="addCourierAdmin" v-bind:disabled="!courierForm.name||!courierForm.venue_id">+ Добавить курьера</button>
-</div></div>
-<div class="glass card tblwrap"><table class="tbl">
-<tr><th>Курьер</th><th>Заведение</th><th>Телефон</th><th>PIN</th><th>Действия</th></tr>
-<tr v-for="c in couriersAll" v-bind:key="c.id"><td>🚗 {{ c.name }}</td>
-<td>{{ c.venues?c.venues.name:'—' }}</td><td class="muted">{{ c.phone||'—' }}</td><td><b style="color:#a5b4fc">{{ c.pin }}</b></td>
-<td style="white-space:nowrap">
-<button class="btn btn-ghost btn-sm" v-on:click="openStaffEdit('couriers',c)">✏️</button>
-<button class="btn btn-danger btn-sm" v-on:click="delCourier(c)">🗑</button></td></tr></table>
-<p v-if="!couriersAll.length" class="muted" style="padding:14px">Нет курьеров.</p></div>
-</div>
-<!-- Официанты -->
-<div v-if="tab==='waiters'">
-<div class="glass card" style="margin-bottom:14px"><div class="row">
-<select v-model="waiterForm.venue_id" style="flex:1">
-<option value="">— Выберите заведение —</option>
-<option v-for="v in venues" v-bind:key="v.id" v-bind:value="v.id">{{ v.name }}</option></select>
-<input v-model.trim="waiterForm.name" placeholder="Имя официанта" style="flex:1">
-<input v-model.trim="waiterForm.phone" placeholder="Телефон" style="flex:1">
-<button class="btn btn-green btn-sm" v-on:click="addWaiterAdmin" v-bind:disabled="!waiterForm.name||!waiterForm.venue_id">+ Добавить официанта</button>
-</div></div>
-<div class="glass card tblwrap"><table class="tbl">
-<tr><th>Официант</th><th>Заведение</th><th>Телефон</th><th>PIN</th><th>Действия</th></tr>
-<tr v-for="w in waitersAll" v-bind:key="w.id"><td>🤵 {{ w.name }}</td>
-<td>{{ w.venues?w.venues.name:'—' }}</td><td class="muted">{{ w.phone||'—' }}</td><td><b style="color:#a5b4fc">{{ w.pin }}</b></td>
-<td style="white-space:nowrap">
-<button class="btn btn-ghost btn-sm" v-on:click="openStaffEdit('waiters',w)">✏️</button>
-<button class="btn btn-danger btn-sm" v-on:click="delWaiter(w)">🗑</button></td></tr></table>
-<p v-if="!waitersAll.length" class="muted" style="padding:14px">Нет официантов.</p></div>
 </div>
 <!-- Тарифы и оплаты -->
 <div v-if="tab==='plans'">
