@@ -20,6 +20,21 @@
         }
       };
     },
+    computed: {
+      venueActivity: function() {
+        var self = this;
+        var list = self.adminAnalytics && Array.isArray(self.adminAnalytics.venueActivity) ? self.adminAnalytics.venueActivity : [];
+        return list.map(function(v) {
+          var cooks = (self.cooksAll || []).filter(function(c){ return c.venue_id === v.id; }).length;
+          var couriers = (self.couriersAll || []).filter(function(c){ return c.venue_id === v.id; }).length;
+          var waiters = (self.waitersAll || []).filter(function(w){ return w.venue_id === v.id; }).length;
+          return Object.assign({}, v, { cooks: cooks, couriers: couriers, waiters: waiters });
+        });
+      },
+      managerActivity: function() {
+        return Array.isArray(this.adminAnalytics && this.adminAnalytics.managerActivity) ? this.adminAnalytics.managerActivity : [];
+      }
+    },
     methods: {
       loadGlobalStats: function() {
         var self = this;
@@ -56,13 +71,10 @@
           };
         });
       },
-
       loadAdminAnalytics: function() {
         var self = this;
         var period = this.adminAnalyticsPeriod;
-        var baseUrl = db.from('orders')
-          .select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone')
-          .neq('status','cancelled');
+        var baseUrl = db.from('orders').select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone').neq('status','cancelled');
         if (period !== 'all') {
           var d2 = new Date();
           d2.setDate(d2.getDate() - parseInt(period));
@@ -90,8 +102,7 @@
             if (o.payment_method === 'card') card++; else cash++;
             if (o.cooking_started_at && o.ready_at) t.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 6e4);
             if (o.created_at) {
-              var dt = new Date(o.created_at);
-              var hr = dt.getHours();
+              var dt = new Date(o.created_at), hr = dt.getHours();
               hours[hr] = (hours[hr] || 0) + 1;
               var key = dt.toISOString().slice(0,10);
               if (!dailyMap[key]) dailyMap[key] = 0;
@@ -113,8 +124,7 @@
             var act = vs.filter(function(v){ return v.subscription_end && new Date(v.subscription_end) > now && v.status === 'active'; }).length;
             return { id: p.id, name: p.name, count: vs.length, mrr: act * Number(p.price || 0), percent: totalVenues ? Math.round(vs.length * 100 / totalVenues) : 0 };
           });
-          var activeSubs = self.subStats.active;
-          var expiredSubs = self.subStats.expired;
+          var activeSubs = self.subStats.active, expiredSubs = self.subStats.expired;
           var churnRate = activeSubs + expiredSubs ? Math.round(expiredSubs * 100 / (activeSubs + expiredSubs)) : 0;
           var arpu = activeSubs ? Math.round(self.mrr / activeSubs) : 0;
           var venueActivity = self.venues.map(function(v) {
@@ -149,61 +159,26 @@
             var served = words.filter(function(o){ return o.status === 'done'; }).length;
             return { id: w.id, name: w.name, venue: w.venues ? w.venues.name : '—', served: served, lastLogin: w.last_login_at ? new Date(w.last_login_at).toLocaleDateString('ru-RU') + ' ' + new Date(w.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '—' };
           }).sort(function(a,b){ return b.served - a.served; });
-          self.adminAnalytics = {
-            revenue: rev, orders: os.length, clients: clients, repeatClients: repeat, newClients: clients - repeat,
-            avgCheck: done.length ? Math.round(rev / done.length) : 0,
-            avgCookTime: t.length ? Math.round(t.reduce(function(a,b){ return a + b; },0) / t.length) : 0,
-            pickup: pickup, delivery: delivery, cash: cash, card: card,
-            topItems: [], topAddons: [], topHours: topHours, daily: daily,
-            mrr: self.mrr, arpu: arpu, churnRate: churnRate, trialConversion: 0, planDist: planDist,
-            venueActivity: venueActivity, managerActivity: managerActivity, cookActivity: cookActivity,
-            courierActivity: courierActivity, waiterActivity: waiterActivity
-          };
-
-          /* order_items/order_addons не имеют created_at. Фильтр периода берём через orders.id. */
+          self.adminAnalytics = { revenue: rev, orders: os.length, clients: clients, repeatClients: repeat, newClients: clients - repeat, avgCheck: done.length ? Math.round(rev / done.length) : 0, avgCookTime: t.length ? Math.round(t.reduce(function(a,b){ return a + b; },0) / t.length) : 0, pickup: pickup, delivery: delivery, cash: cash, card: card, topItems: [], topAddons: [], topHours: topHours, daily: daily, mrr: self.mrr, arpu: arpu, churnRate: churnRate, trialConversion: 0, planDist: planDist, venueActivity: venueActivity, managerActivity: managerActivity, cookActivity: cookActivity, courierActivity: courierActivity, waiterActivity: waiterActivity };
           var orderIds = os.map(function(o){ return o.id; }).filter(Boolean);
           if (!orderIds.length) return;
-
-          var itemsQ = db.from('order_items').select('name,qty,price,order_id').in('order_id', orderIds);
-          itemsQ.then(function(ir) {
+          db.from('order_items').select('name,qty,price,order_id').in('order_id', orderIds).then(function(ir) {
             if (ir.error) { console.error('Ошибка загрузки топа блюд:', ir.error); return; }
             var groups = {};
-            (ir.data || []).forEach(function(x) {
-              var name = x.name || 'Без названия';
-              if (!groups[name]) groups[name] = { name: name, count: 0, revenue: 0 };
-              groups[name].count += Number(x.qty) || 0;
-              groups[name].revenue += (Number(x.qty) || 0) * (Number(x.price) || 0);
-            });
-            self.adminAnalytics.topItems = Object.keys(groups).map(function(k){ return groups[k]; })
-              .sort(function(a,b){ return b.count - a.count; }).slice(0,15);
+            (ir.data || []).forEach(function(x){ var name=x.name||'Без названия'; if(!groups[name]) groups[name]={name:name,count:0,revenue:0}; groups[name].count += Number(x.qty)||0; groups[name].revenue += (Number(x.qty)||0)*(Number(x.price)||0); });
+            self.adminAnalytics.topItems = Object.keys(groups).map(function(k){ return groups[k]; }).sort(function(a,b){ return b.count-a.count; }).slice(0,15);
           });
-
-          var addQ = db.from('order_addons').select('name,order_id').in('order_id', orderIds);
-          addQ.then(function(ar) {
+          db.from('order_addons').select('name,order_id').in('order_id', orderIds).then(function(ar) {
             if (ar.error) { console.error('Ошибка загрузки топа добавок:', ar.error); return; }
             var groups = {};
-            (ar.data || []).forEach(function(x) {
-              var name = x.name || 'Без названия';
-              groups[name] = (groups[name] || 0) + 1;
-            });
-            self.adminAnalytics.topAddons = Object.keys(groups).map(function(name){ return { name: name, count: groups[name] }; })
-              .sort(function(a,b){ return b.count - a.count; }).slice(0,10);
+            (ar.data || []).forEach(function(x){ var name=x.name||'Без названия'; groups[name]=(groups[name]||0)+1; });
+            self.adminAnalytics.topAddons = Object.keys(groups).map(function(name){ return {name:name,count:groups[name]}; }).sort(function(a,b){ return b.count-a.count; }).slice(0,10);
           });
         }).catch(function(e) { console.error('Ошибка загрузки аналитики:', e); });
       },
-
-      adminTypePercent: function(t) {
-        var s = this.adminAnalytics;
-        var tot = s.pickup + s.delivery;
-        return tot ? Math.round(s[t] * 100 / tot) : 0;
-      },
-      adminPayPercent: function(p) {
-        var s = this.adminAnalytics;
-        var tot = s.cash + s.card;
-        return tot ? Math.round(s[p] * 100 / tot) : 0;
-      }
+      adminTypePercent: function(t) { var s=this.adminAnalytics, tot=s.pickup+s.delivery; return tot ? Math.round(s[t]*100/tot) : 0; },
+      adminPayPercent: function(p) { var s=this.adminAnalytics, tot=s.cash+s.card; return tot ? Math.round(s[p]*100/tot) : 0; }
     }
   };
-
   window.__QR_ADMIN_STATISTICS_MIXIN__ = statsMixin;
 })();
