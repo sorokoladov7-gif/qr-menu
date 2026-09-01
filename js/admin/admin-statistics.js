@@ -47,10 +47,7 @@
             clients: Object.keys(ph).length,
             venueStats: Object.values(m).map(function(v) {
               return {
-                id: v.id,
-                name: v.name,
-                revenue: v.revenue,
-                orders: v.orders,
+                id: v.id, name: v.name, revenue: v.revenue, orders: v.orders,
                 clients: Object.keys(v.clients).length,
                 avgCheck: v.orders ? Math.round(v.revenue / v.orders) : 0,
                 avgCookTime: v.t.length ? Math.round(v.t.reduce(function(a,b){ return a+b; },0) / v.t.length) : 0
@@ -91,7 +88,7 @@
           os.forEach(function(o) {
             if (o.order_type === 'delivery') delivery++; else pickup++;
             if (o.payment_method === 'card') card++; else cash++;
-            if (o.cooking_started_at && o.ready_at) { t.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 6e4); }
+            if (o.cooking_started_at && o.ready_at) t.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 6e4);
             if (o.created_at) {
               var dt = new Date(o.created_at);
               var hr = dt.getHours();
@@ -138,7 +135,7 @@
           var cookActivity = self.cooksAll.map(function(c) {
             var cords = os.filter(function(o){ return o.venue_id === c.venue_id && o.cook_name === c.name; });
             var times = [];
-            cords.forEach(function(o){ if (o.cooking_started_at && o.ready_at) { times.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 6e4); } });
+            cords.forEach(function(o){ if (o.cooking_started_at && o.ready_at) times.push((new Date(o.ready_at) - new Date(o.cooking_started_at)) / 6e4); });
             var avg = times.length ? Math.round(times.reduce(function(a,b){ return a + b; },0) / times.length) : 0;
             return { id: c.id, name: c.name, venue: c.venues ? c.venues.name : '—', orders: cords.length, avgTime: avg, lastLogin: c.last_login_at ? new Date(c.last_login_at).toLocaleDateString('ru-RU') + ' ' + new Date(c.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '—' };
           }).sort(function(a,b){ return b.orders - a.orders; });
@@ -153,37 +150,21 @@
             return { id: w.id, name: w.name, venue: w.venues ? w.venues.name : '—', served: served, lastLogin: w.last_login_at ? new Date(w.last_login_at).toLocaleDateString('ru-RU') + ' ' + new Date(w.last_login_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'}) : '—' };
           }).sort(function(a,b){ return b.served - a.served; });
           self.adminAnalytics = {
-            revenue: rev,
-            orders: os.length,
-            clients: clients,
-            repeatClients: repeat,
-            newClients: clients - repeat,
+            revenue: rev, orders: os.length, clients: clients, repeatClients: repeat, newClients: clients - repeat,
             avgCheck: done.length ? Math.round(rev / done.length) : 0,
             avgCookTime: t.length ? Math.round(t.reduce(function(a,b){ return a + b; },0) / t.length) : 0,
-            pickup: pickup,
-            delivery: delivery,
-            cash: cash,
-            card: card,
-            topItems: [],
-            topAddons: [],
-            topHours: topHours,
-            daily: daily,
-            mrr: self.mrr,
-            arpu: arpu,
-            churnRate: churnRate,
-            trialConversion: 0,
-            planDist: planDist,
-            venueActivity: venueActivity,
-            managerActivity: managerActivity,
-            cookActivity: cookActivity,
-            courierActivity: courierActivity,
-            waiterActivity: waiterActivity
+            pickup: pickup, delivery: delivery, cash: cash, card: card,
+            topItems: [], topAddons: [], topHours: topHours, daily: daily,
+            mrr: self.mrr, arpu: arpu, churnRate: churnRate, trialConversion: 0, planDist: planDist,
+            venueActivity: venueActivity, managerActivity: managerActivity, cookActivity: cookActivity,
+            courierActivity: courierActivity, waiterActivity: waiterActivity
           };
 
-          // Supabase/PostgREST не поддерживает .group() у обычного select-builder.
-          // Загружаем позиции и группируем на клиенте.
-          var itemsQ = db.from('order_items').select('name,qty,price,created_at');
-          if (period !== 'all') { var d3 = new Date(); d3.setDate(d3.getDate() - parseInt(period)); itemsQ = itemsQ.gte('created_at', d3.toISOString()); }
+          /* order_items/order_addons не имеют created_at. Фильтр периода берём через orders.id. */
+          var orderIds = os.map(function(o){ return o.id; }).filter(Boolean);
+          if (!orderIds.length) return;
+
+          var itemsQ = db.from('order_items').select('name,qty,price,order_id').in('order_id', orderIds);
           itemsQ.then(function(ir) {
             if (ir.error) { console.error('Ошибка загрузки топа блюд:', ir.error); return; }
             var groups = {};
@@ -197,8 +178,7 @@
               .sort(function(a,b){ return b.count - a.count; }).slice(0,15);
           });
 
-          var addQ = db.from('order_addons').select('name,created_at');
-          if (period !== 'all') { var d4 = new Date(); d4.setDate(d4.getDate() - parseInt(period)); addQ = addQ.gte('created_at', d4.toISOString()); }
+          var addQ = db.from('order_addons').select('name,order_id').in('order_id', orderIds);
           addQ.then(function(ar) {
             if (ar.error) { console.error('Ошибка загрузки топа добавок:', ar.error); return; }
             var groups = {};
