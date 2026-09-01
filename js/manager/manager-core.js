@@ -92,32 +92,14 @@
           if (typeof self.loadVenueTemplates === 'function') await self.loadVenueTemplates();
           if (typeof self.loadMyVenues === 'function') await self.loadMyVenues();
 
-          self.ready = true;
-
           /*
-           * ВАЖНО: manager_venue_id хранится в localStorage браузера и переживает
-           * выход из аккаунта. Поэтому после входа другого управляющего сохранённый
-           * venue_id нельзя считать доверенным, пока он не найден в self.myVenues.
-           * Иначе вкладка рецептур отправляет старое заведение в
-           * manager_ingredient_list и получает P0001 forbidden.
+           * После загрузки кабинета всегда показываем список заведений.
+           * Ранее здесь автоматически восстанавливался manager_venue_id из
+           * localStorage и сразу открывалось сохранённое заведение. Это делало
+           * поведение после обновления страницы зависимым от старого состояния.
+           * Теперь выбор заведения выполняется только явным действием пользователя.
            */
-          var saved = localStorage.getItem('manager_venue_id');
-          var selected = null;
-          if (saved && self.myVenues && self.myVenues.length) {
-            selected = self.myVenues.find(function(v) { return String(v.id) === String(saved); }) || null;
-          }
-
-          if (!selected && self.myVenues && self.myVenues.length) {
-            try {
-              localStorage.removeItem('manager_venue_id');
-              localStorage.removeItem('selectedVenueId');
-            } catch(e) {}
-            selected = self.myVenues[0];
-          }
-
-          if (selected && typeof self.selectVenue === 'function') {
-            self.selectVenue(selected);
-          }
+          self.ready = true;
         } catch(e) {
           console.error('[Manager] init:', e);
           self.loadError = e && e.message ? e.message : String(e);
