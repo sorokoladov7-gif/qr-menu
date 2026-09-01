@@ -19,12 +19,6 @@
   background: rgba(255,255,255,.03);
   border-radius: 10px;
 }
-/* Адаптивность */
-@media (max-width: 900px) {
-  .template-grid { grid-template-columns: 1fr; }
-  .template-editor .field-group { grid-template-columns: 1fr; }
-  .template-editor .product-row { grid-template-columns: 40px 1fr 1fr; }
-}
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -32,9 +26,118 @@
 }
 .menu-grid .card { padding: 10px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); }
 .menu-grid .card img { width: 100%; height: 130px; object-fit: cover; border-radius: 8px; background: #0e1219; }
-/* Панель дизайна */
 .design-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 14px; }
 .design-field label { font-size: 12px; color: #9ca3af; display: block; margin-bottom: 4px; }
 .design-field input[type="color"] { height: 44px; padding: 4px; width: 100%; }
 .venue-selector { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-/* ... остальные стили из оригинального admin.html */
+
+/* ==========================================================
+   ADMIN ANALYTICS — dashboard layout
+   ========================================================== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.kpi-grid .kpi {
+  min-width: 0;
+  padding: 18px 16px;
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(255,255,255,.055), rgba(255,255,255,.025));
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+}
+.kpi-grid .kpi .n {
+  font-size: clamp(20px, 2vw, 28px);
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kpi-grid .kpi .l {
+  margin-top: 7px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.analytics-dashboard-card {
+  padding: 20px;
+  border-radius: 18px;
+}
+.analytics-dashboard-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.analytics-dashboard-title h4 { margin: 0; font-size: 15px; }
+.analytics-dashboard-title .muted { font-size: 12px; }
+.analytics-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+  gap: 10px;
+}
+.analytics-mini-card {
+  padding: 14px;
+  border: 1px solid rgba(148,163,184,.12);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+}
+.analytics-mini-card .value { font-size: 21px; font-weight: 800; }
+.analytics-mini-card .label { margin-top: 5px; color:#94a3b8; font-size:12px; }
+.analytics-two-col {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.analytics-section {
+  padding: 18px;
+  border-radius: 18px;
+}
+.analytics-section h4 { margin: 0 0 13px; }
+.analytics-list-row {
+  display: grid;
+  grid-template-columns: 90px minmax(0,1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  margin: 9px 0;
+}
+.analytics-list-row .bar { margin: 0; }
+.analytics-table-title {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+@media (max-width: 1100px) {
+  .kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .analytics-mini-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 760px) {
+  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .analytics-two-col { grid-template-columns: 1fr; }
+  .analytics-mini-grid { grid-template-columns: 1fr 1fr; }
+  .analytics-dashboard-card,
+  .analytics-section { padding: 14px; }
+}
+@media (max-width: 480px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+  .analytics-mini-grid { grid-template-columns: 1fr; }
+}
+
+/* Адаптивность шаблонов */
+@media (max-width: 900px) {
+  .template-grid { grid-template-columns: 1fr; }
+  .template-editor .field-group { grid-template-columns: 1fr; }
+  .template-editor .product-row { grid-template-columns: 40px 1fr 1fr; }
+}
