@@ -4,7 +4,7 @@
 if(window.__QR_MANAGER_SITE_IMPORT_V8__)return;
 window.__QR_MANAGER_SITE_IMPORT_V8__=true;
 var state={modal:null,mode:'template',data:null,busy:false};
-function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
+function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',\"\"\":'&quot;',"'":'&#39;'}[c];});}
 function slugify(v){var m={'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};return String(v||'').toLowerCase().trim().replace(/[а-яё]/g,function(c){return m[c]||'';}).replace(/[^a-z0-9\s_-]/g,'').replace(/\s+/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(0,80);}
 function errText(e){
 if(!e)return'Неизвестная ошибка';
@@ -45,7 +45,8 @@ if(!grid||!name||!slug||!submit)return;
 modal.dataset.siteImportInstalled='8';state.modal=modal;
 var sw=document.createElement('div');sw.id='qr-site-import-switcher-v6';sw.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px';sw.innerHTML='<button type="button" data-mode="template" style="border:1px solid #8b5cf6;background:rgba(99,102,241,.14);color:#fff;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">🍽️ Создать из шаблона</button><button type="button" data-mode="site" style="border:1px solid rgba(255,255,255,.12);background:#172236;color:#fff;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">🌐 Импортировать с сайта</button>';
 var panel=document.createElement('div');panel.id='qr-site-import-panel-v4';panel.style.cssText='display:none;margin-top:14px;border:1px solid rgba(96,165,250,.28);background:rgba(37,99,235,.06);border-radius:14px;padding:14px';panel.innerHTML='<div style="font-weight:800;margin-bottom:6px">🌐 Импорт существующего заведения</div><div style="color:#9ca3af;font-size:12px;margin-bottom:10px">Универсальный анализатор обходит сайт, страницы меню и структурированные данные.</div><div style="display:flex;gap:8px;flex-wrap:wrap"><input id="qr-site-url-v4" type="url" autocomplete="url" placeholder="https://example.ru" style="flex:1;min-width:220px;background:#0f172a;color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px;box-sizing:border-box"><button id="qr-site-find-v4" type="button" style="background:#2563eb;color:#fff;border:0;border-radius:10px;padding:12px 16px;font-weight:800;cursor:pointer">🔍 Анализировать сайт</button></div><div id="qr-site-status-v4" style="display:none;margin-top:9px;color:#93c5fd;font-size:12px"></div><div id="qr-site-preview-v4" style="margin-top:12px"></div>';
-content.insertBefore(sw,label||grid);content.insertBefore(panel,sw.nextSibling);
+var anchor=(grid&&grid.parentNode===content)?grid:(label&&label.parentNode===content?label:null);
+if(anchor){content.insertBefore(sw,anchor);content.insertBefore(panel,sw.nextSibling);}else{content.appendChild(sw);content.appendChild(panel);}
 var bs=sw.querySelectorAll('button');
 function mode(x){state.mode=x;state.data=null;bs.forEach(function(b){var on=b.dataset.mode===x;b.style.borderColor=on?'#8b5cf6':'rgba(255,255,255,.12)';b.style.background=on?'rgba(99,102,241,.14)':'#172236';});var site=x==='site';panel.style.display=site?'block':'none';if(label)label.style.display=site?'none':'';grid.style.display=site?'none':'';if(tp)tp.style.display=site?'none':'';submit.textContent=site?'Создать импортированное заведение':'Создать заведение';hideError(modal);}
 bs.forEach(function(b){b.onclick=function(){mode(b.dataset.mode);};});
