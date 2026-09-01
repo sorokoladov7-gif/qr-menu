@@ -179,16 +179,35 @@
             courierActivity: courierActivity,
             waiterActivity: waiterActivity
           };
-          // загружаем топ блюд
-          var itemsQ = db.from('order_items').select('name,sum(qty) as count,sum(qty*price) as revenue');
+
+          // Supabase/PostgREST не поддерживает .group() у обычного select-builder.
+          // Загружаем позиции и группируем на клиенте.
+          var itemsQ = db.from('order_items').select('name,qty,price,created_at');
           if (period !== 'all') { var d3 = new Date(); d3.setDate(d3.getDate() - parseInt(period)); itemsQ = itemsQ.gte('created_at', d3.toISOString()); }
-          itemsQ.group('name').order('count', {ascending:false}).limit(15).then(function(ir) {
-            if (ir.data) self.adminAnalytics.topItems = ir.data.map(function(x){ return { name: x.name, count: Number(x.count) || 0, revenue: Number(x.revenue) || 0 }; });
+          itemsQ.then(function(ir) {
+            if (ir.error) { console.error('Ошибка загрузки топа блюд:', ir.error); return; }
+            var groups = {};
+            (ir.data || []).forEach(function(x) {
+              var name = x.name || 'Без названия';
+              if (!groups[name]) groups[name] = { name: name, count: 0, revenue: 0 };
+              groups[name].count += Number(x.qty) || 0;
+              groups[name].revenue += (Number(x.qty) || 0) * (Number(x.price) || 0);
+            });
+            self.adminAnalytics.topItems = Object.keys(groups).map(function(k){ return groups[k]; })
+              .sort(function(a,b){ return b.count - a.count; }).slice(0,15);
           });
-          var addQ = db.from('order_addons').select('name,count(*) as count');
+
+          var addQ = db.from('order_addons').select('name,created_at');
           if (period !== 'all') { var d4 = new Date(); d4.setDate(d4.getDate() - parseInt(period)); addQ = addQ.gte('created_at', d4.toISOString()); }
-          addQ.group('name').order('count', {ascending:false}).limit(10).then(function(ar) {
-            if (ar.data) self.adminAnalytics.topAddons = ar.data.map(function(x){ return { name: x.name, count: Number(x.count) || 0 }; });
+          addQ.then(function(ar) {
+            if (ar.error) { console.error('Ошибка загрузки топа добавок:', ar.error); return; }
+            var groups = {};
+            (ar.data || []).forEach(function(x) {
+              var name = x.name || 'Без названия';
+              groups[name] = (groups[name] || 0) + 1;
+            });
+            self.adminAnalytics.topAddons = Object.keys(groups).map(function(name){ return { name: name, count: groups[name] }; })
+              .sort(function(a,b){ return b.count - a.count; }).slice(0,10);
           });
         }).catch(function(e) { console.error('Ошибка загрузки аналитики:', e); });
       },
