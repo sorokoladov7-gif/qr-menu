@@ -4,13 +4,6 @@
   if (window.__QR_MANAGER_CORE__) return;
   window.__QR_MANAGER_CORE__ = true;
 
-  // Глобальные помощники (если не определены)
-  if (!window.fmt) console.warn('utils.js не загружен');
-
-  // Регистрируем общие методы, которые будут использоваться в Vue
-  // Они будут добавлены в data, computed, methods через миксины
-
-  // Создаём миксин для core
   var coreMixin = {
     data: function() {
       return {
@@ -78,33 +71,42 @@
         location.href = '/index.html';
       },
 
-      init: function() {
+      init: async function() {
         var self = this;
         self.loadError = '';
         self.ready = false;
         try {
           if (typeof db === 'undefined') throw new Error('Supabase не подключен');
-          if (typeof requireAuth === 'function') {
-            requireAuth(['manager', 'admin']).then(function(profile) {
-              self.profile = profile;
-              if (!profile) { self.ready = true; return; }
-              // обновляем last_login
-              db.from('profiles').update({ last_login_at: new Date().toISOString() }).eq('id', profile.id).then(function(){});
-              // загружаем планы и шаблоны через другие модули
-              // они вызовутся в manager-app.js
-            });
-          } else {
-            self.ready = true;
-            self.loadError = 'Функция requireAuth не найдена. Проверьте app.js';
+          if (typeof requireAuth !== 'function') throw new Error('Функция requireAuth не найдена. Проверьте app.js');
+
+          var profile = await requireAuth(['manager', 'admin']);
+          self.profile = profile;
+          if (!profile) { self.ready = true; return; }
+
+          await db.from('profiles').update({ last_login_at: new Date().toISOString() }).eq('id', profile.id);
+
+          var planResult = await db.from('plans').select('*').order('price');
+          if (planResult.error) throw planResult.error;
+          self.plans = planResult.data || [];
+
+          if (typeof self.loadVenueTemplates === 'function') await self.loadVenueTemplates();
+          if (typeof self.loadMyVenues === 'function') await self.loadMyVenues();
+
+          self.ready = true;
+
+          var saved = localStorage.getItem('manager_venue_id');
+          if (saved && self.myVenues && self.myVenues.length) {
+            var savedVenue = self.myVenues.find(function(v) { return String(v.id) === String(saved); });
+            if (savedVenue && typeof self.selectVenue === 'function') self.selectVenue(savedVenue);
           }
         } catch(e) {
-          self.loadError = e.message || String(e);
+          console.error('[Manager] init:', e);
+          self.loadError = e && e.message ? e.message : String(e);
           self.ready = true;
         }
       }
     }
   };
 
-  // Сохраняем миксин глобально
   window.__QR_MANAGER_CORE_MIXIN__ = coreMixin;
 })();
