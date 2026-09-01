@@ -68,6 +68,17 @@
     document.head.appendChild(script);
   }
 
+  function loadSiteImport(){
+    if(window.QRManagerSiteImport) return;
+    if(document.querySelector('script[data-qr-manager-site-import]')) return;
+    var script=document.createElement('script');
+    script.src='/js/manager-site-import.js?v=8';
+    script.async=false;
+    script.setAttribute('data-qr-manager-site-import','1');
+    script.onerror=function(){console.error('[QR Manager] Не удалось загрузить модуль импорта сайта:',script.src);};
+    document.head.appendChild(script);
+  }
+
   function mountApp(){
     if(window.__QR_MANAGER_VUE_APP__) return;
     var root = document.getElementById('app');
@@ -81,10 +92,11 @@
     }
 
     /*
-     * The tariff-aware venue creation flow already exists in the repository.
-     * It must be loaded before the manager can press the "+ Создать" button,
-     * otherwise the native Vue create-venue modal hides the tariff switch.
+     * Both existing venue-creation capabilities must be available together:
+     * tariff-aware creation and site import. Load the site importer first so
+     * its custom-event listener is ready when the tariff flow opens its modal.
      */
+    loadSiteImport();
     loadCreateVenueFlow();
 
     var app = Vue.createApp({
