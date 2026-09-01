@@ -11,7 +11,8 @@
     window.__QR_MANAGER_STAFF_MIXIN__,
     window.__QR_MANAGER_BILLING_MIXIN__,
     window.__QR_MANAGER_ANALYTICS_MIXIN__,
-    window.__QR_MANAGER_SETTINGS_MIXIN__
+    window.__QR_MANAGER_SETTINGS_MIXIN__,
+    window.__QR_MANAGER_RECIPES_MIXIN__
   ];
 
   var appData = function(){
