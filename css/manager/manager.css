@@ -55,3 +55,147 @@
   box-sizing: border-box;
 }
 /* ... остальные стили из оригинального manager.html */
+
+/* Каталог шаблонов — та же компоновка, что в админке */
+.manager-template-catalog {
+  display: grid;
+  grid-template-columns: 280px minmax(0,1fr);
+  gap: 18px;
+  margin: 14px 0 16px;
+  min-height: 330px;
+}
+.manager-template-list {
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.manager-template-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 12px;
+  background: #0e1219;
+  color: #fff;
+  border: 1px solid #303746;
+  border-radius: 10px;
+  padding: 10px;
+  outline: none;
+}
+.manager-template-search:focus { border-color: #6366f1; }
+.manager-template-list .template-item {
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  margin-bottom: 4px;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.manager-template-list .template-item:hover {
+  background: rgba(255,255,255,.035);
+  transform: translateX(2px);
+}
+.manager-template-list .template-item.active {
+  border-color: #6366f1;
+  background: rgba(99,102,241,.08);
+}
+.manager-template-list .template-item .name {
+  font-weight: 700;
+  font-size: 13px;
+}
+.manager-template-list .template-item .meta {
+  margin-top: 4px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+.manager-template-list .template-item .manager-template-status {
+  color: #64748b;
+}
+.manager-template-list .template-item.active .manager-template-status {
+  color: #a5b4fc;
+  font-weight: 700;
+}
+.manager-template-detail {
+  min-width: 0;
+  border: 1px solid rgba(148,163,184,.14);
+  border-radius: 14px;
+  background: rgba(255,255,255,.025);
+  padding: 16px;
+  overflow: auto;
+  max-height: 52vh;
+}
+.manager-template-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.manager-template-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+}
+.manager-template-emoji { font-size: 24px; }
+.manager-template-description {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.manager-template-selected {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(99,102,241,.12);
+  color: #a5b4fc;
+  font-size: 11px;
+  font-weight: 700;
+}
+.manager-template-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+.manager-template-meta-grid > div {
+  padding: 10px;
+  border: 1px solid rgba(148,163,184,.1);
+  border-radius: 10px;
+  background: rgba(255,255,255,.025);
+}
+.manager-template-meta-grid span {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+  margin-bottom: 3px;
+}
+.manager-template-meta-grid b { font-size: 12px; }
+.manager-template-products-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 10px 0 8px;
+}
+.manager-template-products { display: grid; gap: 5px; }
+.manager-template-product {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.03);
+  font-size: 12px;
+}
+.manager-template-select-btn { width: 100%; margin-top: 12px; }
+.manager-template-empty {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 13px;
+}
+
+@media (max-width: 760px) {
+  .manager-template-catalog { grid-template-columns: 1fr; gap: 10px; }
+  .manager-template-list, .manager-template-detail { max-height: none; }
+  .manager-template-meta-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
