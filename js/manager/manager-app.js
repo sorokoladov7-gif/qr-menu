@@ -31,8 +31,29 @@
     if(m.methods) Object.assign(appMethods, m.methods);
   });
 
+  function loadInstruction(){
+    if(window.__QR_MANAGER_INSTRUCTION_V6__ || window.__QR_MANAGER_INSTRUCTION_LOADING__) return;
+    window.__QR_MANAGER_INSTRUCTION_LOADING__ = true;
+    var script=document.createElement('script');
+    script.src='/js/manager-instruction-tab-v2.js?v=6';
+    script.async=false;
+    script.setAttribute('data-qr-manager-instruction','v6');
+    script.onload=function(){ window.__QR_MANAGER_INSTRUCTION_LOADING__=false; };
+    script.onerror=function(){ window.__QR_MANAGER_INSTRUCTION_LOADING__=false; console.error('[QR Manager] Не удалось загрузить полную инструкцию:',script.src); };
+    document.head.appendChild(script);
+  }
+
   if(!appMethods.openStaffGuide){
-    appMethods.openStaffGuide = function(){ window.location.href = '/staff-guide.html'; };
+    appMethods.openStaffGuide = function(){
+      if(typeof window.__QR_MANAGER_INSTRUCTION_SHOW__ === 'function'){
+        window.__QR_MANAGER_INSTRUCTION_SHOW__('start');
+        return;
+      }
+      loadInstruction();
+      setTimeout(function(){
+        if(typeof window.__QR_MANAGER_INSTRUCTION_SHOW__ === 'function') window.__QR_MANAGER_INSTRUCTION_SHOW__('start');
+      },100);
+    };
   }
 
   if(!appMethods.renderHall){
@@ -58,10 +79,10 @@
   }
 
   function loadCreateVenueFlow(){
-    if(window.__QR_MANAGER_CREATE_FLOW_V11__) return;
+    if(window.__QR_MANAGER_CREATE_FLOW_V11__ || window.__QR_MANAGER_CREATE_FLOW_V12__) return;
     if(document.querySelector('script[data-qr-manager-create-venue-flow]')) return;
     var script=document.createElement('script');
-    script.src='/js/manager-create-venue-flow.js?v=11';
+    script.src='/js/manager-create-venue-flow.js?v=12';
     script.async=false;
     script.setAttribute('data-qr-manager-create-venue-flow','1');
     script.onerror=function(){console.error('[QR Manager] Не удалось загрузить существующую логику создания заведения:',script.src);};
@@ -91,11 +112,7 @@
       return;
     }
 
-    /*
-     * Both existing venue-creation capabilities must be available together:
-     * tariff-aware creation and site import. Load the site importer first so
-     * its custom-event listener is ready when the tariff flow opens its modal.
-     */
+    loadInstruction();
     loadSiteImport();
     loadCreateVenueFlow();
 
