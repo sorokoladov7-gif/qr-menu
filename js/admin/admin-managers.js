@@ -9,6 +9,7 @@
       return {
         managers: [],
         links: [],
+        managerPeriods: {},
         addMgrModal: { show: false, name: '', email: '', password: '', role: 'manager', err: '' },
         mgrEditModal: { show: false, id: null, name: '', role: 'manager', allow_manage_delivery: false, allow_manage_design: false }
       };
