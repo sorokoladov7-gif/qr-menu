@@ -46,29 +46,48 @@
     };
   }
 
-  var app = Vue.createApp({
-    data: appData,
-    computed: appComputed,
-    methods: appMethods,
-    watch: {
-      tab: function(newTab){
-        if(newTab === 'hall' && this.venue){
-          var self = this;
-          this.$nextTick(function(){ self.renderHall(); });
-        }
-      }
-    },
-    mounted: function(){
-      this.init();
-    },
-    beforeUnmount: function(){
-      if(this.timer) clearInterval(this.timer);
+  function mountApp(){
+    if(window.__QR_MANAGER_VUE_APP__) return;
+    var root = document.getElementById('app');
+    if(!root){
+      console.error('[QR Manager] #app not found');
+      return;
     }
-  });
+    if(typeof window.Vue === 'undefined'){
+      console.error('[QR Manager] Vue is not loaded');
+      return;
+    }
 
-  app.mount('#app');
-  window.__managerVue = app._instance && app._instance.proxy;
-  window.__QR_MANAGER_VUE_APP__ = app;
-  window.__QR_MANAGER_APP__ = true;
-  window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));
+    var app = Vue.createApp({
+      data: appData,
+      computed: appComputed,
+      methods: appMethods,
+      watch: {
+        tab: function(newTab){
+          if(newTab === 'hall' && this.venue){
+            var self = this;
+            this.$nextTick(function(){ self.renderHall(); });
+          }
+        }
+      },
+      mounted: function(){
+        this.init();
+      },
+      beforeUnmount: function(){
+        if(this.timer) clearInterval(this.timer);
+      }
+    });
+
+    app.mount(root);
+    window.__managerVue = app._instance && app._instance.proxy;
+    window.__QR_MANAGER_VUE_APP__ = app;
+    window.__QR_MANAGER_APP__ = true;
+    window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', mountApp, {once:true});
+  }else{
+    mountApp();
+  }
 })();
