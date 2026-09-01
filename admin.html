@@ -549,6 +549,16 @@
 <div v-if="tab==='menu'">
   <div class="spread" style="margin-bottom:14px">
     <h3 style="margin:0">🍔 Меню заведения</h3>
+    <div class="field" style="margin-bottom:12px;">
+  <label>Описание блюда</label>
+  <textarea
+    v-if="prodModal.list.length"
+    v-model="prodModal.list[0].description"
+    rows="4"
+    placeholder="Введите описание блюда..."
+    style="width:100%;box-sizing:border-box;resize:vertical;"
+  ></textarea>
+</div>
     <div class="row" style="gap:8px;flex-wrap:wrap">
       <select v-model="menuVenueId" v-on:change="loadMenuVenue" style="flex:1;min-width:180px;padding:8px;border-radius:8px;background:#0e1219;color:#fff;border:1px solid #303746;">
         <option value="">— Выберите заведение —</option>
