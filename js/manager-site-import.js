@@ -15,19 +15,32 @@ if(e.message)return String(e.message);
 if(e.error&&e.error.message)return String(e.error.message);
 try{return JSON.stringify(e);}catch(_){return String(e);}
 }
-function getCreateModal(){var nodes=document.querySelectorAll('.modal');for(var i=0;i<nodes.length;i++){var m=nodes[i],h=m.querySelector('h3');if(h&&/новое заведение/i.test(h.textContent||'')&&m.querySelector('.template-grid'))return m;}return null;}
-function showError(m,msg){var e=m&&m.querySelector('#qr-create-error-v10');if(!e&&m){e=document.createElement('div');e.id='qr-create-error-v10';e.className='msg error';e.style.marginTop='10px';var content=m.firstElementChild;e.textContent=msg;if(content)content.appendChild(e);}if(e){e.textContent=msg;e.style.display='block';}}
-function hideError(m){var e=m&&m.querySelector('#qr-create-error-v10');if(e)e.style.display='none';}
-function findNameSlug(content){var inputs=Array.from(content.querySelectorAll('input'));var name=inputs.find(function(x){return /название/i.test(x.placeholder||'')||x.type==='text'&&/coffee point/i.test(x.placeholder||'');});var slug=inputs.find(function(x){return /slug|код/i.test(x.placeholder||'');});if(!name||!slug){var fields=Array.from(content.querySelectorAll('.field'));fields.forEach(function(f){var l=f.querySelector('label'),x=f.querySelector('input');if(!x)return;var t=(l&&l.textContent||'')+' '+(x.placeholder||'');if(!name&&/название/i.test(t))name=x;if(!slug&&/(slug|код)/i.test(t))slug=x;});}return {name:name,slug:slug};}
+function getCreateModal(){
+var nodes=document.querySelectorAll('.modal,[id^="qr-manager-create-modal-"]');
+for(var i=0;i<nodes.length;i++){
+  var m=nodes[i],h=m.querySelector('h3,h2');
+  if(h&&/новое заведение/i.test(h.textContent||''))return m;
+}
+return null;
+}
+function showError(m,msg){var e=m&&m.querySelector('#qr-create-error-v11,#qr-create-error-v10');if(!e&&m){e=document.createElement('div');e.id='qr-create-error-v11';e.className='msg error';e.style.marginTop='10px';var content=m.firstElementChild;e.textContent=msg;if(content)content.appendChild(e);}if(e){e.textContent=msg;e.style.display='block';}}
+function hideError(m){var e=m&&m.querySelector('#qr-create-error-v11,#qr-create-error-v10');if(e)e.style.display='none';}
+function findNameSlug(content){
+var inputs=Array.from(content.querySelectorAll('input'));
+var name=content.querySelector('#qr-venue-name-v11,#qr-venue-name-v10')||inputs.find(function(x){return /название/i.test(x.placeholder||'')||x.type==='text'&&/coffee point/i.test(x.placeholder||'');});
+var slug=content.querySelector('#qr-venue-slug-v11,#qr-venue-slug-v10')||inputs.find(function(x){return /slug|код/i.test(x.placeholder||'');});
+if(!name||!slug){var fields=Array.from(content.querySelectorAll('.field'));fields.forEach(function(f){var l=f.querySelector('label'),x=f.querySelector('input');if(!x)return;var t=(l&&l.textContent||'')+' '+(x.placeholder||'');if(!name&&/название/i.test(t))name=x;if(!slug&&/(slug|код)/i.test(t))slug=x;});}
+return {name:name,slug:slug};
+}
 function renderPreview(modal,data,url){var panel=modal.querySelector('#qr-site-import-panel-v4'),preview=panel.querySelector('#qr-site-preview-v4'),status=panel.querySelector('#qr-site-status-v4'),v=data.venue||{},items=Array.isArray(data.products)?data.products:[],d=data.meta&&data.meta.diagnostics||{},confidence=Number(d.confidence||0),hasItems=items.length>0;status.style.display='block';status.textContent=hasItems?'✓ Найдены позиции меню: '+items.length:'⚠ Меню автоматически не подтверждено';var stateColor=hasItems?'#6ee7b7':confidence>=70?'#6ee7b7':confidence>=50?'#fcd34d':'#fca5a5';preview.innerHTML='<div style="border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:12px;background:rgba(15,23,42,.65)"><div style="display:flex;gap:12px;align-items:center"><div style="font-size:34px">🏪</div><div><b style="font-size:17px">'+esc(v.name||'Заведение')+'</b><div style="font-size:12px;color:#94a3b8">'+esc(v.address||'Адрес не найден')+'</div></div></div><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px;font-size:12px;color:#cbd5e1"><div>☎ '+esc(v.phone||'не найден')+'</div><div>🌐 '+esc(v.website_url||url)+'</div><div>🍽️ '+items.length+' позиций</div><div style="color:'+stateColor+'">🎯 '+confidence+'% уверенность</div></div></div>';}
 function install(modal){
 if(!modal||modal.dataset.siteImportInstalled==='8')return;
-var content=modal.firstElementChild;if(!content)return;
+var content=modal.firstElementChild||modal;if(!content)return;
 var label=Array.from(content.querySelectorAll('label')).find(function(x){return/шаблон ниши/i.test(x.textContent||'');});
-var grid=content.querySelector('#qr-template-grid-v10')||content.querySelector('.template-grid');
-var tp=content.querySelector('#qr-template-preview-v10')||content.querySelector('.template-preview');
+var grid=content.querySelector('#qr-template-grid-v11,#qr-template-grid-v10,.template-grid');
+var tp=content.querySelector('#qr-template-preview-v11,#qr-template-preview-v10,.template-preview');
 var fields=findNameSlug(content),name=fields.name,slug=fields.slug;
-var submit=content.querySelector('#qr-create-submit-v10')||Array.from(content.querySelectorAll('button')).find(function(b){return/создать заведение/i.test(b.textContent||'')&&!/отмена/i.test(b.textContent||'');});
+var submit=content.querySelector('#qr-create-submit-v11,#qr-create-submit-v10')||Array.from(content.querySelectorAll('button')).find(function(b){return/создать( импортированное)? заведение/i.test(b.textContent||'')&&!/отмена/i.test(b.textContent||'');});
 if(!grid||!name||!slug||!submit)return;
 modal.dataset.siteImportInstalled='8';state.modal=modal;
 var sw=document.createElement('div');sw.id='qr-site-import-switcher-v6';sw.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px';sw.innerHTML='<button type="button" data-mode="template" style="border:1px solid #8b5cf6;background:rgba(99,102,241,.14);color:#fff;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">🍽️ Создать из шаблона</button><button type="button" data-mode="site" style="border:1px solid rgba(255,255,255,.12);background:#172236;color:#fff;border-radius:12px;padding:12px;font-weight:800;cursor:pointer">🌐 Импортировать с сайта</button>';
