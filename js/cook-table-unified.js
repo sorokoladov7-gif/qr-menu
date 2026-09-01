@@ -1,13 +1,94 @@
-/* Kitchen tabs/modal controller v5. Workday-safe history and reset. */
-(function(){'use strict';
-var T='qr_cook_tab',tok=()=>localStorage.getItem('staff_token')||'',esc=s=>String(s??'').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c])),fmt=n=>Number(n||0).toLocaleString('ru-RU'),arr=v=>Array.isArray(v)?v:(typeof v==='string'?(()=>{try{return JSON.parse(v)||[]}catch(e){return[]}})():[]),st=s=>({new:'Новый',changed:'Изменён',cooking:'Готовится',ready:'Готов',done:'Выдан',cancelled:'Отменён'})[s]||s||'';
-function css(){if(document.getElementById('qr-cook-tabs-css'))return;var s=document.createElement('style');s.id='qr-cook-tabs-css';s.textContent='#staff-table-control-btn{display:none!important}.tabs{display:none!important}.qr-cook-tabs{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;padding:12px 16px 8px;position:sticky;top:56px;z-index:90;background:rgba(11,17,32,.96);border-bottom:1px solid #ffffff0d}.qr-cook-tab{border:1px solid #ffffff18;background:#ffffff08;color:#cbd5e1;border-radius:12px;padding:9px 13px;font-weight:800;cursor:pointer}.qr-cook-modal{position:fixed;inset:0;z-index:99999;background:#020617d9;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:14px}.qr-cook-sheet{width:min(980px,100%);max-height:90vh;overflow:auto;background:#0f172a;border:1px solid #ffffff18;border-radius:20px;padding:18px}.qr-cook-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.qr-cook-close{border:0;border-radius:10px;padding:8px 11px;background:#ffffff0d;color:#fff;cursor:pointer}.qr-cook-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px}.qr-cook-card{background:#ffffff08;border:1px solid #ffffff12;border-radius:14px;padding:12px}.qr-cook-muted,.qr-cook-loading{color:#94a3b8;font-size:12px}.qr-cook-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}.qr-cook-btn{border:0;border-radius:10px;padding:9px 12px;color:#fff;font-weight:800;cursor:pointer}.p{background:#4f46e5}.g{background:#047857}.r{background:#991b1b}.qr-cook-empty{text-align:center;color:#64748b;padding:35px 10px}.badge{display:inline-block;padding:3px 8px;border-radius:999px;background:#6366f133;color:#c7d2fe;font-size:11px;font-weight:800;margin-left:6px}.ing{margin-top:7px;color:#94a3b8;font-size:12px;line-height:1.45}.reset{background:#7f1d1d}@media(max-width:700px){.qr-cook-tabs{justify-content:flex-start;overflow-x:auto;flex-wrap:nowrap}.qr-cook-sheet{max-height:94vh;padding:14px}}';document.head.appendChild(s)}
-function rm(){var b=document.getElementById('staff-table-control-btn');if(b)b.remove()}
-function rpc(n,a){return window.db.rpc(n,a).then(r=>{if(r.error)throw r.error;return r.data})}
-function card(o){var h='<div class="qr-cook-card"><b>№'+esc(o.order_number||'—')+'</b>'+(o.table_name||o.table_number?'<span class="badge">🪑 '+esc(o.table_name||('Стол '+o.table_number))+'</span>':'')+'<div class="qr-cook-muted" style="margin-top:5px">'+esc(st(o.status))+' · '+fmt(o.total_price)+' ₽</div><div style="margin-top:8px">';arr(o.items).forEach(i=>{h+='<div><b>'+esc(i.qty||i.quantity||1)+'× '+esc(i.name||i.product_name||'Товар')+'</b>'+(i.ingredients||i.description?'<div class="ing">Состав: '+esc(i.ingredients||i.description)+'</div>':'')+'</div>'});h+='</div></div>';return h}
-function modal(title,htmlPromise){var m=document.createElement('div');m.className='qr-cook-modal';m.innerHTML='<div class="qr-cook-sheet"><div class="qr-cook-head"><h2 style="margin:0">'+esc(title)+'</h2><button class="qr-cook-close">✕</button></div><div id="qcb"><div class="qr-cook-loading">Загрузка…</div></div></div>';document.body.appendChild(m);var close=()=>m.remove();m.querySelector('.qr-cook-close').onclick=close;m.onclick=e=>{if(e.target===m)close()};Promise.resolve(htmlPromise).then(x=>m.querySelector('#qcb').innerHTML=x||'<div class="qr-cook-empty">Нет данных</div>').catch(e=>m.querySelector('#qcb').innerHTML='<div class="qr-cook-empty">'+esc(e.message||e)+'</div>');return m}
-async function open(k){var title={new:'🆕 Новые заказы',cooking:'🔥 Готовятся',ready:'✅ Выдача',tables:'🪑 Столы',history:'📜 История заказов',reset:'🧹 Закрыть рабочий день'}[k];if(k==='reset'){return modal(title,(async()=>'<div class="qr-cook-card"><b>Закрыть рабочий день?</b><div class="qr-cook-muted" style="margin-top:8px">История не удаляется из базы. Она будет скрыта у персонала, а все текущие счётчики начнутся заново.</div><div class="qr-cook-actions"><button id="qr-reset-confirm" class="qr-cook-btn reset">Закрыть день и обнулить</button></div></div>')())}
- if(k==='tables'){var d=await rpc('cook_get_table_dashboard',{p_token:tok()}),rows=d.tables||[];return modal(title,Promise.resolve('<div class="qr-cook-grid">'+(rows.length?rows.map(t=>'<div class="qr-cook-card"><b>🪑 '+esc(t.name||('Стол '+t.table_number))+'</b><span class="badge">'+(t.occupancy_status==='occupied'?'Занят':t.occupancy_status==='reserved'?'Резерв':'Свободен')+'</span><div class="qr-cook-muted" style="margin-top:7px">'+(t.session?'Заказов: '+(t.session.order_count||0)+' · '+fmt(t.session.total_price||0)+' ₽':'Нет активной сессии')+'</div></div>').join(''):'<div class="qr-cook-empty">Столы не настроены</div>')+'</div>'))}
- if(k==='history'){var hs=await rpc('staff_history_json',{p_token:tok()});return modal(title,Promise.resolve('<div class="qr-cook-grid">'+(hs.length?hs.map(card).join(''):'<div class="qr-cook-empty">История заказов пуста</div>')+'</div>'))}
- var os=await rpc('staff_orders_json',{p_token:tok()}),rows=os.filter(o=>k==='new'?(o.status==='new'||o.status==='changed'):k==='cooking'?o.status==='cooking':o.status==='ready');return modal(title,Promise.resolve('<div class="qr-cook-grid">'+(rows.length?rows.map(card).join(''):'<div class="qr-cook-empty">Нет заказов</div>')+'</div>'))}
-function install(){css();rm();if(document.getElementById('qr-cook-tabs'))return;var host=document.querySelector('.topbar');if(!host)return;var nav=document.createElement('div');nav.id='qr-cook-tabs';nav.className='qr-cook-tabs';[['new','🆕 Новые'],['cooking','🔥 Готовятся'],['ready','✅ Выдача'],['tables','🪑 Столы'],['history','📜 История'],['reset','🧹 Закрыть день']].forEach(x=>{var b=document.createElement('button');b.className='qr-cook-tab';b.textContent=x[1];b.onclick=async()=>{var m=await open(x[0]);if(x[0]==='reset'){setTimeout(()=>{var c=document.getElementById('qr-reset-confirm');if(c)c.onclick=async()=>{c.disabled=true;try{await rpc('reset_staff_workday',{p_token:tok()});location.reload()}catch(e){alert(e.message||e);c.disabled=false}}},30)}};nav.appendChild(b)});host.parentNode.insertBefore(nav,host.nextSibling)}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else setTimeout(install,0);new MutationObserver(()=>{rm();if(!document.getElementById('qr-cook-tabs'))install()}).observe(document.documentElement,{childList:true,subtree:true});})();
+/* QR-Menu — унифицированный интерфейс повара и столов */
+(function(){
+  'use strict';
+  if(window.__QR_COOK_TABLE_UNIFIED__) return;
+  window.__QR_COOK_TABLE_UNIFIED__ = true;
+
+  function tok(){ return new URLSearchParams(location.search).get('token')||''; }
+  function fmt(v){ return Number(v||0).toLocaleString('ru-RU'); }
+  function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  async function rpc(method, args){
+    var res = await fetch('/api/rpc/'+method, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(args||{})
+    });
+    var data = await res.json();
+    if(!res.ok || data.error) throw new Error(data.error?.message || data.error || 'RPC failed');
+    return data;
+  }
+
+  function modal(title, htmlPromise){
+    var old = document.getElementById('qr-cook-modal');
+    if(old) old.remove();
+    var d = document.createElement('div');
+    d.id = 'qr-cook-modal';
+    d.className = 'qr-cook-modal';
+    d.innerHTML = '<div class="qr-cook-modal-bg"></div><div class="qr-cook-modal-box"><div class="qr-cook-modal-head"><h3>'+esc(title)+'</h3><button class="qr-cook-btn close" onclick="document.getElementById(\'qr-cook-modal\').remove()">×</button></div><div class="qr-cook-modal-body" id="qr-cook-modal-content">Загрузка...</div></div>';
+    document.body.appendChild(d);
+    htmlPromise.then(function(html){ document.getElementById('qr-cook-modal-content').innerHTML = html; }).catch(function(e){ document.getElementById('qr-cook-modal-content').innerHTML = '<div class="qr-cook-empty">Ошибка: '+esc(e.message||e)+'</div>'; });
+    d.querySelector('.qr-cook-modal-bg').onclick = function(){ d.remove(); };
+  }
+
+  function card(o){
+    return '<div class="qr-cook-card"><div class="qr-cook-head"><b>№'+esc(o.order_number)+'</b> <span class="badge">'+esc(o.status)+'</span></div><div class="qr-cook-items">'+(o.items||[]).map(function(i){return '<div>'+esc(i.qty)+'× '+esc(i.product_name)+'</div>';}).join('')+'</div><div class="qr-cook-actions"><button class="qr-cook-btn" onclick="nextStatus(\''+o.id+'\',\''+o.status+'\')">Далее</button></div></div>';
+  }
+
+  async function open(k){
+    var title = {new:'🆕 Новые заказы',cooking:'🔥 Готовятся',ready:'✅ Выдача',tables:'🪑 Столы',history:'📜 История заказов',reset:'🧹 Закрыть рабочий день'}[k];
+    try {
+      if(k==='reset'){
+        return modal(title, Promise.resolve('<div class="qr-cook-card"><b>Закрыть рабочий день?</b><div class="qr-cook-muted" style="margin-top:8px">История не удаляется из базы. Она будет скрыта у персонала, а все текущие счётчики начнутся заново.</div><div class="qr-cook-actions"><button id="qr-reset-confirm" class="qr-cook-btn reset">Закрыть день и обнулить</button></div></div>'));
+      }
+      if(k==='tables'){
+        var d = await rpc('cook_get_table_dashboard',{p_token:tok()});
+        var rows = d.tables||[];
+        return modal(title, Promise.resolve('<div class="qr-cook-grid">'+(rows.length?rows.map(t=>'<div class="qr-cook-card"><b>🪑 '+esc(t.name||('Стол '+t.table_number))+'</b><span class="badge">'+(t.occupancy_status==='occupied'?'Занят':t.occupancy_status==='reserved'?'Резерв':'Свободен')+'</span><div class="qr-cook-muted" style="margin-top:7px">'+(t.session?'Заказов: '+(t.session.order_count||0)+' · '+fmt(t.session.total_price||0)+' ₽':'Нет активной сессии')+'</div></div>').join(''):'<div class="qr-cook-empty">Столы не настроены</div>')+'</div>'));
+      }
+      if(k==='history'){
+        var hs = await rpc('staff_history_json',{p_token:tok()});
+        return modal(title, Promise.resolve('<div class="qr-cook-grid">'+(hs.length?hs.map(card).join(''):'<div class="qr-cook-empty">История заказов пуста</div>')+'</div>'));
+      }
+      var os = await rpc('staff_orders_json',{p_token:tok()});
+      var rows = os.filter(o => k==='new'?(o.status==='new'||o.status==='changed'):k==='cooking'?o.status==='cooking':o.status==='ready');
+      return modal(title, Promise.resolve('<div class="qr-cook-grid">'+(rows.length?rows.map(card).join(''):'<div class="qr-cook-empty">Нет заказов</div>')+'</div>'));
+    } catch (e) {
+      console.error('Ошибка при открытии вкладки повара:', e);
+      return modal(title, Promise.resolve('<div class="qr-cook-empty">Ошибка загрузки данных: ' + esc(e.message || e) + '</div>'));
+    }
+  }
+
+  window.nextStatus = async function(id, current){
+    var next = current==='new'?'cooking':current==='cooking'?'ready':'completed';
+    try{
+      await rpc('staff_update_order_status',{p_token:tok(), p_order_id:id, p_status:next});
+      var btn = event.target;
+      if(btn){ btn.textContent='✓'; btn.disabled=true; }
+      setTimeout(function(){ document.getElementById('qr-cook-modal')?.remove(); open(current); }, 400);
+    }catch(e){ alert('Ошибка: '+(e.message||e)); }
+  };
+
+  function install(){
+    var nav = document.getElementById('qr-cook-nav');
+    if(!nav) return;
+    nav.innerHTML = ['new','cooking','ready','tables','history','reset'].map(function(k){
+      return '<button class="qr-cook-tab" data-k="'+k+'" onclick="open(\''+k+'\')">'+{new:'🆕 Новые',cooking:'🔥 Готовятся',ready:'✅ Выдача',tables:'🪑 Столы',history:'📜 История',reset:'🧹 Сброс'}[k]+'</button>';
+    }).join('');
+    open('new');
+    
+    // Исправление: безопасная обработка клика по кнопке сброса
+    document.addEventListener('click', function(e){
+      if(e.target && e.target.id === 'qr-reset-confirm'){
+        e.target.disabled = true;
+        rpc('reset_staff_workday',{p_token:tok()}).then(function(){ location.reload(); }).catch(function(err){ 
+          alert('Ошибка: '+(err.message||err)); 
+          e.target.disabled = false; 
+        });
+      }
+    });
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',install);
+  else setTimeout(install,0);
+})();
