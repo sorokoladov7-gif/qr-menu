@@ -103,6 +103,8 @@
         this.venue = v;
         this.hallRendered = false;
         this.detailProduct = null;
+        this.products = [];
+        this.orders = [];
         try {
           localStorage.setItem('manager_venue_id', String(v.id));
           window.dispatchEvent(new CustomEvent('manager-venue-selected', { detail: { id: v.id, name: v.name || '', slug: v.slug || '' } }));
@@ -114,6 +116,19 @@
         try { localStorage.setItem('manager_venue_id', String(v.id)); } catch(e) {}
         window.__managerVue = this;
         if (this.isExpired(v)) { this.isBlocked = true; this.tab = 'billing'; } else { this.isBlocked = false; }
+
+        // При входе в заведение сразу загружаем его меню.
+        // Раньше selectVenue только выбирал venue, но loadProducts здесь не вызывался,
+        // поэтому вкладка «Меню» открывалась с пустым массивом products.
+        if (!this.isBlocked && typeof this.loadProducts === 'function') {
+          this.busy = true;
+          this.loadProducts()
+            .catch(function(e) {
+              console.error('[Manager] Ошибка загрузки меню:', e);
+              self.showToast('Не удалось загрузить меню: ' + (e.message || e), 'error');
+            })
+            .finally(function() { self.busy = false; });
+        }
       },
 
       selectVenueTemplate: function(id) {
@@ -128,8 +143,7 @@
         var template = this.selectedVenueTemplate;
         if (!template) { this.formError = 'Выберите шаблон ниши'; return; }
         if (this.currentPlan && this.currentPlan.max_products && template.products.length > this.currentPlan.max_products) {
-          this.formError = 'В выбранном тарифе недостаточно места для шаблона (' + template.products.length + ' позиций).'; return;
-        }
+          this.formError = 'В выбранном тарифе недостаточно места для шаблона (' + template.products.length + ' позиций).'; return; }
         self.busy = true;
         var planId = (this.managerSubscription && this.managerSubscription.plan_id) || (this.currentPlan && this.currentPlan.id) || null;
         var subscriptionEnd = (this.managerSubscription && this.managerSubscription.current_period_end) || this.subscriptionEnd || null;
