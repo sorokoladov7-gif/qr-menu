@@ -31,6 +31,9 @@
         var self = this;
         return db.from('payments').select('*').eq('manager_id', this.profile.id).order('created_at', { ascending: false }).then(function(r) {
           self.myPayments = r.data || [];
+        }).catch(function(e) {
+          console.error('Ошибка загрузки платежей:', e);
+          self.myPayments = [];
         });
       },
 
@@ -48,8 +51,12 @@
           return db.from('subscriptions').update({ plan_id: p.id, status: 'active', current_period_end: e.toISOString() }).eq('venue_id', self.venue.id);
         }).then(function() {
           self.subscriptionEnd = e.toISOString();
-          self.busy = false;
           self.showToast('Тариф изменен');
+        }).catch(function(err) {
+          console.error('Ошибка изменения тарифа:', err);
+          self.showToast('Ошибка: ' + (err.message || 'не удалось изменить тариф'), 'error');
+        }).finally(function() {
+          self.busy = false;
         });
       },
 
@@ -62,11 +69,15 @@
           plan_id: this.payPlan.id,
           amount: this.payPlan.price
         }).then(function(r) {
-          self.busy = false;
-          if (r.error) { self.showToast('Ошибка: ' + r.error.message, 'error'); return; }
+          if (r.error) throw r.error;
           self.payPlan = null;
           self.loadPayments();
           self.showToast('Заявка отправлена!');
+        }).catch(function(err) {
+          console.error('Ошибка отправки заявки:', err);
+          self.showToast('Ошибка: ' + (err.message || 'не удалось отправить заявку'), 'error');
+        }).finally(function() {
+          self.busy = false;
         });
       },
 
