@@ -14,6 +14,12 @@
       "memory": 1024
     }
   },
+  "rewrites": [
+    {
+      "source": "/recipe-images/:slug*",
+      "destination": "https://theunitools.com/recipes/:slug*"
+    }
+  ],
   "headers": [
     {
       "source": "/(cook|waiter|courier|manager|admin)\\.html",
