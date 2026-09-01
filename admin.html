@@ -581,10 +581,27 @@
 <td><b>{{ m.display_name }}</b></td>
 <td class="muted">{{ m.email }}</td>
 <td><span class="badge" v-bind:class="m.role==='admin'?'b-on':'b-trial'">{{ m.role }}</span></td>
-<td><div class="checkbox-group">
-<label v-for="v in venues" v-bind:key="v.id" class="checkbox-label">
-<input type="checkbox" v-bind:checked="isAssigned(m.id,v.id)" v-on:change="toggleMgrVenue(m.id,v.id,$event.target.checked)">{{ v.name }}</label>
-<span v-if="!venues.length" class="muted">Нет заведений</span></div></td>
+<td>
+  <div class="checkbox-group">
+    <template v-if="managerVenuesMap[m.id] && managerVenuesMap[m.id].length">
+      <span
+        v-for="v in managerVenuesMap[m.id]"
+        v-bind:key="v.id"
+        class="checkbox-label"
+        style="cursor:default;"
+      >
+        🏢 {{ v.name }}
+      </span>
+    </template>
+
+    <span
+      v-else
+      class="muted"
+    >
+      Нет назначенных заведений
+    </span>
+  </div>
+</td>
 <td>
   <div v-for="v in managerVenuesMap[m.id]" v-bind:key="v.id" style="margin-bottom:8px; padding-bottom:8px; border-bottom:1px solid rgba(255,255,255,0.05);">
     <div><b>{{ v.name }}</b></div>
