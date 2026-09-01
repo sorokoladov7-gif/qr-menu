@@ -1,70 +1,104 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-  <meta http-equiv="Pragma" content="no-cache">
-  <meta http-equiv="Expires" content="0">
-  <title>Вход — OS QR-Menu</title>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <style>
-    [v-cloak]{display:none}
-    .btn-client{display:flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;border-radius:12px;text-decoration:none;color:#fff;font-weight:800;font-size:13px;background:linear-gradient(135deg,#10b981,#06b6d4);border:1px solid rgba(255,255,255,.2);box-shadow:0 6px 20px rgba(16,185,129,.28),inset 0 1px 0 rgba(255,255,255,.18);transition:.2s ease;white-space:nowrap}
-    .btn-client:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(16,185,129,.4),inset 0 1px 0 rgba(255,255,255,.22)}
-    .btn-client:active{transform:translateY(0)}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Вход в QR-Menu</title>
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/shared/common.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
 </head>
 <body>
-  <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
-  <div id="app" v-cloak>
-    <div class="topbar">
-      <div class="brand"><div class="logo">QR</div><span>OS QR-Menu</span></div>
-      <div class="row"><a href="register.html" class="btn btn-primary btn-sm">Регистрация</a></div>
+<div id="app" v-cloak style="max-width:400px;margin:60px auto;padding:20px">
+  <div class="glass box">
+    <h2 style="text-align:center;margin-top:0">Вход в систему</h2>
+    <div v-if="msg" class="msg" :class="msgType" style="margin-bottom:16px">{{ msg }}</div>
+    <div class="field">
+      <label>Email</label>
+      <input v-model.trim="lform.email" type="email" placeholder="manager@qr-menu.ru" :disabled="busy">
     </div>
-    <div class="wrap">
-      <div class="glass card" style="max-width:420px;margin:30px auto">
-        <div class="tabs" style="margin-bottom:16px">
-          <button class="on" style="pointer-events:none;opacity:1;">Вход</button>
-          <a href="register.html" class="btn btn-ghost btn-sm" style="flex:1;text-align:center;">Регистрация</a>
-          <a href="menu.html" class="btn-client">📱 Я клиент</a>
-        </div>
-        <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);text-align:center">
-          <div style="color:#94a3b8;font-size:13px;margin-bottom:12px">🎮 Посмотреть без регистрации:</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-            <button onclick="startDemo('cook')" class="btn btn-ghost">👨‍🍳 Демо кухни</button>
-            <button onclick="startDemo('courier')" class="btn btn-ghost">🚗 Демо курьера</button>
-            <button onclick="startDemo('waiter')" class="btn btn-ghost">🤵 Демо официанта</button>
-            <button onclick="startDemo('manager-demo.html')" class="btn btn-primary">🏢 Демо кабинета</button>
-          </div>
-        </div>
-        <script>function startDemo(target){if(target==='manager-demo.html'){location.href=target;return}location.href='demo-staff.html?role='+encodeURIComponent(target);}</script>
-        <div class="field"><label>Email</label><input v-model.trim="lform.email" type="email" autocomplete="username" v-on:keyup.enter="login"></div>
-        <div class="field"><label>Пароль</label><input v-model="lform.password" type="password" autocomplete="current-password" v-on:keyup.enter="login"></div>
-        <button id="loginButton" class="btn btn-primary" style="width:100%" v-on:click="login" v-bind:disabled="busy">Войти</button>
-        <div v-if="msg" class="msg" v-bind:class="msgType" style="margin-top:12px">{{ msg }}</div>
-        <p class="muted" style="font-size:12px;margin-top:14px">Регистрируются управляющие. Повара, курьеры и официанты входят по PIN — их добавляет управляющий или админ.</p>
-      </div>
+    <div class="field">
+      <label>Пароль</label>
+      <input v-model.trim="lform.password" type="password" placeholder="••••••••" :disabled="busy">
+    </div>
+    <button id="loginButton" class="btn btn-primary" style="width:100%;margin-top:16px" @click="login" :disabled="busy">Войти</button>
+    <div style="text-align:center;margin-top:16px">
+      <a href="register.html" class="muted" style="font-size:13px">Нет аккаунта? Зарегистрироваться</a>
     </div>
   </div>
-  <script src="/js/config.js"></script>
-  <script src="/js/demo-data.js"></script>
-  <script src="/js/demo-mode.js"></script>
-  <script src="/js/app.js"></script>
-  <script>
-    Vue.createApp({
-      data:function(){return{busy:false,msg:'',msgType:'',lform:{email:'',password:''}}},
-      watch:{busy:function(v){var b=document.getElementById('loginButton');if(b)b.textContent=v?'Входим...':'Войти'}},
-      methods:{
-        login:function(){var self=this;self.msg='';if(!self.lform.email||!self.lform.password){self.msg='Заполните email и пароль';self.msgType='error';return}self.busy=true;db.auth.signInWithPassword({email:self.lform.email,password:self.lform.password}).then(function(r){if(r.error){self.msg='Ошибка входа: '+r.error.message;self.msgType='error';self.busy=false;return}self.routeByRole(r.data.user.id)}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
-        routeByRole:function(userId){var self=this;db.from('profiles').select('*').eq('id',userId).maybeSingle().then(function(r){if(!r.data){self.msg='⚠️ Аккаунт создан, но профиль не найден. Выполните SQL и нажмите «Войти».';self.msgType='error';self.busy=false;return}location.href=(r.data.role==='admin')?'admin.html':'manager.html'})}
+</div>
+
+<script>
+  Vue.createApp({
+    data: function() {
+      return { busy: false, msg: '', msgType: '', lform: { email: '', password: '' } };
+    },
+    watch: {
+      busy: function(v) {
+        var b = document.getElementById('loginButton');
+        if (b) b.textContent = v ? 'Входим...' : 'Войти';
+      }
+    },
+    methods: {
+      login: function() {
+        var self = this;
+        self.msg = '';
+        if (!self.lform.email || !self.lform.password) {
+          self.msg = 'Заполните email и пароль';
+          self.msgType = 'error';
+          return;
+        }
+        self.busy = true;
+        db.auth.signInWithPassword({ email: self.lform.email, password: self.lform.password })
+          .then(function(r) {
+            if (r.error) {
+              self.msg = 'Ошибка входа: ' + r.error.message;
+              self.msgType = 'error';
+              self.busy = false;
+              return;
+            }
+            self.routeByRole(r.data.user.id);
+          })
+          .catch(function(e) {
+            self.msg = 'Ошибка: ' + e.message;
+            self.msgType = 'error';
+            self.busy = false;
+          });
       },
-      mounted:function(){var self=this;db.auth.getSession().then(function(r){if(r.data&&r.data.session){self.routeByRole(r.data.session.user.id)}})}
-    }).mount('#app');
-  </script>
+      routeByRole: function(userId) {
+        var self = this;
+        db.from('profiles').select('*').eq('id', userId).maybeSingle()
+          .then(function(r) {
+            if (!r.data) {
+              self.msg = '⚠️ Аккаунт создан, но профиль не найден. Выполните SQL и нажмите «Войти».';
+              self.msgType = 'error';
+              self.busy = false;
+              return;
+            }
+            location.href = (r.data.role === 'admin') ? 'admin.html' : 'manager.html';
+          })
+          .catch(function(e) {
+            self.msg = 'Ошибка профиля: ' + e.message;
+            self.msgType = 'error';
+            self.busy = false;
+          });
+      }
+    },
+    mounted: function() {
+      var self = this;
+      db.auth.getSession().then(function(r) {
+        if (r.data && r.data.session) {
+          self.routeByRole(r.data.session.user.id);
+        }
+      }).catch(function(e) {
+        console.warn('Проверка сессии не удалась:', e);
+        self.busy = false;
+      });
+    }
+  }).mount('#app');
+</script>
 </body>
 </html>
