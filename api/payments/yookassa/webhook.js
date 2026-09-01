@@ -38,10 +38,10 @@ module.exports = async function handler(req, res) {
 
       const relations = await supabase(`manager_venues?venue_id=eq.${encodeURIComponent(order.venue_id)}&select=manager_id&limit=1`);
       const managerId = Array.isArray(relations) && relations[0] ? relations[0].manager_id : null;
-      const accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(order.venue_id)}&provider=eq.yookassa&account_scope=eq.venue&select=id&limit=1`);
+      const accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(order.venue_id)}&provider=yookassa&account_scope=eq.venue&select=id&limit=1`);
       let accountId = Array.isArray(accounts) && accounts[0] ? accounts[0].id : null;
       if (!accountId && managerId) {
-        const shared = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&provider=eq.yookassa&account_scope=eq.platform&venue_id=is.null&select=id&limit=1`);
+        const shared = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&provider=yookassa&account_scope=eq.platform&venue_id=is.null&select=id&limit=1`);
         accountId = Array.isArray(shared) && shared[0] ? shared[0].id : null;
       }
       if (managerId && accountId) {
@@ -53,13 +53,36 @@ module.exports = async function handler(req, res) {
       return json(res, 200, { ok: true, type: 'order', payment_id: paymentId, status: payment.status });
     }
 
-    const subscriptions = await supabase(`subscriptions?payment_id=eq.${encodeURIComponent(paymentId)}&select=id,venue_id,manager_id,payment_id,payment_status,current_period_end&limit=1`);
+    const subscriptions = await supabase(`subscriptions?payment_id=eq.${encodeURIComponent(paymentId)}&select=id,venue_id,manager_id,plan_id,payment_id,payment_status,current_period_end&limit=1`);
     const subscription = Array.isArray(subscriptions) ? subscriptions[0] : null;
     if (subscription) {
       const payment = await yookassaGetPlatformPayment(paymentId), status = paymentStatus(payment.status), patch = { payment_status: status };
       if (status === 'paid') {
         const base = new Date(subscription.current_period_end || Date.now()), start = Math.max(base.getTime(), Date.now()), days = Number(process.env.SUBSCRIPTION_DURATION_DAYS || 30);
-        patch.paid_at = new Date().toISOString(); patch.status = 'active'; patch.current_period_end = new Date(start + days * 86400000).toISOString();
+        const targetPlanId = payment.metadata && String(payment.metadata.qr_menu_plan_id || '').trim();
+        patch.paid_at = new Date().toISOString();
+        patch.status = 'active';
+        patch.current_period_end = new Date(start + days * 86400000).toISOString();
+        if (targetPlanId) patch.plan_id = targetPlanId;
+
+        if (targetPlanId && subscription.manager_id && !subscription.venue_id) {
+          const managerVenues = await supabase(`manager_venues?manager_id=eq.${encodeURIComponent(subscription.manager_id)}&select=venue_id`);
+          const venueRows = Array.isArray(managerVenues) ? managerVenues : [];
+          const newEnd = patch.current_period_end;
+          for (const row of venueRows) {
+            if (!row || !row.venue_id) continue;
+            await supabase(`venues?id=eq.${encodeURIComponent(row.venue_id)}`, {
+              method: 'PATCH',
+              headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ plan: targetPlanId, subscription_end: newEnd })
+            });
+            await supabase(`subscriptions?venue_id=eq.${encodeURIComponent(row.venue_id)}`, {
+              method: 'PATCH',
+              headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ plan_id: targetPlanId, status: 'active', current_period_end: newEnd })
+            });
+          }
+        }
       }
       await supabase(`subscriptions?id=eq.${encodeURIComponent(subscription.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
       return json(res, 200, { ok: true, type: 'subscription', payment_id: paymentId, status: payment.status });
