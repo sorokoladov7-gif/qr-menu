@@ -4,7 +4,7 @@ const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
 const ANALYSIS_BUDGET_MS = 25000;
 const MAX_RENDER_TARGETS = 6;
-const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garнир|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям)(?:[\/?#_.-]|$)/iu;
+const MENU_PATH_RE = /(?:^|[\/_-])(menu|menus|menyu|меню|catalog|catalogue|каталог|food|dishes|блюд|prices|price|pizza|пицц|sushi|суш|roll|ролл|dessert|deserts|десерт|drink|напит|breakfast|завтрак|bar|бар|гриль|шашлык|zakuski|закуск|salaty|salad|салат|soup|суп|goriachie|горяч|bluda|блюда|pasta|паста|garniry|гарнир|steak|стейк|osnovnye|основные|det|детск|children|детям)(?:[\/?#_.-]|$)/iu;
 
 function normalizeName(value) {
   return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -104,7 +104,14 @@ module.exports = async function(req, res) {
     const diagnostics = meta.diagnostics || (meta.diagnostics = {});
     const jsPages = Array.isArray(diagnostics.js_render?.pages) ? diagnostics.js_render.pages.map(x => x.url) : [];
     const menuPages = Array.isArray(diagnostics.menu_pages) ? diagnostics.menu_pages : [];
-    const renderTargets = [...new Set([...menuPages, ...jsPages])].slice(0, MAX_RENDER_TARGETS);
+
+    // The analyzer may extract products from category pages even when a site has no literal /menu URL.
+    // Keep those source pages as valid menu pages so category-style sites such as /zakuski, /salaty, etc. are not discarded.
+    const productSourcePages = Array.isArray(result.products)
+      ? result.products.map(item => item && item.source_url).filter(Boolean)
+      : [];
+    const effectiveMenuPages = [...new Set([...menuPages, ...productSourcePages.filter(url => isMenuPage(url, menuPages))])];
+    const renderTargets = [...new Set([...effectiveMenuPages, ...jsPages])].slice(0, MAX_RENDER_TARGETS);
 
     if (renderTargets.length) {
       diagnostics.analysis_steps = Array.isArray(diagnostics.analysis_steps) ? diagnostics.analysis_steps : [];
@@ -129,9 +136,9 @@ module.exports = async function(req, res) {
       diagnostics.browser_render_code = browserResult.code || null;
       diagnostics.browser_products_found = Array.isArray(browserResult.products) ? browserResult.products.length : 0;
       diagnostics.analysis_steps.push(`Browser-анализ: ${browserResult.code || 'UNKNOWN'}`);
-      result.products = mergeProducts(result.products, browserResult.products, [...new Set([...menuPages, ...renderTargets])]);
+      result.products = mergeProducts(result.products, browserResult.products, effectiveMenuPages.concat(renderTargets));
     } else {
-      result.products = mergeProducts(result.products, [], menuPages);
+      result.products = mergeProducts(result.products, [], effectiveMenuPages);
     }
 
     diagnostics.products_found = result.products.length;
@@ -140,10 +147,16 @@ module.exports = async function(req, res) {
     meta.validation = result.products.length ? 'validated-menu-pages-only' : 'not_validated';
     meta.error = result.products.length ? null : normalizeError(meta.error);
 
-    // Strict import contract: only the venue identity, address and menu are returned.
+    // Keep the full venue contract expected by manager-site-import.js.
+    const sourceVenue = result.venue || {};
     const venue = {
-      name: meta.name || meta.venue_name || meta.title || null,
-      address: meta.address || meta.venue_address || null
+      name: sourceVenue.name || meta.name || meta.venue_name || meta.title || null,
+      description: sourceVenue.description || null,
+      address: sourceVenue.address || meta.address || meta.venue_address || null,
+      phone: sourceVenue.phone || null,
+      website_url: sourceVenue.website_url || raw,
+      logo_url: sourceVenue.logo_url || null,
+      opening_hours: sourceVenue.opening_hours || null
     };
 
     return res.status(200).json({
@@ -154,6 +167,9 @@ module.exports = async function(req, res) {
         menu_found: Boolean(meta.menu_found),
         products_found: result.products.length,
         validation: meta.validation,
+        confidence: Number(diagnostics.confidence || 0),
+        confidence_reasons: Array.isArray(diagnostics.confidence_reasons) ? diagnostics.confidence_reasons : [],
+        diagnostics,
         source_url: raw
       }
     });
