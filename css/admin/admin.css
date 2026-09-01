@@ -31,6 +31,23 @@
 .design-field input[type="color"] { height: 44px; padding: 4px; width: 100%; }
 .venue-selector { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
+/* Компактная навигация админ-кабинета */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  overflow: visible;
+  align-items: center;
+}
+.tabs button {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+  border-radius: 24px;
+}
+
 /* ==========================================================
    ADMIN ANALYTICS — dashboard layout
    ========================================================== */
@@ -65,79 +82,41 @@
   text-transform: uppercase;
   letter-spacing: .04em;
 }
-
-.analytics-dashboard-card {
-  padding: 20px;
-  border-radius: 18px;
-}
-.analytics-dashboard-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.analytics-dashboard-title h4 { margin: 0; font-size: 15px; }
-.analytics-dashboard-title .muted { font-size: 12px; }
-.analytics-mini-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0,1fr));
-  gap: 10px;
-}
-.analytics-mini-card {
-  padding: 14px;
-  border: 1px solid rgba(148,163,184,.12);
-  border-radius: 14px;
-  background: rgba(255,255,255,.025);
-}
-.analytics-mini-card .value { font-size: 21px; font-weight: 800; }
-.analytics-mini-card .label { margin-top: 5px; color:#94a3b8; font-size:12px; }
-.analytics-two-col {
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 14px;
-  margin-bottom: 14px;
-}
-.analytics-section {
-  padding: 18px;
-  border-radius: 18px;
-}
-.analytics-section h4 { margin: 0 0 13px; }
-.analytics-list-row {
-  display: grid;
-  grid-template-columns: 90px minmax(0,1fr) 42px;
-  align-items: center;
-  gap: 10px;
-  margin: 9px 0;
-}
-.analytics-list-row .bar { margin: 0; }
-.analytics-table-title {
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-bottom:12px;
-}
+.analytics-dashboard-card { padding: 20px; border-radius: 18px; }
+.analytics-dashboard-title { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.analytics-dashboard-title h4 { margin:0; font-size:15px; }
+.analytics-dashboard-title .muted { font-size:12px; }
+.analytics-mini-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.analytics-mini-card { padding:14px; border:1px solid rgba(148,163,184,.12); border-radius:14px; background:rgba(255,255,255,.025); }
+.analytics-mini-card .value { font-size:21px; font-weight:800; }
+.analytics-mini-card .label { margin-top:5px; color:#94a3b8; font-size:12px; }
+.analytics-two-col { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin-bottom:14px; }
+.analytics-section { padding:18px; border-radius:18px; }
+.analytics-section h4 { margin:0 0 13px; }
+.analytics-list-row { display:grid; grid-template-columns:90px minmax(0,1fr) 42px; align-items:center; gap:10px; margin:9px 0; }
+.analytics-list-row .bar { margin:0; }
+.analytics-table-title { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
 
 @media (max-width: 1100px) {
   .kpi-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .analytics-mini-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
 @media (max-width: 760px) {
-  .kpi-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-  .analytics-two-col { grid-template-columns: 1fr; }
-  .analytics-mini-grid { grid-template-columns: 1fr 1fr; }
-  .analytics-dashboard-card,
-  .analytics-section { padding: 14px; }
+  .kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .analytics-two-col { grid-template-columns:1fr; }
+  .analytics-mini-grid { grid-template-columns:1fr 1fr; }
+  .analytics-dashboard-card, .analytics-section { padding:14px; }
+  .tabs { gap:5px; }
+  .tabs button { padding:6px 9px; font-size:11px; }
 }
 @media (max-width: 480px) {
-  .kpi-grid { grid-template-columns: 1fr; }
-  .analytics-mini-grid { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns:1fr; }
+  .analytics-mini-grid { grid-template-columns:1fr; }
 }
 
 /* Адаптивность шаблонов */
 @media (max-width: 900px) {
-  .template-grid { grid-template-columns: 1fr; }
-  .template-editor .field-group { grid-template-columns: 1fr; }
-  .template-editor .product-row { grid-template-columns: 40px 1fr 1fr; }
+  .template-grid { grid-template-columns:1fr; }
+  .template-editor .field-group { grid-template-columns:1fr; }
+  .template-editor .product-row { grid-template-columns:40px 1fr 1fr; }
 }
