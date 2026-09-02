@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
       return redirect(res, `${origin(req)}/manager.html?payment=yookassa&status=cancelled`);
     }
 
-    const token = await yookassaToken(code);
+    const token = await yookassaToken(code, { redirectUri: oauthState.redirect_uri, codeVerifier: oauthState.code_verifier });
     const shop = await yookassaMe(token.access_token);
     const encryptedToken = encryptSecret(token.access_token);
     const scope = oauthState.requested_scope === 'shared' ? 'platform' : 'venue';
