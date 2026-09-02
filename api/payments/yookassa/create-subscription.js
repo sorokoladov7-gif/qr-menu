@@ -16,11 +16,11 @@ module.exports = async function handler(req, res) {
     if (!subscription) return json(res, 404, { ok: false, error: 'subscription_not_found' });
     if (subscription.venue_id) return json(res, 400, { ok: false, error: 'manager_subscription_required' });
     if (subscription.status !== 'active') return json(res, 409, { ok: false, error: 'paid_plan_change_requires_active_subscription' });
-    if (subscription.payment_status === 'paid' && !requestedPlanId) return json(res, 409, { ok: false, error: 'subscription_already_paid' });
 
     const targetPlanId = requestedPlanId || subscription.plan_id;
     if (!targetPlanId) return json(res, 400, { ok: false, error: 'plan_id_required' });
-    if (targetPlanId === subscription.plan_id) return json(res, 409, { ok: false, error: 'same_plan' });
+    /* Same-plan is a valid renewal. Different-plan is an upgrade/downgrade. */
+    if (subscription.payment_status === 'paid' && !requestedPlanId) return json(res, 409, { ok: false, error: 'subscription_already_paid' });
 
     const plans = await supabase(`plans?id=eq.${encodeURIComponent(targetPlanId)}&is_active=eq.true&select=id,name,price,max_venues,max_products&limit=1`);
     const targetPlan = Array.isArray(plans) ? plans[0] : null;
@@ -42,7 +42,8 @@ module.exports = async function handler(req, res) {
         qr_menu_subscription_id: subscription.id,
         qr_menu_manager_id: subscription.manager_id,
         qr_menu_plan_id: targetPlan.id,
-        qr_menu_previous_plan_id: subscription.plan_id
+        qr_menu_previous_plan_id: subscription.plan_id,
+        qr_menu_payment_type: targetPlanId === subscription.plan_id ? 'renewal' : 'plan_change'
       }
     }, randomToken(24));
 
