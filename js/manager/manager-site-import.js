@@ -7,12 +7,6 @@
   var API_URL = '/api/import-site';
   var IMPORT_TEMPLATE_ID = '__site_import__';
 
-  function esc(value) {
-    return String(value == null ? '' : value)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-      .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
-  }
-
   function getVm(modal) {
     var app = document.getElementById('app');
     if (!app && modal) app = modal.closest('#app');
@@ -73,11 +67,28 @@
     ui.message.style.color = type === 'error' ? '#fca5a5' : '#86efac';
   }
 
+  function isCreateVenueModal(modal) {
+    if (!modal) return false;
+    var text = String(modal.textContent || '').toLowerCase();
+    if (/создать\s+заведение/.test(text)) return true;
+    if (modal.querySelector('#qr-create-submit-v10')) return true;
+    if (modal.querySelector('.template-grid, .manager-template-catalog')) return true;
+    return false;
+  }
+
+  function findCreateVenueModal(root) {
+    if (!root) return null;
+    var modals = root.querySelectorAll('.modal');
+    for (var i = 0; i < modals.length; i++) {
+      if (isCreateVenueModal(modals[i])) return modals[i];
+    }
+    return null;
+  }
+
   function mount(modal) {
-    if (!modal || modal.getAttribute('data-site-import-mounted') === '1') return;
+    if (!modal || !isCreateVenueModal(modal) || modal.getAttribute('data-site-import-mounted') === '1') return;
     var box = modal.firstElementChild || modal;
     if (!box) return;
-    modal.setAttribute('data-site-import-mounted','1');
 
     var wrap = document.createElement('div');
     wrap.className = 'qr-site-import';
@@ -95,6 +106,7 @@
     var anchor = box.querySelector('.template-grid') || box.querySelector('.manager-template-catalog') || box.querySelector('.field');
     if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(wrap, anchor);
     else box.insertBefore(wrap, box.firstChild);
+    modal.setAttribute('data-site-import-mounted','1');
 
     var ui = {
       input: wrap.querySelector('.qr-site-import-input'),
@@ -139,7 +151,6 @@
         var importedSlug = String(venue.slug || '').trim();
         if (importedName && !String(vm.newVenueForm.name || '').trim()) vm.newVenueForm.name = importedName;
         if (importedSlug && !String(vm.newVenueForm.slug || '').trim()) vm.newVenueForm.slug = importedSlug;
-        if (!String(vm.newVenueForm.name || '').trim() && importedName) vm.newVenueForm.name = importedName;
 
         var template = {
           id: IMPORT_TEMPLATE_ID,
@@ -178,7 +189,7 @@
   function scanForModal() {
     var root = document.getElementById('app') || document.body;
     if (!root) return;
-    var modal = root.querySelector('.modal');
+    var modal = findCreateVenueModal(root);
     if (modal) mount(modal);
   }
 
@@ -195,10 +206,7 @@
     if (!window.MutationObserver) return;
     var root = document.getElementById('app') || document.body;
     if (!root) return;
-    var observer = new MutationObserver(function(){
-      var modal = root.querySelector('.modal');
-      if (modal) mount(modal);
-    });
+    var observer = new MutationObserver(function(){ scanForModal(); });
     observer.observe(root, { childList:true, subtree:true });
   }
 
