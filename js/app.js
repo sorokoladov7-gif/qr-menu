@@ -6,19 +6,57 @@ window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
+/* QR-Menu — site import loader for manager.html.
+ * Load by absolute root-relative URL and retry until the manager modal can mount it.
+ */
 (function(){
   'use strict';
   if (!/\/manager\.html$/i.test(location.pathname)) return;
+
+  var SCRIPT_ID = 'qr-manager-site-import-loader';
+  var SCRIPT_SRC = '/js/manager/manager-site-import.js';
+  var started = false;
+
   function loadSiteImport(){
-    if (window.QRManagerSiteImport || document.querySelector('script[data-qr-manager-site-import]')) return;
+    if (window.QRManagerSiteImport) {
+      if (typeof window.QRManagerSiteImport.scan === 'function') window.QRManagerSiteImport.scan();
+      return;
+    }
+    if (document.getElementById(SCRIPT_ID)) return;
+
     var script = document.createElement('script');
-    script.src = 'js/manager/manager-site-import.js';
+    script.id = SCRIPT_ID;
+    script.src = SCRIPT_SRC;
     script.async = false;
-    script.setAttribute('data-qr-manager-site-import','1');
+    script.onload = function(){
+      if (window.QRManagerSiteImport && typeof window.QRManagerSiteImport.scan === 'function') {
+        window.QRManagerSiteImport.scan();
+      }
+    };
+    script.onerror = function(){
+      console.error('[QR Manager] Не удалось загрузить manager-site-import.js:', SCRIPT_SRC);
+      var existing = document.getElementById(SCRIPT_ID);
+      if (existing) existing.remove();
+    };
     (document.head || document.documentElement).appendChild(script);
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadSiteImport);
-  else loadSiteImport();
+
+  function start(){
+    if (started) return;
+    started = true;
+    loadSiteImport();
+    /* The manager modal is rendered dynamically. Keep the loader alive briefly
+       so opening the modal after page load still gets the import UI. */
+    var attempts = 0;
+    var timer = setInterval(function(){
+      attempts++;
+      loadSiteImport();
+      if (window.QRManagerSiteImport || attempts >= 60) clearInterval(timer);
+    }, 500);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();
 
 function safeRedirect(fallbackUrl, reason) {
