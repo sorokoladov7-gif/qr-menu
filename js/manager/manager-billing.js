@@ -8,6 +8,7 @@
     data: function() {
       return {
         plans: [],
+        managerSubscription: null,
         subscriptionEnd: null,
         payPlan: null,
         myPayments: []
@@ -15,12 +16,17 @@
     },
     computed: {
       daysLeft: function() {
-        return this.subscriptionEnd ? Math.ceil((new Date(this.subscriptionEnd) - new Date()) / 864e5) : 0;
+        var end = this.managerSubscription && this.managerSubscription.current_period_end ? this.managerSubscription.current_period_end : this.subscriptionEnd;
+        return end ? Math.max(0, Math.ceil((new Date(end) - new Date()) / 864e5)) : 0;
       },
       currentPlan: function() {
+        var managerPlanId = this.managerSubscription && this.managerSubscription.plan_id;
+        if (managerPlanId) {
+          var managerPlan = this.plans.find(function(p) { return p.id === managerPlanId; });
+          if (managerPlan) return managerPlan;
+        }
         if (!this.venue) return null;
-        var planId = this.venue.plan;
-        return this.plans.find(function(p) { return p.id === planId; }) || null;
+        return this.plans.find(function(p) { return p.id === this.venue.plan; }) || null;
       },
       currentPlanName: function() {
         return this.currentPlan ? this.currentPlan.name : '-';
@@ -48,29 +54,41 @@
         else this.payPlan = p;
       },
 
-      subscribeFree: function(p) {
+      subscribeFree: async function(p) {
+        if (!p || p.price !== 0) return;
         var self = this;
         self.busy = true;
-        var e = new Date();
-        e.setMonth(e.getMonth() + 1);
-        db.from('venues').update({ plan: p.id, subscription_end: e.toISOString() }).eq('id', this.venue.id).then(function() {
-          return db.from('subscriptions').update({ plan_id: p.id, status: 'active', current_period_end: e.toISOString() }).eq('venue_id', self.venue.id);
-        }).then(function() {
-          self.subscriptionEnd = e.toISOString();
-          self.showToast('Тариф изменен');
-        }).catch(function(err) {
+        try {
+          var managerId = self.profile && self.profile.id;
+          if (!managerId) throw new Error('Не удалось определить управляющего');
+          var end = new Date();
+          end.setMonth(end.getMonth() + 1);
+          var r = await db.from('subscriptions').upsert({
+            manager_id: managerId,
+            venue_id: null,
+            plan_id: p.id,
+            status: 'active',
+            current_period_end: end.toISOString(),
+            payment_status: 'paid'
+          }, { onConflict: 'manager_id' }).select().single();
+          if (r.error) throw r.error;
+          self.managerSubscription = r.data;
+          self.subscriptionEnd = r.data.current_period_end;
+          self.payPlan = null;
+          self.showToast('Тариф изменён');
+        } catch (err) {
           console.error('Ошибка изменения тарифа:', err);
           self.showToast('Ошибка: ' + (err.message || 'не удалось изменить тариф'), 'error');
-        }).finally(function() {
+        } finally {
           self.busy = false;
-        });
+        }
       },
 
       markPaid: function() {
         var self = this;
         self.busy = true;
         db.from('payments').insert({
-          venue_id: this.venue.id,
+          venue_id: this.venue ? this.venue.id : null,
           manager_id: this.profile.id,
           plan_id: this.payPlan.id,
           amount: this.payPlan.price
