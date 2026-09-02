@@ -4,6 +4,21 @@
   if (window.__QR_MANAGER_CORE__) return;
   window.__QR_MANAGER_CORE__ = true;
 
+  /*
+   * Рецептуры стартуют на DOMContentLoaded раньше, чем пользователь успевает
+   * выбрать заведение. Старый manager_venue_id из предыдущего входа мог быть
+   * чужим или уже неактуальным и приводил к RPC P0001 forbidden.
+   * Capture-фаза очищает только устаревший bootstrap-идентификатор до того,
+   * как manager-recipes выполнит свой первый loadAll(). После явного выбора
+   * manager-venues снова записывает актуальный UUID и отправляет событие.
+   */
+  try {
+    document.addEventListener('DOMContentLoaded', function(){
+      try { localStorage.removeItem('manager_venue_id'); } catch(e) {}
+      try { localStorage.removeItem('selectedVenueId'); } catch(e) {}
+    }, { once: true, capture: true });
+  } catch(e) {}
+
   var coreMixin = {
     data: function() {
       return {
