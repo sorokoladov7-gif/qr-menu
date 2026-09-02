@@ -163,6 +163,15 @@
       methods: appMethods,
       watch: {
         tab: function(newTab){
+          if(newTab === 'orders' && this.venue){
+            var self = this;
+            if(typeof self.loadOrders === 'function'){
+              self.loadOrders().catch(function(e){
+                console.error('[Manager] Ошибка загрузки заказов:', e);
+                self.showToast('Не удалось загрузить заказы: ' + (e.message || e), 'error');
+              });
+            }
+          }
           if(newTab === 'hall' && this.venue){
             var self = this;
             this.$nextTick(function(){ self.renderHall(); });
