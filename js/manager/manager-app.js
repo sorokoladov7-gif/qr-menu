@@ -19,6 +19,7 @@
     mixins.forEach(function(m){
       if(m && m.data) Object.assign(state, m.data());
     });
+    state.managerSubscription = state.managerSubscription || null;
     if(!state.tab) state.tab = 'menu';
     return state;
   };
@@ -30,6 +31,53 @@
     if(m.computed) Object.assign(appComputed, m.computed);
     if(m.methods) Object.assign(appMethods, m.methods);
   });
+
+  /* Canonical SaaS entitlement resolver: one manager-owned subscription controls venues. */
+  appComputed.canCreateVenue = function(){
+    if(!this.profile || this.profile.role === 'admin') return true;
+    var sub=this.managerSubscription;
+    if(!sub || !['trialing','active'].includes(sub.status) || !sub.current_period_end || new Date(sub.current_period_end) < new Date()) return false;
+    var plan=(this.plans||[]).find(function(p){return p.id===sub.plan_id;});
+    var limit=plan ? Number(plan.max_venues||0) : 0;
+    var used=Array.isArray(this.myVenues)?this.myVenues.length:0;
+    return limit>0 && used<limit;
+  };
+
+  /* Keep the existing init flow, then hydrate the canonical manager subscription once. */
+  var baseInit=appMethods.init;
+  if(typeof baseInit==='function'){
+    appMethods.init=async function(){
+      await baseInit.call(this);
+      if(!this.profile || this.profile.role==='admin') return;
+      var r=await db.from('subscriptions')
+        .select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at,payment_status,payment_id')
+        .eq('manager_id',this.profile.id)
+        .is('venue_id',null)
+        .order('created_at',{ascending:false})
+        .limit(1)
+        .maybeSingle();
+      if(r.error) throw r.error;
+
+      var sub=r.data||null;
+      /* Older accounts created before manager-owned billing are repaired server-side on next venue operation. */
+      if(!sub && Array.isArray(this.myVenues) && this.myVenues.length===0){
+        var now=new Date();
+        var end=new Date(now.getTime()+10*864e5);
+        var ins=await db.from('subscriptions').insert({
+          manager_id:this.profile.id,
+          venue_id:null,
+          plan_id:'start',
+          status:'trialing',
+          current_period_end:end.toISOString()
+        }).select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at,payment_status,payment_id').single();
+        if(ins.error) throw ins.error;
+        sub=ins.data||null;
+      }
+      this.managerSubscription=sub;
+      if(sub && sub.current_period_end) this.subscriptionEnd=sub.current_period_end;
+      try{ window.dispatchEvent(new CustomEvent('qr-manager-subscription-ready',{detail:{subscription:sub,managerId:this.profile.id}})); }catch(e){}
+    };
+  }
 
   function loadInstruction(){
     if(window.__QR_MANAGER_INSTRUCTION_V6__ || window.__QR_MANAGER_INSTRUCTION_LOADING__) return;
