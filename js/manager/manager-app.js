@@ -126,6 +126,8 @@
     script.src='/js/manager-create-venue-flow.js?v=12';
     script.async=false;
     script.setAttribute('data-qr-manager-create-venue-flow','1');
+    script.async=false;
+    script.setAttribute('data-qr-manager-create-venue-flow','1');
     script.onerror=function(){console.error('[QR Manager] Не удалось загрузить существующую логику создания заведения:',script.src);};
     document.head.appendChild(script);
   }
@@ -166,6 +168,19 @@
           if(newTab === 'hall' && this.venue){
             var self = this;
             this.$nextTick(function(){ self.renderHall(); });
+          }
+          if(newTab === 'staff' && this.venue){
+            var self = this;
+            self.staffAnalyticsDays = self.staffAnalyticsDays || '30';
+            Promise.all([
+              typeof self.loadCooks === 'function' ? self.loadCooks() : Promise.resolve(),
+              typeof self.loadCouriers === 'function' ? self.loadCouriers() : Promise.resolve(),
+              typeof self.loadWaiters === 'function' ? self.loadWaiters() : Promise.resolve(),
+              typeof self.loadStaffAnalytics === 'function' ? self.loadStaffAnalytics() : Promise.resolve()
+            ]).catch(function(e){
+              console.error('[Manager] Ошибка загрузки персонала:', e);
+              self.showToast('Не удалось загрузить персонал: ' + (e.message || e), 'error');
+            });
           }
         },
         showCreateVenue: function(show){
