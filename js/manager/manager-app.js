@@ -59,15 +59,19 @@
       if(r.error) throw r.error;
 
       var sub=r.data||null;
-      /* Older accounts created before manager-owned billing are repaired server-side on next venue operation. */
-      if(!sub && Array.isArray(this.myVenues) && this.myVenues.length===0){
+      /* Self-heal legacy accounts: infer the canonical manager subscription from an existing managed venue, otherwise start a fresh 10-day Trial. */
+      if(!sub){
+        var seedVenue=Array.isArray(this.myVenues)&&this.myVenues.length ? this.myVenues[0] : null;
         var now=new Date();
-        var end=new Date(now.getTime()+10*864e5);
+        var end=seedVenue && seedVenue.subscription_end && new Date(seedVenue.subscription_end) > now
+          ? new Date(seedVenue.subscription_end)
+          : new Date(now.getTime()+10*864e5);
+        var planId=seedVenue && seedVenue.plan ? seedVenue.plan : 'start';
         var ins=await db.from('subscriptions').insert({
           manager_id:this.profile.id,
           venue_id:null,
-          plan_id:'start',
-          status:'trialing',
+          plan_id:planId,
+          status:(seedVenue && end>now)?'active':'trialing',
           current_period_end:end.toISOString()
         }).select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at,payment_status,payment_id').single();
         if(ins.error) throw ins.error;
