@@ -30,7 +30,7 @@
         if (!pay || !pay.id) return;
         self.busy = true;
         try {
-          var r = await db.rpc('admin_confirm_manual_payment', { p_payment_id: pay.id });
+          var r = await db.rpc('admin_confirm_manager_payment', { p_payment_id: pay.id });
           if (r.error) throw r.error;
           self.showToast('Оплата подтверждена, тариф активирован');
           if (typeof self.loadBaseData === 'function') await self.loadBaseData();
