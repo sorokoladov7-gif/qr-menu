@@ -20,36 +20,23 @@
       };
     },
     computed: {
-      maxCooks: function() {
-        return this.currentPlan ? this.currentPlan.max_cooks : 999;
-      },
-      maxCouriers: function() {
-        return this.currentPlan && this.currentPlan.max_couriers ? this.currentPlan.max_couriers : 999;
-      },
-      maxWaiters: function() {
-        return this.currentPlan && this.currentPlan.max_waiters ? this.currentPlan.max_waiters : 999;
-      }
+      maxCooks: function() { return this.currentPlan ? this.currentPlan.max_cooks : 999; },
+      maxCouriers: function() { return this.currentPlan && this.currentPlan.max_couriers ? this.currentPlan.max_couriers : 999; },
+      maxWaiters: function() { return this.currentPlan && this.currentPlan.max_waiters ? this.currentPlan.max_waiters : 999; }
     },
     methods: {
       loadCooks: function() {
         var self = this;
-        return db.from('cooks').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) {
-          self.cooks = r.data || [];
-        });
+        return db.from('cooks').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) { self.cooks = r.data || []; });
       },
       loadCouriers: function() {
         var self = this;
-        return db.from('couriers').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) {
-          self.couriers = r.data || [];
-        });
+        return db.from('couriers').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) { self.couriers = r.data || []; });
       },
       loadWaiters: function() {
         var self = this;
-        return db.from('waiters').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) {
-          self.waiters = r.data || [];
-        });
+        return db.from('waiters').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) { self.waiters = r.data || []; });
       },
-
       loadStaffAnalytics: function() {
         var self = this;
         if (!this.venue) return;
@@ -59,21 +46,17 @@
           if (r.data) self.staffAnalytics = r.data;
         }).catch(function(e) { console.warn('staff analytics exception:', e); });
       },
-
       getStaffPhone: function(type, name) {
         var arr = type === 'cook' ? this.cooks : (type === 'courier' ? this.couriers : this.waiters);
         var found = arr.find(function(item) { return item.name === name; });
         return found ? found.phone || '' : '';
       },
+      generateRandomPin: function() { this.createStaffForm.pin = String(Math.floor(1000 + Math.random() * 9000)); },
 
-      generateRandomPin: function() {
-        this.createStaffForm.pin = String(Math.floor(1000 + Math.random() * 9000));
-      },
-
+      /* Backend is the single source of truth for manager-wide staff quotas. */
       openCreateStaff: function(type) {
-        if (type === 'cook' && this.currentPlan && this.cooks.length >= this.currentPlan.max_cooks) { this.showToast('Лимит поваров по тарифу', 'error'); return; }
-        if (type === 'courier' && this.currentPlan && this.couriers.length >= this.maxCouriers) { this.showToast('Лимит курьеров по тарифу', 'error'); return; }
-        if (type === 'waiter' && this.currentPlan && this.waiters.length >= this.maxWaiters) { this.showToast('Лимит официантов по тарифу', 'error'); return; }
+        if (!this.venue || !this.profile) return;
+        if (type !== 'cook' && type !== 'courier' && type !== 'waiter') return;
         this.createStaffType = type;
         this.createStaffForm = { name: '', phone: '', pin: String(Math.floor(1000 + Math.random() * 9000)) };
         this.createStaffError = '';
@@ -146,16 +129,9 @@
         var self = this;
         db.from('waiters').delete().eq('id', w.id).then(function() { self.loadWaiters(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
       },
-
-      copyCookAccess: function(c) {
-        this.copyText('Вход для повара ' + c.name + ':\nСайт: ' + location.origin + '/cook.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.');
-      },
-      copyCourierAccess: function(c) {
-        this.copyText('Вход для курьера ' + c.name + ':\nСайт: ' + location.origin + '/courier.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.');
-      },
-      copyWaiterAccess: function(w) {
-        this.copyText('Вход для официанта ' + w.name + ':\nСайт: ' + location.origin + '/waiter.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.');
-      }
+      copyCookAccess: function(c) { this.copyText('Вход для повара ' + c.name + ':\nСайт: ' + location.origin + '/cook.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
+      copyCourierAccess: function(c) { this.copyText('Вход для курьера ' + c.name + ':\nСайт: ' + location.origin + '/courier.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
+      copyWaiterAccess: function(w) { this.copyText('Вход для официанта ' + w.name + ':\nСайт: ' + location.origin + '/waiter.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); }
     }
   };
 
