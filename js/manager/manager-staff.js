@@ -101,11 +101,15 @@
         var typeRu = type === 'cook' ? 'повара' : (type === 'courier' ? 'курьера' : 'официанта');
         if (!confirm('Сбросить PIN у ' + staff.name + ' (' + typeRu + ')?\nНовый PIN будет показан только один раз.')) return;
         self.busy = true;
-        var newPin = String(Math.floor(1000 + Math.random() * 9000));
-        var tableName = type === 'cook' ? 'cooks' : (type === 'courier' ? 'couriers' : 'waiters');
-        db.from(tableName).update({ pin: newPin }).eq('id', staff.id).eq('venue_id', this.venue.id).then(function(r) {
+        db.rpc('manager_reset_staff_pin', {
+          p_venue_id: this.venue.id,
+          p_staff_id: staff.id,
+          p_type: type
+        }).then(function(r) {
           self.busy = false;
           if (r.error) { self.showToast('Ошибка: ' + (r.error.message || r.error), 'error'); return; }
+          var newPin = r.data && r.data.pin ? r.data.pin : '';
+          if (!newPin) { self.showToast('Ошибка: сервер не вернул новый PIN', 'error'); return; }
           alert('✅ Новый PIN для ' + staff.name + ':\n🔑 ' + newPin + '\n⚠️ Сообщите PIN сотруднику сейчас.\nЭтот PIN больше не будет показан.');
           self.loadStaffAnalytics();
         }).catch(function(e) {
