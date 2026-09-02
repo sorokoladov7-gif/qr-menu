@@ -61,3 +61,8 @@
   .manager-template-meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .manager-template-products-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* Модальные окна должны быть выше корпоративной навигации, иначе overlay/sidebar блокирует клики. */
+.qr-corp-shell .modal { z-index:11050 !important; }
+.qr-corp-shell .modal .box { position:relative; z-index:11051; }
+.qr-corp-shell .toast { z-index:12000 !important; }
