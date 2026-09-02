@@ -52,18 +52,13 @@
       choosePlan: function(p) {
         if (!p) return;
         if (Number(p.price) === 0) {
-          self = this;
-          self.showToast('Бесплатный тариф недоступен для самостоятельной активации', 'error');
+          this.showToast('Бесплатный тариф недоступен для самостоятельной активации', 'error');
           return;
         }
         this.payPlan = p;
       },
 
-      /*
-       * Manager subscription mutations are intentionally not performed from the browser.
-       * Paid plan changes/renewals go through /api/payments/yookassa/create-subscription
-       * and the payment webhook. Admin changes use the admin billing flow.
-       */
+      /* Manager subscription mutations are intentionally server-side only. */
       subscribeFree: async function() {
         this.showToast('Изменение тарифа выполняется через биллинг', 'error');
       },
