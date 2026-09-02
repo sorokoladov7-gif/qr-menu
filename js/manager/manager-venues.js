@@ -23,17 +23,6 @@
     },
     computed: {
       venueName: function() { return this.venue ? this.venue.name : 'Мои заведения'; },
-      canCreateVenue: function() {
-        if (!this.profile || this.profile.role === 'admin') return true;
-        var used = Array.isArray(this.myVenues) ? this.myVenues.length : 0;
-        var limit = Number(this.venueLimit || 0);
-        if (!limit && this.currentPlan) limit = Number(this.currentPlan.max_venues || 0);
-        if (!limit && this.managerSubscription && Array.isArray(this.plans)) {
-          var subPlan = this.plans.find(function(x) { return x.id === this.managerSubscription.plan_id; });
-          if (subPlan) limit = Number(subPlan.max_venues || 0);
-        }
-        return used < limit;
-      },
       filteredVenueTemplates: function() {
         var q = String(this.templateSearchQuery || '').trim().toLowerCase();
         if (!q) return this.venueTemplates;
@@ -51,25 +40,9 @@
       }
     },
     methods: {
-      ensureSiteImporter: function() {
-        if (window.QRManagerSiteImport) return Promise.resolve();
-        if (window.__QR_MANAGER_SITE_IMPORT_LOADING__) return window.__QR_MANAGER_SITE_IMPORT_LOADING__;
-        window.__QR_MANAGER_SITE_IMPORT_LOADING__ = new Promise(function(resolve) {
-          var s = document.createElement('script');
-          s.src = '/js/manager-site-import.js?v=7';
-          s.async = false;
-          s.onload = function() { resolve(); };
-          s.onerror = function(e) {
-            console.error('[Manager] Не удалось загрузить импорт сайта:', e);
-            resolve();
-          };
-          document.head.appendChild(s);
-        });
-        return window.__QR_MANAGER_SITE_IMPORT_LOADING__;
-      },
       prepareCreateVenueModal: function() {
         var self = this;
-        return this.ensureSiteImporter().then(function() {
+        return Promise.resolve().then(function() {
           return new Promise(function(resolve) {
             self.$nextTick(function() {
               var root = document.getElementById('app');
@@ -112,7 +85,6 @@
       },
       loadMyVenues: function() {
         var self = this;
-        self.ensureSiteImporter();
         return new Promise(function(resolve) {
           var ids = null;
           var p = Promise.resolve();
@@ -335,11 +307,15 @@
         if (!subscriptionEnd) { var e = new Date(); e.setDate(e.getDate() + 10); subscriptionEnd = e.toISOString(); }
         var slug = window.slugify(this.newVenueForm.slug);
         if (!slug) { self.formError = 'Некорректный slug'; self.busy = false; return; }
-        db.rpc('create_venue_for_manager', { p_name: this.newVenueForm.name.trim(), p_slug: slug, p_plan: planId, p_subscription_end: subscriptionEnd }).then(function(r) {
+        db.rpc('create_venue_for_manager', {
+          p_name: this.newVenueForm.name.trim(),
+          p_slug: slug,
+          p_plan: planId,
+          p_subscription_end: subscriptionEnd,
+          p_products: template.products || []
+        }).then(function(r) {
           if (r.error) throw r.error;
-          var venue = r.data;
-          var rows = template.products.map(function(item) { return { venue_id: venue.id, name: item.name, description: item.description || null, price: Number(item.price) || 0, category: item.category || 'main', image_url: item.image_url || null, applies_to: item.applies_to || 'all', is_available: true }; });
-          return db.from('products').insert(rows).then(function(r2) { if (r2.error) throw r2.error; return venue; });
+          return r.data;
         }).then(function(venue) {
           self.showCreateVenue = false;
           self.newVenueForm = { name: '', slug: '', template: self.venueTemplates[0] ? self.venueTemplates[0].id : 'coffee' };
