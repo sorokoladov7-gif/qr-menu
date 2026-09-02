@@ -43,12 +43,13 @@
     return limit>0 && used<limit;
   };
 
-  /* Keep the existing init flow, then hydrate the canonical manager subscription once. */
+  /* Load canonical manager subscription through the server-side self-heal RPC. */
   var baseInit=appMethods.init;
   if(typeof baseInit==='function'){
     appMethods.init=async function(){
       await baseInit.call(this);
       if(!this.profile || this.profile.role==='admin') return;
+
       var r=await db.from('subscriptions')
         .select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at,payment_status,payment_id')
         .eq('manager_id',this.profile.id)
@@ -59,24 +60,12 @@
       if(r.error) throw r.error;
 
       var sub=r.data||null;
-      /* Self-heal legacy accounts: infer the canonical manager subscription from an existing managed venue, otherwise start a fresh 10-day Trial. */
       if(!sub){
-        var seedVenue=Array.isArray(this.myVenues)&&this.myVenues.length ? this.myVenues[0] : null;
-        var now=new Date();
-        var end=seedVenue && seedVenue.subscription_end && new Date(seedVenue.subscription_end) > now
-          ? new Date(seedVenue.subscription_end)
-          : new Date(now.getTime()+10*864e5);
-        var planId=seedVenue && seedVenue.plan ? seedVenue.plan : 'start';
-        var ins=await db.from('subscriptions').insert({
-          manager_id:this.profile.id,
-          venue_id:null,
-          plan_id:planId,
-          status:(seedVenue && end>now)?'active':'trialing',
-          current_period_end:end.toISOString()
-        }).select('id,manager_id,venue_id,plan_id,status,current_period_end,created_at,payment_status,payment_id').single();
-        if(ins.error) throw ins.error;
-        sub=ins.data||null;
+        var healed=await db.rpc('manager_ensure_subscription');
+        if(healed.error) throw healed.error;
+        sub=healed.data||null;
       }
+
       this.managerSubscription=sub;
       if(sub && sub.current_period_end) this.subscriptionEnd=sub.current_period_end;
       try{ window.dispatchEvent(new CustomEvent('qr-manager-subscription-ready',{detail:{subscription:sub,managerId:this.profile.id}})); }catch(e){}
