@@ -50,42 +50,27 @@
       },
 
       choosePlan: function(p) {
-        if (p.price === 0) this.subscribeFree(p);
-        else this.payPlan = p;
+        if (!p) return;
+        if (Number(p.price) === 0) {
+          self = this;
+          self.showToast('Бесплатный тариф недоступен для самостоятельной активации', 'error');
+          return;
+        }
+        this.payPlan = p;
       },
 
-      subscribeFree: async function(p) {
-        if (!p || p.price !== 0) return;
-        var self = this;
-        self.busy = true;
-        try {
-          var managerId = self.profile && self.profile.id;
-          if (!managerId) throw new Error('Не удалось определить управляющего');
-          var end = new Date();
-          end.setMonth(end.getMonth() + 1);
-          var r = await db.from('subscriptions').upsert({
-            manager_id: managerId,
-            venue_id: null,
-            plan_id: p.id,
-            status: 'active',
-            current_period_end: end.toISOString(),
-            payment_status: 'paid'
-          }, { onConflict: 'manager_id' }).select().single();
-          if (r.error) throw r.error;
-          self.managerSubscription = r.data;
-          self.subscriptionEnd = r.data.current_period_end;
-          self.payPlan = null;
-          self.showToast('Тариф изменён');
-        } catch (err) {
-          console.error('Ошибка изменения тарифа:', err);
-          self.showToast('Ошибка: ' + (err.message || 'не удалось изменить тариф'), 'error');
-        } finally {
-          self.busy = false;
-        }
+      /*
+       * Manager subscription mutations are intentionally not performed from the browser.
+       * Paid plan changes/renewals go through /api/payments/yookassa/create-subscription
+       * and the payment webhook. Admin changes use the admin billing flow.
+       */
+      subscribeFree: async function() {
+        this.showToast('Изменение тарифа выполняется через биллинг', 'error');
       },
 
       markPaid: function() {
         var self = this;
+        if (!this.payPlan || !this.profile) return;
         self.busy = true;
         db.from('payments').insert({
           venue_id: this.venue ? this.venue.id : null,
@@ -106,7 +91,7 @@
       },
 
       planPriceLabel: function(p) {
-        return p.price === 0 ? '0' : this.fmt(p.price) + ' ₽';
+        return Number(p.price) === 0 ? '0' : this.fmt(p.price) + ' ₽';
       },
       planBtnLabel: function(p) {
         return (this.currentPlan && this.currentPlan.id === p.id) ? 'Текущий' : 'Выбрать';
