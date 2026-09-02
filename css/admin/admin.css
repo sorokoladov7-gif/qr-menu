@@ -1,5 +1,5 @@
 /* ==========================================================
-   ОБЩИЕ ПЕРЕМЕННЫЕ И НАСТРОЙКИ АНИМАЦИИ
+   ОБЩИЕ ПЕРЕМЕННЫЕ И НАСТРОЙКИ АНИМАЦИИ ДЛЯ ADMIN.HTML
    ========================================================== */
 :root {
   --transition-smooth: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -122,7 +122,7 @@
 }
 .venue-selector { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
-/* Компактная навигация админ-кабинета */
+/* Компактная навигация админ-кабинета (Табы) */
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -139,13 +139,23 @@
   border-radius: 24px;
   transition: var(--transition-smooth);
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: inherit;
 }
 .tabs button:hover {
   background: rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 .tabs button:active {
   transform: translateY(1px);
+}
+.tabs button.on {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 /* Компактные карточки тарифов */
