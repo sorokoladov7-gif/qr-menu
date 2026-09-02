@@ -73,6 +73,78 @@
         return e < new Date() ? 'Истекла' : d <= 3 ? 'Осталось ' + Math.ceil(d) + ' дн' : 'Активна';
       },
 
+      changeManagerPlan: async function(m, plan) {
+        var managerId = m && m.id;
+        var planId = String(plan || '').trim();
+        if (!managerId) { this.msg = 'Не найден управляющий'; return; }
+        if (!planId) { this.msg = 'Выберите тариф'; return; }
+        var selectedPlan = (this.plans || []).find(function(p){ return p.id === planId; });
+        if (!selectedPlan) { this.msg = 'Выбранный тариф не найден'; return; }
+        this.busy = true;
+        try {
+          var r = await db.rpc('admin_set_manager_plan', {
+            p_manager_id: managerId,
+            p_plan_id: planId,
+            p_days: null
+          });
+          if (r.error) throw r.error;
+          await this.loadBaseData();
+          this.msg = 'Тариф «' + selectedPlan.name + '» назначен управляющему';
+        } catch(e) {
+          this.msg = 'Ошибка сохранения тарифа: ' + (e.message || e);
+        } finally {
+          this.busy = false;
+        }
+      },
+
+      extendManagerSub: async function(m, days) {
+        var managerId = m && m.id;
+        days = Number(days) || 30;
+        if (!managerId) { this.msg = 'Не найден управляющий'; return; }
+        this.busy = true;
+        try {
+          var r = await db.rpc('admin_extend_manager_subscription', {
+            p_manager_id: managerId,
+            p_days: days
+          });
+          if (r.error) throw r.error;
+          await this.loadBaseData();
+          this.msg = 'Подписка продлена на ' + days + ' дней';
+        } catch(e) {
+          this.msg = 'Ошибка продления: ' + (e.message || e);
+        } finally {
+          this.busy = false;
+        }
+      },
+
+      changePlan: async function(v, plan) {
+        if (!v || !v.id) return;
+        var r = await db.from('manager_venues')
+          .select('manager_id')
+          .eq('venue_id', v.id)
+          .limit(1)
+          .maybeSingle();
+        if (r.error || !r.data) {
+          this.msg = 'Не найден управляющий для заведения';
+          return;
+        }
+        return this.changeManagerPlan({ id: r.data.manager_id }, plan);
+      },
+
+      extendSub: async function(v) {
+        if (!v || !v.id) return;
+        var r = await db.from('manager_venues')
+          .select('manager_id')
+          .eq('venue_id', v.id)
+          .limit(1)
+          .maybeSingle();
+        if (r.error || !r.data) {
+          this.msg = 'Не найден управляющий для заведения';
+          return;
+        }
+        return this.extendManagerSub({ id: r.data.manager_id }, 30);
+      },
+
       createPlan: function() {
         var stamp = Date.now().toString(36);
         var id = 'custom_' + stamp;
