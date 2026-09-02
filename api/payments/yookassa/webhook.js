@@ -64,25 +64,6 @@ module.exports = async function handler(req, res) {
         patch.status = 'active';
         patch.current_period_end = new Date(start + days * 86400000).toISOString();
         if (targetPlanId) patch.plan_id = targetPlanId;
-
-        if (targetPlanId && subscription.manager_id && !subscription.venue_id) {
-          const managerVenues = await supabase(`manager_venues?manager_id=eq.${encodeURIComponent(subscription.manager_id)}&select=venue_id`);
-          const venueRows = Array.isArray(managerVenues) ? managerVenues : [];
-          const newEnd = patch.current_period_end;
-          for (const row of venueRows) {
-            if (!row || !row.venue_id) continue;
-            await supabase(`venues?id=eq.${encodeURIComponent(row.venue_id)}`, {
-              method: 'PATCH',
-              headers: { Prefer: 'return=minimal' },
-              body: JSON.stringify({ plan: targetPlanId, subscription_end: newEnd })
-            });
-            await supabase(`subscriptions?venue_id=eq.${encodeURIComponent(row.venue_id)}`, {
-              method: 'PATCH',
-              headers: { Prefer: 'return=minimal' },
-              body: JSON.stringify({ plan_id: targetPlanId, status: 'active', current_period_end: newEnd })
-            });
-          }
-        }
       }
       await supabase(`subscriptions?id=eq.${encodeURIComponent(subscription.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) });
       return json(res, 200, { ok: true, type: 'subscription', payment_id: paymentId, status: payment.status });
