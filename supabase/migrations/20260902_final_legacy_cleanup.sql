@@ -1,5 +1,6 @@
 -- QR Menu — final legacy cleanup / expiry synchronization.
--- This migration complements 20260902_p0_p1_saas_consolidation.sql.
+-- Complements 20260902_p0_p1_saas_consolidation.sql and keeps the canonical
+-- manager-owned subscription model consistent with runtime fixes.
 
 CREATE OR REPLACE FUNCTION public.guard_venue_permission()
 RETURNS trigger
@@ -82,6 +83,78 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.manager_create_staff(p_venue_id uuid, p_type text, p_name text, p_phone text, p_pin text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=public
+AS $$
+declare
+  new_id uuid;
+  hashed text;
+  v_manager_id uuid;
+  v_sub public.subscriptions;
+  v_plan public.plans;
+  v_count integer;
+  v_limit integer;
+begin
+  if not public.manager_can_manage_venue(p_venue_id) then raise exception 'not_authorized'; end if;
+  if p_pin !~ '^[0-9]{4}$' then raise exception 'pin_must_be_4_digits'; end if;
+  if p_type not in ('cook','courier','waiter') then raise exception 'invalid_staff_type'; end if;
+
+  select manager_id into v_manager_id
+  from public.manager_venues
+  where venue_id=p_venue_id and manager_id=auth.uid()
+  limit 1;
+
+  if v_manager_id is null and exists(select 1 from public.profiles where id=auth.uid() and role='admin') then
+    select manager_id into v_manager_id from public.manager_venues where venue_id=p_venue_id limit 1;
+  end if;
+  if v_manager_id is null then raise exception 'manager_required'; end if;
+
+  select * into v_sub
+  from public.subscriptions
+  where manager_id=v_manager_id and venue_id is null
+    and status in ('trialing','active') and current_period_end>=now()
+  order by case when status='active' then 0 else 1 end, created_at desc
+  limit 1;
+  if v_sub.id is null then raise exception 'subscription_required'; end if;
+
+  select * into v_plan from public.plans where id=v_sub.plan_id and is_active=true;
+  if v_plan.id is null then raise exception 'plan_not_found'; end if;
+
+  if p_type='cook' then
+    select count(*) into v_count from public.cooks c
+    join public.manager_venues mv on mv.venue_id=c.venue_id
+    where mv.manager_id=v_manager_id and coalesce(c.is_active,true)=true;
+    v_limit:=v_plan.max_cooks;
+  elsif p_type='courier' then
+    select count(*) into v_count from public.couriers c
+    join public.manager_venues mv on mv.venue_id=c.venue_id
+    where mv.manager_id=v_manager_id and coalesce(c.is_active,true)=true;
+    v_limit:=v_plan.max_couriers;
+  else
+    select count(*) into v_count from public.waiters w
+    join public.manager_venues mv on mv.venue_id=w.venue_id
+    where mv.manager_id=v_manager_id and coalesce(w.is_active,true)=true;
+    v_limit:=v_plan.max_waiters;
+  end if;
+
+  if v_count>=coalesce(v_limit,0) then raise exception 'staff_limit_reached:%:%', p_type, v_limit; end if;
+
+  hashed:=extensions.crypt(p_pin,extensions.gen_salt('bf',6));
+  new_id:=gen_random_uuid();
+  if p_type='cook' then
+    insert into public.cooks(id,venue_id,name,phone,pin,is_active) values(new_id,p_venue_id,p_name,p_phone,hashed,true);
+  elsif p_type='courier' then
+    insert into public.couriers(id,venue_id,name,phone,pin,is_active) values(new_id,p_venue_id,p_name,p_phone,hashed,true);
+  else
+    insert into public.waiters(id,venue_id,name,phone,pin,is_active) values(new_id,p_venue_id,p_name,p_phone,hashed,true);
+  end if;
+  return jsonb_build_object('ok',true,'id',new_id,'pin',p_pin,'manager_staff_count',v_count+1,'manager_staff_limit',v_limit);
+end;
+$$;
+
 REVOKE EXECUTE ON FUNCTION public.normalize_manager_subscription_owner() FROM public,anon,authenticated;
 REVOKE EXECUTE ON FUNCTION public.ensure_manager_subscription_on_profile_create() FROM public,anon,authenticated;
 REVOKE EXECUTE ON FUNCTION public.sync_manager_subscription_to_venues() FROM public,anon,authenticated;
@@ -91,3 +164,4 @@ REVOKE EXECUTE ON FUNCTION public.create_venue_for_manager_v2(uuid,text,text,tex
 REVOKE EXECUTE ON FUNCTION public.create_venue_from_template(text,text,text,text,timestamptz) FROM public,anon,authenticated;
 REVOKE EXECUTE ON FUNCTION public.create_venue_for_manager(text,text,text,timestamptz,jsonb) FROM anon;
 REVOKE EXECUTE ON FUNCTION public.manager_import_venue(text,text,text,timestamptz,text,text,text,text,text,jsonb,jsonb) FROM anon;
+GRANT EXECUTE ON FUNCTION public.manager_create_staff(uuid,text,text,text,text) TO authenticated;
