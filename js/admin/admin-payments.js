@@ -28,32 +28,30 @@
         }
       },
 
-      confirmPayment: function(pay) {
+      confirmPayment: async function(pay) {
         var self = this;
-        var end = new Date();
-        end.setMonth(end.getMonth() + 1);
+        if (!pay || !pay.id) return;
         self.busy = true;
-        db.from('venues').update({ plan: pay.plan_id, subscription_end: end.toISOString(), status: 'active' }).eq('id', pay.venue_id).then(function() {
-          return db.from('subscriptions').update({ plan_id: pay.plan_id, status: 'active', current_period_end: end.toISOString() }).eq('venue_id', pay.venue_id);
-        }).then(function() {
-          return db.from('payments').update({ status: 'confirmed' }).eq('id', pay.id);
-        }).then(function() { 
-          self.showToast('Оплата подтверждена');
-          if (typeof self.loadBaseData === 'function') self.loadBaseData(); 
-        }).catch(function(err) {
+        try {
+          var r = await db.rpc('admin_confirm_manual_payment', { p_payment_id: pay.id });
+          if (r.error) throw r.error;
+          self.showToast('Оплата подтверждена, тариф активирован');
+          if (typeof self.loadBaseData === 'function') await self.loadBaseData();
+        } catch (err) {
           console.error('Ошибка подтверждения оплаты:', err);
           self.showToast('Ошибка: ' + (err.message || 'не удалось подтвердить'), 'error');
-        }).finally(function() {
+        } finally {
           self.busy = false;
-        });
+        }
       },
 
       rejectPayment: function(pay) {
         var self = this;
         self.busy = true;
-        db.from('payments').update({ status: 'rejected' }).eq('id', pay.id).then(function() { 
+        db.from('payments').update({ status: 'rejected' }).eq('id', pay.id).then(function(r) {
+          if (r.error) throw r.error;
           self.showToast('Оплата отклонена');
-          if (typeof self.loadBaseData === 'function') self.loadBaseData(); 
+          if (typeof self.loadBaseData === 'function') self.loadBaseData();
         }).catch(function(err) {
           console.error('Ошибка отклонения оплаты:', err);
           self.showToast('Ошибка: ' + (err.message || 'не удалось отклонить'), 'error');
@@ -65,9 +63,10 @@
       createPlan: function() {
         var self = this;
         self.busy = true;
-        db.from('plans').insert({ id: 'custom_' + Date.now(), name: 'Персональный тариф', price: 0, max_venues: 1, max_cooks: 5, max_couriers: 10, max_waiters: 10, max_products: 50 }).then(function() { 
+        db.from('plans').insert({ id: 'custom_' + Date.now(), name: 'Персональный тариф', price: 0, max_venues: 1, max_cooks: 5, max_couriers: 10, max_waiters: 10, max_products: 50 }).then(function(r) {
+          if (r.error) throw r.error;
           self.showToast('Тариф создан');
-          if (typeof self.loadBaseData === 'function') self.loadBaseData(); 
+          if (typeof self.loadBaseData === 'function') self.loadBaseData();
         }).catch(function(err) {
           console.error('Ошибка создания тарифа:', err);
           self.showToast('Ошибка: ' + (err.message || 'не удалось создать'), 'error');
@@ -82,9 +81,10 @@
         if (used) { self.showToast('Тариф назначен заведениям — сначала переведите их на другой.', 'error'); return; }
         if (!confirm('Удалить тариф «' + p.name + '»?')) return;
         self.busy = true;
-        db.from('plans').delete().eq('id', p.id).then(function() { 
+        db.from('plans').delete().eq('id', p.id).then(function(r) {
+          if (r.error) throw r.error;
           self.showToast('Тариф удален');
-          if (typeof self.loadBaseData === 'function') self.loadBaseData(); 
+          if (typeof self.loadBaseData === 'function') self.loadBaseData();
         }).catch(function(err) {
           console.error('Ошибка удаления тарифа:', err);
           self.showToast('Ошибка: ' + (err.message || 'не удалось удалить'), 'error');
@@ -104,7 +104,8 @@
           max_couriers: +p.max_couriers || 0,
           max_waiters: +p.max_waiters || 0,
           max_products: +p.max_products
-        }).eq('id', p.id).then(function() {
+        }).eq('id', p.id).then(function(r) {
+          if (r.error) throw r.error;
           self.showToast('Тариф «' + p.name + '» сохранён');
         }).catch(function(err) {
           console.error('Ошибка сохранения тарифа:', err);
