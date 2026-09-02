@@ -6,10 +6,7 @@
 
   var paymentsMixin = {
     data: function() {
-      return {
-        payments: [],
-        busy: false
-      };
+      return { payments: [], busy: false };
     },
     computed: {
       pendingPayments: function() {
@@ -118,4 +115,65 @@
   };
 
   window.__QR_ADMIN_PAYMENTS_MIXIN__ = paymentsMixin;
+
+  /* Final billing authority: override legacy manager-plan methods before admin Vue app creation. */
+  if (window.Vue && typeof Vue.createApp === 'function' && !window.__QR_ADMIN_SAAS_BILLING_PATCH__) {
+    window.__QR_ADMIN_SAAS_BILLING_PATCH__ = true;
+    var originalCreateApp = Vue.createApp;
+    Vue.createApp = function(options) {
+      if (options && typeof options === 'object') {
+        options.methods = options.methods || {};
+        options.methods.changeManagerPlan = async function(m, plan) {
+          var self = this;
+          var managerId = m && m.id;
+          var planId = String(plan || '').trim();
+          if (!managerId || !planId) { self.msg = 'Не выбран управляющий или тариф'; return; }
+          self.busy = true;
+          try {
+            var r = await db.rpc('admin_set_manager_plan', { p_manager_id: managerId, p_plan_id: planId });
+            if (r.error) throw r.error;
+            await self.loadBaseData();
+            self.msg = 'Тариф назначен управляющему';
+          } catch (e) {
+            self.msg = 'Ошибка сохранения тарифа: ' + (e.message || e);
+          } finally {
+            self.busy = false;
+          }
+        };
+
+        options.methods.extendManagerSub = async function(m, days) {
+          var self = this;
+          var managerId = m && m.id;
+          days = Number(days) || 30;
+          if (!managerId) { self.msg = 'Не найден управляющий'; return; }
+          self.busy = true;
+          try {
+            var r = await db.rpc('admin_extend_manager_subscription', { p_manager_id: managerId, p_days: days });
+            if (r.error) throw r.error;
+            await self.loadBaseData();
+            self.msg = 'Подписка продлена на ' + days + ' дней';
+          } catch (e) {
+            self.msg = 'Ошибка продления: ' + (e.message || e);
+          } finally {
+            self.busy = false;
+          }
+        };
+
+        options.methods.changePlan = async function(v, plan) {
+          var mid = null;
+          var r = await db.from('manager_venues').select('manager_id').eq('venue_id', v.id).limit(1).maybeSingle();
+          if (!r.error && r.data) mid = r.data.manager_id;
+          if (!mid) { this.msg = 'Не найден управляющий'; return; }
+          return this.changeManagerPlan({ id: mid }, plan);
+        };
+
+        options.methods.extendSub = async function(v) {
+          var r = await db.from('manager_venues').select('manager_id').eq('venue_id', v.id).limit(1).maybeSingle();
+          if (r.error || !r.data) { this.msg = 'Не найден управляющий'; return; }
+          return this.extendManagerSub({ id: r.data.manager_id }, 30);
+        };
+      }
+      return originalCreateApp.apply(this, arguments);
+    };
+  }
 })();
