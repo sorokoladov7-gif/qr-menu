@@ -22,9 +22,8 @@ async function requireAuth(roles){
     const {data:profile,error} = await db.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
     if(error){console.error('Profile fetch error:',error);safeRedirect('index.html','ошибка чтения профиля: '+error.message);return null;}
     if(!profile){
-      const {data:newProfile,error:insertError} = await db.from('profiles').insert({id:session.user.id,email:session.user.email,display_name:session.user.user_metadata?.display_name||session.user.email,role:'manager'}).select().single();
-      if(insertError||!newProfile){safeRedirect('login.html','профиль не найден и не создан. Выполните SQL в Supabase');return null;}
-      return newProfile;
+      safeRedirect('login.html','профиль ещё не создан серверной системой регистрации');
+      return null;
     }
     if(roles && roles.length && roles.indexOf(profile.role)===-1){safeRedirect('login.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role);return null;}
     return profile;
