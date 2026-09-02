@@ -90,45 +90,4 @@
   };
 
   window.__QR_ADMIN_MANAGERS_MIXIN__ = managersMixin;
-
-  /*
-   * Manager-specific tariff persistence.
-   * All subscription mutations now go through the canonical admin RPC.
-   */
-  if (window.Vue && typeof Vue.createApp === 'function' && !window.__QR_ADMIN_MANAGER_PLAN_PATCH__) {
-    window.__QR_ADMIN_MANAGER_PLAN_PATCH__ = true;
-    var originalCreateApp = Vue.createApp;
-    Vue.createApp = function(options) {
-      if (options && typeof options === 'object') {
-        options.methods = options.methods || {};
-        options.methods.changeManagerPlan = async function(m, plan) {
-          var self = this;
-          var managerId = m && m.id;
-          var planId = String(plan || '').trim();
-          if (!managerId) { self.msg = 'Не найден управляющий'; return; }
-          if (!planId) { self.msg = 'Выберите тариф'; return; }
-
-          var selectedPlan = (self.plans || []).find(function(p) { return p.id === planId; });
-          if (!selectedPlan) { self.msg = 'Выбранный тариф не найден'; return; }
-
-          self.busy = true;
-          try {
-            var result = await db.rpc('admin_set_manager_plan', {
-              p_manager_id: managerId,
-              p_plan_id: planId,
-              p_days: null
-            });
-            if (result.error) throw result.error;
-            await self.loadBaseData();
-            self.msg = 'Тариф «' + selectedPlan.name + '» назначен управляющему';
-          } catch (e) {
-            self.msg = 'Ошибка сохранения тарифа: ' + (e.message || String(e));
-          } finally {
-            self.busy = false;
-          }
-        };
-      }
-      return originalCreateApp.apply(this, arguments);
-    };
-  }
 })();
