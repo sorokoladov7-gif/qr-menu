@@ -1,19 +1,21 @@
 const { json, supabase, decryptSecret, yookassaGetPlatformPayment } = require('../../_lib/yookassa');
 
 async function getVenuePayment(paymentId, venueId) {
-  let accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=credentials_ref&limit=1`);
+  let accounts = await supabase(`payment_accounts?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.yookassa&account_scope=eq.venue&status=eq.active&select=credentials_ref,merchant_id&limit=1`);
   let account = Array.isArray(accounts) ? accounts[0] : null;
   if (!account) {
     const relations = await supabase(`manager_venues?venue_id=eq.${encodeURIComponent(venueId)}&select=manager_id&limit=1`);
     const managerId = Array.isArray(relations) && relations[0] ? relations[0].manager_id : null;
     if (managerId) {
-      accounts = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&account_scope=eq.platform&venue_id=is.null&provider=eq.yookassa&status=eq.active&select=credentials_ref&limit=1`);
+      accounts = await supabase(`payment_accounts?manager_id=eq.${encodeURIComponent(managerId)}&account_scope=eq.platform&venue_id=is.null&provider=eq.yookassa&status=eq.active&select=credentials_ref,merchant_id&limit=1`);
       account = Array.isArray(accounts) ? accounts[0] : null;
     }
   }
   if (!account || !account.credentials_ref) throw new Error('payment_account_not_found');
   const token = decryptSecret(account.credentials_ref);
-  const response = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(paymentId)}`, { headers: { Authorization: `Bearer ${token}` } });
+  const headers = { Authorization: `Bearer ${token}` };
+  if (account.merchant_id) headers['On-Behalf-Of'] = String(account.merchant_id);
+  const response = await fetch(`https://api.yookassa.ru/v3/payments/${encodeURIComponent(paymentId)}`, { headers });
   const data = await response.json();
   if (!response.ok || !data || data.id !== paymentId) throw new Error(data && (data.description || data.message) || 'payment_verification_failed');
   return data;

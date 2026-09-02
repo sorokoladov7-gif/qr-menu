@@ -30,7 +30,7 @@ module.exports = async function handler(req, res) {
     if (order.payment_id && order.payment_provider === 'yookassa') {
       try {
         const { yookassaGetPayment } = require('../../_lib/yookassa');
-        const existing = await yookassaGetPayment(decryptSecret(account.credentials_ref), order.payment_id);
+        const existing = await yookassaGetPayment(decryptSecret(account.credentials_ref), order.payment_id, account.merchant_id);
         return json(res, 200, { ok: true, payment_id: existing.id, status: existing.status, confirmation_url: existing.confirmation && existing.confirmation.confirmation_url || null, reused: true });
       } catch (_) {}
     }
@@ -49,7 +49,7 @@ module.exports = async function handler(req, res) {
       confirmation: { type: 'redirect', return_url: `${origin(req)}/menu.html?payment=order&order_id=${encodeURIComponent(order.id)}` },
       description: `Заказ №${order.order_number}`,
       metadata: { qr_menu_order_id: order.id, qr_menu_venue_id: order.venue_id }
-    }, idempotenceKey);
+    }, idempotenceKey, account.merchant_id);
 
     await supabase(`orders?id=eq.${encodeURIComponent(order.id)}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ payment_provider: 'yookassa', payment_id: payment.id, payment_status: payment.status || 'pending' }) });
 
