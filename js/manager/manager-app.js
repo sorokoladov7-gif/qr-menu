@@ -126,8 +126,6 @@
     script.src='/js/manager-create-venue-flow.js?v=12';
     script.async=false;
     script.setAttribute('data-qr-manager-create-venue-flow','1');
-    script.async=false;
-    script.setAttribute('data-qr-manager-create-venue-flow','1');
     script.onerror=function(){console.error('[QR Manager] Не удалось загрузить существующую логику создания заведения:',script.src);};
     document.head.appendChild(script);
   }
