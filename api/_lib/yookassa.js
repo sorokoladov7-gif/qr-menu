@@ -41,7 +41,19 @@ async function getSupabaseUser(accessToken){
 function bearer(req){const value=String(req.headers.authorization||'');return value.startsWith('Bearer ')?value.slice(7).trim():'';}
 async function assertManagerVenue(userId,venueId){if(!userId||!venueId)return null;const rows=await supabase(`manager_venues?manager_id=eq.${encodeURIComponent(userId)}&venue_id=eq.${encodeURIComponent(venueId)}&select=id,manager_id,venue_id&limit=1`);return Array.isArray(rows)&&rows.length?rows[0]:null;}
 function callbackUrl(req){return process.env.YOOKASSA_OAUTH_CALLBACK_URL||`${origin(req)}/api/payments/yookassa/callback`;}
-function origin(req){const configured=process.env.PUBLIC_APP_URL||process.env.NEXT_PUBLIC_APP_URL;if(configured)return configured.replace(/\/$/,'');const host=req.headers['x-forwarded-host']||req.headers.host;const proto=req.headers['x-forwarded-proto']||'https';return `${proto}://${host}`;}
+function origin(req){
+  const configured = process.env.PUBLIC_APP_URL || process.env.NEXT_PUBLIC_APP_URL;
+  if (configured) return String(configured).replace(/\/+$/, '');
+  const hostHeader = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase();
+  const allow = (process.env.YOOKASSA_ALLOWED_HOSTS || '').split(',').map(function(s){return s.trim().toLowerCase();}).filter(Boolean);
+  let host = hostHeader;
+  if (allow.length && !allow.includes(host)) host = allow[0] || '';
+  let proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim().toLowerCase();
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+  if (!isLocal) proto = 'https';
+  if (!host) return '';
+  return proto + '://' + host;
+}
 async function yookassaToken(code){const clientId=env('YOOKASSA_CLIENT_ID');const clientSecret=env('YOOKASSA_CLIENT_SECRET');const basic=Buffer.from(`${clientId}:${clientSecret}`).toString('base64');const body=new URLSearchParams({grant_type:'authorization_code',code});const response=await fetch('https://yookassa.ru/oauth/v2/token',{method:'POST',headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/x-www-form-urlencoded'},body});const data=await response.json();if(!response.ok||!data.access_token){const error=new Error(data.error_description||data.error||'ЮKassa не вернула OAuth-токен');error.status=response.status;throw error;}return data;}
 async function yookassaMe(accessToken){const response=await fetch('https://api.yookassa.ru/v3/me',{headers:{Authorization:`Bearer ${accessToken}`}});const data=await response.json();if(!response.ok){const error=new Error(data.description||data.message||'Не удалось получить настройки магазина ЮKassa');error.status=response.status;throw error;}return data;}
 async function yookassaCreatePayment(accessToken,payload,idempotenceKey){const response=await fetch('https://api.yookassa.ru/v3/payments',{method:'POST',headers:{Authorization:`Bearer ${accessToken}`,'Idempotence-Key':idempotenceKey||randomToken(24),'Content-Type':'application/json'},body:JSON.stringify(payload)});const data=await response.json();if(!response.ok||!data||!data.id){const error=new Error(data&&(data.description||data.message||data.code)||`ЮKassa HTTP ${response.status}`);error.status=response.status;error.data=data;throw error;}return data;}

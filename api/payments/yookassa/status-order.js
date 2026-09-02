@@ -1,10 +1,12 @@
 const { json, supabase, decryptSecret, yookassaGetPayment } = require('../../_lib/yookassa');
+const { blocked } = require('../../_lib/rate-limit');
 
 function orderStatus(status) { if (status === 'succeeded') return 'paid'; if (status === 'canceled') return 'cancelled'; if (status === 'failed') return 'failed'; if (status === 'refunded') return 'refunded'; return 'pending'; }
 function ledgerStatus(status) { return ['succeeded','canceled','waiting_for_capture','pending'].includes(status) ? status : 'failed'; }
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET' && req.method !== 'POST') return json(res, 405, { ok: false, error: 'method_not_allowed' });
+  if (blocked(req, res, 'status-order', 120, 60000)) return;
   try {
     const body = req.body || {}, query = req.query || {};
     const orderId = String(body.order_id || query.order_id || '').trim();
