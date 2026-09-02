@@ -6,6 +6,21 @@ window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
+(function(){
+  'use strict';
+  if (!/\/manager\.html$/i.test(location.pathname)) return;
+  function loadSiteImport(){
+    if (window.QRManagerSiteImport || document.querySelector('script[data-qr-manager-site-import]')) return;
+    var script = document.createElement('script');
+    script.src = 'js/manager/manager-site-import.js';
+    script.async = false;
+    script.setAttribute('data-qr-manager-site-import','1');
+    (document.head || document.documentElement).appendChild(script);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', loadSiteImport);
+  else loadSiteImport();
+})();
+
 function safeRedirect(fallbackUrl, reason) {
   var last = parseInt(sessionStorage.getItem('last_redirect') || '0', 10), now = Date.now();
   if (now - last < 3000) {
