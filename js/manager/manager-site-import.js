@@ -34,6 +34,7 @@
       price: price,
       category: item.category || item.category_name || 'main',
       image_url: item.image_url || item.image || item.photo || null,
+      weight: item.weight || item.volume || null,
       is_available: true,
       applies_to: 'all'
     };
@@ -174,5 +175,33 @@
     });
   }
 
-  window.QRManagerSiteImport = { mount: mount };
+  function scanForModal() {
+    var root = document.getElementById('app') || document.body;
+    if (!root) return;
+    var modal = root.querySelector('.modal');
+    if (modal) mount(modal);
+  }
+
+  window.QRManagerSiteImport = { mount: mount, scan: scanForModal };
+
+  window.addEventListener('qr:manager-create-modal-ready', function(event){
+    var modal = event && event.detail && event.detail.modal;
+    if (modal) mount(modal);
+    else scanForModal();
+  });
+
+  function startObserver() {
+    scanForModal();
+    if (!window.MutationObserver) return;
+    var root = document.getElementById('app') || document.body;
+    if (!root) return;
+    var observer = new MutationObserver(function(){
+      var modal = root.querySelector('.modal');
+      if (modal) mount(modal);
+    });
+    observer.observe(root, { childList:true, subtree:true });
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver);
+  else startObserver();
 })();
