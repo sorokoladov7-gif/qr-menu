@@ -2,10 +2,7 @@
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
-const FALLBACK_MODELS = [
-  'gemini-3.6-flash',
-  'gemini-3.5-flash-lite'
-];
+const FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite'];
 const GEMINI_TIMEOUT_MS = 45000;
 const MAX_BODY = 14 * 1024 * 1024;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
@@ -80,12 +77,8 @@ function parseBearer(req) {
 async function requireAuthenticatedUser(req) {
   const token = parseBearer(req);
   if (!token) throw Object.assign(new Error('AUTH_REQUIRED'), { status: 401 });
-
   const response = await fetch(SUPABASE_URL + '/auth/v1/user', {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      authorization: 'Bearer ' + token
-    }
+    headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token }
   });
   const data = await response.json().catch(() => null);
   if (!response.ok || !data || !data.id) throw Object.assign(new Error('AUTH_INVALID'), { status: 401 });
@@ -95,7 +88,6 @@ async function requireAuthenticatedUser(req) {
 async function fetchSiteText(url) {
   const parsed = new URL(url);
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw Object.assign(new Error('INVALID_URL'), { status: 400 });
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
@@ -123,11 +115,7 @@ async function fetchSiteText(url) {
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 180000);
-    return {
-      url: response.url || parsed.href,
-      title: clean(titleMatch && titleMatch[1] || '', 300),
-      text
-    };
+    return { url: response.url || parsed.href, title: clean(titleMatch && titleMatch[1] || '', 300), text };
   } finally {
     clearTimeout(timer);
   }
@@ -141,7 +129,6 @@ function isRetryableGeminiError(error) {
 async function callGeminiModel(parts, model) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'), { status: 503 });
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   try {
@@ -154,16 +141,12 @@ async function callGeminiModel(parts, model) {
         temperature: 0.1
       }
     };
-
     let response;
     try {
       response = await fetch(GEMINI_URL + model + ':generateContent', {
         method: 'POST',
         signal: controller.signal,
-        headers: {
-          'x-goog-api-key': key,
-          'content-type': 'application/json'
-        },
+        headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
         body: JSON.stringify(payload)
       });
     } catch (error) {
@@ -172,13 +155,11 @@ async function callGeminiModel(parts, model) {
       }
       throw error;
     }
-
     const data = await response.json().catch(() => null);
     if (!response.ok) {
       const message = data && data.error && data.error.message ? data.error.message : 'Gemini HTTP ' + response.status;
       throw Object.assign(new Error(message), { status: response.status, geminiStatus: response.status });
     }
-
     const raw = getOutputText(data);
     if (!raw) throw Object.assign(new Error('AI_EMPTY_RESPONSE'), { status: 502 });
     let parsed;
@@ -246,7 +227,6 @@ module.exports = async function handler(req, res) {
   }
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Используйте POST' } });
-
   try {
     await requireAuthenticatedUser(req);
     const body = await readBody(req);
@@ -279,23 +259,12 @@ module.exports = async function handler(req, res) {
 
     const ai = await callGemini(parts);
     const result = ai.data || {};
-    const products = (Array.isArray(result.products) ? result.products : [])
-      .map(normalizeProduct)
-      .filter(item => item.name);
-
+    const products = (Array.isArray(result.products) ? result.products : []).map(normalizeProduct).filter(item => item.name);
     return res.status(200).json({
       ok: true,
-      venue: {
-        name: clean(result.venue_name, 220),
-        description: clean(result.venue_description, 600)
-      },
+      venue: { name: clean(result.venue_name, 220), description: clean(result.venue_description, 600) },
       products,
-      meta: {
-        provider: 'google-gemini',
-        model: ai.model,
-        kind,
-        products_found: products.length
-      }
+      meta: { provider: 'google-gemini', model: ai.model, kind, products_found: products.length }
     });
   } catch (error) {
     const code = String(error && error.message || 'IMPORT_AI_ERROR');
