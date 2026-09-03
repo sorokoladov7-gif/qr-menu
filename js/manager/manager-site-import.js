@@ -4,16 +4,15 @@
   if(window.__QR_MANAGER_SITE_IMPORT_COMPAT__) return;
   window.__QR_MANAGER_SITE_IMPORT_COMPAT__=true;
 
-  window.QRManagerSiteImport={
-    mount:function(){},
-    unmount:function(){}
-  };
-
+  window.QRManagerSiteImport={mount:function(){},unmount:function(){}};
   if(window.__QR_MENU_AI_IMPORT__) return;
   window.__QR_MENU_AI_IMPORT__=true;
 
   var API='/api/import-ai';
-  function qs(s){return document.querySelector(s);}
+  var PDFJS_URL='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.3.289/build/pdf.mjs';
+  var PDFJS_WORKER='https://cdn.jsdelivr.net/npm/pdfjs-dist@6.3.289/build/pdf.worker.mjs';
+  var pdfjsPromise=null;
+
   function getVm(){return window.__managerVue||null;}
   function setStatus(block,text,isError){
     var el=block&&block.querySelector('#qr-menu-import-status-v2');
@@ -59,6 +58,15 @@
       return item;
     }).filter(function(x){return x.name;});
   }
+  function dedupe(items){
+    var seen={};
+    return (items||[]).filter(function(x){
+      var key=(String(x.name||'').toLowerCase().replace(/\s+/g,' ').trim()+'|'+String(x.price||0)).slice(0,400);
+      if(!key||seen[key]) return false;
+      seen[key]=true;
+      return true;
+    });
+  }
   function render(block,items){
     var preview=block.querySelector('#qr-menu-import-preview-v2');
     var count=block.querySelector('#qr-menu-import-count-v2');
@@ -89,6 +97,63 @@
     }finally{
       vm.importBusy=false;
     }
+  }
+  async function loadPdfJs(){
+    if(pdfjsPromise) return pdfjsPromise;
+    pdfjsPromise=import(PDFJS_URL).then(function(mod){
+      if(!mod||!mod.getDocument) throw new Error('PDF_JS_LOAD_FAILED');
+      mod.GlobalWorkerOptions.workerSrc=PDFJS_WORKER;
+      return mod;
+    }).catch(function(err){
+      pdfjsPromise=null;
+      throw err;
+    });
+    return pdfjsPromise;
+  }
+  async function renderPdfPage(page){
+    var baseViewport=page.getViewport({scale:1});
+    var maxWidth=1500;
+    var maxHeight=2100;
+    var scale=Math.min(maxWidth/baseViewport.width,maxHeight/baseViewport.height,1.65);
+    var canvas=document.createElement('canvas');
+    var ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:false});
+    var dataUrl='';
+    for(var attempt=0;attempt<4;attempt++){
+      var viewport=page.getViewport({scale:scale});
+      canvas.width=Math.max(1,Math.ceil(viewport.width));
+      canvas.height=Math.max(1,Math.ceil(viewport.height));
+      await page.render({canvasContext:ctx,viewport:viewport,background:'white'}).promise;
+      dataUrl=canvas.toDataURL('image/jpeg',attempt===0?0.78:attempt===1?0.68:attempt===2?0.58:0.48);
+      if(dataUrl.length<=3000000) break;
+      scale*=0.78;
+    }
+    if(dataUrl.length>3300000) throw new Error('PDF_PAGE_TOO_LARGE');
+    return dataUrl;
+  }
+  async function importPdf(block,vm,pdf){
+    var pdfjs=await loadPdfJs();
+    var buffer=await pdf.arrayBuffer();
+    var documentRef=await pdfjs.getDocument({data:buffer}).promise;
+    var total=documentRef.numPages;
+    if(!total) throw new Error('PDF_EMPTY');
+    if(total>80) throw new Error('PDF_TOO_MANY_PAGES');
+    var all=[];
+    for(var pageNo=1;pageNo<=total;pageNo++){
+      setStatus(block,'🤖 Gemini: PDF — страница '+pageNo+' из '+total+'…',false);
+      var page=await documentRef.getPage(pageNo);
+      var image=await renderPdfPage(page);
+      var result=await send({
+        kind:'image',
+        filename:(pdf.name||'menu.pdf')+' — страница '+pageNo,
+        data:image
+      });
+      all=all.concat(normalize(vm,result.products));
+      vm.importItems=dedupe(all);
+      render(block,vm.importItems);
+    }
+    vm.importItems=dedupe(all);
+    render(block,vm.importItems);
+    setStatus(block,'✓ Gemini обработал '+total+' стр. и нашёл '+vm.importItems.length+' позиций',false);
   }
 
   document.addEventListener('click',function(e){
@@ -124,16 +189,16 @@
       if(!pdf||vm.importBusy) return;
       vm.importBusy=true;
       try{
-        setStatus(block,'🤖 ИИ Gemini анализирует PDF…',false);
-        var pdfResult=await send({kind:'pdf',filename:pdf.name,data:await fileData(pdf)});
-        vm.importItems=normalize(vm,pdfResult.products);
-        render(block,vm.importItems);
-        setStatus(block,'✓ Gemini нашёл '+vm.importItems.length+' позиций',false);
+        setStatus(block,'📄 Подготавливаю PDF для Gemini…',false);
+        await importPdf(block,vm,pdf);
       }catch(err){
         console.error('[QR Gemini PDF]',err);
         vm.importItems=[];
         render(block,[]);
-        setStatus(block,'Ошибка AI: '+err.message,true);
+        var msg=err&&err.message?err.message:'Неизвестная ошибка';
+        if(msg==='PDF_TOO_MANY_PAGES') msg='В PDF больше 80 страниц. Разбейте меню на несколько файлов.';
+        if(msg==='PDF_PAGE_TOO_LARGE') msg='Не удалось сжать страницу PDF до допустимого размера.';
+        setStatus(block,'Ошибка AI: '+msg,true);
       }finally{
         vm.importBusy=false;
       }
@@ -152,9 +217,9 @@
           var result=await send({kind:'image',filename:files[i].name,data:await fileData(files[i])});
           all=all.concat(normalize(vm,result.products));
         }
-        vm.importItems=all;
-        render(block,all);
-        setStatus(block,'✓ Gemini нашёл '+all.length+' позиций',false);
+        vm.importItems=dedupe(all);
+        render(block,vm.importItems);
+        setStatus(block,'✓ Gemini нашёл '+vm.importItems.length+' позиций',false);
       }catch(err2){
         console.error('[QR Gemini photo]',err2);
         vm.importItems=[];
