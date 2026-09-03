@@ -1,7 +1,9 @@
 'use strict';
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
+const MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.6-flash';
+const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
+const GEMINI_TIMEOUT_MS = 22000;
 const MAX_BODY = 14 * 1024 * 1024;
 
 const SCHEMA = {
@@ -106,31 +108,46 @@ async function fetchSiteText(url) {
   }
 }
 
-async function callGemini(parts) {
+function isRetryableGeminiError(error) {
+  const status = Number(error && error.status) || 0;
+  if (error && error.code === 'ABORT_ERR') return true;
+  return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+async function callGeminiModel(parts, model) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'), { status: 503 });
 
   const controller = new AbortController();
-  const timer = setTimeout(function () { controller.abort(); }, 55000);
+  const timer = setTimeout(function () { controller.abort(); }, GEMINI_TIMEOUT_MS);
 
   try {
     const payload = {
       contents: [{ role: 'user', parts }],
       generationConfig: {
         response_mime_type: 'application/json',
-        response_schema: SCHEMA
+        response_schema: SCHEMA,
+        maxOutputTokens: 12000
       }
     };
 
-    const response = await fetch(GEMINI_URL + MODEL + ':generateContent', {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        'x-goog-api-key': key,
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
+    let response;
+    try {
+      response = await fetch(GEMINI_URL + model + ':generateContent', {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          'x-goog-api-key': key,
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (error) {
+      if (error && (error.name === 'AbortError' || error.code === 'ABORT_ERR')) {
+        throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504, code: 'ABORT_ERR' });
+      }
+      throw error;
+    }
 
     const data = await response.json().catch(function () { return null; });
 
@@ -138,15 +155,37 @@ async function callGemini(parts) {
       const message = data && data.error && data.error.message
         ? data.error.message
         : 'Gemini HTTP ' + response.status;
-      throw Object.assign(new Error(message), { status: response.status >= 500 ? 502 : response.status });
+      throw Object.assign(new Error(message), {
+        status: response.status,
+        geminiStatus: response.status
+      });
     }
 
     const raw = getOutputText(data);
-    if (!raw) throw new Error('AI_EMPTY_RESPONSE');
-    return JSON.parse(raw);
+    if (!raw) throw Object.assign(new Error('AI_EMPTY_RESPONSE'), { status: 502 });
+    return { data: JSON.parse(raw), model };
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function callGemini(parts) {
+  const models = [];
+  [MODEL, FALLBACK_MODEL].forEach(function (model) {
+    if (model && models.indexOf(model) === -1) models.push(model);
+  });
+
+  let lastError = null;
+  for (let i = 0; i < models.length; i++) {
+    try {
+      return await callGeminiModel(parts, models[i]);
+    } catch (error) {
+      lastError = error;
+      if (i >= models.length - 1 || !isRetryableGeminiError(error)) throw error;
+    }
+  }
+
+  throw lastError || new Error('AI_IMPORT_FAILED');
 }
 
 function buildPrompt(kind, extra) {
@@ -173,7 +212,7 @@ function parseDataUrl(value) {
 }
 
 function browserClient() {
-  return "(()=>{'use strict';if(window.__QR_MENU_AI_IMPORT__)return;window.__QR_MENU_AI_IMPORT__=true;const API='/api/import-ai';const vm=()=>window.__managerVue||null;const status=(b,t,e)=>{const x=b&&b.querySelector('#qr-menu-import-status-v2');if(x){x.textContent=t||'';x.style.color=e?'#fca5a5':'';}};const token=async()=>{try{const r=await db.auth.getSession();return r&&r.data&&r.data.session?r.data.session.access_token:'';}catch(e){return'';}};const send=async p=>{const h={'Content-Type':'application/json','Accept':'application/json'},t=await token();if(t)h.Authorization='Bearer '+t;const r=await fetch(API,{method:'POST',credentials:'same-origin',headers:h,body:JSON.stringify(p)}),d=await r.json().catch(()=>null);if(!r.ok||!d||!d.ok)throw new Error(d&&d.error&&d.error.message||('AI HTTP '+r.status));return d;};const fileData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result||''));r.onerror=()=>rej(new Error('Не удалось прочитать файл'));r.readAsDataURL(f);});const norm=(v,a)=>(Array.isArray(a)?a:[]).map((x,i)=>{const iu=String(x&&x.image_url||'').trim(),p={name:String(x&&x.name||'').trim(),description:String(x&&x.description||'').trim(),price:Number(x&&x.price)||0,category:String(x&&x.category||'Основные блюда').trim()||'Основные блюда',image_url:(iu.indexOf('http://')===0||iu.indexOf('https://')===0)?iu:'',is_available:x&&x.is_available!==false,applies_to:'all'};if(!p.image_url&&v&&typeof v.dishImageUrl==='function')p.image_url=v.dishImageUrl(p,i+1);return p;}).filter(x=>x.name);const render=(b,a)=>{const p=b&&b.querySelector('#qr-menu-import-preview-v2'),c=b&&b.querySelector('#qr-menu-import-count-v2'),s=b&&b.querySelector('#qr-menu-import-save-v2'),cl=b&&b.querySelector('#qr-menu-import-clear-v2');if(!p||!c||!s||!cl)return;c.textContent=String(a.length);p.innerHTML=a.slice(0,30).map(x=>'<div style=\"display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)\"><span>'+String(x.name).replace(/[&<>\\\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c]))+'</span><b>'+Number(x.price||0).toLocaleString('ru-RU')+' ₽</b></div>').join('')+(a.length>30?'<div class=\"muted\" style=\"font-size:11px;margin-top:6px\">и ещё '+(a.length-30)+'…</div>':'');s.style.display=a.length?'inline-block':'none';cl.style.display=a.length?'inline-block':'none';};const run=async(b,v,k,p)=>{if(v.importBusy)return;v.importBusy=true;try{status(b,'🤖 ИИ Gemini анализирует '+k+'…');const d=await send(Object.assign({kind:k},p||{}));v.importItems=norm(v,d.products);render(b,v.importItems);status(b,'✓ Gemini нашёл '+v.importItems.length+' позиций');}catch(e){console.error('[QR Gemini import]',e);v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+e.message,true);}finally{v.importBusy=false;}};document.addEventListener('click',e=>{const t=e.target&&e.target.closest?e.target.closest('#qr-menu-import-pdf-v2,#qr-menu-import-photo-v2,#qr-menu-import-site-v2'):null;if(!t)return;const b=t.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();if(t.id==='qr-menu-import-site-v2'){const u=prompt('Адрес сайта заведения:','https://');if(u&&u!=='https://')run(b,v,'сайт',{url:u.trim()});return;}const i=b.querySelector(t.id==='qr-menu-import-pdf-v2'?'#qr-menu-import-pdf-input-v2':'#qr-menu-import-photo-input-v2');if(i)i.click();},true);document.addEventListener('change',async e=>{const i=e.target;if(!i||!i.closest||!i.closest('#qr-menu-import-block-v2'))return;const b=i.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.stopPropagation();e.stopImmediatePropagation();if(i.id==='qr-menu-import-pdf-input-v2'){const f=i.files&&i.files[0];i.value='';if(!f||v.importBusy)return;v.importBusy=true;try{status(b,'🤖 ИИ Gemini анализирует PDF…');const d=await send({kind:'pdf',filename:f.name,data:await fileData(f)});v.importItems=norm(v,d.products);render(b,v.importItems);status(b,'✓ Gemini нашёл '+v.importItems.length+' позиций');}catch(x){v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+x.message,true);}finally{v.importBusy=false;}return;}if(i.id==='qr-menu-import-photo-input-v2'){const fs=Array.from(i.files||[]);i.value='';if(!fs.length||v.importBusy)return;v.importBusy=true;try{let all=[];for(let n=0;n<fs.length;n++){status(b,'🤖 ИИ Gemini анализирует фото '+(n+1)+' из '+fs.length+'…');const d=await send({kind:'image',filename:fs[n].name,data:await fileData(fs[n])});all=all.concat(norm(v,d.products));}v.importItems=all;render(b,all);status(b,'✓ Gemini нашёл '+all.length+' позиций',false);}catch(x){v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+x.message,true);}finally{v.importBusy=false;}}},true);})();";
+  return "(()=>{'use strict';if(window.__QR_MENU_AI_IMPORT__)return;window.__QR_MENU_AI_IMPORT__=true;const API='/api/import-ai';const vm=()=>window.__managerVue||null;const status=(b,t,e)=>{const x=b&&b.querySelector('#qr-menu-import-status-v2');if(x){x.textContent=t||'';x.style.color=e?'#fca5a5':'';}};const token=async()=>{try{const r=await db.auth.getSession();return r&&r.data&&r.data.session?r.data.session.access_token:'';}catch(e){return'';}};const send=async p=>{const h={'Content-Type':'application/json','Accept':'application/json'},t=await token();if(t)h.Authorization='Bearer '+t;const r=await fetch(API,{method:'POST',credentials:'same-origin',headers:h,body:JSON.stringify(p)}),d=await r.json().catch(()=>null);if(!r.ok||!d||!d.ok)throw new Error(d&&d.error&&d.error.message||('AI HTTP '+r.status));return d;};const fileData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result||''));r.onerror=()=>rej(new Error('Не удалось прочитать файл'));r.readAsDataURL(f);});const norm=(v,a)=>(Array.isArray(a)?a:[]).map((x,i)=>{const iu=String(x&&x.image_url||'').trim(),p={name:String(x&&x.name||'').trim(),description:String(x&&x.description||'').trim(),price:Number(x&&x.price)||0,category:String(x&&x.category||'Основные блюда').trim()||'Основные блюда',image_url:(iu.indexOf('http://')===0||iu.indexOf('https://')===0)?iu:'',is_available:x&&x.is_available!==false,applies_to:'all'};if(!p.image_url&&v&&typeof v.dishImageUrl==='function')p.image_url=v.dishImageUrl(p,i+1);return p;}).filter(x=>x.name);const render=(b,a)=>{const p=b&&b.querySelector('#qr-menu-import-preview-v2'),c=b&&b.querySelector('#qr-menu-import-count-v2'),s=b&&b.querySelector('#qr-menu-import-save-v2'),cl=b&&b.querySelector('#qr-menu-import-clear-v2');if(!p||!c||!s||!cl)return;c.textContent=String(a.length);p.innerHTML=a.slice(0,30).map(x=>'<div style=\"display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)\"><span>'+String(x.name).replace(/[&<>\\\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c]))+'</span><b>'+Number(x.price||0).toLocaleString('ru-RU')+' ₽</b></div>').join('')+(a.length>30?'<div class=\"muted\" style=\"font-size:11px;margin-top:6px\">и ещё '+(a.length-30)+'…</div>':'');s.style.display=a.length?'inline-block':'none';cl.style.display=a.length?'inline-block':'none';};const run=async(b,v,k,p)=>{if(v.importBusy)return;v.importBusy=true;try{status(b,'🤖 ИИ Gemini анализирует '+k+'…');const d=await send(Object.assign({kind:k},p||{}));v.importItems=norm(v,d.products);render(b,v.importItems);status(b,'✓ Gemini нашёл '+v.importItems.length+' позиций');}catch(e){console.error('[QR Gemini import]',e);v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+e.message,true);}finally{v.importBusy=false;}};document.addEventListener('click',e=>{const t=e.target&&e.target.closest?e.target.closest('#qr-menu-import-pdf-v2,#qr-menu-import-photo-v2,#qr-menu-import-site-v2'):null;if(!t)return;const b=t.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();if(t.id==='qr-menu-import-site-v2'){const u=prompt('Адрес сайта заведения:','https://');if(u&&u!=='https://')run(b,v,'site',{url:u.trim()});return;}const i=b.querySelector(t.id==='qr-menu-import-pdf-v2'?'#qr-menu-import-pdf-input-v2':'#qr-menu-import-photo-input-v2');if(i)i.click();},true);document.addEventListener('change',async e=>{const i=e.target;if(!i||!i.closest||!i.closest('#qr-menu-import-block-v2'))return;const b=i.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.stopPropagation();e.stopImmediatePropagation();if(i.id==='qr-menu-import-pdf-input-v2'){const f=i.files&&i.files[0];i.value='';if(!f||v.importBusy)return;v.importBusy=true;try{status(b,'🤖 ИИ Gemini анализирует PDF…');const d=await send({kind:'pdf',filename:f.name,data:await fileData(f)});v.importItems=norm(v,d.products);render(b,v.importItems);status(b,'✓ Gemini нашёл '+v.importItems.length+' позиций');}catch(x){v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+x.message,true);}finally{v.importBusy=false;}return;}if(i.id==='qr-menu-import-photo-input-v2'){const fs=Array.from(i.files||[]);i.value='';if(!fs.length||v.importBusy)return;v.importBusy=true;try{let all=[];for(let n=0;n<fs.length;n++){status(b,'🤖 ИИ Gemini анализирует фото '+(n+1)+' из '+fs.length+'…');const d=await send({kind:'image',filename:fs[n].name,data:await fileData(fs[n])});all=all.concat(norm(v,d.products));}v.importItems=all;render(b,all);status(b,'✓ Gemini нашёл '+all.length+' позиций',false);}catch(x){v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+x.message,true);}finally{v.importBusy=false;}}},true);})();";
 }
 
 module.exports = async function handler(req, res) {
@@ -219,7 +258,8 @@ module.exports = async function handler(req, res) {
       throw Object.assign(new Error('KIND_REQUIRED'), { status: 400 });
     }
 
-    const result = await callGemini(parts);
+    const ai = await callGemini(parts);
+    const result = ai.data;
     const products = (Array.isArray(result.products) ? result.products : [])
       .map(normalizeProduct)
       .filter(function (item) { return item.name; });
@@ -233,7 +273,7 @@ module.exports = async function handler(req, res) {
       products,
       meta: {
         provider: 'google-gemini',
-        model: MODEL,
+        model: ai.model,
         kind,
         products_found: products.length
       }
@@ -249,7 +289,9 @@ module.exports = async function handler(req, res) {
           ? 'Не настроен GEMINI_API_KEY на сервере.'
           : code === 'REQUEST_TOO_LARGE'
             ? 'Файл слишком большой для AI-импорта.'
-            : clean(code, 500)
+            : code === 'GEMINI_TIMEOUT'
+              ? 'Gemini не ответил вовремя. Сервер автоматически попробовал резервную модель.'
+              : clean(code, 500)
       }
     });
   }
