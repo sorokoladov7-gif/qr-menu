@@ -8,7 +8,9 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 
 /* QR-Menu PWA: мобильная кнопка принудительного обновления.
    Очищает только Cache Storage и регистрации Service Worker, не трогает
-   localStorage/sessionStorage/Supabase-сессию, затем загружает страницу заново. */
+   localStorage/sessionStorage/Supabase-сессию, затем загружает страницу заново.
+   Кнопка вынесена из нижней зоны экрана, чтобы не перекрывать Gemini и другие
+   плавающие действия на мобильном PWA. */
 (function(){
   'use strict';
   if(window.__QR_PWA_REFRESH__) return;
@@ -25,7 +27,7 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
     btn.type='button';
     btn.setAttribute('aria-label','Очистить кэш и обновить приложение');
     btn.innerHTML='<span aria-hidden="true">↻</span><b>Обновить</b>';
-    btn.style.cssText='position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));z-index:2147483000;display:flex;align-items:center;gap:7px;min-height:44px;padding:9px 13px;border:1px solid rgba(148,163,184,.28);border-radius:14px;background:rgba(15,23,42,.96);color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;touch-action:manipulation;transition:transform .18s ease,opacity .18s ease;';
+    btn.style.cssText='position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(64px + env(safe-area-inset-top));bottom:auto;z-index:1100;display:flex;align-items:center;gap:7px;min-height:42px;padding:8px 12px;border:1px solid rgba(148,163,184,.28);border-radius:14px;background:rgba(15,23,42,.96);color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;touch-action:manipulation;transition:transform .18s ease,opacity .18s ease;';
     var icon=btn.querySelector('span');
     icon.style.cssText='font-size:20px;line-height:1;display:inline-block;';
     btn.addEventListener('pointerdown',function(){btn.style.transform='scale(.96)';});
@@ -82,7 +84,7 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 
 (function(){
   'use strict';
-  if (!/\/(admin|manager)\.html$/i.test(location.pathname)) return;
+  if(!/\/(admin|manager)\.html$/i.test(location.pathname)) return;
   function initCorporateNavigation(){
     if(document.body.dataset.qrCorpNav==='1') return;
     var app=document.getElementById('app');
