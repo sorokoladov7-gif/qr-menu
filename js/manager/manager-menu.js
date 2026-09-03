@@ -1,4 +1,4 @@
-/* QR-Menu — меню заведения + импорт PDF/фото/сайта */
+/* QR-Menu — меню заведения + импорт PDF/фото/сайта + выбор создания заведения */
 (function(){
   'use strict';
   if (window.__QR_MANAGER_MENU_V2__) return;
@@ -77,7 +77,7 @@
   }
   async function insertProducts(vm,items){
     if(!vm.venue||!items.length)throw new Error('Нет распознанных позиций');
-    if(!vm.perms.products && !vm.perms.addons)throw new Error('Нет прав на добавление позиций');
+    if(!vm.perms.products&&!vm.perms.addons)throw new Error('Нет прав на добавление позиций');
     var limit=vm.currentPlan?Number(vm.currentPlan.max_products||0):0,available=limit?Math.max(0,limit-vm.products.length):items.length;if(!available)throw new Error('Лимит позиций меню исчерпан');if(items.length>available)items=items.slice(0,available);
     vm.importStatus='Сохраняю '+items.length+' позиций…';await persistImages(items,vm.venue.id);
     var rows=items.map(function(i){return{venue_id:vm.venue.id,name:i.name,description:i.description||null,price:Number(i.price)||0,category:i.category||'main',image_url:i.image_url||null,is_available:true,applies_to:i.applies_to||'all'};});
@@ -95,16 +95,84 @@
     block.querySelector('#qr-menu-import-photo-v2').onclick=function(){if(vm.importBusy)return;photos.click();};
     block.querySelector('#qr-menu-import-site-v2').onclick=function(){var u=prompt('Адрес сайта заведения:','https://');if(!u||u==='https://')return;vm.importBusy=true;setStatus('Анализирую сайт…');fetch('/api/import-site?url='+encodeURIComponent(u),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}}).then(function(r){return r.json().catch(function(){return null;}).then(function(d){if(!d||!r.ok||d.ok===false)throw new Error((d&&(d.error||d.message))||'Ошибка HTTP '+r.status);return d;});}).then(function(d){vm.importItems=(d.products||[]).map(function(x){return{name:x.name,description:x.description||null,price:Number(x.price)||0,category:x.category||'main',image_url:x.image_url||null};});renderPreview(block,vm.importItems);setStatus('✓ Найдено позиций: '+vm.importItems.length);}).catch(function(e){setStatus('Ошибка: '+e.message,true);}).finally(function(){vm.importBusy=false;});};
     pdf.onchange=async function(){var f=pdf.files&&pdf.files[0];pdf.value='';if(!f)return;vm.importBusy=true;setStatus('Подготавливаю PDF…');try{var d=await parsePdf(f,status);vm.importItems=d.products;renderPreview(block,vm.importItems);setStatus('✓ Распознано позиций: '+vm.importItems.length+(d.ocrPages?' · OCR страниц: '+d.ocrPages:''));}catch(e){vm.importItems=[];renderPreview(block,[]);setStatus('Ошибка чтения PDF: '+e.message,true);}finally{vm.importBusy=false;}};
-    photos.onchange=async function(){var fs=Array.prototype.slice.call(photos.files||[]);photos.value='';if(!fs.length)return;vm.importBusy=true;vm.importItems=[];try{for(var i=0;i<fs.length;i++){setStatus('Распознаю фото '+(i+1)+' из '+fs.length+'…');var arr=await parseImage(fs[i]);var seen={};vm.importItems.concat(arr).forEach(function(x){seen[x.name.toLowerCase()]=1;});vm.importItems=vm.importItems.concat(arr.filter(function(x,idx){return idx===arr.findIndex(function(y){return y.name.toLowerCase()===x.name.toLowerCase();});}));}renderPreview(block,vm.importItems);setStatus('✓ Распознано позиций: '+vm.importItems.length);}catch(e){vm.importItems=[];renderPreview(block,[]);setStatus('Ошибка распознавания фото: '+e.message,true);}finally{vm.importBusy=false;}};
+    photos.onchange=async function(){var fs=Array.prototype.slice.call(photos.files||[]);photos.value='';if(!fs.length)return;vm.importBusy=true;vm.importItems=[];try{for(var i=0;i<fs.length;i++){setStatus('Распознаю фото '+(i+1)+' из '+fs.length+'…');var arr=await parseImage(fs[i]);vm.importItems=vm.importItems.concat(arr);}renderPreview(block,vm.importItems);setStatus('✓ Распознано позиций: '+vm.importItems.length);}catch(e){vm.importItems=[];renderPreview(block,[]);setStatus('Ошибка распознавания фото: '+e.message,true);}finally{vm.importBusy=false;}};
     save.onclick=async function(){if(!vm.importItems.length||vm.importBusy)return;vm.importBusy=true;save.disabled=true;setStatus('Добавляю позиции в меню…');try{var n=await insertProducts(vm,vm.importItems.slice());vm.importItems=[];renderPreview(block,[]);setStatus('✓ Добавлено в меню: '+n);vm.showToast('Импортировано позиций: '+n);}catch(e){setStatus('Ошибка импорта: '+e.message,true);}finally{vm.importBusy=false;save.disabled=false;}};
     clear.onclick=function(){vm.importItems=[];renderPreview(block,[]);setStatus('');};
   }
 
   var menuMixin={
-    data:function(){return{products:[],showModal:false,editing:null,pform:{name:'',description:'',price:0,category:'main',image_url:'',applies_to:'all'},detailProduct:null,importItems:[],importBusy:false,importStatus:''};},
+    data:function(){return{products:[],showModal:false,editing:null,pform:{name:'',description:'',price:0,category:'main',image_url:'',applies_to:'all'},detailProduct:null,importItems:[],importBusy:false,importStatus:'',createVenueMode:'choice'};},
     computed:{modalTitle:function(){return this.editing?'Редактировать':'Новое блюдо';}},
     methods:{
-      loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){self.products=r.data||[];self.$nextTick(function(){var root=document.querySelector('[data-menu-root]')||document.querySelector('div[v-if="tab===\'menu\'"]')||document.getElementById('app');if(root){var block=renderImportCard(root);bindImportBlock(self,block);}});});},
+      prepareCreateVenueModal:function(){
+        var self=this;
+        self.createVenueMode='choice';
+        self.newVenueForm.template=null;
+        self.formError='';
+        return Promise.resolve().then(function(){
+          return new Promise(function(resolve){
+            self.$nextTick(function(){
+              var root=document.getElementById('app'),modal=root&&root.querySelector('.modal');
+              if(!modal){resolve();return;}
+              var content=modal.firstElementChild;
+              if(!content){resolve();return;}
+              var grid=content.querySelector('.template-grid'),preview=content.querySelector('.template-preview');
+              if(!grid){resolve();return;}
+              grid.id='qr-template-grid-v11';
+              if(preview)preview.id='qr-template-preview-v11';
+              var oldChoice=content.querySelector('#qr-create-mode-choice-v1');
+              if(oldChoice)oldChoice.remove();
+              var choice=document.createElement('div');choice.id='qr-create-mode-choice-v1';choice.style.cssText='display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0;';
+              choice.innerHTML='<button type="button" data-create-mode="template" style="text-align:left;padding:18px;border-radius:14px;border:1px solid rgba(99,102,241,.35);background:rgba(99,102,241,.08);color:#fff;cursor:pointer"><div style="font-size:22px;margin-bottom:6px">🍽️</div><b style="font-size:15px">Из шаблона</b><div style="font-size:11px;color:#9ca3af;margin-top:4px">Готовое меню с блюдами и ценами</div></button><button type="button" data-create-mode="manual" style="text-align:left;padding:18px;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.04);color:#fff;cursor:pointer"><div style="font-size:22px;margin-bottom:6px">🛠️</div><b style="font-size:15px">Настрою сам(а)</b><div style="font-size:11px;color:#9ca3af;margin-top:4px">Только название заведения — меню добавите сами</div></button>';
+              grid.parentNode.insertBefore(choice,grid);
+              var title=content.querySelector('h3');if(title)title.textContent='Новое заведение';
+              var intro=title&&title.nextElementSibling;if(intro&&intro.tagName==='P')intro.textContent='Выберите способ создания заведения. Шаблон добавит готовое меню, ручная настройка создаст пустое меню.';
+              var setMode=function(mode){
+                self.createVenueMode=mode;
+                if(mode==='manual')self.newVenueForm.template=null;
+                var onTemplate=mode==='template';
+                Array.prototype.forEach.call(choice.querySelectorAll('button[data-create-mode]'),function(b){var on=b.getAttribute('data-create-mode')===mode;b.style.borderColor=on?'#8b5cf6':'rgba(255,255,255,.12)';b.style.background=on?'rgba(99,102,241,.14)':'rgba(255,255,255,.04)';});
+                grid.style.display=onTemplate?'':'none';
+                if(preview)preview.style.display=onTemplate?'':'none';
+                var catalog=content.querySelector('.manager-template-catalog');if(catalog)catalog.style.display=onTemplate?'':'none';
+                var label=Array.prototype.slice.call(content.querySelectorAll('label')).find(function(x){return/шаблон ниши/i.test(x.textContent||'');});if(label)label.style.display=onTemplate?'':'none';
+                if(onTemplate){self.$nextTick(function(){if(typeof self.decorateVenueTemplateCards==='function')self.decorateVenueTemplateCards();});}
+              };
+              Array.prototype.forEach.call(choice.querySelectorAll('button[data-create-mode]'),function(b){b.addEventListener('click',function(){setMode(b.getAttribute('data-create-mode'));});});
+              setMode('choice');
+              resolve();
+            });
+          });
+        });
+      },
+      createVenue:function(){
+        var self=this,mode=this.createVenueMode||'choice';
+        self.formError='';
+        if(mode==='choice'){self.formError='Выберите способ создания: «Из шаблона» или «Настрою сам(а)»';return;}
+        if(!this.newVenueForm.name||!this.newVenueForm.slug){self.formError='Заполните название и код заведения';return;}
+        if(!this.canCreateVenue){self.formError='Лимит заведений';return;}
+        var template=mode==='template'?this.selectedVenueTemplate:null;
+        if(mode==='template'&&!template){self.formError='Выберите шаблон';return;}
+        if(template&&this.currentPlan&&this.currentPlan.max_products&&template.products.length>this.currentPlan.max_products){self.formError='В выбранном тарифе недостаточно места для шаблона ('+template.products.length+' позиций).';return;}
+        self.busy=true;
+        var planId=(this.managerSubscription&&this.managerSubscription.plan_id)||(this.currentPlan&&this.currentPlan.id)||null;
+        var subscriptionEnd=(this.managerSubscription&&this.managerSubscription.current_period_end)||this.subscriptionEnd||null;
+        if(!planId&&Array.isArray(this.plans)&&this.venue&&this.venue.plan)planId=this.venue.plan;
+        if(!planId)planId='start';
+        if(!subscriptionEnd){var e=new Date();e.setDate(e.getDate()+10);subscriptionEnd=e.toISOString();}
+        var makeSlug=typeof window.slugify==='function'?window.slugify:slug;
+        var code=makeSlug(this.newVenueForm.slug);
+        if(!code){self.formError='Некорректный slug';self.busy=false;return;}
+        var items=template&&Array.isArray(template.products)?template.products:[];
+        db.rpc('create_venue_for_manager',{p_name:this.newVenueForm.name.trim(),p_slug:code,p_plan:planId,p_subscription_end:subscriptionEnd,p_products:items}).then(function(r){if(r.error)throw r.error;return r.data;}).then(function(venue){
+          self.showCreateVenue=false;
+          self.newVenueForm={name:'',slug:'',template:null};
+          self.templateSearchQuery='';
+          self.createVenueMode='choice';
+          return self.loadMyVenues().then(function(){self.selectVenue(venue);self.showToast(mode==='template'?'Заведение создано из шаблона: '+template.name+' · '+items.length+' позиций добавлено':'Заведение создано. Пустое меню готово к настройке');});
+        }).catch(function(err){console.error('createVenue error:',err);self.formError='Ошибка: '+(err.message||String(err));}).finally(function(){self.busy=false;});
+      },
+      loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){self.products=r.data||[];self.$nextTick(function(){var root=document.querySelector('[data-menu-root]')||document.querySelector('div[v-if="tab===\\'menu\\'"]')||document.getElementById('app');if(root){var block=renderImportCard(root);bindImportBlock(self,block);}});});},
       openAdd:function(){if(!this.perms.products&&!this.perms.addons){this.showToast('Нет прав: добавление запрещено админом','error');return;}if(this.currentPlan&&this.products.length>=this.currentPlan.max_products){this.showToast('Лимит позиций','error');return;}this.editing=null;this.pform={name:'',description:'',price:0,category:'main',image_url:'',applies_to:'all'};this.formError='';this.showModal=true;},
       openEdit:function(p){if(p.category==='addon'&&!this.perms.addons){this.showToast('Нет прав на дополнения','error');return;}this.editing=p;this.pform={name:p.name,description:p.description||'',price:Number(p.price)||0,category:p.category,image_url:p.image_url||'',applies_to:p.applies_to||'all'};this.formError='';this.showModal=true;},
       closeModal:function(){this.showModal=false;this.pform={};},
