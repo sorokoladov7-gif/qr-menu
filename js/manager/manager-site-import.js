@@ -194,7 +194,7 @@
     e.stopImmediatePropagation();
     if(target.id==='qr-menu-import-site-v2'){
       var url=prompt('Адрес сайта заведения:','https://');
-      if(url&&url!=='https://') run(block,vm,'сайт',{url:url.trim()});
+      if(url&&url!=='https://') run(block,vm,'site',{url:url.trim()});
       return;
     }
     var input=block.querySelector(target.id==='qr-menu-import-pdf-v2'?'#qr-menu-import-pdf-input-v2':'#qr-menu-import-photo-input-v2');
