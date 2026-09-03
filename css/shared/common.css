@@ -45,3 +45,33 @@ body{margin:0;background:#0b1120;color:#eef2f7;font-family:'Plus Jakarta Sans',s
   .qr-corp-shell .tabs{width:calc(100vw - 16px)!important;}
   .qr-corp-shell .tabs button{min-height:43px!important;font-size:12px!important;}
 }
+
+/* ===== PWA MOBILE FOUNDATION ===== */
+@media (max-width:900px){
+  html{width:100%;min-height:100%;overflow-x:hidden;-webkit-text-size-adjust:100%;}
+  body{width:100%;min-width:320px;min-height:100%;overflow-x:hidden;overscroll-behavior-x:none;}
+  button,a,input,select,textarea{touch-action:manipulation;}
+  input,select,textarea{font-size:16px!important;}
+  .qr-corp-shell{min-height:100dvh;padding-top:var(--qr-header-h);}
+  .qr-corp-shell .topbar{padding-top:max(8px,env(safe-area-inset-top));padding-bottom:8px;}
+  .qr-corp-shell>.wrap,.qr-corp-shell .wrap{padding-bottom:max(32px,calc(24px + env(safe-area-inset-bottom)));}
+  .qr-corp-shell .tblwrap,.qr-corp-shell .glass.card{max-width:100%;}
+  .qr-corp-shell .tblwrap{overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;}
+  .qr-corp-shell .modal{padding:max(8px,env(safe-area-inset-top)) 8px max(8px,env(safe-area-inset-bottom));}
+  .qr-corp-shell .modal .box{max-height:calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 16px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+}
+@media (max-width:600px){
+  .qr-corp-shell .topbar{gap:8px;padding-left:58px;padding-right:10px;}
+  .qr-corp-shell .topbar .brand{min-width:0;max-width:52vw;}
+  .qr-corp-shell .topbar .brand>span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .qr-corp-shell .row{gap:7px;}
+  .qr-corp-shell .btn{min-height:42px;}
+  .qr-corp-shell .btn-sm{min-height:38px;}
+  .qr-corp-shell .stats{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .qr-corp-shell .glass.card{padding:12px;}
+  .qr-corp-shell .modal{align-items:flex-end;}
+}
+@media (max-width:380px){
+  .qr-corp-shell .stats{grid-template-columns:1fr;}
+  .qr-corp-shell .topbar .brand{max-width:48vw;}
+}
