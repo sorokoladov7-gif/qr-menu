@@ -75,7 +75,7 @@
   appMethods.saveGlobalDesign = function() { alert('Глобальный шаблон сохранён (локально). В реальном проекте нужно сохранять в БД.'); };
   appMethods.saveVenueDesign = function() {
     if (this.designTarget === 'global' || !this.venueDesignTemplate) return;
-    var self = this;
+    var self=this;
     db.from('venues').update({design_settings:this.venueDesignTemplate}).eq('id',this.designTarget).then(function(r){
       if(r.error) throw r.error; return self.loadBaseData();
     }).then(function(){ alert('Настройки дизайна для заведения сохранены!'); }).catch(function(e){ alert('Ошибка сохранения: '+e.message); });
@@ -142,6 +142,35 @@
     }
   };
 
+  function setupAdminNavigationMotion(){
+    document.body.classList.add('qr-admin-motion');
+    var tabs=document.querySelector('.qr-corp-shell .tabs, .tabs');
+    if(!tabs || tabs.__qrMotionBound) return;
+    tabs.__qrMotionBound=true;
+    tabs.addEventListener('click',function(ev){
+      var button=ev.target.closest('button');
+      if(!button) return;
+      button.classList.remove('qr-nav-click');
+      void button.offsetWidth;
+      button.classList.add('qr-nav-click');
+      window.setTimeout(function(){button.classList.remove('qr-nav-click');},420);
+      window.requestAnimationFrame(function(){
+        window.requestAnimationFrame(function(){
+          var wrap=document.querySelector('#app .wrap');
+          if(!wrap) return;
+          var candidates=Array.prototype.slice.call(wrap.children).filter(function(el){
+            return !el.classList.contains('stats') && !el.classList.contains('tabs') && getComputedStyle(el).display!=='none';
+          });
+          var content=candidates[candidates.length-1];
+          if(!content) return;
+          content.classList.remove('qr-admin-content-enter');
+          void content.offsetWidth;
+          content.classList.add('qr-admin-content-enter');
+        });
+      });
+    });
+  }
+
   function mountApp(){
     if(window.__QR_ADMIN_VUE_APP__) return;
     var root=document.getElementById('app');
@@ -151,6 +180,7 @@
     app.mount(root);
     window.__QR_ADMIN_VUE_APP__=app;
     window.__QR_ADMIN_APP__=true;
+    setupAdminNavigationMotion();
     var ai=document.createElement('script'); ai.src='/js/admin/admin-ai-audit.js'; ai.async=true; document.head.appendChild(ai);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mountApp,{once:true});
