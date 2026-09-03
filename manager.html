@@ -571,12 +571,6 @@
 <div class="count">{{ t.products.length }} готовых позиций</div>
 </div>
 </div>
-<div v-if="selectedVenueTemplate" class="template-preview">
-<div class="spread" style="margin-bottom:4px"><b>{{ selectedVenueTemplate.emoji }} {{ selectedVenueTemplate.name }}</b><span class="muted">{{ selectedVenueTemplate.products.length }} позиций</span></div>
-<div v-for="item in selectedVenueTemplate.products" v-bind:key="item.name" class="template-preview-row">
-<span>{{ item.name }}</span><b>{{ fmt(item.price) }} ₽</b>
-</div>
-</div>
 <div class="field"><label>Название заведения *</label><input v-model.trim="newVenueForm.name" placeholder="Например: Coffee Point"></div>
 <div class="field"><label>Код (slug) *</label><input v-model.trim="newVenueForm.slug" placeholder="coffee-point"></div>
 <div class="row">
