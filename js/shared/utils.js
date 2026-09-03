@@ -27,5 +27,26 @@ function initCorporateShell(){
  setupNav();new MutationObserver(setupNav).observe(app,{childList:true,subtree:true});
  window.addEventListener('resize',function(){if(!window.matchMedia('(max-width:900px)').matches)closeNav();});window.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav();});
 }
-if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initCorporateShell,{once:true});else initCorporateShell();
+
+function setupManagerInstructionScroll(){
+ function apply(){
+  var panel=document.getElementById('manager-instruction-panel');
+  if(!panel)return;
+  panel.style.overflowY='auto';
+  panel.style.overflowX='hidden';
+  panel.style.webkitOverflowScrolling='touch';
+  panel.style.overscrollBehavior='contain';
+  panel.style.touchAction='pan-y';
+  panel.style.maxHeight='calc(100dvh - 82px)';
+  panel.style.paddingBottom='calc(24px + env(safe-area-inset-bottom, 0px))';
+  var card=panel.querySelector('.card');
+  if(card){card.style.boxSizing='border-box';card.style.marginBottom='24px';}
+ }
+ apply();
+ new MutationObserver(apply).observe(document.body,{childList:true,subtree:true});
+ window.addEventListener('resize',apply,{passive:true});
+ if(window.visualViewport)window.visualViewport.addEventListener('resize',apply,{passive:true});
+}
+
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){initCorporateShell();setupManagerInstructionScroll();},{once:true});else{initCorporateShell();setupManagerInstructionScroll();}
 })();
