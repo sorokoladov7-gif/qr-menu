@@ -42,6 +42,25 @@
       reader.readAsDataURL(file);
     });
   }
+  function dataUrlFromBlob(blob){
+    return new Promise(function(resolve,reject){
+      var reader=new FileReader();
+      reader.onload=function(){resolve(String(reader.result||''));};
+      reader.onerror=function(){reject(new Error('Не удалось подготовить изображение PDF'));};
+      reader.readAsDataURL(blob);
+    });
+  }
+  function validateImageData(dataUrl){
+    return new Promise(function(resolve,reject){
+      var img=new Image();
+      img.onload=function(){
+        if(img.naturalWidth>0&&img.naturalHeight>0) resolve(true);
+        else reject(new Error('PDF_IMAGE_INVALID'));
+      };
+      img.onerror=function(){reject(new Error('PDF_IMAGE_INVALID'));};
+      img.src=dataUrl;
+    });
+  }
   function normalize(vm,items){
     return (Array.isArray(items)?items:[]).map(function(x,i){
       var imageUrl=String(x&&x.image_url||'').trim();
@@ -112,24 +131,35 @@
   }
   async function renderPdfPage(page){
     var baseViewport=page.getViewport({scale:1});
-    var maxWidth=1200;
-    var maxHeight=1700;
-    var scale=Math.min(maxWidth/baseViewport.width,maxHeight/baseViewport.height,1.35);
+    var maxWidth=1100;
+    var maxHeight=1550;
+    var scale=Math.min(maxWidth/baseViewport.width,maxHeight/baseViewport.height,1.25);
     var canvas=document.createElement('canvas');
     var ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:false});
-    var dataUrl='';
     for(var attempt=0;attempt<5;attempt++){
       var viewport=page.getViewport({scale:scale});
       canvas.width=Math.max(1,Math.ceil(viewport.width));
       canvas.height=Math.max(1,Math.ceil(viewport.height));
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,canvas.width,canvas.height);
       await page.render({canvasContext:ctx,viewport:viewport,background:'white'}).promise;
-      var quality=attempt===0?0.68:attempt===1?0.58:attempt===2?0.50:attempt===3?0.42:0.36;
-      dataUrl=canvas.toDataURL('image/jpeg',quality);
-      if(dataUrl.length<=1200000) break;
+
+      var quality=attempt===0?0.62:attempt===1?0.54:attempt===2?0.46:attempt===3?0.40:0.34;
+      var blob=await new Promise(function(resolve){canvas.toBlob(resolve,'image/jpeg',quality);});
+      if(blob){
+        var jpeg=await dataUrlFromBlob(blob);
+        try{
+          await validateImageData(jpeg);
+          if(jpeg.length<=1100000) return jpeg;
+        }catch(ignoreJpeg){}
+      }
       scale*=0.78;
     }
-    if(dataUrl.length>1400000) throw new Error('PDF_PAGE_TOO_LARGE');
-    return dataUrl;
+
+    var png=canvas.toDataURL('image/png');
+    await validateImageData(png);
+    if(png.length>1300000) throw new Error('PDF_PAGE_TOO_LARGE');
+    return png;
   }
   async function importPdf(block,vm,pdf){
     var pdfjs=await loadPdfJs();
@@ -195,6 +225,7 @@
         var msg=err&&err.message?err.message:'Неизвестная ошибка';
         if(msg==='PDF_TOO_MANY_PAGES') msg='В PDF больше 80 страниц. Разбейте меню на несколько файлов.';
         if(msg==='PDF_PAGE_TOO_LARGE') msg='Не удалось сжать страницу PDF до допустимого размера.';
+        if(msg==='PDF_IMAGE_INVALID') msg='Не удалось корректно подготовить изображение страницы PDF.';
         setStatus(block,'Ошибка AI: '+msg,true);
       }finally{
         vm.importBusy=false;
