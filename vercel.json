@@ -20,6 +20,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/menu/import",
+      "destination": "/api/import-ai"
+    },
+    {
       "source": "/recipe-images/:slug*",
       "destination": "https://theunitools.com/recipes/:slug*"
     }
