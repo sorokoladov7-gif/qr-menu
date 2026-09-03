@@ -1,5 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "env": {
+    "SUPABASE_URL": "https://ulxfsozdryqrnlxzlblt.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq"
+  },
   "git": {
     "deploymentEnabled": {
       "main": true
