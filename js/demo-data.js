@@ -2,11 +2,11 @@ window.QR_DEMO_DATA = {
   user: {
     id: 'demo-user-' + Date.now(),
     email: 'demo@qr-setka.ru',
-    user_metadata: { display_name: 'Демо Пользователь' }
+    user_metadata: { display_name: 'Демо Управляющий' }
   },
   profile: {
     id: 'demo-user', email: 'demo@qr-setka.ru',
-    display_name: 'Демо Пользователь', role: 'admin'
+    display_name: 'Демо Управляющий', role: 'manager'
   },
   venue: {
     id: 'demo-venue', slug: 'demo-cafe', name: 'Демо Кафе «Прованс»',
