@@ -172,7 +172,19 @@
           return self.loadMyVenues().then(function(){self.selectVenue(venue);self.showToast(mode==='template'?'Заведение создано из шаблона: '+template.name+' · '+items.length+' позиций добавлено':'Заведение создано. Пустое меню готово к настройке');});
         }).catch(function(err){console.error('createVenue error:',err);self.formError='Ошибка: '+(err.message||String(err));}).finally(function(){self.busy=false;});
       },
-      loadProducts:function(){var self=this;return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){self.products=r.data||[];self.$nextTick(function(){var root=document.querySelector('[data-menu-root]')||document.querySelector('div[v-if="tab===\\'menu\\'"]')||document.getElementById('app');if(root){var block=renderImportCard(root);bindImportBlock(self,block);}});});},
+      loadProducts:function(){
+        var self=this;
+        return db.from('products').select('*').eq('venue_id',this.venue.id).order('created_at').then(function(r){
+          self.products=r.data||[];
+          self.$nextTick(function(){
+            var root=document.getElementById('app');
+            if(root){
+              var block=renderImportCard(root);
+              bindImportBlock(self,block);
+            }
+          });
+        });
+      },
       openAdd:function(){if(!this.perms.products&&!this.perms.addons){this.showToast('Нет прав: добавление запрещено админом','error');return;}if(this.currentPlan&&this.products.length>=this.currentPlan.max_products){this.showToast('Лимит позиций','error');return;}this.editing=null;this.pform={name:'',description:'',price:0,category:'main',image_url:'',applies_to:'all'};this.formError='';this.showModal=true;},
       openEdit:function(p){if(p.category==='addon'&&!this.perms.addons){this.showToast('Нет прав на дополнения','error');return;}this.editing=p;this.pform={name:p.name,description:p.description||'',price:Number(p.price)||0,category:p.category,image_url:p.image_url||'',applies_to:p.applies_to||'all'};this.formError='';this.showModal=true;},
       closeModal:function(){this.showModal=false;this.pform={};},
