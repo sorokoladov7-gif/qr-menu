@@ -214,9 +214,9 @@
             catalog.appendChild(list);
             catalog.appendChild(right);
             grid.parentNode.insertBefore(catalog, grid);
-            grid.style.display = 'none';
+            grid.style.setProperty('display','none','important');
             var oldPreview = box.querySelector('#qr-template-preview-v10');
-            if (oldPreview) oldPreview.style.display = 'none';
+            if (oldPreview) oldPreview.style.setProperty('display','none','important');
             var search = document.createElement('input');
             search.type = 'search';
             search.className = 'manager-template-search';
@@ -232,6 +232,10 @@
             });
             list._templateSearch = search;
             list._templateDetail = right;
+          } else {
+            grid.style.setProperty('display','none','important');
+            var existingPreview = box.querySelector('#qr-template-preview-v10');
+            if (existingPreview) existingPreview.style.setProperty('display','none','important');
           }
           var listEl = catalog.querySelector('.manager-template-list');
           var detailEl = catalog.querySelector('.manager-template-detail');
