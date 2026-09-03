@@ -12,7 +12,6 @@ const GEMINI_TIMEOUT_MS = 28000;
 const SITE_TIMEOUT_MS = 46000;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
-const MAX_TEXT = 180000;
 const RATE_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT = 12;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
@@ -101,7 +100,7 @@ async function requireManagerOrAdmin(req) {
   const profiles = await profileResponse.json().catch(() => []);
   const role = String(profiles?.[0]?.role || '').toLowerCase();
   if (!profileResponse.ok || !['manager', 'admin'].includes(role)) throw Object.assign(new Error('ROLE_FORBIDDEN'), { status: 403 });
-  return { id: user.id, role, token };
+  return { id: user.id, role };
 }
 
 function isPrivateIp(ip) {
@@ -123,7 +122,7 @@ async function assertSafeUrl(raw) {
   try { url = new URL(String(raw || '').trim()); }
   catch (_) { throw Object.assign(new Error('INVALID_URL'), { status: 400 }); }
   if (!/^https?:$/i.test(url.protocol) || url.username || url.password) throw Object.assign(new Error('INVALID_URL'), { status: 400 });
-  if (url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local') || net.isIP(url.hostname) && isPrivateIp(url.hostname)) throw Object.assign(new Error('URL_BLOCKED'), { status: 400 });
+  if (url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local') || (net.isIP(url.hostname) && isPrivateIp(url.hostname))) throw Object.assign(new Error('URL_BLOCKED'), { status: 400 });
   try {
     const addresses = await dns.lookup(url.hostname, { all: true });
     if (!addresses.length || addresses.some(x => isPrivateIp(x.address))) throw Object.assign(new Error('URL_BLOCKED'), { status: 400 });
@@ -175,8 +174,8 @@ function supportedFileMime(mime) {
 }
 
 function pdfPageEstimate(buffer) {
-  const head = buffer.subarray(0, Math.min(buffer.length, 10 * 1024 * 1024)).toString('latin1');
-  const matches = head.match(/\/Type\s*\/Page(?:\s|\/|>|])/g);
+  const text = buffer.subarray(0, Math.min(buffer.length, MAX_FILE_BYTES)).toString('latin1');
+  const matches = text.match(/\/Type\s*\/Page(?:\s|\/|>|])/g);
   return matches ? matches.length : null;
 }
 
@@ -313,7 +312,7 @@ function flattenMenu(menu) {
     for (const item of category.items || []) {
       out.push({
         name: item.name,
-        description: item.description || null,
+        description: item.description,
         price: item.price,
         category: category.name,
         image_url: item.image_url,
@@ -357,7 +356,7 @@ async function parseRequestBody(req) {
   try { return JSON.parse(text); } catch (_) { throw Object.assign(new Error('INVALID_JSON'), { status: 400 }); }
 }
 
-async function importSite(url, language) {
+async function importSite(url) {
   const safe = await assertSafeUrl(url);
   try {
     const result = await Promise.race([
@@ -387,7 +386,7 @@ async function importSite(url, language) {
       categories: [...grouped.entries()].map(([name, items]) => ({ name, items })),
       warnings: []
     };
-    return { menu: validateAndNormalizeMenu(raw, { venue_name: raw.venue_name }), meta: { source_url: safe, analyzer: 'site-menu-analyzer-v3' } };
+    return { menu: validateAndNormalizeMenu(raw, { venue_name: raw.venue_name }), meta: { source_url: safe, analyzer: 'site-menu-analyzer-v3', site_menu_found: products.length > 0 } };
   } catch (error) {
     if (error?.status === 504) throw Object.assign(new Error('SITE_IMPORT_TIMEOUT'), { status: 504 });
     throw error;
@@ -409,14 +408,13 @@ function errorMessage(code) {
     URL_BLOCKED: 'Ссылка заблокирована по правилам безопасности.',
     URL_UNREACHABLE: 'Не удалось открыть ссылку.',
     SITE_IMPORT_TIMEOUT: 'Сайт слишком долго отвечает. Укажите прямую ссылку на страницу меню.',
-    SITE_TIMEOUT: 'Сайт слишком долго отвечает. Укажите прямую ссылку на страницу меню.',
+    SITE_NO_MENU: 'Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.',
     GEMINI_API_KEY_NOT_CONFIGURED: 'Не настроен серверный ключ AI-импорта.',
     GEMINI_TIMEOUT: 'ИИ не ответил вовремя. Повторите импорт.',
     AI_INVALID_JSON: 'ИИ вернул некорректный результат. Повторите импорт.',
     AI_EMPTY_RESPONSE: 'ИИ не вернул результат. Повторите импорт.',
     UPSTREAM_TIMEOUT: 'Источник не ответил вовремя.',
-    PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.',
-    SITE_NO_MENU: 'Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.'
+    PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.'
   };
   return map[code] || 'Ошибка импорта меню.';
 }
@@ -425,46 +423,46 @@ module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Используйте POST' } });
-
-  let auth;
+  let tempPath = '';
   try {
-    auth = await requireManagerOrAdmin(req);
+    const auth = await requireManagerOrAdmin(req);
     checkRateLimit(req, auth.id);
     const body = await parseRequestBody(req);
     const language = clean(body.language || 'auto', 20);
     const source = clean(body.source || (body.file ? 'file' : body.url ? 'url' : ''), 20).toLowerCase();
-
     let menu;
     let meta = { provider: 'google-gemini', model: null, source: source || 'unknown' };
-    let tempPath = '';
 
-    if (source === 'site' || (source === 'url' && body.url && !body.file)) {
+    if (source === 'url' || source === 'site') {
       const target = clean(body.url, 2000);
       if (!target) throw Object.assign(new Error('INVALID_URL'), { status: 400 });
       let external = null;
-      try { external = await fetchExternalFile(target); } catch (_) {}
+      try { external = await fetchExternalFile(target); } catch (error) {
+        if (['URL_BLOCKED', 'INVALID_URL'].includes(String(error?.message))) throw error;
+      }
       if (external && supportedFileMime(external.mime)) {
         const pdfPages = external.mime === 'application/pdf' ? pdfPageEstimate(external.data) : null;
         if (pdfPages && pdfPages > 80) throw Object.assign(new Error('PDF_TOO_MANY_PAGES'), { status: 400 });
-        const parts = [
+        const ai = await callGemini([
           { text: buildPrompt(external.mime === 'application/pdf' ? 'PDF по URL' : 'изображение по URL', language, 'URL: ' + target + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) },
           { inline_data: { mime_type: external.mime, data: external.data.toString('base64') } }
-        ];
-        const ai = await callGemini(parts);
-        menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories)?.length });
+        ]);
+        menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories) || !ai.data.categories.length });
         meta.model = ai.model;
         meta.mime = external.mime;
         meta.pages = pdfPages;
       } else {
-        const siteResult = await importSite(target, language);
+        const siteResult = await importSite(target);
         menu = siteResult.menu;
         meta = { ...meta, ...siteResult.meta };
+        if (!siteResult.meta.site_menu_found) menu.warnings.push('Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.');
       }
     } else if (source === 'file') {
       const file = body.file && typeof body.file === 'object' ? body.file : {};
-      let external = null;
+      let external;
       if (file.url) {
         external = await fetchExternalFile(file.url);
+        tempPath = clean(file.temp_path || '', 500);
       } else if (file.data) {
         if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 });
         external = parseDataUrl(file.data);
@@ -476,23 +474,20 @@ module.exports = async function handler(req, res) {
       if (external.data.length > MAX_FILE_BYTES) throw Object.assign(new Error('FILE_TOO_LARGE'), { status: 413 });
       const pdfPages = mime === 'application/pdf' ? pdfPageEstimate(external.data) : null;
       if (pdfPages && pdfPages > 80) throw Object.assign(new Error('PDF_TOO_MANY_PAGES'), { status: 400 });
-      const parts = [
+      const ai = await callGemini([
         { text: buildPrompt(mime === 'application/pdf' ? 'PDF меню' : 'фото меню', language, 'Имя файла: ' + clean(file.name, 200) + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) },
         { inline_data: { mime_type: mime, data: external.data.toString('base64') } }
-      ];
-      const ai = await callGemini(parts);
-      menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories)?.length });
+      ]);
+      menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories) || !ai.data.categories.length });
       meta.model = ai.model;
       meta.mime = mime;
       meta.pages = pdfPages;
       meta.bytes = external.data.length;
-      tempPath = clean(file.temp_path || '', 500);
     } else {
       throw Object.assign(new Error('INVALID_URL'), { status: 400 });
     }
 
     const products = flattenMenu(menu);
-    if (!products.length && source === 'site') menu.warnings.push('Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.');
     return res.status(200).json({
       ok: true,
       job_id: crypto.randomUUID(),
@@ -507,5 +502,7 @@ module.exports = async function handler(req, res) {
     const safeCode = code.length > 80 || /\s/.test(code) ? 'IMPORT_ERROR' : code;
     console.error('[menu-import]', safeCode);
     return res.status(status).json({ ok: false, error: { code: safeCode, message: errorMessage(safeCode) } });
+  } finally {
+    await deleteTempObject(tempPath);
   }
 };
