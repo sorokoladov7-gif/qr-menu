@@ -13,7 +13,7 @@
   var settingsMixin = window.__QR_ADMIN_SETTINGS_MIXIN__;
   var templatesMixin = window.__QR_ADMIN_TEMPLATES_MIXIN__;
   var statsMixin = window.__QR_ADMIN_STATISTICS_MIXIN__;
-  var mixins = [coreMixin, venuesMixin, managersMixin, staffMixin, subsMixin, paymentsMixin, menuMixin, settingsMixin, templatesMixin, statsMixin];
+  var mixins = [coreMixin, venuesMixin, managersMixin, staffMixin, subsMixin, paymentsMixin, menuMixin, settingsMixin, templatesMixin, statsMixin].filter(Boolean);
 
   var appData = function() {
     var state = {};
@@ -72,7 +72,7 @@
       button_hover:t.button_hover, border_width:t.border_width, transition_speed:t.transition_speed
     };
   };
-  appMethods.saveGlobalDesign = function() { alert('Глобальный шаблон сохранён (локально). В реальном проекте нужно сохранять в БД.'); };
+  appMethods.saveGlobalDesign = function() { alert('Глобальный шаблон сохранён (локально). В реальном проекте нужно сохранять в БД'); };
   appMethods.saveVenueDesign = function() {
     if (this.designTarget === 'global' || !this.venueDesignTemplate) return;
     var self = this;
@@ -134,11 +134,11 @@
 
   var appWatch = {
     tab:function(newTab){
-      if(newTab==='templates') this.loadTemplates();
-      if(newTab==='settings') this.applyUISettings();
-      if(newTab==='menu') this.loadMenuVenue();
-      if(newTab==='analytics') this.loadAdminAnalytics();
-      if((newTab==='activity'||newTab==='subs')&&!this.ordersLoaded&&!this.ordersLoading) this.loadOrders();
+      if(newTab==='templates' && typeof this.loadTemplates === 'function') this.loadTemplates();
+      if(newTab==='settings' && typeof this.applyUISettings === 'function') this.applyUISettings();
+      if(newTab==='menu' && typeof this.loadMenuVenue === 'function') this.loadMenuVenue();
+      if(newTab==='analytics' && typeof this.loadAdminAnalytics === 'function') this.loadAdminAnalytics();
+      if((newTab==='activity'||newTab==='subs')&&!this.ordersLoaded&&!this.ordersLoading && typeof this.loadOrders === 'function') this.loadOrders();
     }
   };
 
