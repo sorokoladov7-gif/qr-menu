@@ -15,6 +15,51 @@
   var statsMixin = window.__QR_ADMIN_STATISTICS_MIXIN__;
   var mixins = [coreMixin, venuesMixin, managersMixin, staffMixin, subsMixin, paymentsMixin, menuMixin, settingsMixin, templatesMixin, statsMixin];
 
+  /* Public AI branding. The provider/model remains an implementation detail. */
+  window.__QR_AI_BRAND__ = window.__QR_AI_BRAND__ || {
+    name: 'Qrchick',
+    shortName: 'Q',
+    avatar: null
+  };
+
+  function applyQrchickBrand(root) {
+    if (!root) return;
+    var brand = window.__QR_AI_BRAND__;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    var node;
+    while ((node = walker.nextNode())) {
+      if (node.nodeValue && /Gemini/i.test(node.nodeValue)) {
+        node.nodeValue = node.nodeValue.replace(/Gemini/gi, brand.name);
+      }
+    }
+    root.querySelectorAll('.qr-ai-avatar').forEach(function(el) {
+      if (!el.closest('.qr-ai-user')) el.textContent = brand.shortName;
+    });
+    var fab = root.querySelector('#qr-ai-fab');
+    if (fab) {
+      fab.textContent = brand.shortName;
+      fab.title = 'Открыть ' + brand.name;
+      fab.setAttribute('aria-label', 'Открыть ' + brand.name);
+    }
+    var drawer = root.querySelector('#qr-ai-drawer');
+    if (drawer) drawer.setAttribute('aria-label', brand.name + ' — инженерный помощник');
+    var input = root.querySelector('#qr-ai-message');
+    if (input) input.placeholder = input.placeholder.replace(/Gemini/gi, brand.name);
+  }
+
+  function watchQrchickBrand() {
+    var apply = function(){
+      var root = document.getElementById('qr-ai-center');
+      if (root) applyQrchickBrand(root);
+    };
+    if (window.MutationObserver) {
+      var observer = new MutationObserver(function(){ apply(); });
+      observer.observe(document.body, {childList:true, subtree:true, characterData:true});
+      window.__QR_QRCHICK_BRAND_OBSERVER__ = observer;
+    }
+    apply();
+  }
+
   var appData = function() {
     var state = {};
     mixins.forEach(function(m) { if (m && m.data) Object.assign(state, m.data()); });
@@ -152,6 +197,7 @@
     window.__QR_ADMIN_VUE_APP__=app;
     window.__QR_ADMIN_APP__=true;
     var ai=document.createElement('script'); ai.src='/js/admin/admin-ai-audit.js'; ai.async=true; document.head.appendChild(ai);
+    watchQrchickBrand();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mountApp,{once:true});
   else mountApp();
