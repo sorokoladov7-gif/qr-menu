@@ -144,6 +144,23 @@
 
   function setupAdminNavigationMotion(){
     document.body.classList.add('qr-admin-motion');
+    if(!document.getElementById('qr-admin-nav-motion-style')){
+      var style=document.createElement('style');
+      style.id='qr-admin-nav-motion-style';
+      style.textContent=''+
+        '.qr-admin-motion .tabs button{position:relative;overflow:hidden;will-change:transform,box-shadow;}'+
+        '.qr-admin-motion .tabs button::before{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at center,rgba(255,255,255,.28),transparent 65%);opacity:0;transform:scale(.25);pointer-events:none;}'+
+        '.qr-admin-motion .tabs button.qr-nav-click::before{animation:qrAdminNavRipple .42s ease-out;}'+
+        '.qr-admin-motion .tabs button.on{animation:qrAdminNavActive .34s cubic-bezier(.22,1,.36,1);box-shadow:0 7px 22px rgba(99,102,241,.28);}'+
+        '.qr-admin-motion .tabs button.on::after{content:"";position:absolute;left:10%;right:10%;bottom:2px;height:2px;border-radius:999px;background:rgba(255,255,255,.78);transform:scaleX(.2);transform-origin:center;animation:qrAdminNavLine .42s cubic-bezier(.22,1,.36,1) forwards;}'+
+        '.qr-admin-motion .qr-admin-content-enter{animation:qrAdminContentIn .34s cubic-bezier(.22,1,.36,1);}'+
+        '@keyframes qrAdminNavRipple{0%{opacity:.8;transform:scale(.25)}100%{opacity:0;transform:scale(2.2)}}'+
+        '@keyframes qrAdminNavActive{0%{transform:scale(.96);filter:brightness(1.15)}60%{transform:scale(1.025);filter:brightness(1.06)}100%{transform:scale(1);filter:brightness(1)}}'+
+        '@keyframes qrAdminNavLine{0%{transform:scaleX(.15);opacity:0}55%{transform:scaleX(1);opacity:1}100%{transform:scaleX(.72);opacity:.7}}'+
+        '@keyframes qrAdminContentIn{0%{opacity:0;transform:translate3d(0,12px,0) scale(.992);filter:blur(3px)}55%{opacity:1;transform:translate3d(0,-2px,0) scale(1);filter:blur(0)}100%{opacity:1;transform:none;filter:none}}'+
+        '@media (prefers-reduced-motion:reduce){.qr-admin-motion .tabs button,.qr-admin-motion .tabs button.on,.qr-admin-motion .qr-admin-content-enter{animation:none!important;transition:none!important}}';
+      document.head.appendChild(style);
+    }
     var tabs=document.querySelector('.qr-corp-shell .tabs, .tabs');
     if(!tabs || tabs.__qrMotionBound) return;
     tabs.__qrMotionBound=true;
