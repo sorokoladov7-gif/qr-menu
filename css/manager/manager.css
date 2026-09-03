@@ -66,3 +66,126 @@
 .qr-corp-shell .modal { z-index:11050 !important; }
 .qr-corp-shell .modal .box { position:relative; z-index:11051; }
 .qr-corp-shell .toast { z-index:12000 !important; }
+
+/* ==========================================================
+   QR Manager — расширенная анимация навигации
+   ========================================================== */
+.qr-corp-shell .tabs {
+  isolation:isolate;
+  transform:translateZ(0);
+  will-change:transform;
+}
+
+.qr-corp-shell .tabs button {
+  position:relative;
+  overflow:hidden;
+  transform:translateZ(0);
+  transition:
+    transform .22s cubic-bezier(.2,.8,.2,1),
+    background-color .22s ease,
+    border-color .22s ease,
+    box-shadow .22s ease,
+    color .18s ease,
+    opacity .18s ease;
+}
+
+.qr-corp-shell .tabs button::before {
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  pointer-events:none;
+  opacity:0;
+  transform:translate(-50%,-50%) scale(1);
+  background:rgba(255,255,255,.28);
+}
+
+.qr-corp-shell .tabs button:active::before {
+  opacity:1;
+  animation:qr-manager-nav-ripple .48s ease-out;
+}
+
+.qr-corp-shell .tabs button:hover {
+  transform:translateX(3px) scale(1.01);
+}
+
+.qr-corp-shell .tabs button.on {
+  transform:translateX(4px);
+  animation:qr-manager-nav-active .42s cubic-bezier(.2,.8,.2,1);
+  box-shadow:0 8px 24px rgba(99,102,241,.12);
+}
+
+.qr-corp-shell .tabs button.on::after {
+  content:"";
+  position:absolute;
+  left:10px;
+  right:10px;
+  bottom:3px;
+  height:2px;
+  border-radius:999px;
+  background:linear-gradient(90deg,transparent,rgba(129,140,248,.95),transparent);
+  box-shadow:0 0 12px rgba(99,102,241,.65);
+  transform-origin:center;
+  animation:qr-manager-nav-indicator .38s cubic-bezier(.2,.8,.2,1);
+}
+
+.qr-corp-shell .tabs button:focus-visible {
+  outline:2px solid rgba(129,140,248,.8);
+  outline-offset:2px;
+}
+
+.qr-corp-shell.nav-open .tabs {
+  animation:qr-manager-sidebar-open .34s cubic-bezier(.2,.8,.2,1);
+}
+
+.qr-corp-shell.nav-open .tabs button {
+  animation:qr-manager-nav-item-in .34s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.qr-corp-shell.nav-open .tabs button:nth-of-type(1){animation-delay:.03s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(2){animation-delay:.06s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(3){animation-delay:.09s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(4){animation-delay:.12s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(5){animation-delay:.15s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(6){animation-delay:.18s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(7){animation-delay:.21s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(8){animation-delay:.24s}
+.qr-corp-shell.nav-open .tabs button:nth-of-type(9){animation-delay:.27s}
+
+@keyframes qr-manager-nav-ripple {
+  0%{opacity:.42;transform:translate(-50%,-50%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-50%) scale(34)}
+}
+@keyframes qr-manager-nav-active {
+  0%{transform:translateX(0) scale(.98)}
+  60%{transform:translateX(5px) scale(1.015)}
+  100%{transform:translateX(4px) scale(1)}
+}
+@keyframes qr-manager-nav-indicator {
+  0%{opacity:0;transform:scaleX(.15)}
+  100%{opacity:1;transform:scaleX(1)}
+}
+@keyframes qr-manager-sidebar-open {
+  0%{opacity:.7;transform:translateX(-14px)}
+  100%{opacity:1;transform:translateX(0)}
+}
+@keyframes qr-manager-nav-item-in {
+  0%{opacity:0;transform:translateX(-14px) scale(.97)}
+  100%{opacity:1;transform:translateX(0) scale(1)}
+}
+
+@media (max-width:900px) {
+  .qr-corp-shell .tabs button:hover { transform:none; }
+  .qr-corp-shell .tabs button.on { transform:translateX(2px); }
+  .qr-corp-shell .tabs button.on::after { left:14px; right:14px; bottom:4px; }
+}
+
+@media (prefers-reduced-motion:reduce) {
+  .qr-corp-shell .tabs,
+  .qr-corp-shell .tabs button,
+  .qr-corp-shell .tabs button::before,
+  .qr-corp-shell .tabs button::after { animation:none !important; transition:none !important; }
+}
