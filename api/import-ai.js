@@ -74,15 +74,23 @@ function parseBearer(req) {
   return match ? match[1].trim() : '';
 }
 
-async function requireAuthenticatedUser(req) {
+async function requireManagerOrAdmin(req) {
   const token = parseBearer(req);
   if (!token) throw Object.assign(new Error('AUTH_REQUIRED'), { status: 401 });
-  const response = await fetch(SUPABASE_URL + '/auth/v1/user', {
+  const authResponse = await fetch(SUPABASE_URL + '/auth/v1/user', {
     headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token }
   });
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data || !data.id) throw Object.assign(new Error('AUTH_INVALID'), { status: 401 });
-  return data;
+  const user = await authResponse.json().catch(() => null);
+  if (!authResponse.ok || !user || !user.id) throw Object.assign(new Error('AUTH_INVALID'), { status: 401 });
+
+  const profileUrl = SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(user.id) + '&select=role&limit=1';
+  const profileResponse = await fetch(profileUrl, {
+    headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token, accept: 'application/json' }
+  });
+  const profiles = await profileResponse.json().catch(() => []);
+  const role = Array.isArray(profiles) && profiles[0] ? String(profiles[0].role || '').toLowerCase() : '';
+  if (!profileResponse.ok || (role !== 'manager' && role !== 'admin')) throw Object.assign(new Error('ROLE_FORBIDDEN'), { status: 403 });
+  return { id: user.id, role };
 }
 
 async function fetchSiteText(url) {
@@ -92,33 +100,15 @@ async function fetchSiteText(url) {
   const timer = setTimeout(() => controller.abort(), 12000);
   try {
     const response = await fetch(parsed.href, {
-      redirect: 'follow',
-      signal: controller.signal,
-      headers: {
-        'user-agent': 'Mozilla/5.0 QR-Menu-Gemini/1.0',
-        accept: 'text/html,application/xhtml+xml,text/plain,*/*;q=0.5',
-        'accept-language': 'ru-RU,ru;q=0.9,en;q=0.8'
-      }
+      redirect: 'follow', signal: controller.signal,
+      headers: { 'user-agent': 'Mozilla/5.0 QR-Menu-Gemini/1.0', accept: 'text/html,application/xhtml+xml,text/plain,*/*;q=0.5', 'accept-language': 'ru-RU,ru;q=0.9,en;q=0.8' }
     });
     if (!response.ok) throw Object.assign(new Error('SITE_HTTP_' + response.status), { status: response.status });
     const html = (await response.text()).slice(0, 7 * 1024 * 1024);
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    const text = html
-      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
-      .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/&nbsp;/gi, ' ')
-      .replace(/&amp;/gi, '&')
-      .replace(/&quot;/gi, '"')
-      .replace(/&#39;/gi, "'")
-      .replace(/\s+/g, ' ')
-      .trim()
-      .slice(0, 180000);
+    const text = html.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<svg[\s\S]*?<\/svg>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'").replace(/\s+/g, ' ').trim().slice(0, 180000);
     return { url: response.url || parsed.href, title: clean(titleMatch && titleMatch[1] || '', 300), text };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
 
 function isRetryableGeminiError(error) {
@@ -134,25 +124,13 @@ async function callGeminiModel(parts, model) {
   try {
     const payload = {
       contents: [{ role: 'user', parts }],
-      generationConfig: {
-        response_mime_type: 'application/json',
-        response_schema: SCHEMA,
-        maxOutputTokens: 18000,
-        temperature: 0.1
-      }
+      generationConfig: { response_mime_type: 'application/json', response_schema: SCHEMA, maxOutputTokens: 18000, temperature: 0.1 }
     };
     let response;
     try {
-      response = await fetch(GEMINI_URL + model + ':generateContent', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      response = await fetch(GEMINI_URL + model + ':generateContent', { method: 'POST', signal: controller.signal, headers: { 'x-goog-api-key': key, 'content-type': 'application/json' }, body: JSON.stringify(payload) });
     } catch (error) {
-      if (error && (error.name === 'AbortError' || error.code === 'ABORT_ERR')) {
-        throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504, code: 'GEMINI_TIMEOUT' });
-      }
+      if (error && (error.name === 'AbortError' || error.code === 'ABORT_ERR')) throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504, code: 'GEMINI_TIMEOUT' });
       throw error;
     }
     const data = await response.json().catch(() => null);
@@ -163,24 +141,17 @@ async function callGeminiModel(parts, model) {
     const raw = getOutputText(data);
     if (!raw) throw Object.assign(new Error('AI_EMPTY_RESPONSE'), { status: 502 });
     let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (_) {
-      throw Object.assign(new Error('AI_INVALID_JSON'), { status: 502 });
-    }
+    try { parsed = JSON.parse(raw); } catch (_) { throw Object.assign(new Error('AI_INVALID_JSON'), { status: 502 }); }
     return { data: parsed, model };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
 
 async function callGemini(parts) {
   const models = [PRIMARY_MODEL].concat(FALLBACK_MODELS).filter((model, index, list) => model && list.indexOf(model) === index);
   let lastError = null;
   for (let i = 0; i < models.length; i++) {
-    try {
-      return await callGeminiModel(parts, models[i]);
-    } catch (error) {
+    try { return await callGeminiModel(parts, models[i]); }
+    catch (error) {
       lastError = error;
       if (!isRetryableGeminiError(error) || i === models.length - 1 || error.code === 'GEMINI_TIMEOUT') throw error;
     }
@@ -215,9 +186,7 @@ function parseDataUrl(value) {
   return { mime: match[1].toLowerCase(), data: match[2] };
 }
 
-function browserClient() {
-  return "(()=>{'use strict';if(window.__QR_MENU_AI_IMPORT__)return;window.__QR_MENU_AI_IMPORT__=true;})();";
-}
+function browserClient() { return "(()=>{'use strict';if(window.__QR_MENU_AI_IMPORT__)return;window.__QR_MENU_AI_IMPORT__=true;})();"; }
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -228,54 +197,41 @@ module.exports = async function handler(req, res) {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Используйте POST' } });
   try {
-    await requireAuthenticatedUser(req);
+    const auth = await requireManagerOrAdmin(req);
     const body = await readBody(req);
     const kind = String(body.kind || '').toLowerCase();
     let parts;
-
     if (kind === 'image') {
       const image = parseDataUrl(body.data);
       if (image.mime.indexOf('image/') !== 0) throw Object.assign(new Error('IMAGE_REQUIRED'), { status: 400 });
       const context = clean(body.context || '', 24000);
-      parts = [
-        { text: buildPrompt('фото меню', 'Имя файла: ' + clean(body.filename, 200) + (context ? '\nТекстовый слой/контекст страницы:\n' + context : '')) },
-        { inline_data: { mime_type: image.mime, data: image.data } }
-      ];
+      parts = [{ text: buildPrompt('фото меню', 'Имя файла: ' + clean(body.filename, 200) + (context ? '\nТекстовый слой/контекст страницы:\n' + context : '')) }, { inline_data: { mime_type: image.mime, data: image.data } }];
     } else if (kind === 'pdf') {
       const pdf = parseDataUrl(body.data);
       if (pdf.mime !== 'application/pdf') throw Object.assign(new Error('PDF_REQUIRED'), { status: 400 });
-      parts = [
-        { text: buildPrompt('PDF меню', 'Имя файла: ' + clean(body.filename, 200)) },
-        { inline_data: { mime_type: 'application/pdf', data: pdf.data } }
-      ];
+      parts = [{ text: buildPrompt('PDF меню', 'Имя файла: ' + clean(body.filename, 200)) }, { inline_data: { mime_type: 'application/pdf', data: pdf.data } }];
     } else if (kind === 'site') {
       const url = clean(body.url, 2000);
       if (!/^https?:\/\//i.test(url)) throw Object.assign(new Error('URL_REQUIRED'), { status: 400 });
       const site = await fetchSiteText(url);
       parts = [{ text: buildPrompt('сайт', 'URL: ' + site.url + '\nTITLE: ' + site.title + '\nТЕКСТ:\n' + site.text) }];
-    } else {
-      throw Object.assign(new Error('KIND_REQUIRED'), { status: 400 });
-    }
+    } else throw Object.assign(new Error('KIND_REQUIRED'), { status: 400 });
 
     const ai = await callGemini(parts);
     const result = ai.data || {};
     const products = (Array.isArray(result.products) ? result.products : []).map(normalizeProduct).filter(item => item.name);
-    return res.status(200).json({
-      ok: true,
-      venue: { name: clean(result.venue_name, 220), description: clean(result.venue_description, 600) },
-      products,
-      meta: { provider: 'google-gemini', model: ai.model, kind, products_found: products.length }
-    });
+    return res.status(200).json({ ok: true, venue: { name: clean(result.venue_name, 220), description: clean(result.venue_description, 600) }, products, meta: { provider: 'google-gemini', model: ai.model, kind, products_found: products.length, role: auth.role } });
   } catch (error) {
     const code = String(error && error.message || 'IMPORT_AI_ERROR');
     const status = Number(error && error.status) || 500;
     let message = code;
     if (code === 'AUTH_REQUIRED') message = 'Требуется авторизация управляющего.';
     else if (code === 'AUTH_INVALID') message = 'Сессия авторизации недействительна. Войдите в кабинет заново.';
+    else if (code === 'ROLE_FORBIDDEN') message = 'Импорт меню доступен только управляющему или администратору.';
     else if (code === 'GEMINI_API_KEY_NOT_CONFIGURED') message = 'Не настроен GEMINI_API_KEY на сервере.';
     else if (code === 'REQUEST_TOO_LARGE') message = 'Файл слишком большой для AI-импорта.';
     else if (code === 'GEMINI_TIMEOUT') message = 'Gemini не ответил вовремя. Страница будет автоматически повторно обработана.';
-    else if (code === 'AI_INVALID_JSON') message = 'ИИ вернул неполный результат. Страница будет повторно обработана.';
+    else if (code === 'AI_INVALID_JSON') message = 'ИИ вернул неполный результат. Страница будет автоматически повторно обработана.';
     return res.status(status).json({ ok: false, error: { code, message: clean(message, 700) } });
   }
 };
