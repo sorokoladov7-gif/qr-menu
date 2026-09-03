@@ -6,9 +6,9 @@ const crypto = require('node:crypto');
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
-const FALLBACK_MODELS = ['gemini-3.6-flash'];
-const GEMINI_TIMEOUT_MS = 28000;
+const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.8-flash';
+const FALLBACK_MODELS = ['gemini-3.7-flash'];
+const GEMINI_TIMEOUT_MS = 50000;
 const SITE_TIMEOUT_MS = 46000;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
@@ -224,7 +224,7 @@ async function callGemini(parts) {
             response_mime_type: 'application/json',
             response_schema: SCHEMA,
             maxOutputTokens: 24000,
-            temperature: 0.05
+            thinkingConfig: { thinkingLevel: 'low' }
           }
         })
       });
@@ -238,8 +238,8 @@ async function callGemini(parts) {
     } catch (error) {
       lastError = error;
       const status = Number(error?.status) || 0;
-      const retryable = status === 408 || status === 429 || status >= 500 || error?.name === 'AbortError';
-      if (!retryable) throw error;
+      const retryableHttp = status === 408 || status === 429 || status >= 500;
+      if (!retryableHttp) throw error;
     } finally { clearTimeout(timer); }
   }
   if (lastError?.name === 'AbortError') throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504 });
