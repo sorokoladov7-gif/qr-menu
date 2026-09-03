@@ -148,17 +148,27 @@
       var style=document.createElement('style');
       style.id='qr-admin-nav-motion-style';
       style.textContent=''+
-        '.qr-admin-motion .tabs button{position:relative;overflow:hidden;will-change:transform,box-shadow;}'+
+        '.qr-admin-motion .tabs{will-change:transform,opacity;transform-origin:left top;}'+
+        '.qr-admin-motion .tabs button{position:relative;overflow:hidden;will-change:transform,opacity,box-shadow;}'+
         '.qr-admin-motion .tabs button::before{content:"";position:absolute;inset:0;border-radius:inherit;background:radial-gradient(circle at center,rgba(255,255,255,.28),transparent 65%);opacity:0;transform:scale(.25);pointer-events:none;}'+
         '.qr-admin-motion .tabs button.qr-nav-click::before{animation:qrAdminNavRipple .42s ease-out;}'+
         '.qr-admin-motion .tabs button.on{animation:qrAdminNavActive .34s cubic-bezier(.22,1,.36,1);box-shadow:0 7px 22px rgba(99,102,241,.28);}'+
         '.qr-admin-motion .tabs button.on::after{content:"";position:absolute;left:10%;right:10%;bottom:2px;height:2px;border-radius:999px;background:rgba(255,255,255,.78);transform:scaleX(.2);transform-origin:center;animation:qrAdminNavLine .42s cubic-bezier(.22,1,.36,1) forwards;}'+
         '.qr-admin-motion .qr-admin-content-enter{animation:qrAdminContentIn .34s cubic-bezier(.22,1,.36,1);}'+
+        '.qr-admin-motion.nav-open .tabs{animation:qrAdminSidebarOpen .38s cubic-bezier(.22,1,.36,1);}'+
+        '.qr-admin-motion.nav-open .tabs button{animation:qrAdminNavItemIn .42s cubic-bezier(.22,1,.36,1) both;}'+
+        '.qr-admin-motion.nav-open .tabs button:nth-of-type(1){animation-delay:.035s}.qr-admin-motion.nav-open .tabs button:nth-of-type(2){animation-delay:.065s}.qr-admin-motion.nav-open .tabs button:nth-of-type(3){animation-delay:.095s}.qr-admin-motion.nav-open .tabs button:nth-of-type(4){animation-delay:.125s}.qr-admin-motion.nav-open .tabs button:nth-of-type(5){animation-delay:.155s}.qr-admin-motion.nav-open .tabs button:nth-of-type(6){animation-delay:.185s}.qr-admin-motion.nav-open .tabs button:nth-of-type(7){animation-delay:.215s}.qr-admin-motion.nav-open .tabs button:nth-of-type(8){animation-delay:.245s}.qr-admin-motion.nav-open .tabs button:nth-of-type(9){animation-delay:.275s}.qr-admin-motion.nav-open .tabs button:nth-of-type(10){animation-delay:.305s}.qr-admin-motion.nav-open .tabs button:nth-of-type(11){animation-delay:.335s}.qr-admin-motion.nav-open .tabs button:nth-of-type(12){animation-delay:.365s}'+
+        '.qr-admin-motion.nav-open .tabs button:hover{transform:translateX(4px)!important;}'+
+        '@keyframes qrAdminSidebarOpen{0%{opacity:.45;transform:translateX(-14px) scale(.985)}60%{opacity:1;transform:translateX(2px) scale(1.002)}100%{opacity:1;transform:translateX(0) scale(1)}}'+
+        '@keyframes qrAdminNavItemIn{0%{opacity:0;transform:translateX(-14px) scale(.97)}70%{opacity:1;transform:translateX(2px) scale(1.01)}100%{opacity:1;transform:translateX(0) scale(1)}}'+
         '@keyframes qrAdminNavRipple{0%{opacity:.8;transform:scale(.25)}100%{opacity:0;transform:scale(2.2)}}'+
         '@keyframes qrAdminNavActive{0%{transform:scale(.96);filter:brightness(1.15)}60%{transform:scale(1.025);filter:brightness(1.06)}100%{transform:scale(1);filter:brightness(1)}}'+
         '@keyframes qrAdminNavLine{0%{transform:scaleX(.15);opacity:0}55%{transform:scaleX(1);opacity:1}100%{transform:scaleX(.72);opacity:.7}}'+
         '@keyframes qrAdminContentIn{0%{opacity:0;transform:translate3d(0,12px,0) scale(.992);filter:blur(3px)}55%{opacity:1;transform:translate3d(0,-2px,0) scale(1);filter:blur(0)}100%{opacity:1;transform:none;filter:none}}'+
-        '@media (prefers-reduced-motion:reduce){.qr-admin-motion .tabs button,.qr-admin-motion .tabs button.on,.qr-admin-motion .qr-admin-content-enter{animation:none!important;transition:none!important}}';
+        '@media (max-width:900px){.qr-admin-motion.nav-open .tabs button{animation-name:qrAdminNavItemInMobile}.qr-admin-motion.nav-open .tabs{animation-name:qrAdminSidebarOpenMobile}}'+
+        '@keyframes qrAdminSidebarOpenMobile{0%{opacity:.2;transform:translateX(calc(-100% - 24px)) scale(.98)}70%{opacity:1;transform:translateX(7px) scale(1.005)}100%{opacity:1;transform:translateX(0) scale(1)}}'+
+        '@keyframes qrAdminNavItemInMobile{0%{opacity:0;transform:translateX(-18px)}100%{opacity:1;transform:translateX(0)}}'+
+        '@media (prefers-reduced-motion:reduce){.qr-admin-motion .tabs,.qr-admin-motion .tabs button,.qr-admin-motion .tabs button.on,.qr-admin-motion .qr-admin-content-enter{animation:none!important;transition:none!important}}';
       document.head.appendChild(style);
     }
     var tabs=document.querySelector('.qr-corp-shell .tabs, .tabs');
