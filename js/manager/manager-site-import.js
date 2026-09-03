@@ -18,7 +18,7 @@
     var el=block&&block.querySelector('#qr-menu-import-status-v2');
     if(el){el.textContent=text||'';el.style.color=isError?'#fca5a5':'';}
   }
-  function escapeHtml(s){return String(s||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function escapeHtml(s){return String(s||'').replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
   async function authToken(){
     try{
       var r=await db.auth.getSession();
@@ -112,22 +112,23 @@
   }
   async function renderPdfPage(page){
     var baseViewport=page.getViewport({scale:1});
-    var maxWidth=1500;
-    var maxHeight=2100;
-    var scale=Math.min(maxWidth/baseViewport.width,maxHeight/baseViewport.height,1.65);
+    var maxWidth=1200;
+    var maxHeight=1700;
+    var scale=Math.min(maxWidth/baseViewport.width,maxHeight/baseViewport.height,1.35);
     var canvas=document.createElement('canvas');
     var ctx=canvas.getContext('2d',{alpha:false,willReadFrequently:false});
     var dataUrl='';
-    for(var attempt=0;attempt<4;attempt++){
+    for(var attempt=0;attempt<5;attempt++){
       var viewport=page.getViewport({scale:scale});
       canvas.width=Math.max(1,Math.ceil(viewport.width));
       canvas.height=Math.max(1,Math.ceil(viewport.height));
       await page.render({canvasContext:ctx,viewport:viewport,background:'white'}).promise;
-      dataUrl=canvas.toDataURL('image/jpeg',attempt===0?0.78:attempt===1?0.68:attempt===2?0.58:0.48);
-      if(dataUrl.length<=3000000) break;
+      var quality=attempt===0?0.68:attempt===1?0.58:attempt===2?0.50:attempt===3?0.42:0.36;
+      dataUrl=canvas.toDataURL('image/jpeg',quality);
+      if(dataUrl.length<=1200000) break;
       scale*=0.78;
     }
-    if(dataUrl.length>3300000) throw new Error('PDF_PAGE_TOO_LARGE');
+    if(dataUrl.length>1400000) throw new Error('PDF_PAGE_TOO_LARGE');
     return dataUrl;
   }
   async function importPdf(block,vm,pdf){
@@ -142,11 +143,7 @@
       setStatus(block,'🤖 Gemini: PDF — страница '+pageNo+' из '+total+'…',false);
       var page=await documentRef.getPage(pageNo);
       var image=await renderPdfPage(page);
-      var result=await send({
-        kind:'image',
-        filename:(pdf.name||'menu.pdf')+' — страница '+pageNo,
-        data:image
-      });
+      var result=await send({kind:'image',filename:(pdf.name||'menu.pdf')+' — страница '+pageNo,data:image});
       all=all.concat(normalize(vm,result.products));
       vm.importItems=dedupe(all);
       render(block,vm.importItems);
