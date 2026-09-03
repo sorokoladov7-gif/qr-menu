@@ -3,6 +3,8 @@
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const SUPABASE_MANAGEMENT_API_TOKEN = process.env.SUPABASE_MANAGEMENT_API_TOKEN || process.env.SUPABASE_ACCESS_TOKEN || '';
+const SUPABASE_PROJECT_REF = process.env.SUPABASE_PROJECT_REF || 'ulxfsozdryqrnlxzlblt';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_AUDIT_MODEL || 'gemini-3.7-flash';
 const GITHUB_REPO = 'sorokoladov7-gif/qr-menu';
@@ -13,6 +15,8 @@ const MAX_FILES = 140;
 const MAX_FILE_CHARS = 32000;
 const MAX_CONTEXT_CHARS = 1000000;
 const MAX_CHANGES = 20;
+const MAX_DB_CHANGES = 10;
+const MAX_DB_SQL_CHARS = 60000;
 
 function clean(v,n=500){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,n);}
 function bearer(req){const h=String(req.headers?.authorization||req.headers?.Authorization||'');const m=h.match(/^Bearer\s+(.+)$/i);return m?m[1].trim():'';}
@@ -59,14 +63,53 @@ async function vercelRuntimeSnapshot(){
   }catch(e){return {available:false,error:clean(e?.message||'VERCEL_EVENTS_UNAVAILABLE',300)};}
 }
 async function supabaseSnapshot(){
-  if(!SUPABASE_SERVICE_ROLE_KEY)return {available:false,reason:'SUPABASE_SERVICE_ROLE_KEY_NOT_CONFIGURED'};
+  if(SUPABASE_MANAGEMENT_API_TOKEN){
+    try{
+      const sql="select jsonb_build_object(\n        'schemas',(select coalesce(jsonb_agg(jsonb_build_object('schema',nspname) order by nspname),'[]'::jsonb) from pg_namespace where nspname not in ('pg_catalog','information_schema') and nspname !~ '^pg_temp'),\n        'tables',(select coalesce(jsonb_agg(jsonb_build_object('schema',table_schema,'table',table_name) order by table_schema,table_name),'[]'::jsonb) from information_schema.tables where table_schema not in ('pg_catalog','information_schema') and table_type='BASE TABLE'),\n        'columns',(select coalesce(jsonb_agg(jsonb_build_object('schema',table_schema,'table',table_name,'column',column_name,'type',data_type,'nullable',is_nullable) order by table_schema,table_name,ordinal_position),'[]'::jsonb) from information_schema.columns where table_schema not in ('pg_catalog','information_schema')),'policies',(select coalesce(jsonb_agg(jsonb_build_object('schema',schemaname,'table',tablename,'policy',policyname,'command',cmd,'roles',roles,'using',qual,'check',with_check) order by schemaname,tablename,policyname),'[]'::jsonb) from pg_policies where schemaname not in ('pg_catalog','information_schema')),'functions',(select coalesce(jsonb_agg(jsonb_build_object('schema',routine_schema,'name',routine_name,'type',routine_type,'return',data_type) order by routine_schema,routine_name),'[]'::jsonb) from information_schema.routines where routine_schema not in ('pg_catalog','information_schema'))\n      ) as snapshot;";
+      const d=await supabaseManagementQuery(sql,true);
+      return {available:true,source:'management_api',snapshot:extractDbResult(d)};
+    }catch(e){return {available:false,error:clean(e?.message||'SUPABASE_DB_SNAPSHOT_FAILED',500)};}
+  }
+  if(!SUPABASE_SERVICE_ROLE_KEY)return {available:false,reason:'SUPABASE_MANAGEMENT_API_TOKEN_NOT_CONFIGURED'};
   try{
     const r=await fetch(SUPABASE_URL+'/rest/v1/',{headers:{apikey:SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+SUPABASE_SERVICE_ROLE_KEY,accept:'application/openapi+json'}});
     const d=await r.json().catch(()=>null);
     if(!r.ok)return {available:false,error:'SUPABASE_HTTP_'+r.status};
     const defs=d?.definitions||{};const tables=Object.keys(defs).slice(0,500);
-    return {available:true,tables};
+    return {available:true,source:'postgrest_openapi',tables};
   }catch(e){return {available:false,error:clean(e?.message||'SUPABASE_UNAVAILABLE',300)};}
+}
+function extractDbResult(d){
+  if(Array.isArray(d))return d;
+  if(Array.isArray(d?.result))return d.result.length===1&&d.result[0]?.snapshot!==undefined?d.result[0].snapshot:d.result;
+  if(Array.isArray(d?.data))return d.data;
+  if(d?.snapshot!==undefined)return d.snapshot;
+  return d;
+}
+async function supabaseManagementQuery(query,readOnly){
+  if(!SUPABASE_MANAGEMENT_API_TOKEN)throw Object.assign(new Error('SUPABASE_MANAGEMENT_API_TOKEN_NOT_CONFIGURED'),{status:503});
+  const endpoint=readOnly?'/database/query/read-only':'/database/query';
+  const r=await fetch('https://api.supabase.com/v1/projects/'+encodeURIComponent(SUPABASE_PROJECT_REF)+endpoint,{method:'POST',headers:{Authorization:'Bearer '+SUPABASE_MANAGEMENT_API_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:String(query||''),read_only:!!readOnly})});
+  const d=await r.json().catch(()=>null);if(!r.ok)throw Object.assign(new Error(d?.message||d?.error||'SUPABASE_MANAGEMENT_HTTP_'+r.status),{status:r.status});return d;
+}
+function validateDatabaseChanges(changes){
+  if(!Array.isArray(changes)||changes.length>MAX_DB_CHANGES)throw Object.assign(new Error('INVALID_DATABASE_CHANGE_SET'),{status:400});
+  return changes.map(c=>{
+    const sql=String(c?.sql||'').trim();if(!sql||sql.length>MAX_DB_SQL_CHARS)throw Object.assign(new Error('INVALID_DATABASE_SQL'),{status:400});
+    const normalized=sql.replace(/\/\*[\s\S]*?\*\//g,' ').replace(/--[^\n]*/g,' ').replace(/\s+/g,' ').trim().toLowerCase();
+    if(/\b(drop\s+database|drop\s+role|alter\s+role|create\s+role|grant\s+all\s+privileges)\b/.test(normalized))throw Object.assign(new Error('DATABASE_PRIVILEGE_CHANGE_BLOCKED'),{status:403});
+    if(/\b(copy\s+[^;]*\bprogram|pg_read_file|pg_read_binary_file|lo_import|dblink_connect)\b/.test(normalized))throw Object.assign(new Error('DATABASE_DANGEROUS_OPERATION_BLOCKED'),{status:403});
+    if(/\b(create|alter|drop)\s+extension\b/.test(normalized))throw Object.assign(new Error('DATABASE_EXTENSION_CHANGE_BLOCKED'),{status:403});
+    return {sql,reason:clean(c?.reason||'',600),risk:clean(c?.risk||'unknown',80)};
+  });
+}
+async function applyDatabaseChanges(changes,admin){
+  const safe=validateDatabaseChanges(changes);const results=[];
+  for(const c of safe){
+    const d=await supabaseManagementQuery(c.sql,false);
+    results.push({sql:c.sql,reason:c.reason,risk:c.risk,result:extractDbResult(d)});
+  }
+  return {applied:true,admin:admin.email,changes:results};
 }
 async function callGemini(promptText){
   if(!GEMINI_API_KEY)throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'),{status:503});
@@ -84,22 +127,25 @@ function prompt(context,git,vercel,runtime,supabase,message,mode,history){return
   'Ты работаешь только после авторизации администратора.',
   'Тебе разрешено анализировать реальный код проекта, GitHub, Vercel и доступную схему Supabase.',
   'Для GitHub разрешено готовить и применять изменения существующих файлов через подтверждённый механизм applyChanges.',
+  'Для Supabase разрешено анализировать схему и готовить SQL-изменения. SQL выполняется только через отдельное явное подтверждение администратора.',
   'Не создавай новые файлы. Не удаляй файлы без явного указания администратора.',
   'Никогда не раскрывай токены, API keys, service-role keys, пароли или другие секреты.',
   'Не отключай авторизацию, RLS, CSP, rate limits или другие защитные механизмы ради исправления.',
   'Проверяй конфликты старой/новой реализации, дубли скриптов, JS SyntaxError, API-контракты, RLS/RPC, импорт PDF/фото/сайта и Vercel runtime.',
+  'При работе с БД опирайся только на переданную схему и реальные результаты SQL. Не выдумывай таблицы, колонки, функции или policies.',
   'Работай с фактами из переданного проекта. Не выдумывай строки, файлы и результаты тестов.',
   'Режим: '+clean(mode||'full',30),
   'История:\n'+(Array.isArray(history)?history.slice(-16):[]).map(m=>String(m?.role||'user').toUpperCase()+': '+String(m?.content||'').slice(0,5000)).join('\n'),
   'Запрос администратора:\n'+String(message||'').slice(0,12000),
-  'Верни JSON: {summary,answer,severity,root_cause,findings,actions,files,confidence,safe_to_change,proposed_changes}.',
+  'Верни JSON: {summary,answer,severity,root_cause,findings,actions,files,confidence,safe_to_change,proposed_changes,database_changes}.',
   'finding={severity,title,file,line_start,line_end,evidence,explanation,fix}.',
   'proposed_changes=[{operation:"update"|"delete",file,expected_sha,reason,new_content}]. expected_sha обязателен и должен соответствовать текущему GitHub blob. Для удаления new_content="".',
+  'database_changes=[{sql,reason,risk}]. Предлагай SQL только когда изменение действительно нужно. Не используй destructive privilege operations, extension changes или доступ к секретам.',
   'Не добавляй изменения, которые не нужны для исправления. Не меняй секреты.',
   'GITHUB SNAPSHOT:\n'+JSON.stringify(git),
   'VERCEL DEPLOYMENTS:\n'+JSON.stringify(vercel),
   'VERCEL RUNTIME:\n'+JSON.stringify(runtime),
-  'SUPABASE SCHEMA:\n'+JSON.stringify(supabase),
+  'SUPABASE DATABASE SNAPSHOT:\n'+JSON.stringify(supabase),
   'КОД ПРОЕКТА:\n'+context
 ].join('\n\n');}
 function validateChanges(changes){
@@ -138,13 +184,21 @@ async function handler(req,res){
       const result=await applyChanges(body.changes,admin);
       return res.status(200).json(result);
     }
+    if(action==='apply_db'){
+      const result=await applyDatabaseChanges(body.database_changes,admin);
+      return res.status(200).json(result);
+    }
+    if(action==='db_probe'){
+      const snap=await supabaseSnapshot();
+      return res.status(200).json({ok:true,admin:admin.email,database:snap,capabilities:{supabase_database_read:!!SUPABASE_MANAGEMENT_API_TOKEN,supabase_database_write:!!SUPABASE_MANAGEMENT_API_TOKEN}});
+    }
     if(action!=='audit')return res.status(400).json({error:'UNKNOWN_ACTION'});
     const snap=await repoSnapshot();
     const vercel=await vercelSnapshot();
     const runtime=await vercelRuntimeSnapshot();
     const supabase=await supabaseSnapshot();
     const result=await callGemini(prompt(snap.context,snap.files,vercel,runtime,supabase,body.message||'',body.mode||'full',body.history||[]));
-    return res.status(200).json({ok:true,admin:admin.email,model:GEMINI_MODEL,result,files_scanned:snap.files.length,scanned_files:snap.files,capabilities:{github_read:true,github_write:!!process.env.GITHUB_TOKEN,vercel_read:!!process.env.VERCEL_TOKEN,supabase_schema_read:!!SUPABASE_SERVICE_ROLE_KEY}});
+    return res.status(200).json({ok:true,admin:admin.email,model:GEMINI_MODEL,result,files_scanned:snap.files.length,scanned_files:snap.files,capabilities:{github_read:true,github_write:!!process.env.GITHUB_TOKEN,vercel_read:!!process.env.VERCEL_TOKEN,supabase_schema_read:!!SUPABASE_SERVICE_ROLE_KEY||!!SUPABASE_MANAGEMENT_API_TOKEN,supabase_database_read:!!SUPABASE_MANAGEMENT_API_TOKEN,supabase_database_write:!!SUPABASE_MANAGEMENT_API_TOKEN}});
   }catch(e){
     const status=Number(e?.status)||500;console.error('[admin-ai-audit]',e);return res.status(status).json({error:clean(e?.message||'AI_AUDIT_FAILED',300)});
   }
