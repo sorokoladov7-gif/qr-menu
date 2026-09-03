@@ -2,13 +2,87 @@ window.fmt = function(n){ return Number(n||0).toLocaleString('ru-RU'); };
 window.statusName = function(s){ return {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',arrived:'📍 Курьер на месте',done:'Завершён',cancelled:'Отменён',changed:'Изменён'}[s]||s; };
 window.statusColor = function(s){ return {new:'#60a5fa',cooking:'#fbbf24',ready:'#34d399',delivery:'#a78bfa',arrived:'#f472b6',done:'#64748b',cancelled:'#f87171',changed:'#fb923c'}[s]||'#64748b'; };
 window.categoryLabel = function(c){ return ({main:'🍽 Блюдо',drink:'🥤 Напиток',addon:'🧂 Доп',breakfast:'🍳 Завтрак',salad:'🥗 Салат',soup:'🍲 Суп',dessert:'🍰 Десерт',sauce:'🌶 Соус',snack:'🥨 Закуска',hot:'🔥 Горячее',bbq:'🥩 Гриль'}[c]||'🍽 Блюдо'); };
-window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
+window.normPhone = function(p){ return (p||'').replace(/[^\\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
+/* QR-Menu PWA: мобильная кнопка принудительного обновления.
+   Очищает только Cache Storage и регистрации Service Worker, не трогает
+   localStorage/sessionStorage/Supabase-сессию, затем загружает страницу заново. */
 (function(){
   'use strict';
-  if (!/\/(admin|manager)\.html$/i.test(location.pathname)) return;
+  if(window.__QR_PWA_REFRESH__) return;
+  window.__QR_PWA_REFRESH__ = true;
+
+  function isMobile(){
+    return window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+  }
+
+  function createButton(){
+    if(!isMobile() || document.getElementById('qr-pwa-refresh')) return;
+    var btn=document.createElement('button');
+    btn.id='qr-pwa-refresh';
+    btn.type='button';
+    btn.setAttribute('aria-label','Очистить кэш и обновить приложение');
+    btn.innerHTML='<span aria-hidden="true">↻</span><b>Обновить</b>';
+    btn.style.cssText='position:fixed;right:max(12px,env(safe-area-inset-right));bottom:max(12px,env(safe-area-inset-bottom));z-index:2147483000;display:flex;align-items:center;gap:7px;min-height:44px;padding:9px 13px;border:1px solid rgba(148,163,184,.28);border-radius:14px;background:rgba(15,23,42,.96);color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;touch-action:manipulation;transition:transform .18s ease,opacity .18s ease;';
+    var icon=btn.querySelector('span');
+    icon.style.cssText='font-size:20px;line-height:1;display:inline-block;';
+    btn.addEventListener('pointerdown',function(){btn.style.transform='scale(.96)';});
+    btn.addEventListener('pointerup',function(){btn.style.transform='scale(1)';});
+    btn.addEventListener('pointercancel',function(){btn.style.transform='scale(1)';});
+    btn.addEventListener('click',refreshPWA);
+    document.body.appendChild(btn);
+  }
+
+  async function refreshPWA(){
+    var btn=document.getElementById('qr-pwa-refresh');
+    if(!btn || btn.dataset.busy==='1') return;
+    btn.dataset.busy='1';
+    btn.disabled=true;
+    btn.innerHTML='<span aria-hidden="true">⟳</span><b>Обновление…</b>';
+    btn.style.opacity='.75';
+
+    try{
+      if('serviceWorker' in navigator){
+        try{
+          var registrations=await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(function(reg){return reg.unregister().catch(function(){return false;});}));
+        }catch(e){console.warn('[QR PWA] Service Worker cleanup:',e);}
+      }
+      if('caches' in window){
+        try{
+          var names=await caches.keys();
+          await Promise.all(names.map(function(name){return caches.delete(name);}));
+        }catch(e){console.warn('[QR PWA] Cache Storage cleanup:',e);}
+      }
+    }finally{
+      var url=location.href.split('#')[0];
+      url+=(url.indexOf('?')===-1?'?':'&')+'_pwa_refresh='+Date.now();
+      location.replace(url);
+    }
+  }
+
+  function init(){
+    createButton();
+    if(window.matchMedia){
+      var mq=window.matchMedia('(max-width: 900px)');
+      var handler=function(){
+        var btn=document.getElementById('qr-pwa-refresh');
+        if(mq.matches) createButton();
+        else if(btn) btn.remove();
+      };
+      if(mq.addEventListener) mq.addEventListener('change',handler);
+      else if(mq.addListener) mq.addListener(handler);
+    }
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',init,{once:true});
+  else init();
+})();
+
+(function(){
+  'use strict';
+  if (!/\\/(admin|manager)\\.html$/i.test(location.pathname)) return;
   function initCorporateNavigation(){
     if(document.body.dataset.qrCorpNav==='1') return;
     var app=document.getElementById('app');
@@ -45,7 +119,7 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 /* QR-Menu — site import loader for manager.html. */
 (function(){
   'use strict';
-  if (!/\/manager\.html$/i.test(location.pathname)) return;
+  if (!/\\/manager\\.html$/i.test(location.pathname)) return;
   var SCRIPT_ID = 'qr-manager-site-import-loader';
   var SCRIPT_SRC = '/js/manager/manager-site-import.js';
   var started = false;
@@ -75,7 +149,7 @@ async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.cl
 
 (function(){
   'use strict';
-  if(!/\/menu\.html$/i.test(location.pathname))return;
+  if(!/\\/menu\\.html$/i.test(location.pathname))return;
   var lastVenueId=null,lastFee=null;
   function sync(){var el=document.getElementById('app');if(!el)return;try{var vm=el.__vueParentComponent?.proxy||el.vue_app?._instance?.proxy||null;if(!vm||!vm.venue)return;var id=vm.venue.id,raw=vm.venue.delivery_fee;var fee=raw===null||raw===undefined||raw===''?150:Number(raw);if(!isFinite(fee)||fee<0)fee=150;if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}}catch(e){}}
   if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;
