@@ -2,7 +2,7 @@ window.fmt = function(n){ return Number(n||0).toLocaleString('ru-RU'); };
 window.statusName = function(s){ return {new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',arrived:'📍 Курьер на месте',done:'Завершён',cancelled:'Отменён',changed:'Изменён'}[s]||s; };
 window.statusColor = function(s){ return {new:'#60a5fa',cooking:'#fbbf24',ready:'#34d399',delivery:'#a78bfa',arrived:'#f472b6',done:'#64748b',cancelled:'#f87171',changed:'#fb923c'}[s]||'#64748b'; };
 window.categoryLabel = function(c){ return ({main:'🍽 Блюдо',drink:'🥤 Напиток',addon:'🧂 Доп',breakfast:'🍳 Завтрак',salad:'🥗 Салат',soup:'🍲 Суп',dessert:'🍰 Десерт',sauce:'🌶 Соус',snack:'🥨 Закуска',hot:'🔥 Горячее',bbq:'🥩 Гриль'}[c]||'🍽 Блюдо'); };
-window.normPhone = function(p){ return (p||'').replace(/[^\\d+]/g,''); };
+window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
@@ -82,7 +82,7 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 
 (function(){
   'use strict';
-  if (!/\\/(admin|manager)\\.html$/i.test(location.pathname)) return;
+  if (!/\/(admin|manager)\.html$/i.test(location.pathname)) return;
   function initCorporateNavigation(){
     if(document.body.dataset.qrCorpNav==='1') return;
     var app=document.getElementById('app');
@@ -119,7 +119,7 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 /* QR-Menu — site import loader for manager.html. */
 (function(){
   'use strict';
-  if (!/\\/manager\\.html$/i.test(location.pathname)) return;
+  if (!/\/manager\.html$/i.test(location.pathname)) return;
   var SCRIPT_ID = 'qr-manager-site-import-loader';
   var SCRIPT_SRC = '/js/manager/manager-site-import.js';
   var started = false;
@@ -149,7 +149,7 @@ async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.cl
 
 (function(){
   'use strict';
-  if(!/\\/menu\\.html$/i.test(location.pathname))return;
+  if(!/\/menu\.html$/i.test(location.pathname))return;
   var lastVenueId=null,lastFee=null;
   function sync(){var el=document.getElementById('app');if(!el)return;try{var vm=el.__vueParentComponent?.proxy||el.vue_app?._instance?.proxy||null;if(!vm||!vm.venue)return;var id=vm.venue.id,raw=vm.venue.delivery_fee;var fee=raw===null||raw===undefined||raw===''?150:Number(raw);if(!isFinite(fee)||fee<0)fee=150;if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}}catch(e){}}
   if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;
