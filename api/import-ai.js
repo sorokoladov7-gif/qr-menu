@@ -1,10 +1,15 @@
 'use strict';
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.6-flash';
-const FALLBACK_MODEL = 'gemini-3.5-flash-lite';
-const GEMINI_TIMEOUT_MS = 22000;
+const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
+const FALLBACK_MODELS = [
+  'gemini-3.6-flash',
+  'gemini-3.5-flash-lite'
+];
+const GEMINI_TIMEOUT_MS = 45000;
 const MAX_BODY = 14 * 1024 * 1024;
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 
 const SCHEMA = {
   type: 'OBJECT',
@@ -30,8 +35,8 @@ const SCHEMA = {
   required: ['venue_name', 'venue_description', 'products']
 };
 
-function clean(value, max) {
-  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max || 600);
+function clean(value, max = 600) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
 function normalizeProduct(item) {
@@ -43,7 +48,7 @@ function normalizeProduct(item) {
     description: clean(item && item.description, 600),
     price: Number.isFinite(value) && value > 0 ? value : 0,
     category: clean(item && item.category, 120) || 'Основные блюда',
-    image_url: image.indexOf('http://') === 0 || image.indexOf('https://') === 0 ? image : '',
+    image_url: /^https?:\/\//i.test(image) ? image : '',
     is_available: !!(item && item.is_available !== false)
   };
 }
@@ -53,7 +58,7 @@ function getOutputText(data) {
   const parts = candidates[0] && candidates[0].content && Array.isArray(candidates[0].content.parts)
     ? candidates[0].content.parts
     : [];
-  return parts.map(function (part) { return part && part.text || ''; }).join('');
+  return parts.map(part => part && part.text || '').join('');
 }
 
 async function readBody(req) {
@@ -61,31 +66,49 @@ async function readBody(req) {
   let text = '';
   for await (const chunk of req) {
     text += chunk;
-    if (Buffer.byteLength(text) > MAX_BODY) throw new Error('REQUEST_TOO_LARGE');
+    if (Buffer.byteLength(text, 'utf8') > MAX_BODY) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 });
   }
   return text ? JSON.parse(text) : {};
 }
 
+function parseBearer(req) {
+  const header = String(req.headers && (req.headers.authorization || req.headers.Authorization) || '');
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match ? match[1].trim() : '';
+}
+
+async function requireAuthenticatedUser(req) {
+  const token = parseBearer(req);
+  if (!token) throw Object.assign(new Error('AUTH_REQUIRED'), { status: 401 });
+
+  const response = await fetch(SUPABASE_URL + '/auth/v1/user', {
+    headers: {
+      apikey: SUPABASE_ANON_KEY,
+      authorization: 'Bearer ' + token
+    }
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data || !data.id) throw Object.assign(new Error('AUTH_INVALID'), { status: 401 });
+  return data;
+}
+
 async function fetchSiteText(url) {
   const parsed = new URL(url);
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('INVALID_URL');
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw Object.assign(new Error('INVALID_URL'), { status: 400 });
 
   const controller = new AbortController();
-  const timer = setTimeout(function () { controller.abort(); }, 12000);
-
+  const timer = setTimeout(() => controller.abort(), 12000);
   try {
     const response = await fetch(parsed.href, {
       redirect: 'follow',
       signal: controller.signal,
       headers: {
         'user-agent': 'Mozilla/5.0 QR-Menu-Gemini/1.0',
-        'accept': 'text/html,application/xhtml+xml,text/plain,*/*;q=0.5',
+        accept: 'text/html,application/xhtml+xml,text/plain,*/*;q=0.5',
         'accept-language': 'ru-RU,ru;q=0.9,en;q=0.8'
       }
     });
-
-    if (!response.ok) throw new Error('SITE_HTTP_' + response.status);
-
+    if (!response.ok) throw Object.assign(new Error('SITE_HTTP_' + response.status), { status: response.status });
     const html = (await response.text()).slice(0, 7 * 1024 * 1024);
     const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
     const text = html
@@ -94,10 +117,12 @@ async function fetchSiteText(url) {
       .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
       .replace(/<[^>]+>/g, ' ')
       .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 180000);
-
     return {
       url: response.url || parsed.href,
       title: clean(titleMatch && titleMatch[1] || '', 300),
@@ -110,7 +135,6 @@ async function fetchSiteText(url) {
 
 function isRetryableGeminiError(error) {
   const status = Number(error && error.status) || 0;
-  if (error && error.code === 'ABORT_ERR') return true;
   return status === 408 || status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
 }
 
@@ -119,15 +143,15 @@ async function callGeminiModel(parts, model) {
   if (!key) throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'), { status: 503 });
 
   const controller = new AbortController();
-  const timer = setTimeout(function () { controller.abort(); }, GEMINI_TIMEOUT_MS);
-
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   try {
     const payload = {
       contents: [{ role: 'user', parts }],
       generationConfig: {
         response_mime_type: 'application/json',
         response_schema: SCHEMA,
-        maxOutputTokens: 12000
+        maxOutputTokens: 18000,
+        temperature: 0.1
       }
     };
 
@@ -144,93 +168,87 @@ async function callGeminiModel(parts, model) {
       });
     } catch (error) {
       if (error && (error.name === 'AbortError' || error.code === 'ABORT_ERR')) {
-        throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504, code: 'ABORT_ERR' });
+        throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504, code: 'GEMINI_TIMEOUT' });
       }
       throw error;
     }
 
-    const data = await response.json().catch(function () { return null; });
-
+    const data = await response.json().catch(() => null);
     if (!response.ok) {
-      const message = data && data.error && data.error.message
-        ? data.error.message
-        : 'Gemini HTTP ' + response.status;
-      throw Object.assign(new Error(message), {
-        status: response.status,
-        geminiStatus: response.status
-      });
+      const message = data && data.error && data.error.message ? data.error.message : 'Gemini HTTP ' + response.status;
+      throw Object.assign(new Error(message), { status: response.status, geminiStatus: response.status });
     }
 
     const raw = getOutputText(data);
     if (!raw) throw Object.assign(new Error('AI_EMPTY_RESPONSE'), { status: 502 });
-    return { data: JSON.parse(raw), model };
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (_) {
+      throw Object.assign(new Error('AI_INVALID_JSON'), { status: 502 });
+    }
+    return { data: parsed, model };
   } finally {
     clearTimeout(timer);
   }
 }
 
 async function callGemini(parts) {
-  const models = [];
-  [MODEL, FALLBACK_MODEL].forEach(function (model) {
-    if (model && models.indexOf(model) === -1) models.push(model);
-  });
-
+  const models = [PRIMARY_MODEL].concat(FALLBACK_MODELS).filter((model, index, list) => model && list.indexOf(model) === index);
   let lastError = null;
   for (let i = 0; i < models.length; i++) {
     try {
       return await callGeminiModel(parts, models[i]);
     } catch (error) {
       lastError = error;
-      if (i >= models.length - 1 || !isRetryableGeminiError(error)) throw error;
+      if (!isRetryableGeminiError(error) || i === models.length - 1 || error.code === 'GEMINI_TIMEOUT') throw error;
     }
   }
-
-  throw lastError || new Error('AI_IMPORT_FAILED');
+  throw lastError || Object.assign(new Error('AI_IMPORT_FAILED'), { status: 502 });
 }
 
-function buildPrompt(kind, extra) {
+function buildPrompt(kind, extra = '') {
   return [
-    'Ты профессиональный парсер меню для QR Menu.',
-    'Извлекай только реальные блюда и позиции, присутствующие в источнике.',
-    'Не выдумывай названия, цены, описания и изображения.',
-    'Исправляй только очевидные OCR-ошибки.',
-    'Цена — число в рублях; если её нет, 0.',
-    'Категория — понятная категория на русском.',
-    'Описание заполняй только когда оно реально есть в источнике.',
-    'image_url заполняй только прямой http/https ссылкой, найденной в источнике; для фото и PDF оставляй пустым.',
-    'Удали заголовки разделов, адреса, телефоны, акции, служебный текст и дубликаты.',
+    'Ты профессиональный анализатор меню для QR Menu.',
+    'Работай как человек, который вручную проверяет меню: сначала пойми структуру страниц и колонок, затем извлеки все реальные позиции.',
+    'Извлекай только реальные блюда/товары, присутствующие в источнике.',
+    'Не выдумывай названия, цены, описания, категории и изображения.',
+    'Исправляй только очевидные OCR-ошибки, сохраняя смысл и написание максимально близко к источнику.',
+    'Каждая отдельная товарная позиция должна быть отдельным объектом products.',
+    'Если у блюда несколько размеров/объёмов и источник показывает разные цены, используй основную реально указанную цену и не придумывай варианты.',
+    'Цена — число в рублях. Если достоверной цены нет, 0.',
+    'Категория — понятная категория на русском языке.',
+    'Описание заполняй только когда оно реально есть в источнике; не генерируй рекламный текст.',
+    'image_url заполняй только прямой http/https ссылкой, найденной в источнике; для фото/PDF оставляй пустым.',
+    'Удаляй заголовки разделов, адреса, телефоны, акции, служебный текст, номера страниц и дубликаты.',
+    'Учитывай контекст предыдущих/соседних строк страницы при определении названия, описания и цены.',
     'Верни только JSON по заданной схеме.',
     'Источник: ' + kind + '.',
-    extra || ''
+    extra
   ].join('\n');
 }
 
 function parseDataUrl(value) {
   const match = String(value || '').match(/^data:([^;]+);base64,(.+)$/s);
-  if (!match) throw new Error('INVALID_DATA_URL');
+  if (!match) throw Object.assign(new Error('INVALID_DATA_URL'), { status: 400 });
   return { mime: match[1].toLowerCase(), data: match[2] };
 }
 
 function browserClient() {
-  return "(()=>{'use strict';if(window.__QR_MENU_AI_IMPORT__)return;window.__QR_MENU_AI_IMPORT__=true;const API='/api/import-ai';const vm=()=>window.__managerVue||null;const status=(b,t,e)=>{const x=b&&b.querySelector('#qr-menu-import-status-v2');if(x){x.textContent=t||'';x.style.color=e?'#fca5a5':'';}};const token=async()=>{try{const r=await db.auth.getSession();return r&&r.data&&r.data.session?r.data.session.access_token:'';}catch(e){return'';}};const send=async p=>{const h={'Content-Type':'application/json','Accept':'application/json'},t=await token();if(t)h.Authorization='Bearer '+t;const r=await fetch(API,{method:'POST',credentials:'same-origin',headers:h,body:JSON.stringify(p)}),d=await r.json().catch(()=>null);if(!r.ok||!d||!d.ok)throw new Error(d&&d.error&&d.error.message||('AI HTTP '+r.status));return d;};const fileData=f=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result||''));r.onerror=()=>rej(new Error('Не удалось прочитать файл'));r.readAsDataURL(f);});const norm=(v,a)=>(Array.isArray(a)?a:[]).map((x,i)=>{const iu=String(x&&x.image_url||'').trim(),p={name:String(x&&x.name||'').trim(),description:String(x&&x.description||'').trim(),price:Number(x&&x.price)||0,category:String(x&&x.category||'Основные блюда').trim()||'Основные блюда',image_url:(iu.indexOf('http://')===0||iu.indexOf('https://')===0)?iu:'',is_available:x&&x.is_available!==false,applies_to:'all'};if(!p.image_url&&v&&typeof v.dishImageUrl==='function')p.image_url=v.dishImageUrl(p,i+1);return p;}).filter(x=>x.name);const render=(b,a)=>{const p=b&&b.querySelector('#qr-menu-import-preview-v2'),c=b&&b.querySelector('#qr-menu-import-count-v2'),s=b&&b.querySelector('#qr-menu-import-save-v2'),cl=b&&b.querySelector('#qr-menu-import-clear-v2');if(!p||!c||!s||!cl)return;c.textContent=String(a.length);p.innerHTML=a.slice(0,30).map(x=>'<div style=\"display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.06)\"><span>'+String(x.name).replace(/[&<>\\\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\\\"':'&quot;',\"'\":'&#39;'}[c]))+'</span><b>'+Number(x.price||0).toLocaleString('ru-RU')+' ₽</b></div>').join('')+(a.length>30?'<div class=\"muted\" style=\"font-size:11px;margin-top:6px\">и ещё '+(a.length-30)+'…</div>':'');s.style.display=a.length?'inline-block':'none';cl.style.display=a.length?'inline-block':'none';};const run=async(b,v,k,p)=>{if(v.importBusy)return;v.importBusy=true;try{status(b,'🤖 ИИ Gemini анализирует '+k+'…');const d=await send(Object.assign({kind:k},p||{}));v.importItems=norm(v,d.products);render(b,v.importItems);status(b,'✓ Gemini нашёл '+v.importItems.length+' позиций');}catch(e){console.error('[QR Gemini import]',e);v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+e.message,true);}finally{v.importBusy=false;}};document.addEventListener('click',e=>{const t=e.target&&e.target.closest?e.target.closest('#qr-menu-import-pdf-v2,#qr-menu-import-photo-v2,#qr-menu-import-site-v2'):null;if(!t)return;const b=t.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();if(t.id==='qr-menu-import-site-v2'){const u=prompt('Адрес сайта заведения:','https://');if(u&&u!=='https://')run(b,v,'site',{url:u.trim()});return;}const i=b.querySelector(t.id==='qr-menu-import-pdf-v2'?'#qr-menu-import-pdf-input-v2':'#qr-menu-import-photo-input-v2');if(i)i.click();},true);document.addEventListener('change',async e=>{const i=e.target;if(!i||!i.closest||!i.closest('#qr-menu-import-block-v2'))return;const b=i.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.stopPropagation();e.stopImmediatePropagation();if(i.id==='qr-menu-import-pdf-input-v2'){const f=i.files&&i.files[0];i.value='';if(!f||v.importBusy)return;v.importBusy=true;try{status(b,'🤖 ИИ Gemini анализирует PDF…');const d=await send({kind:'pdf',filename:f.name,data:await fileData(f)});v.importItems=norm(v,d.products);render(b,v.importItems);status(b,'✓ Gemini нашёл '+v.importItems.length+' позиций');}catch(x){v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+x.message,true);}finally{v.importBusy=false;}return;}if(i.id==='qr-menu-import-photo-input-v2'){const fs=Array.from(i.files||[]);i.value='';if(!fs.length||v.importBusy)return;v.importBusy=true;try{let all=[];for(let n=0;n<fs.length;n++){status(b,'🤖 ИИ Gemini анализирует фото '+(n+1)+' из '+fs.length+'…');const d=await send({kind:'image',filename:fs[n].name,data:await fileData(fs[n])});all=all.concat(norm(v,d.products));}v.importItems=all;render(b,all);status(b,'✓ Gemini нашёл '+all.length+' позиций',false);}catch(x){v.importItems=[];render(b,[]);status(b,'Ошибка AI: '+x.message,true);}finally{v.importBusy=false;}}},true);})();";
+  return "(()=>{'use strict';if(window.__QR_MENU_AI_IMPORT__)return;window.__QR_MENU_AI_IMPORT__=true;})();";
 }
 
 module.exports = async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store, max-age=0');
-  const query = req.query || {};
-
-  if (req.method === 'GET' && String(query.client || '') === '1') {
+  if (req.method === 'GET' && String(req.query && req.query.client || '') === '1') {
     res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
     return res.status(200).send(browserClient());
   }
-
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Используйте POST' } });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Используйте POST' } });
 
   try {
+    await requireAuthenticatedUser(req);
     const body = await readBody(req);
     const kind = String(body.kind || '').toLowerCase();
     let parts;
@@ -238,8 +256,9 @@ module.exports = async function handler(req, res) {
     if (kind === 'image') {
       const image = parseDataUrl(body.data);
       if (image.mime.indexOf('image/') !== 0) throw Object.assign(new Error('IMAGE_REQUIRED'), { status: 400 });
+      const context = clean(body.context || '', 24000);
       parts = [
-        { text: buildPrompt('фото меню', 'Имя файла: ' + clean(body.filename, 200)) },
+        { text: buildPrompt('фото меню', 'Имя файла: ' + clean(body.filename, 200) + (context ? '\nТекстовый слой/контекст страницы:\n' + context : '')) },
         { inline_data: { mime_type: image.mime, data: image.data } }
       ];
     } else if (kind === 'pdf') {
@@ -251,7 +270,7 @@ module.exports = async function handler(req, res) {
       ];
     } else if (kind === 'site') {
       const url = clean(body.url, 2000);
-      if (url.indexOf('http://') !== 0 && url.indexOf('https://') !== 0) throw Object.assign(new Error('URL_REQUIRED'), { status: 400 });
+      if (!/^https?:\/\//i.test(url)) throw Object.assign(new Error('URL_REQUIRED'), { status: 400 });
       const site = await fetchSiteText(url);
       parts = [{ text: buildPrompt('сайт', 'URL: ' + site.url + '\nTITLE: ' + site.title + '\nТЕКСТ:\n' + site.text) }];
     } else {
@@ -259,10 +278,10 @@ module.exports = async function handler(req, res) {
     }
 
     const ai = await callGemini(parts);
-    const result = ai.data;
+    const result = ai.data || {};
     const products = (Array.isArray(result.products) ? result.products : [])
       .map(normalizeProduct)
-      .filter(function (item) { return item.name; });
+      .filter(item => item.name);
 
     return res.status(200).json({
       ok: true,
@@ -281,18 +300,13 @@ module.exports = async function handler(req, res) {
   } catch (error) {
     const code = String(error && error.message || 'IMPORT_AI_ERROR');
     const status = Number(error && error.status) || 500;
-    return res.status(status).json({
-      ok: false,
-      error: {
-        code,
-        message: code === 'GEMINI_API_KEY_NOT_CONFIGURED'
-          ? 'Не настроен GEMINI_API_KEY на сервере.'
-          : code === 'REQUEST_TOO_LARGE'
-            ? 'Файл слишком большой для AI-импорта.'
-            : code === 'GEMINI_TIMEOUT'
-              ? 'Gemini не ответил вовремя. Сервер автоматически попробовал резервную модель.'
-              : clean(code, 500)
-      }
-    });
+    let message = code;
+    if (code === 'AUTH_REQUIRED') message = 'Требуется авторизация управляющего.';
+    else if (code === 'AUTH_INVALID') message = 'Сессия авторизации недействительна. Войдите в кабинет заново.';
+    else if (code === 'GEMINI_API_KEY_NOT_CONFIGURED') message = 'Не настроен GEMINI_API_KEY на сервере.';
+    else if (code === 'REQUEST_TOO_LARGE') message = 'Файл слишком большой для AI-импорта.';
+    else if (code === 'GEMINI_TIMEOUT') message = 'Gemini не ответил вовремя. Страница будет автоматически повторно обработана.';
+    else if (code === 'AI_INVALID_JSON') message = 'ИИ вернул неполный результат. Страница будет повторно обработана.';
+    return res.status(status).json({ ok: false, error: { code, message: clean(message, 700) } });
   }
 };
