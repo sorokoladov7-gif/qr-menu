@@ -37,3 +37,53 @@ window.QR_DEMO_DATA = {
   ],
   analytics: { revenue:48750, orders:87, clients:64, avgCheck:560, avgCookTime:12, repeatClients:21, typeStats:{pickup:52,delivery:35}, payStats:{cash:40,card:47} }
 };
+
+/* Demo manager: keep the real create-venue UI/flow, but emulate the final RPC locally. */
+(function(){
+  'use strict';
+  var p=new URLSearchParams(location.search);
+  if(!/manager\.html$/i.test(location.pathname)||p.get('demo')!=='1')return;
+  var D=window.QR_DEMO_DATA;
+  function install(){
+    if(!window.db||!window.__managerVue){setTimeout(install,50);return;}
+    if(window.__qrDemoManagerCreateInstalled)return;
+    window.__qrDemoManagerCreateInstalled=true;
+    var nativeRpc=window.db.rpc.bind(window.db);
+    window.db.rpc=function(name,args){
+      if(String(name)==='manager_import_venue'){
+        args=args||{};
+        var nameValue=args.p_name||args.name||'Новое заведение';
+        var slugValue=args.p_slug||args.slug||('demo-'+Date.now());
+        var id='demo-venue-'+Date.now();
+        var products=args.p_products;
+        if(typeof products==='string'){try{products=JSON.parse(products);}catch(e){products=[];}}
+        if(!Array.isArray(products))products=[];
+        var venue={id:id,slug:slugValue,name:nameValue,status:'active',brand_color:'#6366f1',description:args.p_description||'',address:args.p_address||null,phone:args.p_phone||null,website_url:args.p_website_url||null,logo_url:args.p_logo_url||null,opening_hours:args.p_opening_hours||null,plan_id:args.p_plan||'demo-plan',subscription_end:args.p_subscription_end||D.venue.subscription_end,created_at:new Date().toISOString()};
+        venue.products=products;
+        D.venue=venue;
+        D.products=products;
+        D.tables=[];
+        D.orders=[];
+        try{var list=window.__managerVue.myVenues||[];window.__managerVue.myVenues=[venue].concat(list.filter(function(v){return v&&v.id!==id;}));}catch(e){}
+        return Promise.resolve({data:{venue:venue,venue_id:id,id:id,slug:slugValue},error:null});
+      }
+      return nativeRpc(name,args);
+    };
+    /* demo-mode's generic readonly UI disables buttons containing "созда".
+       Re-enable only the manager venue-creation action and leave all other
+       manager mutations protected by the demo layer. */
+    function enableCreate(){
+      var root=document.getElementById('app');if(!root)return;
+      var buttons=root.querySelectorAll('button');
+      for(var i=0;i<buttons.length;i++){
+        var b=buttons[i],t=String(b.textContent||'').toLowerCase();
+        if(t.indexOf('создать')!==-1&&t.indexOf('заведение')!==-1)b.disabled=false;
+      }
+    }
+    enableCreate();setTimeout(enableCreate,300);setTimeout(enableCreate,1000);setTimeout(enableCreate,2000);
+    var observer=new MutationObserver(enableCreate);observer.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled']});
+    setTimeout(function(){try{observer.disconnect();}catch(e){}},15000);
+  }
+  var timer=setInterval(function(){if(window.__managerVue){clearInterval(timer);install();}},100);
+  setTimeout(function(){clearInterval(timer);install();},15000);
+})();
