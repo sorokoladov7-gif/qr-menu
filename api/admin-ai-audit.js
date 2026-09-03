@@ -57,21 +57,561 @@ async function applyChanges(changes,admin){
   }
   return {applied:true,admin:admin.email,changes:results};
 }
-async function handler(req,res){
-  res.setHeader('Cache-Control','no-store');
-  if(req.method!=='POST')return res.status(405).json({error:'METHOD_NOT_ALLOWED'});
-  try{
-    const admin=await adminAuth(req);const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});const action=clean(body.action||'audit',30);
-    if(action==='apply'){const result=await applyChanges(body.changes,admin);return res.status(200).json({ok:true,...result});}
-    const snap=await repoSnapshot();const logs=await vercelSnapshot();const result=await callGemini(prompt(snap.context,logs,body.message||'',body.mode||action,body.history||[]));
-    return res.status(200).json({ok:true,admin:admin.email,model:GEMINI_MODEL,result,files_scanned:snap.files.length,scanned_files:snap.files});
-  }catch(e){const status=Number(e?.status)||500;console.error('[admin-ai-audit]',e);return res.status(status).json({error:clean(e?.message||'AI_AUDIT_FAILED',300)});}
+
+// -------------------- HTML-интерфейс (GET) --------------------
+function getHtml() {
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>AI-аудит QR Menu</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: #0b0e14;
+      color: #e0e4ec;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .container {
+      max-width: 820px;
+      width: 100%;
+      background: #181e28;
+      border-radius: 24px;
+      padding: 24px 20px 32px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+      transition: all 0.2s;
+    }
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      color: #c8d0dc;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h1 small {
+      font-size: 0.9rem;
+      font-weight: 400;
+      color: #7a8899;
+      margin-left: auto;
+    }
+    .sub {
+      color: #7a8899;
+      font-size: 0.95rem;
+      margin-bottom: 24px;
+      border-left: 3px solid #3b4a5c;
+      padding-left: 14px;
+    }
+    .field-group {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #a6b3c4;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: #11171f;
+      border: 1px solid #2a3340;
+      border-radius: 12px;
+      color: #e8edf5;
+      font-size: 0.95rem;
+      transition: border 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #4f7cff;
+      box-shadow: 0 0 0 3px rgba(79,124,255,0.2);
+    }
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+      font-family: inherit;
+    }
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .row .field-group {
+      flex: 1 1 200px;
+    }
+    button {
+      background: #4f7cff;
+      border: none;
+      color: #fff;
+      font-weight: 600;
+      font-size: 1rem;
+      padding: 12px 28px;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    button:hover { background: #3f68e6; }
+    button:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.5; pointer-events: none; }
+    .history-box {
+      margin-top: 20px;
+      background: #0f151e;
+      border-radius: 16px;
+      padding: 12px 16px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      border: 1px solid #232d3b;
+      color: #b8c4d4;
+    }
+    .history-box .entry {
+      padding: 6px 0;
+      border-bottom: 1px solid #1f2937;
+    }
+    .history-box .entry:last-child { border-bottom: none; }
+    .history-box .role { font-weight: 600; color: #7a8899; }
+    .history-box .role.user { color: #6ea8fe; }
+    .history-box .role.assistant { color: #a8c4ff; }
+    .history-box .content { word-break: break-word; }
+    .status { margin-top: 12px; font-size: 0.9rem; color: #7a8899; }
+
+    /* Модальное окно (полноэкранное) */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 20px;
+    }
+    .modal-overlay.active {
+      display: flex;
+    }
+    .modal {
+      background: #1a212c;
+      max-width: 980px;
+      width: 100%;
+      max-height: 90vh;
+      border-radius: 28px;
+      padding: 28px 24px 24px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-shrink: 0;
+    }
+    .modal-header h2 {
+      font-size: 1.4rem;
+      font-weight: 500;
+      color: #d0dae8;
+    }
+    .modal-close {
+      background: #2d3a4a;
+      border: none;
+      color: #bcc8d8;
+      width: 40px;
+      height: 40px;
+      border-radius: 40px;
+      font-size: 1.6rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s;
+      padding: 0;
+      line-height: 1;
+    }
+    .modal-close:hover { background: #3f4f62; }
+    .modal-body {
+      overflow-y: auto;
+      flex: 1 1 auto;
+      padding-right: 4px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .modal-body pre {
+      background: #0f151e;
+      padding: 16px;
+      border-radius: 12px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+      color: #d4deec;
+      border: 1px solid #28323f;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .modal-body .severity-badge {
+      display: inline-block;
+      background: #2d3a4a;
+      padding: 2px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .modal-body .severity-high { background: #c44545; color: #fff; }
+    .modal-body .severity-medium { background: #d9a13b; color: #000; }
+    .modal-body .severity-low { background: #3b7a5c; color: #fff; }
+    .modal-footer {
+      margin-top: 16px;
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      flex-shrink: 0;
+    }
+
+    /* Адаптивность */
+    @media (max-width: 600px) {
+      .container { padding: 16px; }
+      h1 { font-size: 1.4rem; flex-wrap: wrap; }
+      h1 small { font-size: 0.75rem; margin-left: 0; }
+      .row { flex-direction: column; gap: 0; }
+      .modal { padding: 16px; max-height: 95vh; }
+      .modal-header h2 { font-size: 1.2rem; }
+      button { width: 100%; justify-content: center; }
+    }
+    @media (max-width: 400px) {
+      body { padding: 8px; }
+      .container { border-radius: 16px; padding: 12px; }
+    }
+    /* Стилизация скролла */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f151e; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb { background: #2d3a4a; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f4f62; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🛠 AI-аудит <small>QR Menu</small></h1>
+  <div class="sub">Полноэкранный диалог с инженерным ассистентом. Ответы не обрезаются.</div>
+
+  <div class="field-group">
+    <label for="token">Bearer-токен (Supabase)</label>
+    <input type="password" id="token" placeholder="Введите ваш токен администратора" autocomplete="off">
+  </div>
+
+  <div class="field-group">
+    <label for="message">Запрос</label>
+    <textarea id="message" placeholder="Опишите проблему или задайте вопрос по коду...">Проанализируй последние ошибки в логах Vercel</textarea>
+  </div>
+
+  <div class="row">
+    <div class="field-group">
+      <label for="mode">Режим</label>
+      <select id="mode">
+        <option value="audit">Аудит</option>
+        <option value="fix" selected>Исправление</option>
+        <option value="full">Полный анализ</option>
+      </select>
+    </div>
+    <div class="field-group" style="display: flex; align-items: flex-end;">
+      <button id="sendBtn">➤ Отправить</button>
+    </div>
+  </div>
+
+  <div class="status" id="status">Готов к работе</div>
+
+  <div class="history-box" id="historyBox">
+    <div style="color:#6a7a8a; text-align:center; padding:8px;">История диалога будет здесь</div>
+  </div>
+</div>
+
+<!-- Модальное окно для полного ответа -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📋 Ответ ассистента</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div style="color:#7a8899;">Загрузка...</div>
+    </div>
+    <div class="modal-footer">
+      <button id="modalCloseBtn" style="background:#2d3a4a; color:#c8d0dc;">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function() {
+    const tokenInput = document.getElementById('token');
+    const messageInput = document.getElementById('message');
+    const modeSelect = document.getElementById('mode');
+    const sendBtn = document.getElementById('sendBtn');
+    const statusEl = document.getElementById('status');
+    const historyBox = document.getElementById('historyBox');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalBody = document.getElementById('modalBody');
+    const modalClose = document.getElementById('modalClose');
+    const modalCloseBtn = document.getElementById('modalCloseBtn');
+
+    // Загружаем сохранённый токен
+    const savedToken = localStorage.getItem('ai_audit_token');
+    if (savedToken) tokenInput.value = savedToken;
+
+    // Сохраняем токен при изменении
+    tokenInput.addEventListener('change', () => {
+      localStorage.setItem('ai_audit_token', tokenInput.value);
+    });
+
+    // История в localStorage
+    let history = JSON.parse(localStorage.getItem('ai_audit_history')) || [];
+
+    function renderHistory() {
+      if (!history.length) {
+        historyBox.innerHTML = '<div style="color:#6a7a8a; text-align:center; padding:8px;">История диалога пуста</div>';
+        return;
+      }
+      let html = '';
+      history.slice(-8).forEach(entry => {
+        const roleClass = entry.role === 'assistant' ? 'assistant' : 'user';
+        const label = entry.role === 'assistant' ? 'Ассистент' : 'Вы';
+        html += `<div class="entry"><span class="role ${roleClass}">${label}:</span> <span class="content">${escapeHtml(entry.content)}</span></div>`;
+      });
+      historyBox.innerHTML = html;
+      historyBox.scrollTop = historyBox.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    renderHistory();
+
+    function setStatus(text, isError = false) {
+      statusEl.textContent = text;
+      statusEl.style.color = isError ? '#f28b8b' : '#7a8899';
+    }
+
+    function showModal(content) {
+      modalBody.innerHTML = content;
+      modalOverlay.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      modalOverlay.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    modalClose.addEventListener('click', closeModal);
+    modalCloseBtn.addEventListener('click', closeModal);
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) closeModal();
+    });
+
+    async function sendRequest() {
+      const token = tokenInput.value.trim();
+      if (!token) {
+        setStatus('❌ Введите Bearer-токен', true);
+        return;
+      }
+      const message = messageInput.value.trim();
+      if (!message) {
+        setStatus('❌ Введите запрос', true);
+        return;
+      }
+      const mode = modeSelect.value;
+
+      sendBtn.disabled = true;
+      setStatus('⏳ Отправка запроса...');
+
+      try {
+        const response = await fetch(window.location.href, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer ' + token,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: message,
+            mode: mode,
+            history: history,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Ошибка сервера');
+        }
+
+        // Добавляем в историю
+        history.push({ role: 'user', content: message });
+        if (data.result && data.result.answer) {
+          history.push({ role: 'assistant', content: data.result.answer });
+        } else if (data.result && data.result.summary) {
+          history.push({ role: 'assistant', content: data.result.summary });
+        } else {
+          history.push({ role: 'assistant', content: JSON.stringify(data.result, null, 2) });
+        }
+        if (history.length > 50) history = history.slice(-50);
+        localStorage.setItem('ai_audit_history', JSON.stringify(history));
+        renderHistory();
+
+        // Формируем содержимое модалки
+        let modalContent = '';
+        if (data.result) {
+          const r = data.result;
+          if (r.summary) modalContent += `<h3>📌 Резюме</h3><p>${escapeHtml(r.summary)}</p>`;
+          if (r.answer) modalContent += `<h3>💬 Ответ</h3><p>${escapeHtml(r.answer)}</p>`;
+          if (r.root_cause) modalContent += `<h3>🔍 Корневая причина</h3><p>${escapeHtml(r.root_cause)}</p>`;
+          if (r.findings && r.findings.length) {
+            modalContent += `<h3>📋 Находки</h3>`;
+            r.findings.forEach((f, i) => {
+              const sev = f.severity || 'low';
+              modalContent += `<div style="margin-bottom:12px; background:#0f151e; padding:12px; border-radius:12px; border-left:4px solid ${sev==='high'?'#c44545':sev==='medium'?'#d9a13b':'#3b7a5c'};">
+                <span class="severity-badge severity-${sev}">${sev}</span>
+                <strong>${escapeHtml(f.title||'Находка')}</strong>
+                ${f.file ? `<span style="color:#7a8899; font-size:0.85rem;"> в ${escapeHtml(f.file)}</span>` : ''}
+                ${f.line_start ? `<span style="color:#7a8899; font-size:0.85rem;"> строки ${f.line_start}${f.line_end ? '-'+f.line_end : ''}</span>` : ''}
+                <div style="margin-top:6px; font-size:0.9rem;">${escapeHtml(f.explanation||'')}</div>
+                ${f.fix ? `<div style="margin-top:6px; background:#1e2937; padding:8px; border-radius:8px; font-size:0.9rem;"><strong>Исправление:</strong> ${escapeHtml(f.fix)}</div>` : ''}
+              </div>`;
+            });
+          }
+          if (r.proposed_changes && r.proposed_changes.length) {
+            modalContent += `<h3>🔄 Предлагаемые изменения</h3><pre>${escapeHtml(JSON.stringify(r.proposed_changes, null, 2))}</pre>`;
+          }
+          if (r.confidence !== undefined) {
+            modalContent += `<p><strong>Уверенность:</strong> ${r.confidence}%</p>`;
+          }
+          if (r.safe_to_change !== undefined) {
+            modalContent += `<p><strong>Безопасно применить:</strong> ${r.safe_to_change ? '✅ Да' : '❌ Нет'}</p>`;
+          }
+          if (!modalContent) {
+            modalContent = `<pre>${escapeHtml(JSON.stringify(r, null, 2))}</pre>`;
+          }
+        } else {
+          modalContent = `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+        }
+
+        showModal(modalContent);
+        setStatus('✅ Ответ получен (открыто модальное окно)');
+      } catch (err) {
+        setStatus('❌ Ошибка: ' + err.message, true);
+        console.error(err);
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    sendBtn.addEventListener('click', sendRequest);
+
+    // Enter в текстовом поле (Ctrl+Enter или Cmd+Enter)
+    messageInput.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        sendRequest();
+      }
+    });
+
+    // Автосохранение токена при вводе (по таймеру)
+    tokenInput.addEventListener('input', () => {
+      localStorage.setItem('ai_audit_token', tokenInput.value);
+    });
+
+  })();
+</script>
+</body>
+</html>`;
 }
-async function callGemini(promptText){
-  if(!GEMINI_API_KEY)throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'),{status:503});
-  const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+GEMINI_MODEL+':generateContent',{method:'POST',headers:{'x-goog-api-key':GEMINI_API_KEY,'content-type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:promptText}]}],generationConfig:{responseMimeType:'application/json',maxOutputTokens:30000,thinkingConfig:{thinkingLevel:'low'}}})});
-  const d=await r.json().catch(()=>null);if(!r.ok)throw Object.assign(new Error(d?.error?.message||'GEMINI_HTTP_'+r.status),{status:r.status});
-  const text=(d?.candidates?.[0]?.content?.parts||[]).map(x=>x.text||'').join('');if(!text)throw Object.assign(new Error('AI_EMPTY_RESPONSE'),{status:502});
-  try{return JSON.parse(text);}catch(_){return {answer:text};}
+
+// -------------------- Основной обработчик --------------------
+async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+
+  // Если GET — возвращаем HTML-интерфейс
+  if (req.method === 'GET') {
+    res.status(200).setHeader('Content-Type', 'text/html').send(getHtml());
+    return;
+  }
+
+  // Иначе только POST
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'METHOD_NOT_ALLOWED' });
+  }
+
+  try {
+    const admin = await adminAuth(req);
+    const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+    const action = clean(body.action || 'audit', 30);
+
+    if (action === 'apply') {
+      const result = await applyChanges(body.changes, admin);
+      return res.status(200).json({ ok: true, ...result });
+    }
+
+    const snap = await repoSnapshot();
+    const logs = await vercelSnapshot();
+    const result = await callGemini(
+      prompt(snap.context, logs, body.message || '', body.mode || action, body.history || [])
+    );
+    return res.status(200).json({
+      ok: true,
+      admin: admin.email,
+      model: GEMINI_MODEL,
+      result,
+      files_scanned: snap.files.length,
+      scanned_files: snap.files,
+    });
+  } catch (e) {
+    const status = Number(e?.status) || 500;
+    console.error('[admin-ai-audit]', e);
+    return res.status(status).json({ error: clean(e?.message || 'AI_AUDIT_FAILED', 300) });
+  }
 }
-module.exports=handler;
+
+async function callGemini(promptText) {
+  if (!GEMINI_API_KEY) throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'), { status: 503 });
+  const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent', {
+    method: 'POST',
+    headers: { 'x-goog-api-key': GEMINI_API_KEY, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: promptText }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: 30000,
+        thinkingConfig: { thinkingLevel: 'low' }
+      }
+    })
+  });
+  const d = await r.json().catch(() => null);
+  if (!r.ok) throw Object.assign(new Error(d?.error?.message || 'GEMINI_HTTP_' + r.status), { status: r.status });
+  const text = (d?.candidates?.[0]?.content?.parts || []).map(x => x.text || '').join('');
+  if (!text) throw Object.assign(new Error('AI_EMPTY_RESPONSE'), { status: 502 });
+  try { return JSON.parse(text); } catch (_) { return { answer: text }; }
+}
+
+module.exports = handler;
