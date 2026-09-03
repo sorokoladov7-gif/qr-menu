@@ -15,51 +15,6 @@
   var statsMixin = window.__QR_ADMIN_STATISTICS_MIXIN__;
   var mixins = [coreMixin, venuesMixin, managersMixin, staffMixin, subsMixin, paymentsMixin, menuMixin, settingsMixin, templatesMixin, statsMixin];
 
-  /* Public AI branding. The provider/model remains an implementation detail. */
-  window.__QR_AI_BRAND__ = window.__QR_AI_BRAND__ || {
-    name: 'Qrchick',
-    shortName: 'Q',
-    avatar: null
-  };
-
-  function applyQrchickBrand(root) {
-    if (!root) return;
-    var brand = window.__QR_AI_BRAND__;
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    var node;
-    while ((node = walker.nextNode())) {
-      if (node.nodeValue && /Gemini/i.test(node.nodeValue)) {
-        node.nodeValue = node.nodeValue.replace(/Gemini/gi, brand.name);
-      }
-    }
-    root.querySelectorAll('.qr-ai-avatar').forEach(function(el) {
-      if (!el.closest('.qr-ai-user')) el.textContent = brand.shortName;
-    });
-    var fab = root.querySelector('#qr-ai-fab');
-    if (fab) {
-      fab.textContent = brand.shortName;
-      fab.title = 'Открыть ' + brand.name;
-      fab.setAttribute('aria-label', 'Открыть ' + brand.name);
-    }
-    var drawer = root.querySelector('#qr-ai-drawer');
-    if (drawer) drawer.setAttribute('aria-label', brand.name + ' — инженерный помощник');
-    var input = root.querySelector('#qr-ai-message');
-    if (input) input.placeholder = input.placeholder.replace(/Gemini/gi, brand.name);
-  }
-
-  function watchQrchickBrand() {
-    var apply = function(){
-      var root = document.getElementById('qr-ai-center');
-      if (root) applyQrchickBrand(root);
-    };
-    if (window.MutationObserver) {
-      var observer = new MutationObserver(function(){ apply(); });
-      observer.observe(document.body, {childList:true, subtree:true, characterData:true});
-      window.__QR_QRCHICK_BRAND_OBSERVER__ = observer;
-    }
-    apply();
-  }
-
   var appData = function() {
     var state = {};
     mixins.forEach(function(m) { if (m && m.data) Object.assign(state, m.data()); });
@@ -132,20 +87,20 @@
     var settings=JSON.parse(JSON.stringify(this.adminDesignTemplate));
     db.from('venues').update({design_settings:settings}).eq('id',this.designTarget).then(function(r){
       if(r.error) throw r.error; self.venueDesignTemplate=settings; return self.loadBaseData();
-    }).then(function(){alert('Глобальный шаблон применён к заведению "'+venue.name+'"');}).catch(function(e){alert('Ошибка: '+e.message);});
+    }).then(function(){alert('Глобальный шаблон применён к заведению \"'+venue.name+'\"');}).catch(function(e){alert('Ошибка: '+e.message);});
   };
   appMethods.applyGlobalToVenueById = function(venueId) {
     var self=this, venue=(this.venues||[]).find(function(v){return v.id===venueId;});
-    if(!venue || !confirm('Применить глобальный шаблон к заведению "'+venue.name+'" ?')) return;
+    if(!venue || !confirm('Применить глобальный шаблон к заведению \"'+venue.name+'\" ?')) return;
     var settings=JSON.parse(JSON.stringify(this.adminDesignTemplate));
     db.from('venues').update({design_settings:settings}).eq('id',venueId).then(function(r){
       if(r.error) throw r.error; return self.loadBaseData();
-    }).then(function(){alert('Глобальный шаблон применён к заведению "'+venue.name+'"');}).catch(function(e){alert('Ошибка: '+e.message);});
+    }).then(function(){alert('Глобальный шаблон применён к заведению \"'+venue.name+'\"');}).catch(function(e){alert('Ошибка: '+e.message);});
   };
   appMethods.resetVenueDesign = function() {
     if (this.designTarget === 'global') return;
     var self=this, venue=(this.venues||[]).find(function(v){return v.id===self.designTarget;});
-    if(!venue || !confirm('Сбросить настройки дизайна для заведения "'+venue.name+'" на глобальный шаблон?')) return;
+    if(!venue || !confirm('Сбросить настройки дизайна для заведения \"'+venue.name+'\" на глобальный шаблон?')) return;
     db.from('venues').update({design_settings:null}).eq('id',this.designTarget).then(function(r){
       if(r.error) throw r.error; self.venueDesignTemplate=null; return self.loadBaseData();
     }).then(function(){alert('Настройки сброшены. Теперь заведение использует глобальный шаблон.');}).catch(function(e){alert('Ошибка: '+e.message);});
@@ -197,7 +152,6 @@
     window.__QR_ADMIN_VUE_APP__=app;
     window.__QR_ADMIN_APP__=true;
     var ai=document.createElement('script'); ai.src='/js/admin/admin-ai-audit.js'; ai.async=true; document.head.appendChild(ai);
-    watchQrchickBrand();
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mountApp,{once:true});
   else mountApp();
