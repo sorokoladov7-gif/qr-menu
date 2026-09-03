@@ -6,8 +6,8 @@ const crypto = require('node:crypto');
 const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
-const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.8-flash';
-const FALLBACK_MODELS = ['gemini-3.7-flash'];
+const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
+const FALLBACK_MODELS = ['gemini-3.8-flash'];
 const GEMINI_TIMEOUT_MS = 50000;
 const SITE_TIMEOUT_MS = 46000;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -221,8 +221,8 @@ async function callGemini(parts) {
         body: JSON.stringify({
           contents: [{ role: 'user', parts }],
           generationConfig: {
-            response_mime_type: 'application/json',
-            response_schema: SCHEMA,
+            responseMimeType: 'application/json',
+            responseSchema: SCHEMA,
             maxOutputTokens: 24000,
             thinkingConfig: { thinkingLevel: 'low' }
           }
@@ -236,13 +236,16 @@ async function callGemini(parts) {
       try { parsed = JSON.parse(text); } catch (_) { throw Object.assign(new Error('AI_INVALID_JSON'), { status: 502 }); }
       return { data: parsed, model };
     } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504 });
+      }
       lastError = error;
       const status = Number(error?.status) || 0;
       const retryableHttp = status === 408 || status === 429 || status >= 500;
+      console.error('[menu-import] Gemini upstream', { model, status, message: clean(error?.message, 300) });
       if (!retryableHttp) throw error;
     } finally { clearTimeout(timer); }
   }
-  if (lastError?.name === 'AbortError') throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504 });
   throw lastError || Object.assign(new Error('AI_IMPORT_FAILED'), { status: 502 });
 }
 
@@ -500,7 +503,7 @@ module.exports = async function handler(req, res) {
     const code = String(error?.message || 'IMPORT_ERROR');
     const status = Number(error?.status) || (code === 'UNSUPPORTED_FILE' ? 415 : 500);
     const safeCode = code.length > 80 || /\s/.test(code) ? 'IMPORT_ERROR' : code;
-    console.error('[menu-import]', safeCode);
+    console.error('[menu-import]', safeCode, status, clean(error?.message, 300));
     return res.status(status).json({ ok: false, error: { code: safeCode, message: errorMessage(safeCode) } });
   } finally {
     await deleteTempObject(tempPath);
