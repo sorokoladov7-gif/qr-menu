@@ -28,7 +28,17 @@ async function repoSnapshot(){
   const tree=await gh('/git/trees/'+encodeURIComponent(GITHUB_BRANCH)+'?recursive=1');
   const files=(tree.tree||[]).filter(x=>x.type==='blob'&&!shouldSkip(x.path)&&/\.(js|mjs|cjs|ts|tsx|html|css|json|sql|md)$/i.test(x.path)).slice(0,MAX_FILES);
   const chunks=[]; let total=0;
-  for(const f of files){try{const d=await gh('/contents/'+f.path+'?ref='+encodeURIComponent(GITHUB_BRANCH));const text=d?.encoding==='base64'?Buffer.from(d.content||'','base64').toString('utf8'):String(d?.content||'');const part='===== FILE: '+f.path+' =====\n'+text.slice(0,MAX_FILE_CHARS);if(total+part.length>MAX_CONTEXT_CHARS)break;chunks.push(part);total+=part.length;}catch(e){chunks.push('===== FILE: '+f.path+' =====\n[UNREADABLE]');}}
+  for(const f of files){
+    try{
+      const rawUrl='https://raw.githubusercontent.com/'+GITHUB_REPO+'/'+encodeURIComponent(GITHUB_BRANCH)+'/'+f.path.split('/').map(encodeURIComponent).join('/');
+      const r=await fetch(rawUrl,{headers:{'User-Agent':'QR-Menu-Admin-AI-Audit'}});
+      if(!r.ok)throw new Error('RAW_HTTP_'+r.status);
+      const text=await r.text();
+      const part='===== FILE: '+f.path+' =====\n'+text.slice(0,MAX_FILE_CHARS);
+      if(total+part.length>MAX_CONTEXT_CHARS)break;
+      chunks.push(part); total+=part.length;
+    }catch(e){chunks.push('===== FILE: '+f.path+' =====\n[UNREADABLE]');}
+  }
   return {files:files.map(x=>x.path),context:chunks.join('\n\n')};
 }
 async function vercelSnapshot(){
