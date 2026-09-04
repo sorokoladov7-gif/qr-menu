@@ -4,14 +4,6 @@
   if (window.__QR_MANAGER_CORE__) return;
   window.__QR_MANAGER_CORE__ = true;
 
-  /*
-   * Рецептуры стартуют на DOMContentLoaded раньше, чем пользователь успевает
-   * выбрать заведение. Старый manager_venue_id из предыдущего входа мог быть
-   * чужим или уже неактуальным и приводил к RPC P0001 forbidden.
-   * Capture-фаза очищает только устаревший bootstrap-идентификатор до того,
-   * как manager-recipes выполнит свой первый loadAll(). После явного выбора
-   * manager-venues снова записывает актуальный UUID и отправляет событие.
-   */
   try {
     document.addEventListener('DOMContentLoaded', function(){
       try { localStorage.removeItem('manager_venue_id'); } catch(e) {}
@@ -107,13 +99,6 @@
           if (typeof self.loadVenueTemplates === 'function') await self.loadVenueTemplates();
           if (typeof self.loadMyVenues === 'function') await self.loadMyVenues();
 
-          /*
-           * После загрузки кабинета всегда показываем список заведений.
-           * Ранее здесь автоматически восстанавливался manager_venue_id из
-           * localStorage и сразу открывалось сохранённое заведение. Это делало
-           * поведение после обновления страницы зависимым от старого состояния.
-           * Теперь выбор заведения выполняется только явным действием пользователя.
-           */
           self.ready = true;
         } catch(e) {
           console.error('[Manager] init:', e);
@@ -125,4 +110,34 @@
   };
 
   window.__QR_MANAGER_CORE_MIXIN__ = coreMixin;
+
+  /* QR-Menu — вкладка «Интеграции» для кабинета управляющего. */
+  function addIntegrationsLink(){
+    if (!/\/manager\.html$/i.test(location.pathname)) return;
+    var tabs = document.querySelector('.tabs');
+    if (!tabs || tabs.querySelector('[data-qr-integrations-link]')) return;
+    var link = document.createElement('a');
+    link.href = '/integrations.html';
+    link.textContent = '🔗 Интеграции';
+    link.setAttribute('data-qr-integrations-link', '1');
+    link.className = 'qr-integrations-tab';
+    link.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;text-decoration:none;cursor:pointer;';
+    tabs.appendChild(link);
+  }
+
+  function initIntegrationsLink(){
+    addIntegrationsLink();
+    var attempts = 0;
+    var timer = setInterval(function(){
+      addIntegrationsLink();
+      attempts++;
+      if (document.querySelector('[data-qr-integrations-link]') || attempts >= 40) clearInterval(timer);
+    }, 250);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIntegrationsLink, { once: true });
+  } else {
+    initIntegrationsLink();
+  }
 })();
