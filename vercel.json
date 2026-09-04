@@ -11,10 +11,15 @@
   "functions": {
     "api/import-site.js":{"maxDuration":60,"memory":1024},
     "api/import-ai.js":{"maxDuration":60,"memory":1024},
-    "api/cron/integration-sync.js":{"maxDuration":60,"memory":1024}
+    "api/cron.js":{"maxDuration":60,"memory":1024},
+    "api/integrations.js":{"maxDuration":60,"memory":1024},
+    "api/payments.js":{"maxDuration":60,"memory":1024}
   },
   "rewrites": [
     {"source":"/api/menu/import","destination":"/api/import-ai"},
+    {"source":"/api/integrations/:path*","destination":"/api/integrations"},
+    {"source":"/api/payments/yookassa/:path*","destination":"/api/payments"},
+    {"source":"/api/cron/integration-sync","destination":"/api/cron"},
     {"source":"/recipe-images/:slug*","destination":"https://theunitools.com/recipes/:slug*"}
   ],
   "headers": [
