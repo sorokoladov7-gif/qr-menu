@@ -8,7 +8,7 @@ const PROVIDERS={
   saby_presto:{name:'Saby Presto',category:'POS',mode:'api_service_auth',implemented:true},
   yuma:{name:'YUMA',category:'POS',mode:'api',implemented:false},
   poster:{name:'Poster',category:'POS',mode:'api',implemented:false},
-  syrve:{name:'Syrve',category:'POS',mode:'api',implemented:false},
+  syrve:{name:'Syrve',category:'POS',mode:'api',implemented:true},
   tillypad:{name:'Tillypad',category:'POS',mode:'adapter',implemented:false},
   evotor:{name:'Эвотор',category:'POS',mode:'api',implemented:false},
   frontol:{name:'Frontol',category:'POS',mode:'adapter',implemented:false},
