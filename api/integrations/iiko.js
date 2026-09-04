@@ -2,131 +2,22 @@ const crypto = require('crypto');
 const { bearer, getManagerUser } = require('../_lib/manager-auth');
 
 const SUPABASE_URL = 'https://ulxfsozdryqrnlxzlblt.supabase.co';
-const SUPABASE_PUBLIC_KEY = 'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 const IIKO_BASE = (process.env.IIKO_API_BASE_URL || 'https://api-ru.iiko.services').replace(/\/$/, '');
 const IIKO_TOKEN_PATH = process.env.IIKO_TOKEN_PATH || '/api/1/access_token';
-
-function send(res, status, body) {
-  res.status(status).setHeader('Content-Type', 'application/json; charset=utf-8').end(JSON.stringify(body));
+function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8').end(JSON.stringify(body));}
+function serviceHeaders(){const key=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY;if(!key)throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');return {apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'};}
+async function sb(path,options={}){const response=await fetch(`${SUPABASE_URL}${path}`,{...options,headers:{...serviceHeaders(),...(options.headers||{})}});const text=await response.text();let data=null;try{data=text?JSON.parse(text):null;}catch(_){data={raw:text};}if(!response.ok)throw new Error((data&&(data.message||data.error))||`Supabase ${response.status}`);return data;}
+function encryptionKey(){const raw=process.env.INTEGRATION_ENCRYPTION_KEY;if(!raw)throw new Error('INTEGRATION_ENCRYPTION_KEY is not configured');return crypto.createHash('sha256').update(raw).digest();}
+function encrypt(value){const iv=crypto.randomBytes(12);const cipher=crypto.createCipheriv('aes-256-gcm',encryptionKey(),iv);const encrypted=Buffer.concat([cipher.update(JSON.stringify(value),'utf8'),cipher.final()]);return [iv.toString('base64url'),cipher.getAuthTag().toString('base64url'),encrypted.toString('base64url')].join('.');}
+function decrypt(value){const [iv,tag,payload]=String(value||'').split('.');if(!iv||!tag||!payload)throw new Error('invalid_credentials');const decipher=crypto.createDecipheriv('aes-256-gcm',encryptionKey(),Buffer.from(iv,'base64url'));decipher.setAuthTag(Buffer.from(tag,'base64url'));return JSON.parse(Buffer.concat([decipher.update(Buffer.from(payload,'base64url')),decipher.final()]).toString('utf8'));}
+async function assertVenueAccess(userId,venueId,role){
+  if(role==='admin')return;
+  const rows=await sb(`/rest/v1/manager_venues?manager_id=eq.${encodeURIComponent(userId)}&venue_id=eq.${encodeURIComponent(venueId)}&select=id,venue_id&limit=1`);
+  if(!Array.isArray(rows)||!rows.length)throw Object.assign(new Error('venue_access_required'),{status:403});
 }
-
-function serviceHeaders() {
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
-  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');
-  return { apikey: key, Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' };
-}
-
-async function sb(path, options = {}) {
-  const response = await fetch(`${SUPABASE_URL}${path}`, { ...options, headers: { ...serviceHeaders(), ...(options.headers || {}) } });
-  const text = await response.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (_) { data = { raw: text }; }
-  if (!response.ok) throw new Error((data && (data.message || data.error)) || `Supabase ${response.status}`);
-  return data;
-}
-
-function encryptionKey() {
-  const raw = process.env.INTEGRATION_ENCRYPTION_KEY;
-  if (!raw) throw new Error('INTEGRATION_ENCRYPTION_KEY is not configured');
-  return crypto.createHash('sha256').update(raw).digest();
-}
-
-function encrypt(value) {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', encryptionKey(), iv);
-  const encrypted = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]);
-  return [iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), encrypted.toString('base64url')].join('.');
-}
-
-function decrypt(value) {
-  const [iv, tag, payload] = String(value || '').split('.');
-  if (!iv || !tag || !payload) throw new Error('invalid_credentials');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(iv, 'base64url'));
-  decipher.setAuthTag(Buffer.from(tag, 'base64url'));
-  return JSON.parse(Buffer.concat([decipher.update(Buffer.from(payload, 'base64url')), decipher.final()]).toString('utf8'));
-}
-
-async function assertVenueAccess(userId, venueId) {
-  const rows = await sb(`/rest/v1/manager_venue_permissions?manager_id=eq.${encodeURIComponent(userId)}&venue_id=eq.${encodeURIComponent(venueId)}&select=venue_id&limit=1`);
-  if (!Array.isArray(rows) || !rows.length) {
-    const profiles = await sb(`/rest/v1/profiles?id=eq.${encodeURIComponent(userId)}&role=eq.admin&select=id&limit=1`);
-    if (!Array.isArray(profiles) || !profiles.length) throw Object.assign(new Error('venue_access_required'), { status: 403 });
-  }
-}
-
-async function iikoRequest(path, token, body) {
-  const response = await fetch(`${IIKO_BASE}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body || {})
-  });
-  const text = await response.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (_) { data = { raw: text }; }
-  if (!response.ok) throw new Error((data && (data.message || data.description || data.error)) || `iiko ${response.status}`);
-  return data;
-}
-
-async function getIikoToken(credentials) {
-  // iiko changed its API authorization scheme in 2026. Credentials are intentionally
-  // passed through server-side and never exposed to the browser.
-  const response = await fetch(`${IIKO_BASE}${IIKO_TOKEN_PATH}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(credentials)
-  });
-  const text = await response.text();
-  let data = null;
-  try { data = text ? JSON.parse(text) : null; } catch (_) { data = { raw: text }; }
-  if (!response.ok) throw new Error((data && (data.message || data.description || data.error)) || `iiko auth ${response.status}`);
-  const token = data && (data.token || data.access_token);
-  if (!token) throw new Error('iiko_token_missing');
-  return token;
-}
-
-module.exports = async function handler(req, res) {
-  if (req.method !== 'POST') return send(res, 405, { error: 'method_not_allowed' });
-  try {
-    const user = await getManagerUser(bearer(req));
-    const { action, venue_id: venueId, credentials } = req.body || {};
-    if (!venueId) return send(res, 400, { error: 'venue_id_required' });
-    await assertVenueAccess(user.id, venueId);
-
-    if (action === 'connect') {
-      if (!credentials || typeof credentials !== 'object') return send(res, 400, { error: 'credentials_required' });
-      const token = await getIikoToken(credentials);
-      const meta = await iikoRequest('/api/1/organizations', token, {});
-      const organizations = Array.isArray(meta) ? meta : (meta.organizations || meta.data || []);
-      const encrypted = encrypt(credentials);
-      const existing = await sb(`/rest/v1/venue_integrations?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.iiko&select=id&limit=1`);
-      const payload = { venue_id: venueId, provider: 'iiko', status: 'connected', credentials_encrypted: encrypted, metadata: { organizations_count: organizations.length }, error_message: null };
-      if (existing && existing[0]) {
-        await sb(`/rest/v1/venue_integrations?id=eq.${encodeURIComponent(existing[0].id)}`, { method: 'PATCH', body: JSON.stringify(payload) });
-      } else {
-        await sb('/rest/v1/venue_integrations', { method: 'POST', body: JSON.stringify(payload) });
-      }
-      return send(res, 200, { ok: true, provider: 'iiko', organizations_count: organizations.length });
-    }
-
-    const rows = await sb(`/rest/v1/venue_integrations?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.iiko&select=id,status,credentials_encrypted,metadata,last_sync_at,error_message&limit=1`);
-    const integration = rows && rows[0];
-    if (!integration || !integration.credentials_encrypted) return send(res, 404, { error: 'iiko_not_connected' });
-    const credentialsData = decrypt(integration.credentials_encrypted);
-    const token = await getIikoToken(credentialsData);
-
-    if (action === 'test') {
-      const organizations = await iikoRequest('/api/1/organizations', token, {});
-      return send(res, 200, { ok: true, organizations });
-    }
-
-    if (action === 'organizations') {
-      const organizations = await iikoRequest('/api/1/organizations', token, {});
-      return send(res, 200, { ok: true, organizations });
-    }
-
-    return send(res, 400, { error: 'unknown_action' });
-  } catch (e) {
-    const status = e.status || 500;
-    return send(res, status, { error: e.message || 'integration_error' });
-  }
-};
+async function iikoRequest(path,token,body){const response=await fetch(`${IIKO_BASE}${path}`,{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${token}`},body:JSON.stringify(body||{})});const text=await response.text();let data=null;try{data=text?JSON.parse(text):null;}catch(_){data={raw:text};}if(!response.ok)throw new Error((data&&(data.message||data.description||data.error))||`iiko ${response.status}`);return data;}
+async function getIikoToken(credentials){const response=await fetch(`${IIKO_BASE}${IIKO_TOKEN_PATH}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(credentials)});const text=await response.text();let data=null;try{data=text?JSON.parse(text):null;}catch(_){data={raw:text};}if(!response.ok)throw new Error((data&&(data.message||data.description||data.error))||`iiko auth ${response.status}`);const token=data&&(data.token||data.access_token);if(!token)throw new Error('iiko_token_missing');return token;}
+module.exports=async function handler(req,res){if(req.method!=='POST')return send(res,405,{error:'method_not_allowed'});try{const user=await getManagerUser(bearer(req));const {action,venue_id:venueId,credentials}=req.body||{};if(!venueId)return send(res,400,{error:'venue_id_required'});await assertVenueAccess(user.id,venueId,user.role);
+if(action==='connect'){if(!credentials||typeof credentials!=='object')return send(res,400,{error:'credentials_required'});const token=await getIikoToken(credentials);const meta=await iikoRequest('/api/1/organizations',token,{});const organizations=Array.isArray(meta)?meta:(meta.organizations||meta.data||[]);const encrypted=encrypt(credentials);const existing=await sb(`/rest/v1/venue_integrations?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.iiko&select=id&limit=1`);const payload={venue_id:venueId,provider:'iiko',status:'connected',credentials_encrypted:encrypted,metadata:{organizations_count:organizations.length},error_message:null};if(existing&&existing[0])await sb(`/rest/v1/venue_integrations?id=eq.${encodeURIComponent(existing[0].id)}`,{method:'PATCH',body:JSON.stringify(payload)});else await sb('/rest/v1/venue_integrations',{method:'POST',body:JSON.stringify(payload)});return send(res,200,{ok:true,provider:'iiko',organizations_count:organizations.length});}
+const rows=await sb(`/rest/v1/venue_integrations?venue_id=eq.${encodeURIComponent(venueId)}&provider=eq.iiko&select=id,status,credentials_encrypted,metadata,last_sync_at,error_message&limit=1`);const integration=rows&&rows[0];if(!integration||!integration.credentials_encrypted)return send(res,404,{error:'iiko_not_connected'});const token=await getIikoToken(decrypt(integration.credentials_encrypted));if(action==='test'||action==='organizations'){const organizations=await iikoRequest('/api/1/organizations',token,{});return send(res,200,{ok:true,organizations});}return send(res,400,{error:'unknown_action'});
+}catch(e){return send(res,e.status||500,{error:e.message||'integration_error'});}};
