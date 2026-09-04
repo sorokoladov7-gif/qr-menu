@@ -35,13 +35,18 @@ body{min-height:100vh}.wrap{max-width:980px;margin:0 auto;padding:28px 18px}.hea
 <div id="importSummary" class="summary hidden"></div><div id="menuResult" class="result hidden"></div>
 </div>
 </section>
-<section class="cardx"><div class="icon">🟢</div><h2>Quick Resto</h2><span class="status">Следующий этап</span><p class="muted">Адаптер меню, цен и заказов.</p></section>
-<section class="cardx"><div class="icon">🔵</div><h2>r_keeper</h2><span class="status">Следующий этап</span><p class="muted">Адаптер меню, цен, заказов и статусов.</p></section>
-<section class="cardx"><div class="icon">🟡</div><h2>1С</h2><span class="status">Следующий этап</span><p class="muted">Обмен справочниками и документами.</p></section>
+<section class="cardx hub-card" data-provider="quick_resto"><div class="icon">🟢</div><h2>Quick Resto</h2><span class="status">Доступно к настройке</span><p class="muted">Синхронизация меню, категорий, цен и данных продаж через API Quick Resto.</p><button class="btn btn-primary hub-open" type="button">Настроить</button></section>
+<section class="cardx hub-card" data-provider="r_keeper"><div class="icon">🔵</div><h2>r_keeper</h2><span class="status">Доступно к настройке</span><p class="muted">Подключение через API r_keeper / White Server с выбором объекта и меню.</p><button class="btn btn-primary hub-open" type="button">Настроить</button></section>
+<section class="cardx hub-card" data-provider="onec"><div class="icon">🟡</div><h2>1С</h2><span class="status">Доступно к настройке</span><p class="muted">Обмен номенклатурой, ценами и справочниками с 1С через HTTP-обмен.</p><button class="btn btn-primary hub-open" type="button">Настроить</button></section>
+<section class="cardx hub-card" data-provider="poster"><div class="icon">🟠</div><h2>Poster</h2><span class="status">Доступно к настройке</span><p class="muted">POS-интеграция для меню, товаров и цен через Poster API.</p><button class="btn btn-primary hub-open" type="button">Настроить</button></section>
+<section class="cardx hub-card" data-provider="evotor"><div class="icon">🟦</div><h2>Эвотор</h2><span class="status">Доступно к настройке</span><p class="muted">Облачная интеграция номенклатуры, групп, модификаций и изображений.</p><button class="btn btn-primary hub-open" type="button">Настроить</button></section>
+<section class="cardx hub-card" data-provider="tillypad"><div class="icon">🟪</div><h2>Tillypad</h2><span class="status">Подключение через адаптер</span><p class="muted">Подготовлен отдельный адаптер для POS-системы общепита.</p><button class="btn btn-ghost hub-open" type="button">Настроить</button></section>
+<section class="cardx hub-card" data-provider="frontol"><div class="icon">🟥</div><h2>Frontol</h2><span class="status">Подключение через адаптер</span><p class="muted">Подключение локального POS через отдельный шлюз синхронизации.</p><button class="btn btn-ghost hub-open" type="button">Настроить</button></section>
 </div>
 <div class="notice" style="margin-top:18px"><b>Безопасность:</b> секреты iiko не сохраняются в браузере и передаются только серверному API. Данные интеграции привязаны к выбранному заведению.</div>
 </main>
 <script src="/js/config.js"></script>
+<script src="/js/integrations-hub.js"></script>
 <script>
 (function(){'use strict';
 var SUPABASE_URL='https://ulxfsozdryqrnlxzlblt.supabase.co',SUPABASE_KEY=(window.QR_CONFIG&&window.QR_CONFIG.SUPABASE_ANON_KEY)||'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq',db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.sessionStorage,storageKey:'qr-menu-auth-account'}});
