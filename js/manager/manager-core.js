@@ -12,9 +12,9 @@
     methods:{
       fmt:function(v){return window.fmt(v);},fmtDate:function(d){return window.fmtDate(d);},statusName:function(s){return window.statusName(s);},statusColor:function(s){return window.statusColor(s);},categoryLabel:function(c){return window.categoryLabel(c);},esc:function(s){return window.esc(s);},slugify:function(v){return window.slugify(v);},norm:function(s){return window.norm(s);},copyText:function(t){window.copyText(t,this.showToast);},
       showToast:function(text,type){type=type||'ok';this.toast={text:text,type:type};var self=this;clearTimeout(this._t);this._t=setTimeout(function(){self.toast=null;},2500);},
-      resizeImage:function(file,mw,q){return new Promise(function(res,rej){var reader=new FileReader();reader.onload=function(e){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas'),w=img.width,h=img.height;if(w>mw){h=Math.round(h*mw/w);w=mw;}canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(function(b){b?res(b):rej(new Error('Ошибка сжатия'));},'image/jpeg',q);};img.onerror=function(){rej(new Error('Не удалось загрузить изображение'));};img.src=e.target.result;};reader.onerror=function(){rej(new Error('Ошибка чтения файла'));};reader.readAsDataURL(file);});},
+      resizeImage:function(file,mw,q){return new Promise(function(res,rej){var reader=new FileReader();reader.onload=function(e){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas'),w=img.width,h=img.height;if(w>mw){h=Math.round(h*mw/w);w=mw;}canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(function(b){b?res(b):rej(new Error('Ошибка сжатия'));},'image/jpeg',q);};img.onerror=function(){rej(new Error('Не удалось загрузить изображение'));};img.src=e.target.result;};reader.onerror=function(){rej(new Error('Ошибка чтения файла'));reader.readAsDataURL(file);});},
       logout:function(){try{db.auth.signOut();}catch(e){}if(this.timer)clearInterval(this.timer);location.href='/index.html';},
-      init:async function(){var self=this;self.loadError='';self.ready=false;try{if(typeof db==='undefined')throw new Error('Supabase не подключен');if(typeof requireAuth!=='function')throw new Error('Функция requireAuth не найдена. Проверьте app.js');var profile=await requireAuth(['manager','admin']);self.profile=profile;if(!profile){self.ready=true;return;}await db.from('profiles').update({last_login_at:new Date().toISOString()}).eq('id',profile.id);var planResult=await db.from('plans').select('*').order('price');if(planResult.error)throw planResult.error;self.plans=planResult.data||[];if(typeof self.loadVenueTemplates==='function')await self.loadVenueTemplates();if(typeof self.loadMyVenues==='function')await self.loadMyVenues();self.ready=true;}catch(e){console.error('[Manager] init:',e);self.loadError=e&&e.message?e.message:String(e);self.ready=true;}}
+      init:async function(){var self=this;self.loadError='';self.ready=false;try{if(typeof db==='undefined')throw new Error('Supabase не подключен');if(typeof requireAuth!=='function')throw new Error('Функция requireAuth не найдена. Проверьте app.js');var profile=await requireAuth(['manager','admin']);self.profile=profile;if(!profile){self.ready=true;return;}await db.from('profiles').update({last_login_at:new Date().toISOString()}).eq('id',profile.id);var planResult=await db.from('plans').select('*').order('price');if(planResult.error)throw planResult.error;if(typeof self.loadVenueTemplates==='function')await self.loadVenueTemplates();if(typeof self.loadMyVenues==='function')await self.loadMyVenues();self.ready=true;}catch(e){console.error('[Manager] init:',e);self.loadError=e&&e.message?e.message:String(e);self.ready=true;}}
     }
   };
   window.__QR_MANAGER_CORE_MIXIN__=coreMixin;
@@ -34,9 +34,7 @@
   function initIntegrationsLink(){addIntegrationsLink();var attempts=0;var timer=setInterval(function(){addIntegrationsLink();attempts++;if(document.querySelector('[data-qr-integrations-link]')||attempts>=40)clearInterval(timer);},250);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initIntegrationsLink,{once:true});else initIntegrationsLink();
 
-  /* Надёжный fallback UI для настроек доставки.
-     manager-settings.js раньше искал v-if после компиляции Vue, но Vue 3 удаляет этот атрибут.
-     Поэтому добавляем блок в уже отрисованный контейнер настроек независимо от состояния шаблона. */
+  /* Надёжный fallback UI для настроек доставки. */
   function mountDeliveryFallback(){
     if(!/\/manager\.html$/i.test(location.pathname))return;
     var root=document.getElementById('app'),vm=window.__managerVue;
@@ -75,4 +73,54 @@
   }
   function watchDeliveryFallback(){var attempts=0,timer=setInterval(function(){mountDeliveryFallback();var vm=window.__managerVue;if(vm&&vm.tab==='settings'&&document.querySelector('[data-qr-delivery-fallback]')===null){if(attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},500);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',watchDeliveryFallback,{once:true});else watchDeliveryFallback();
+
+  /* Исправления сохранения настроек после инициализации Vue.
+     1) deliveryProviderCards не должны получать UUID строки БД вместо системного ключа провайдера.
+     2) Основная служба определяется сохранённым priority=1 и не сбрасывается на произвольный провайдер.
+     3) Координаты/адрес заведения сохраняются отдельным UPDATE до штатного saveVenue.
+  */
+  function installSettingsPersistencePatch(vm){
+    if(!vm||vm.__qrSettingsPersistencePatch)return;
+    vm.__qrSettingsPersistencePatch=true;
+    var providerIds=['yandex','delivery','samokat','custom'];
+    var originalLoad=vm.loadDeliverySettings;
+    if(typeof originalLoad==='function'){
+      vm.loadDeliverySettings=function(){
+        var self=this;
+        return Promise.resolve(originalLoad.apply(this,arguments)).then(function(result){
+          var cards=self.deliveryProviderCards||[];
+          cards.forEach(function(p,i){
+            var canonical=providerIds[i];
+            if(canonical){p.id=canonical;p.provider=canonical;}
+          });
+          var enabled=cards.filter(function(p){return p.enabled;}).sort(function(a,b){return Number(a.priority||100)-Number(b.priority||100);});
+          self.deliveryPrimaryProvider=enabled.length?enabled[0].id:'';
+          return result;
+        });
+      };
+    }
+    var originalSaveVenue=vm.saveVenue;
+    if(typeof originalSaveVenue==='function'){
+      vm.saveVenue=function(){
+        var self=this;
+        var venueId=self.venue&&self.venue.id;
+        var lat=Number(self.vform&&self.vform.latitude),lng=Number(self.vform&&self.vform.longitude);
+        var address=String(self.vform&&self.vform.address||'').trim()||null;
+        var payload={address:address,latitude:Number.isFinite(lat)?lat:null,longitude:Number.isFinite(lng)?lng:null,lat:Number.isFinite(lat)?lat:null,lng:Number.isFinite(lng)?lng:null};
+        if(!venueId||!self.perms||!self.perms.venue&&self.perms.delivery===false)return originalSaveVenue.apply(this,arguments);
+        return db.from('venues').update(payload).eq('id',venueId).then(function(r){
+          if(r.error)throw r.error;
+          return originalSaveVenue.apply(self,arguments);
+        }).catch(function(e){
+          console.error('[Manager] persistent venue coordinates:',e);
+          self.showToast('Ошибка сохранения адреса/геолокации: '+(e.message||String(e)),'error');
+        });
+      };
+    }
+  }
+  function watchSettingsPersistence(){
+    var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);
+  }
+  window.addEventListener('qr-manager-vue-ready',watchSettingsPersistence,{once:true});
+  if(window.__managerVue)watchSettingsPersistence();
 })();
