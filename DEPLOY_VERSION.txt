@@ -1,1 +1,1 @@
-Production deploy trigger after manager site/PDF menu import (v11).
+Production deploy trigger after Vercel Hobby API function consolidation (v12).
