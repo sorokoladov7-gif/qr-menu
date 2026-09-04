@@ -14,98 +14,38 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
   function isMobile(){ return window.matchMedia && window.matchMedia('(max-width: 900px)').matches; }
   function createButton(){
     if(!isMobile() || document.getElementById('qr-pwa-refresh')) return;
-    var btn=document.createElement('button');
-    btn.id='qr-pwa-refresh'; btn.type='button';
-    btn.setAttribute('aria-label','Очистить кэш и обновить приложение');
-    btn.innerHTML='<span aria-hidden="true">↻</span><b>Обновить</b>';
-    btn.style.cssText='position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(64px + env(safe-area-inset-top));bottom:auto;z-index:1100;display:flex;align-items:center;gap:7px;min-height:42px;padding:8px 12px;border:1px solid rgba(148,163,184,.28);border-radius:14px;background:rgba(15,23,42,.96);color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;touch-action:manipulation;transition:transform .18s ease,opacity .18s ease;';
-    var icon=btn.querySelector('span'); icon.style.cssText='font-size:20px;line-height:1;display:inline-block;';
-    btn.addEventListener('pointerdown',function(){btn.style.transform='scale(.96)';});
-    btn.addEventListener('pointerup',function(){btn.style.transform='scale(1)';});
-    btn.addEventListener('pointercancel',function(){btn.style.transform='scale(1)';});
-    btn.addEventListener('click',refreshPWA); document.body.appendChild(btn);
+    var btn=document.createElement('button'); btn.id='qr-pwa-refresh'; btn.type='button'; btn.setAttribute('aria-label','Очистить кэш и обновить приложение'); btn.innerHTML='<span aria-hidden="true">↻</span><b>Обновить</b>'; btn.style.cssText='position:fixed;right:max(12px,env(safe-area-inset-right));top:calc(64px + env(safe-area-inset-top));bottom:auto;z-index:1100;display:flex;align-items:center;gap:7px;min-height:42px;padding:8px 12px;border:1px solid rgba(148,163,184,.28);border-radius:14px;background:rgba(15,23,42,.96);color:#fff;font:700 12px/1 system-ui,-apple-system,sans-serif;box-shadow:0 10px 30px rgba(0,0,0,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);cursor:pointer;touch-action:manipulation;transition:transform .18s ease,opacity .18s ease;';
+    var icon=btn.querySelector('span'); icon.style.cssText='font-size:20px;line-height:1;display:inline-block;'; btn.addEventListener('pointerdown',function(){btn.style.transform='scale(.96)';}); btn.addEventListener('pointerup',function(){btn.style.transform='scale(1)';}); btn.addEventListener('pointercancel',function(){btn.style.transform='scale(1)';}); btn.addEventListener('click',refreshPWA); document.body.appendChild(btn);
   }
-  async function refreshPWA(){
-    var btn=document.getElementById('qr-pwa-refresh'); if(!btn || btn.dataset.busy==='1') return;
-    btn.dataset.busy='1'; btn.disabled=true; btn.innerHTML='<span aria-hidden="true">⟳</span><b>Обновление…</b>'; btn.style.opacity='.75';
-    try{
-      if('serviceWorker' in navigator){ try{ var registrations=await navigator.serviceWorker.getRegistrations(); await Promise.all(registrations.map(function(reg){return reg.unregister().catch(function(){return false;});})); }catch(e){console.warn('[QR PWA] Service Worker cleanup:',e);} }
-      if('caches' in window){ try{ var names=await caches.keys(); await Promise.all(names.map(function(name){return caches.delete(name);})); }catch(e){console.warn('[QR PWA] Cache Storage cleanup:',e);} }
-    }finally{
-      var url=location.href.split('#')[0]; url+=(url.indexOf('?')===-1?'?':'&')+'_pwa_refresh='+Date.now(); location.replace(url);
-    }
-  }
-  function init(){
-    createButton();
-    if(window.matchMedia){ var mq=window.matchMedia('(max-width: 900px)'); var handler=function(){var btn=document.getElementById('qr-pwa-refresh'); if(mq.matches)createButton(); else if(btn)btn.remove();}; if(mq.addEventListener)mq.addEventListener('change',handler); else if(mq.addListener)mq.addListener(handler); }
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true}); else init();
+  async function refreshPWA(){var btn=document.getElementById('qr-pwa-refresh');if(!btn||btn.dataset.busy==='1')return;btn.dataset.busy='1';btn.disabled=true;btn.innerHTML='<span aria-hidden="true">⟳</span><b>Обновление…</b>';btn.style.opacity='.75';try{if('serviceWorker' in navigator){try{var registrations=await navigator.serviceWorker.getRegistrations();await Promise.all(registrations.map(function(reg){return reg.unregister().catch(function(){return false;});}));}catch(e){console.warn('[QR PWA] Service Worker cleanup:',e);}}if('caches' in window){try{var names=await caches.keys();await Promise.all(names.map(function(name){return caches.delete(name);}));}catch(e){console.warn('[QR PWA] Cache Storage cleanup:',e);}}}finally{var url=location.href.split('#')[0];url+=(url.indexOf('?')===-1?'?':'&')+'_pwa_refresh='+Date.now();location.replace(url);}}
+  function init(){createButton();if(window.matchMedia){var mq=window.matchMedia('(max-width: 900px)');var handler=function(){var btn=document.getElementById('qr-pwa-refresh');if(mq.matches)createButton();else if(btn)btn.remove();};if(mq.addEventListener)mq.addEventListener('change',handler);else if(mq.addListener)mq.addListener(handler);}}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 
 /* Корпоративная навигация admin/manager. */
-(function(){
-  'use strict';
-  if(!/\/(admin|manager)\.html$/i.test(location.pathname)) return;
-  function initCorporateNavigation(){
-    if(document.body.dataset.qrCorpNav==='1') return;
-    var app=document.getElementById('app'); if(!app) return;
-    document.body.dataset.qrCorpNav='1'; document.body.classList.add('qr-corp-shell');
-    var toggle=document.createElement('button'); toggle.className='qr-corp-nav-toggle'; toggle.type='button'; toggle.setAttribute('aria-label','Открыть навигацию'); toggle.setAttribute('aria-expanded','false'); toggle.textContent='☰';
-    var overlay=document.createElement('div'); overlay.className='qr-corp-nav-overlay'; overlay.setAttribute('aria-hidden','true'); document.body.appendChild(toggle); document.body.appendChild(overlay);
-    function close(){document.body.classList.remove('nav-open');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';}
-    function open(){document.body.classList.add('nav-open');toggle.setAttribute('aria-expanded','true');toggle.textContent='×';}
-    toggle.addEventListener('click',function(){document.body.classList.contains('nav-open')?close():open();}); overlay.addEventListener('click',close); document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
-    document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tabs button');if(t&&window.matchMedia('(max-width:900px)').matches)setTimeout(close,0);},true);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(initCorporateNavigation,0);}); else setTimeout(initCorporateNavigation,0);
-  var observer=new MutationObserver(function(){if(!document.body.dataset.qrCorpNav)initCorporateNavigation();}); if(document.body)observer.observe(document.body,{childList:true,subtree:true});
-})();
+(function(){'use strict';if(!/\/(admin|manager)\.html$/i.test(location.pathname))return;function initCorporateNavigation(){if(document.body.dataset.qrCorpNav==='1')return;var app=document.getElementById('app');if(!app)return;document.body.dataset.qrCorpNav='1';document.body.classList.add('qr-corp-shell');var toggle=document.createElement('button');toggle.className='qr-corp-nav-toggle';toggle.type='button';toggle.setAttribute('aria-label','Открыть навигацию');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';var overlay=document.createElement('div');overlay.className='qr-corp-nav-overlay';overlay.setAttribute('aria-hidden','true');document.body.appendChild(toggle);document.body.appendChild(overlay);function close(){document.body.classList.remove('nav-open');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';}function open(){document.body.classList.add('nav-open');toggle.setAttribute('aria-expanded','true');toggle.textContent='×';}toggle.addEventListener('click',function(){document.body.classList.contains('nav-open')?close():open();});overlay.addEventListener('click',close);document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tabs button');if(t&&window.matchMedia('(max-width:900px)').matches)setTimeout(close,0);},true);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(initCorporateNavigation,0);});else setTimeout(initCorporateNavigation,0);var observer=new MutationObserver(function(){if(!document.body.dataset.qrCorpNav)initCorporateNavigation();});if(document.body)observer.observe(document.body,{childList:true,subtree:true});})();
 
 /* QR-Menu — site import loader for manager.html. */
-(function(){
-  'use strict';
-  if (!/\/manager\.html$/i.test(location.pathname)) return;
-  var SCRIPT_ID='qr-manager-site-import-loader',SCRIPT_SRC='/js/manager/manager-site-import.js',started=false;
-  function loadSiteImport(){
-    if(window.QRManagerSiteImport){if(typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();return;}
-    if(document.getElementById(SCRIPT_ID))return;
-    var script=document.createElement('script');script.id=SCRIPT_ID;script.src=SCRIPT_SRC;script.async=false;
-    script.onload=function(){if(window.QRManagerSiteImport&&typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();};
-    script.onerror=function(){console.error('[QR Manager] Не удалось загрузить manager-site-import.js:',SCRIPT_SRC);var existing=document.getElementById(SCRIPT_ID);if(existing)existing.remove();};
-    (document.head||document.documentElement).appendChild(script);
-  }
-  function start(){if(started)return;started=true;loadSiteImport();var attempts=0;var timer=setInterval(function(){attempts++;loadSiteImport();if(window.QRManagerSiteImport||attempts>=60)clearInterval(timer);},500);}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
-})();
+(function(){'use strict';if(!/\/manager\.html$/i.test(location.pathname))return;var SCRIPT_ID='qr-manager-site-import-loader',SCRIPT_SRC='/js/manager/manager-site-import.js',started=false;function loadSiteImport(){if(window.QRManagerSiteImport){if(typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();return;}if(document.getElementById(SCRIPT_ID))return;var script=document.createElement('script');script.id=SCRIPT_ID;script.src=SCRIPT_SRC;script.async=false;script.onload=function(){if(window.QRManagerSiteImport&&typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();};script.onerror=function(){console.error('[QR Manager] Не удалось загрузить manager-site-import.js:',SCRIPT_SRC);var existing=document.getElementById(SCRIPT_ID);if(existing)existing.remove();};(document.head||document.documentElement).appendChild(script);}function start(){if(started)return;started=true;loadSiteImport();var attempts=0;var timer=setInterval(function(){attempts++;loadSiteImport();if(window.QRManagerSiteImport||attempts>=60)clearInterval(timer);},500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
 
-/* Единая защита входа для всех кабинетов. */
-function safeRedirect(fallbackUrl, reason){
-  var last=parseInt(sessionStorage.getItem('last_redirect')||'0',10),now=Date.now();
-  if(now-last<3000){
-    document.body.innerHTML='<div style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:30px;background:#1f2937;color:#fff;border-radius:16px"><h2 style="color:#f87171">⚠️ Проблема с профилем</h2><p>Ваш email авторизован, но профиль не найден в базе данных.</p><p><b>Причина:</b> '+(reason||'неизвестно')+'</p><button onclick="sessionStorage.clear();location.reload()" style="margin-top:20px;padding:12px 24px;background:#6366f1;color:#fff;border:none;border-radius:8px">🔄 Очистить и попробовать снова</button></div>';return;
-  }
-  sessionStorage.setItem('last_redirect',String(now)); location.replace(fallbackUrl);
-}
-
-async function requireAuth(roles){
-  try{
-    const {data:{session}}=await db.auth.getSession();
-    if(!session){ safeRedirect('/login.html','нет активной сессии'); return null; }
-    const {data:profile,error}=await db.from('profiles').select('*').eq('id',session.user.id).maybeSingle();
-    if(error){ console.error('Profile fetch error:',error); safeRedirect('/login.html','ошибка чтения профиля: '+error.message); return null; }
-    if(!profile){ safeRedirect('/login.html','профиль ещё не создан серверной системой регистрации'); return null; }
-    if(roles&&roles.length&&roles.indexOf(profile.role)===-1){ safeRedirect('/login.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role); return null; }
-    return profile;
-  }catch(e){ console.error(e); safeRedirect('/login.html','исключение: '+e.message); return null; }
-}
-
+function safeRedirect(fallbackUrl, reason){var last=parseInt(sessionStorage.getItem('last_redirect')||'0',10),now=Date.now();if(now-last<3000){document.body.innerHTML='<div style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:30px;background:#1f2937;color:#fff;border-radius:16px"><h2 style="color:#f87171">⚠️ Проблема с профилем</h2><p>Ваш email авторизован, но профиль не найден в базе данных.</p><p><b>Причина:</b> '+(reason||'неизвестно')+'</p><button onclick="sessionStorage.clear();location.reload()" style="margin-top:20px;padding:12px 24px;background:#6366f1;color:#fff;border:none;border-radius:8px">🔄 Очистить и попробовать снова</button></div>';return;}sessionStorage.setItem('last_redirect',String(now));location.replace(fallbackUrl);}
+async function requireAuth(roles){try{const {data:{session}}=await db.auth.getSession();if(!session){safeRedirect('/login.html','нет активной сессии');return null;}const {data:profile,error}=await db.from('profiles').select('*').eq('id',session.user.id).maybeSingle();if(error){console.error('Profile fetch error:',error);safeRedirect('/login.html','ошибка чтения профиля: '+error.message);return null;}if(!profile){safeRedirect('/login.html','профиль ещё не создан серверной системой регистрации');return null;}if(roles&&roles.length&&roles.indexOf(profile.role)===-1){safeRedirect('/login.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role);return null;}return profile;}catch(e){console.error(e);safeRedirect('/login.html','исключение: '+e.message);return null;}}
 async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.clear();location.href='/login.html';}
 
+(function(){'use strict';if(!/\/menu\.html$/i.test(location.pathname))return;var lastVenueId=null,lastFee=null;function sync(){var el=document.getElementById('app');if(!el)return;try{var vm=el.__vueParentComponent?.proxy||el.vue_app?._instance?.proxy||null;if(!vm||!vm.venue)return;var id=vm.venue.id,raw=vm.venue.delivery_fee;var fee=raw===null||raw===undefined||raw===''?150:Number(raw);if(!isFinite(fee)||fee<0)fee=150;if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}}catch(e){}}if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;function start(){sync();setInterval(sync,250);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
+
+/* Public menu modifier UI loader. */
 (function(){
   'use strict';
   if(!/\/menu\.html$/i.test(location.pathname))return;
-  var lastVenueId=null,lastFee=null;
-  function sync(){var el=document.getElementById('app');if(!el)return;try{var vm=el.__vueParentComponent?.proxy||el.vue_app?._instance?.proxy||null;if(!vm||!vm.venue)return;var id=vm.venue.id,raw=vm.venue.delivery_fee;var fee=raw===null||raw===undefined||raw===''?150:Number(raw);if(!isFinite(fee)||fee<0)fee=150;if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}}catch(e){}}
-  if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;
-  function start(){sync();setInterval(sync,250);} if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();
+  var ID='qr-menu-modifiers-loader';
+  function load(){
+    if(document.getElementById(ID)||window.__QR_MENU_MODIFIERS__)return;
+    var s=document.createElement('script');s.id=ID;s.src='/js/menu-modifiers.js';s.async=false;
+    s.onload=function(){console.log('[QR Menu] modifiers UI loaded');};
+    s.onerror=function(){console.error('[QR Menu] failed to load modifiers UI');};
+    (document.head||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  setTimeout(load,1000);
 })();
