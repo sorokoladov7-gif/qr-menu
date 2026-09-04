@@ -21,6 +21,36 @@
   function initIntegrationsLink(){addIntegrationsLink();var attempts=0,timer=setInterval(function(){addIntegrationsLink();attempts++;if(document.querySelector('[data-qr-integrations-link]')||attempts>=40)clearInterval(timer);},250);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initIntegrationsLink,{once:true});else initIntegrationsLink();
 
+  /* Vue 3 removes v-if attributes after mounting. The delivery UI module historically
+     used that attribute as its mount point, so restore a stable marker on the real
+     settings card before manager-settings tries to inject the delivery panel. */
+  function restoreDeliverySettingsMount(){
+    if(!/\/manager\.html$/i.test(location.pathname))return;
+    var vm=window.__managerVue;
+    if(!vm||vm.tab!=='settings')return;
+    var root=document.getElementById('app');
+    if(!root)return;
+    if(root.querySelector('[data-qr-delivery-settings]'))return;
+    var cards=root.querySelectorAll('.glass.card');
+    for(var i=0;i<cards.length;i++){
+      var text=(cards[i].textContent||'').replace(/\s+/g,' ');
+      if(text.indexOf('Фактический адрес заведения')!==-1){
+        cards[i].setAttribute('v-if',"tab==='settings'");
+        cards[i].setAttribute('data-qr-settings-panel','1');
+        return;
+      }
+    }
+  }
+  function watchDeliverySettingsMount(){
+    var attempts=0;
+    var timer=setInterval(function(){
+      restoreDeliverySettingsMount();
+      attempts++;
+      if(document.querySelector('[data-qr-delivery-settings]')||attempts>=120)clearInterval(timer);
+    },250);
+    setTimeout(function(){clearInterval(timer);},30000);
+  }
+
   function normalizeDeliveryCards(vm){
     var ids=['yandex','delivery','samokat','custom'];
     var cards=vm.deliveryProviderCards||[];
@@ -77,7 +107,7 @@
     }
   }
 
-  function watchSettingsPersistence(){var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);}
-  window.addEventListener('qr-manager-vue-ready',watchSettingsPersistence,{once:true});
-  if(window.__managerVue)watchSettingsPersistence();
+  function watchSettingsPersistence(){var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);watchDeliverySettingsMount();if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);}
+  window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();},{once:true});
+  if(window.__managerVue){watchSettingsPersistence();watchDeliverySettingsMount();}
 })();
