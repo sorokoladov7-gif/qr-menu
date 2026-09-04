@@ -44,7 +44,7 @@ body{min-height:100vh}.wrap{max-width:980px;margin:0 auto;padding:28px 18px}.hea
 <script src="/js/config.js"></script>
 <script>
 (function(){'use strict';
-var SUPABASE_URL='https://ulxfsozdryqrnlxzlblt.supabase.co',SUPABASE_KEY=(window.QR_CONFIG&&window.QR_CONFIG.SUPABASE_ANON_KEY)||'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq',db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+var SUPABASE_URL='https://ulxfsozdryqrnlxzlblt.supabase.co',SUPABASE_KEY=(window.QR_CONFIG&&window.QR_CONFIG.SUPABASE_ANON_KEY)||'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq',db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,storage:window.sessionStorage,storageKey:'qr-menu-auth-account'}});
 var venueEl=document.getElementById('venue'),msg=document.getElementById('message'),statusEl=document.getElementById('iikoStatus'),grid=document.getElementById('integrationsGrid'),setup=document.getElementById('iikoSetup'),orgBox=document.getElementById('organizationBox'),orgEl=document.getElementById('organization'),menuResult=document.getElementById('menuResult'),summary=document.getElementById('importSummary');
 var session=null,profile=null,organizations=[];
 function show(t){msg.textContent=t;msg.classList.remove('hidden')}function hideMessage(){msg.classList.add('hidden');msg.textContent=''}
