@@ -30,6 +30,39 @@ window.quoteDelivery = async function(venueId,address,lat,lng,cartTotal){
   }
 };
 
+function installOrderQuoteGuard(){
+  if(!window.db||typeof window.db.rpc!=='function'||window.db.__qrDeliveryQuoteGuard)return;
+  window.db.__qrDeliveryQuoteGuard=true;
+  const originalRpc=window.db.rpc.bind(window.db);
+  window.db.rpc=async function(name,args,options){
+    if(name!=='create_public_order'||!args||args.p_order_type!=='delivery'){
+      return originalRpc(name,args,options);
+    }
+    let result=await originalRpc(name,args,options);
+    const errorText=String(result&&result.error&&(result.error.message||result.error.details||result.error.code)||'').toLowerCase();
+    if(!/delivery_quote_required|delivery_quote_already_used|delivery_quote_price_mismatch/.test(errorText))return result;
+
+    const address=String(args.p_delivery_address||'').trim();
+    const venueId=String(args.p_venue_id||'').trim();
+    if(!venueId||address.length<8)return result;
+
+    try{
+      const geo=await window.geocodeAddress(address);
+      if(!geo) return result;
+      const cartTotal=Number(args.p_total_price)||0;
+      const quote=await window.quoteDelivery(venueId,address,geo.lat,geo.lng,cartTotal);
+      if(!quote||!quote.ok||quote.fee==null)return result;
+      const retryArgs=Object.assign({},args,{p_delivery_fee:Number(quote.fee)||0});
+      result=await originalRpc('create_public_order',retryArgs,options);
+      if(result&&result.error)console.warn('[QR delivery] retry order failed:',result.error);
+      return result;
+    }catch(e){
+      console.warn('[QR delivery] quote refresh before order failed:',e);
+      return result;
+    }
+  };
+}
+
 function getVM(){
   const app=document.getElementById('app');
   if(!app) return null;
@@ -41,7 +74,9 @@ function getVM(){
 }
 
 function bind(){
+  installOrderQuoteGuard();
   const n=setInterval(function(){
+    installOrderQuoteGuard();
     const x=getVM();
     if(!x||!x.venue||x.__deliveryQuoteBound) return;
     x.__deliveryQuoteBound=true;
