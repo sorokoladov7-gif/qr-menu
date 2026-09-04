@@ -23,7 +23,37 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 })();
 
 /* Корпоративная навигация admin/manager. */
-(function(){'use strict';if(!/\/(admin|manager)\.html$/i.test(location.pathname))return;function initCorporateNavigation(){if(document.body.dataset.qrCorpNav==='1')return;var app=document.getElementById('app');if(!app)return;document.body.dataset.qrCorpNav='1';document.body.classList.add('qr-corp-shell');var toggle=document.createElement('button');toggle.className='qr-corp-nav-toggle';toggle.type='button';toggle.setAttribute('aria-label','Открыть навигацию');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';var overlay=document.createElement('div');overlay.className='qr-corp-nav-overlay';overlay.setAttribute('aria-hidden','true');document.body.appendChild(toggle);document.body.appendChild(overlay);function close(){document.body.classList.remove('nav-open');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';}function open(){document.body.classList.add('nav-open');toggle.setAttribute('aria-expanded','true');toggle.textContent='×';}toggle.addEventListener('click',function(){document.body.classList.contains('nav-open')?close():open();});overlay.addEventListener('click',close);document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tabs button');if(t&&window.matchMedia('(max-width:900px)').matches)setTimeout(close,0);},true);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(initCorporateNavigation,0);});else setTimeout(initCorporateNavigation,0);var observer=new MutationObserver(function(){if(!document.body.dataset.qrCorpNav)initCorporateNavigation();});if(document.body)observer.observe(document.body,{childList:true,subtree:true});})();
+(function(){'use strict';if(!/\/(admin|manager)\.html$/i.test(location.pathname))return;function initCorporateNavigation(){if(document.body.dataset.qrCorpNav==='1')return;var app=document.getElementById('app');if(!app)return;document.body.dataset.qrCorpNav='1';var toggle=document.createElement('button');toggle.className='qr-corp-nav-toggle';toggle.type='button';toggle.setAttribute('aria-label','Открыть навигацию');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';var overlay=document.createElement('div');overlay.className='qr-corp-nav-overlay';overlay.setAttribute('aria-hidden','true');document.body.appendChild(toggle);document.body.appendChild(overlay);function close(){document.body.classList.remove('nav-open');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';}function open(){document.body.classList.add('nav-open');toggle.setAttribute('aria-expanded','true');toggle.textContent='×';}toggle.addEventListener('click',function(){document.body.classList.contains('nav-open')?close():open();});overlay.addEventListener('click',close);document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tabs button');if(t&&window.matchMedia('(max-width:900px)').matches)setTimeout(close,0);},true);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(initCorporateNavigation,0);});else setTimeout(initCorporateNavigation,0);var observer=new MutationObserver(function(){if(!document.body.dataset.qrCorpNav)initCorporateNavigation();});if(document.body)observer.observe(document.body,{childList:true,subtree:true});})();
+
+/* QR-Menu — гарантированная вкладка «Интеграции» в кабинете управляющего. */
+(function(){
+  'use strict';
+  if(!/\/manager\.html$/i.test(location.pathname))return;
+  var LINK_ID='qr-manager-integrations-link';
+  function ensure(){
+    var tabs=document.querySelector('.tabs');
+    if(!tabs)return;
+    var existing=document.getElementById(LINK_ID);
+    if(existing&&existing.parentNode===tabs)return;
+    if(existing)existing.remove();
+    var link=document.createElement('a');
+    link.id=LINK_ID;
+    link.href='/integrations.html';
+    link.className='btn btn-ghost';
+    link.textContent='🔗 Интеграции';
+    link.setAttribute('aria-label','Открыть интеграции');
+    link.style.cssText='text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;';
+    tabs.appendChild(link);
+  }
+  function start(){
+    ensure();
+    var attempts=0;
+    var timer=setInterval(function(){ensure();if(++attempts>=60)clearInterval(timer);},500);
+    var observer=new MutationObserver(function(){ensure();});
+    if(document.body)observer.observe(document.body,{childList:true,subtree:true});
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
 
 /* QR-Menu — site import loader for manager.html. */
 (function(){'use strict';if(!/\/manager\.html$/i.test(location.pathname))return;var SCRIPT_ID='qr-manager-site-import-loader',SCRIPT_SRC='/js/manager/manager-site-import.js',started=false;function loadSiteImport(){if(window.QRManagerSiteImport){if(typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();return;}if(document.getElementById(SCRIPT_ID))return;var script=document.createElement('script');script.id=SCRIPT_ID;script.src=SCRIPT_SRC;script.async=false;script.onload=function(){if(window.QRManagerSiteImport&&typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();};script.onerror=function(){console.error('[QR Manager] Не удалось загрузить manager-site-import.js:',SCRIPT_SRC);var existing=document.getElementById(SCRIPT_ID);if(existing)existing.remove();};(document.head||document.documentElement).appendChild(script);}function start(){if(started)return;started=true;loadSiteImport();var attempts=0;var timer=setInterval(function(){attempts++;loadSiteImport();if(window.QRManagerSiteImport||attempts>=60)clearInterval(timer);},500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
