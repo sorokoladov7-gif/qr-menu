@@ -4,6 +4,20 @@
   if (window.__QR_MANAGER_CORE__) return;
   window.__QR_MANAGER_CORE__ = true;
 
+  /*
+   * Интеграции — это отдельная страница, а не Vue-вкладка.
+   * Перехватываем клик на capture-фазе ДО обработчиков Vue.
+   * Это исключает смену tab, перерисовку кабинета и повторную авторизацию.
+   */
+  document.addEventListener('click', function(ev){
+    var target = ev.target && ev.target.closest && ev.target.closest('[data-qr-integrations-link]');
+    if (!target) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    ev.stopImmediatePropagation();
+    window.location.href = '/integrations.html';
+  }, true);
+
   try {
     document.addEventListener('DOMContentLoaded', function(){
       try { localStorage.removeItem('manager_venue_id'); } catch(e) {}
@@ -79,7 +93,7 @@
 
   window.__QR_MANAGER_CORE_MIXIN__ = coreMixin;
 
-  /* Надёжная внешняя навигация: ссылка не должна становиться Vue-вкладкой. */
+  /* Визуальная кнопка интеграций остаётся обычным DOM-элементом. */
   function addIntegrationsLink(){
     if (!/\/manager\.html$/i.test(location.pathname)) return;
     var tabs = document.querySelector('.tabs');
@@ -90,12 +104,6 @@
     link.setAttribute('data-qr-integrations-link', '1');
     link.className = 'qr-integrations-tab';
     link.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;cursor:pointer;';
-    link.addEventListener('click', function(ev){
-      ev.preventDefault();
-      ev.stopPropagation();
-      ev.stopImmediatePropagation();
-      window.location.assign('/integrations.html');
-    });
     tabs.appendChild(link);
   }
 
