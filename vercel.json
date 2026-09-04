@@ -5,58 +5,22 @@
     "SUPABASE_ANON_KEY": "sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq",
     "GEMINI_AUDIT_MODEL": "gemini-3.8-flash"
   },
-  "git": {
-    "deploymentEnabled": {
-      "main": true
-    }
-  },
-  "github": {
-    "enabled": true
-  },
+  "git": {"deploymentEnabled":{"main":true}},
+  "github": {"enabled":true},
+  "crons": [{"path":"/api/cron/integration-sync","schedule":"0 3 * * *"}],
   "functions": {
-    "api/import-site.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    },
-    "api/import-ai.js": {
-      "maxDuration": 60,
-      "memory": 1024
-    }
+    "api/import-site.js":{"maxDuration":60,"memory":1024},
+    "api/import-ai.js":{"maxDuration":60,"memory":1024},
+    "api/cron/integration-sync.js":{"maxDuration":60,"memory":1024}
   },
   "rewrites": [
-    {
-      "source": "/api/menu/import",
-      "destination": "/api/import-ai"
-    },
-    {
-      "source": "/recipe-images/:slug*",
-      "destination": "https://theunitools.com/recipes/:slug*"
-    }
+    {"source":"/api/menu/import","destination":"/api/import-ai"},
+    {"source":"/recipe-images/:slug*","destination":"https://theunitools.com/recipes/:slug*"}
   ],
   "headers": [
-    {
-      "source": "/(cook|waiter|courier|manager|admin)\\.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
-      ]
-    },
-    {
-      "source": "/integrations\\.html",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
-      ]
-    },
-    {
-      "source": "/js/config\\.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
-      ]
-    },
-    {
-      "source": "/js/manager-site-import\\.js",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
-      ]
-    }
+    {"source":"/(cook|waiter|courier|manager|admin)\\.html","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
+    {"source":"/integrations\\.html","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
+    {"source":"/js/config\\.js","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
+    {"source":"/js/manager-site-import\\.js","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]}
   ]
 }
