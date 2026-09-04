@@ -5,7 +5,7 @@ const PROVIDERS={
   iiko:{name:'iiko',category:'POS',mode:'api',implemented:true},
   r_keeper:{name:'r_keeper',category:'POS',mode:'delivery_api',implemented:true},
   quick_resto:{name:'Quick Resto',category:'POS',mode:'api_login_password',implemented:true},
-  saby_presto:{name:'Saby Presto',category:'POS',mode:'api_service_auth',implemented:false},
+  saby_presto:{name:'Saby Presto',category:'POS',mode:'api_service_auth',implemented:true},
   yuma:{name:'YUMA',category:'POS',mode:'api',implemented:false},
   poster:{name:'Poster',category:'POS',mode:'api',implemented:false},
   syrve:{name:'Syrve',category:'POS',mode:'api',implemented:false},
