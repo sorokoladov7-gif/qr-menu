@@ -1,13 +1,11 @@
 /**
- * delivery-calc.js — динамическая стоимость доставки по расстоянию.
- * Геокодинг адреса через бесплатный Nominatim (OpenStreetMap).
- * Подключать в menu.html ПОСЛЕ config.js.
+ * QR Menu — delivery quote engine.
+ * Public quote is calculated server-side so the client cannot change the provider price or markup.
  */
 (function(){
 'use strict';
 if(!/\/menu\.html$/i.test(location.pathname)) return;
 
-// Геокодинг: адрес → координаты
 window.geocodeAddress = async function(address){
   try{
     const url='https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(address);
@@ -18,13 +16,18 @@ window.geocodeAddress = async function(address){
   }catch(e){ console.warn('geocode error',e); return null; }
 };
 
-// Расчёт стоимости через RPC
-window.calcDeliveryFee = async function(venueId, lat, lng){
+window.quoteDelivery = async function(venueId,address,lat,lng,cartTotal){
   try{
-    const r=await db.rpc('calc_delivery_fee',{p_venue_id:venueId,p_lat:lat,p_lng:lng});
-    if(r.error) throw r.error;
-    return r.data; // {ok, distance_km, fee} или {ok:false,error:'too_far'}
-  }catch(e){ console.warn('calc fee error',e); return {ok:false}; }
+    if(window.db&&window.db.functions&&typeof window.db.functions.invoke==='function'){
+      const r=await window.db.functions.invoke('delivery-quote',{body:{venue_id:venueId,customer_address:address,customer_lat:lat,customer_lng:lng,cart_total:Number(cartTotal)||0}});
+      if(r.error) throw r.error;
+      return r.data||{ok:false,error:'empty_quote'};
+    }
+    return {ok:false,error:'delivery_quote_function_unavailable'};
+  }catch(e){
+    console.warn('delivery quote error',e);
+    return {ok:false,error:e&&e.message?e.message:'delivery_quote_failed'};
+  }
 };
 
 function getVM(){
@@ -40,37 +43,50 @@ function getVM(){
 function bind(){
   const n=setInterval(function(){
     const x=getVM();
-    if(!x||!x.venue||x.__deliveryCalcBound) return;
-    x.__deliveryCalcBound=true;
+    if(!x||!x.venue||x.__deliveryQuoteBound) return;
+    x.__deliveryQuoteBound=true;
     clearInterval(n);
 
+    x.deliveryQuoteId=null;
+    x.deliveryProvider=null;
+    x.deliveryProviderFee=null;
+    x.deliveryFee=null;
+
+    const run=async function(){
+      if(x.form&&x.form.type!=='delivery') return;
+      const address=String(x.form&&x.form.address||'').trim();
+      if(address.length<8){x.calculatedDeliveryFee=null;x.deliveryFee=null;x.deliveryQuoteId=null;x.deliveryProvider=null;return;}
+      x.deliveryCalcBusy=true;x.deliveryCalcError='';
+      try{
+        const geo=await geocodeAddress(address);
+        if(!geo) throw new Error('Адрес не найден');
+        const res=await quoteDelivery(x.venue.id,address,geo.lat,geo.lng,Number(x.cartTotal)||0);
+        if(!res||!res.ok) throw new Error(res&&res.error==='too_far'?'Слишком далеко для доставки':res&&res.error==='provider_not_connected'?'Служба доставки не подключена':res&&res.error==='provider_api_not_available'?'Для выбранной службы пока не подключён API':(res&&res.error)||'Не удалось рассчитать доставку');
+        x.calculatedDeliveryFee=Number(res.fee)||0;
+        x.deliveryFee=Number(res.fee)||0;
+        x.deliveryQuoteId=res.quote_id||null;
+        x.deliveryProvider=res.provider||null;
+        x.deliveryProviderFee=res.provider_fee!=null?Number(res.provider_fee):null;
+        x.deliveryDistance=res.distance_km!=null?Number(res.distance_km):null;
+        x.deliveryCalcError='';
+      }catch(e){x.calculatedDeliveryFee=null;x.deliveryFee=null;x.deliveryQuoteId=null;x.deliveryProvider=null;x.deliveryProviderFee=null;x.deliveryCalcError=e.message||String(e);}
+      finally{x.deliveryCalcBusy=false;}
+    };
+
+    x.calcDeliveryFee=run;
     let timer=null;
     const findAddr=()=>document.querySelector('input[placeholder*="дрес"],input[name="address"]');
     const attach=()=>{
       const inp=findAddr();
-      if(!inp||inp.__bound) return;
-      inp.__bound=true;
-      inp.addEventListener('input',function(){
-        clearTimeout(timer);
-        const val=inp.value.trim();
-        if(val.length<8){ x.deliveryFee=null; x.deliveryDistance=null; x.msg=''; return; }
-        timer=setTimeout(async function(){
-          x.msg='📍 Считаем доставку...';
-          const geo=await geocodeAddress(val);
-          if(!geo){ x.msg='Адрес не найден'; x.deliveryFee=null; return; }
-          const res=await calcDeliveryFee(x.venue.id,geo.lat,geo.lng);
-          if(!res.ok){ x.msg=res.error==='too_far'?'❌ Слишком далеко для доставки':'Ошибка расчёта'; x.deliveryFee=null; return; }
-          x.deliveryFee=res.fee;
-          x.deliveryDistance=res.distance_km;
-          x.msg='';
-        },700); // debounce
-      });
+      if(!inp||inp.__deliveryQuoteBound) return;
+      inp.__deliveryQuoteBound=true;
+      inp.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(run,650);});
     };
     attach();
     new MutationObserver(attach).observe(document.body,{childList:true,subtree:true});
-  },400);
+  },300);
+  setTimeout(function(){clearInterval(n);},15000);
 }
 
-if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind);
-else bind();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);else bind();
 })();
