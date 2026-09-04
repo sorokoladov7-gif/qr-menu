@@ -1,14 +1,11 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Интеграции — OS QR-Menu</title>
-<link rel="icon" href="/favicon.svg">
-<link rel="stylesheet" href="/css/style.css">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Интеграции — OS QR-Menu</title><link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-body{min-height:100vh}.wrap{max-width:980px;margin:0 auto;padding:28px 18px}.head{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.cardx{border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:20px;background:rgba(255,255,255,.035)}.icon{font-size:34px}.muted{color:#94a3b8;font-size:12px;line-height:1.5}.status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;margin:8px 0;background:rgba(148,163,184,.1);color:#cbd5e1}.status.ready{background:rgba(52,211,153,.12);color:#6ee7b7}.field{margin:10px 0}.field label{display:block;font-size:11px;color:#94a3b8;margin-bottom:5px}.field input,.field textarea,.field select{width:100%;box-sizing:border-box}.field textarea{min-height:120px;font-family:monospace;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.notice{margin:14px 0;padding:12px;border-radius:12px;background:rgba(99,102,241,.08);border:1px solid rgba(129,140,248,.2);font-size:12px;color:#cbd5e1}.hidden{display:none!important}@media(max-width:600px){.head{align-items:flex-start;flex-direction:column}}
+body{min-height:100vh}.wrap{max-width:980px;margin:0 auto;padding:28px 18px}.head{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:20px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.cardx{border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:20px;background:rgba(255,255,255,.035)}.icon{font-size:34px}.muted{color:#94a3b8;font-size:12px;line-height:1.5}.status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:11px;margin:8px 0;background:rgba(148,163,184,.1);color:#cbd5e1}.status.ready{background:rgba(52,211,153,.12);color:#6ee7b7}.field{margin:10px 0}.field label{display:block;font-size:11px;color:#94a3b8;margin-bottom:5px}.field input,.field textarea,.field select{width:100%;box-sizing:border-box}.field textarea{min-height:120px;font-family:monospace;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.notice{margin:14px 0;padding:12px;border-radius:12px;background:rgba(99,102,241,.08);border:1px solid rgba(129,140,248,.2);font-size:12px;color:#cbd5e1}.hidden{display:none!important}.loading{opacity:.65;pointer-events:none}@media(max-width:600px){.head{align-items:flex-start;flex-direction:column}}
 </style>
 </head>
 <body>
@@ -16,8 +13,8 @@ body{min-height:100vh}.wrap{max-width:980px;margin:0 auto;padding:28px 18px}.hea
 <main class="wrap">
 <div class="head"><div><h1 style="margin:0 0 5px">Интеграции</h1><div class="muted">Подключайте POS-системы к конкретному заведению.</div></div></div>
 <div id="message" class="notice hidden"></div>
-<div class="cardx" style="margin-bottom:14px"><div class="field"><label>Заведение</label><select id="venue"></select></div></div>
-<div class="grid">
+<div class="cardx" style="margin-bottom:14px"><div class="field"><label>Заведение</label><select id="venue" disabled><option>Загрузка...</option></select></div></div>
+<div id="integrationsGrid" class="grid">
 <section class="cardx"><div class="icon">🟣</div><h2>iiko</h2><span id="iikoStatus" class="status">Не подключено</span><p class="muted">Серверная интеграция. Секреты не возвращаются в браузер. На первом этапе проверяем авторизацию и получаем список организаций.</p><div class="field"><label>Данные авторизации iiko (JSON)</label><textarea id="iikoCredential" autocomplete="off" placeholder='{"apiLogin":"..."}'></textarea><div class="muted">Используйте формат, который выдаёт актуальный портал разработчика iiko. Старый apiLogin поддерживается адаптером для совместимости.</div></div><div class="actions"><button id="connect" class="btn btn-primary">Подключить iiko</button><button id="test" class="btn btn-ghost">Проверить</button></div></section>
 <section class="cardx"><div class="icon">🟢</div><h2>Quick Resto</h2><span class="status">Следующий этап</span><p class="muted">Будет подключён через тот же Integration API. Архитектура разделяет провайдеры, поэтому интеграции не смешиваются.</p></section>
 <section class="cardx"><div class="icon">🔵</div><h2>r_keeper</h2><span class="status">Следующий этап</span><p class="muted">Отдельный адаптер для меню, цен, заказов и статусов.</p></section>
@@ -32,13 +29,61 @@ body{min-height:100vh}.wrap{max-width:980px;margin:0 auto;padding:28px 18px}.hea
 var SUPABASE_URL='https://ulxfsozdryqrnlxzlblt.supabase.co';
 var SUPABASE_KEY=(window.QR_CONFIG&&window.QR_CONFIG.SUPABASE_ANON_KEY)||'sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';
 var db=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-var venueEl=document.getElementById('venue'), msg=document.getElementById('message'), statusEl=document.getElementById('iikoStatus');
+var venueEl=document.getElementById('venue'),msg=document.getElementById('message'),statusEl=document.getElementById('iikoStatus'),grid=document.getElementById('integrationsGrid');
+var session=null, profile=null;
 function show(t){msg.textContent=t;msg.classList.remove('hidden');}
-async function init(){var s=await db.auth.getSession();if(!s.data.session){location.href='login.html';return}var r=await db.from('venues').select('id,name').order('name');if(r.error){show(r.error.message);return}venueEl.innerHTML=(r.data||[]).map(function(v){return '<option value="'+v.id+'">'+String(v.name).replace(/[&<>]/g,'')+'</option>';}).join('');if(venueEl.value)loadStatus()}
-async function call(action){var s=await db.auth.getSession();if(!s.data.session)return location.href='login.html';var body={action:action,venue_id:venueEl.value};if(action==='connect'){var raw=document.getElementById('iikoCredential').value.trim();if(!raw)throw new Error('Введите данные авторизации iiko');try{body.credentials=JSON.parse(raw)}catch(e){throw new Error('Данные iiko должны быть валидным JSON')}}var r=await fetch('/api/integrations/iiko',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.data.session.access_token},body:JSON.stringify(body)});var data=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(data.error||'Ошибка интеграции');return data}
-async function loadStatus(){var r=await db.from('venue_integrations').select('status').eq('venue_id',venueEl.value).eq('provider','iiko').maybeSingle();statusEl.textContent=r.data&&r.data.status==='connected'?'Подключено':'Не подключено';statusEl.className='status '+(r.data&&r.data.status==='connected'?'ready':'')}
-document.getElementById('connect').onclick=async function(){try{show('Подключение iiko...');await call('connect');show('iiko подключён.');await loadStatus()}catch(e){show(e.message)}};
-document.getElementById('test').onclick=async function(){try{show('Проверка соединения...');await call('test');show('Соединение с iiko подтверждено.')}catch(e){show(e.message)}};venueEl.onchange=loadStatus;init();
+function hideMessage(){msg.classList.add('hidden');msg.textContent='';}
+function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});}
+async function getSession(){var s=await db.auth.getSession();session=s.data&&s.data.session;if(!session){location.href='login.html';return null;}return session;}
+async function loadProfile(){var r=await db.from('profiles').select('id,role,venue_id').eq('id',session.user.id).maybeSingle();if(r.error)throw r.error;profile=r.data||null;if(!profile)throw new Error('Профиль пользователя не найден');}
+async function loadVenues(){
+ venueEl.disabled=true;venueEl.innerHTML='<option>Загрузка заведений...</option>';
+ var venues=[];
+ if(profile.role==='admin'){
+   var a=await db.from('venues').select('id,name').order('name');if(a.error)throw a.error;venues=a.data||[];
+ }else{
+   var links=await db.from('manager_venues').select('venue_id').eq('manager_id',profile.id);
+   if(links.error)throw links.error;
+   var ids=(links.data||[]).map(function(x){return x.venue_id;}).filter(Boolean);
+   if(!ids.length && profile.venue_id)ids=[profile.venue_id];
+   if(ids.length){
+     var v=await db.from('venues').select('id,name').in('id',ids).order('name');
+     if(v.error)throw v.error;venues=v.data||[];
+   }
+ }
+ if(!venues.length){venueEl.innerHTML='<option value="">Нет доступных заведений</option>';show('У вашего аккаунта нет доступных заведений для интеграций.');return;}
+ var saved='';try{saved=localStorage.getItem('manager_venue_id')||'';}catch(e){}
+ venueEl.innerHTML=venues.map(function(v){return '<option value="'+esc(v.id)+'">'+esc(v.name||'Без названия')+'</option>';}).join('');
+ var selected=venues.find(function(v){return String(v.id)===String(saved);})||venues[0];
+ venueEl.value=selected.id;
+ venueEl.disabled=false;
+ try{localStorage.setItem('manager_venue_id',String(selected.id));}catch(e){}
+ await loadStatus();
+}
+async function loadStatus(){
+ if(!venueEl.value){statusEl.textContent='Не подключено';statusEl.className='status';return;}
+ var r=await db.from('venue_integrations').select('status').eq('venue_id',venueEl.value).eq('provider','iiko').maybeSingle();
+ if(r.error){console.warn('[Integrations] status:',r.error.message);statusEl.textContent='Не подключено';statusEl.className='status';return;}
+ var connected=r.data&&r.data.status==='connected';statusEl.textContent=connected?'Подключено':'Не подключено';statusEl.className='status '+(connected?'ready':'');
+}
+async function call(action){
+ if(!venueEl.value)throw new Error('Сначала выберите заведение');
+ var s=await getSession();if(!s)return;
+ var body={action:action,venue_id:venueEl.value};
+ if(action==='connect'){
+   var raw=document.getElementById('iikoCredential').value.trim();if(!raw)throw new Error('Введите данные авторизации iiko');
+   try{body.credentials=JSON.parse(raw);}catch(e){throw new Error('Данные iiko должны быть валидным JSON');}
+ }
+ grid.classList.add('loading');
+ try{
+   var r=await fetch('/api/integrations/iiko',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+s.access_token},body:JSON.stringify(body)});
+   var data=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(data.error||'Ошибка интеграции');return data;
+ }finally{grid.classList.remove('loading');}
+}
+document.getElementById('connect').onclick=async function(){try{hideMessage();show('Подключение iiko...');await call('connect');show('iiko подключён.');await loadStatus();}catch(e){show(e.message||String(e));}};
+document.getElementById('test').onclick=async function(){try{hideMessage();show('Проверка соединения...');await call('test');show('Соединение с iiko подтверждено.');}catch(e){show(e.message||String(e));}};
+venueEl.onchange=async function(){try{hideMessage();try{localStorage.setItem('manager_venue_id',String(venueEl.value));}catch(e){}await loadStatus();}catch(e){show(e.message||String(e));}};
+(async function init(){try{await getSession();if(!session)return;await loadProfile();await loadVenues();}catch(e){console.error('[Integrations] init:',e);show(e.message||String(e));venueEl.innerHTML='<option value="">Ошибка загрузки</option>';venueEl.disabled=true;}})();
 })();
 </script>
 </body></html>
