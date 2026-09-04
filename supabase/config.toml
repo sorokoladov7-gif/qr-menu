@@ -1,0 +1,2 @@
+[functions.delivery-quote]
+verify_jwt = false
