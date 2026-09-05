@@ -204,7 +204,8 @@
     if(!root){console.error('[QR Admin] #app not found');return;}
     if(typeof window.Vue==='undefined'){console.error('[QR Admin] Vue is not loaded');return;}
     var app=Vue.createApp({data:appData,computed:appComputed,methods:appMethods,watch:appWatch,mounted:function(){this.init();}});
-    app.mount(root);
+    var vm=app.mount(root);
+    window.__QR_ADMIN_VUE_VM__=vm;
     window.__QR_ADMIN_VUE_APP__=app;
     window.__QR_ADMIN_APP__=true;
     setupAdminNavigationMotion();
