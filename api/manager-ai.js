@@ -2,6 +2,7 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = process.env.GEMINI_MANAGER_MODEL || 'gemini-3.8-flash';
 
@@ -11,8 +12,10 @@ function bearer(req){
   return m?m[1].trim():'';
 }
 function httpError(message,status){return Object.assign(new Error(message),{status});}
-async function supabaseGet(path,token){
-  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token,accept:'application/json'}});
+async function supabaseGet(path,token,privileged){
+  const key=privileged&&SUPABASE_SERVICE_ROLE_KEY?SUPABASE_SERVICE_ROLE_KEY:SUPABASE_ANON_KEY;
+  const auth=privileged&&SUPABASE_SERVICE_ROLE_KEY?SUPABASE_SERVICE_ROLE_KEY:token;
+  const r=await fetch(SUPABASE_URL+'/rest/v1/'+path,{headers:{apikey:key,authorization:'Bearer '+auth,accept:'application/json'}});
   const data=await r.json().catch(()=>null);
   if(!r.ok)throw httpError(data?.message||'SUPABASE_HTTP_'+r.status,r.status);
   return data;
@@ -20,22 +23,19 @@ async function supabaseGet(path,token){
 async function authManager(req){
   const token=bearer(req);
   if(!token)throw httpError('AUTH_REQUIRED',401);
-  const user=await (async()=>{
-    const r=await fetch(SUPABASE_URL+'/auth/v1/user',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token}});
-    const d=await r.json().catch(()=>null);
-    if(!r.ok||!d?.id)throw httpError('AUTH_INVALID',401);
-    return d;
-  })();
+  const r=await fetch(SUPABASE_URL+'/auth/v1/user',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token}});
+  const user=await r.json().catch(()=>null);
+  if(!r.ok||!user?.id)throw httpError('AUTH_INVALID',401);
   const profiles=await supabaseGet('profiles?id=eq.'+encodeURIComponent(user.id)+'&select=id,role,display_name,email&limit=1',token);
   const profile=profiles?.[0];
   if(!profile||String(profile.role).toLowerCase()!=='manager')throw httpError('MANAGER_ONLY',403);
   return {token,user,profile};
 }
 async function entitlement(ctx){
-  const subs=await supabaseGet('subscriptions?manager_id=eq.'+encodeURIComponent(ctx.user.id)+'&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.'+encodeURIComponent(new Date().toISOString())+'&select=id,plan_id,status,current_period_end&order=created_at.desc&limit=1',ctx.token);
+  const subs=await supabaseGet('subscriptions?manager_id=eq.'+encodeURIComponent(ctx.user.id)+'&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.'+encodeURIComponent(new Date().toISOString())+'&select=id,plan_id,status,current_period_end&order=created_at.desc&limit=1',ctx.token,true);
   const sub=subs?.[0];
   if(!sub)throw httpError('AI_SUBSCRIPTION_REQUIRED',403);
-  const plans=await supabaseGet('plans?id=eq.'+encodeURIComponent(sub.plan_id)+'&is_active=eq.true&select=id,name,ai_enabled&limit=1',ctx.token);
+  const plans=await supabaseGet('plans?id=eq.'+encodeURIComponent(sub.plan_id)+'&is_active=eq.true&select=id,name,ai_enabled&limit=1',ctx.token,true);
   const plan=plans?.[0];
   if(!plan||plan.ai_enabled!==true)throw httpError('AI_NOT_INCLUDED_IN_PLAN',403);
   return {subscription:sub,plan};
