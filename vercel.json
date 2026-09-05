@@ -10,7 +10,6 @@
   "crons": [{"path":"/api/cron/integration-sync","schedule":"0 3 * * *"}],
   "functions": {
     "api/admin-ai-agent.js":{"maxDuration":120,"memory":1024},
-    "api/admin-ai-agent-ui.js":{"maxDuration":120,"memory":1024},
     "api/import-site.js":{"maxDuration":60,"memory":1024},
     "api/import-ai.js":{"maxDuration":60,"memory":1024},
     "api/cron.js":{"maxDuration":60,"memory":1024},
@@ -18,7 +17,7 @@
     "api/payments.js":{"maxDuration":60,"memory":1024}
   },
   "rewrites": [
-    {"source":"/api/admin-ai-audit","destination":"/api/admin-ai-agent-ui"},
+    {"source":"/api/admin-ai-audit","destination":"/api/admin-ai-agent"},
     {"source":"/api/menu/import","destination":"/api/import-ai"},
     {"source":"/api/integrations/:path*","destination":"/api/integrations"},
     {"source":"/api/payments/yookassa/:path*","destination":"/api/payments"},
