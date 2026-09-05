@@ -18,6 +18,7 @@
     techCards: [],
     ocrParsed: []
   };
+  window.__QR_MANAGER_RECIPES_STATE__ = state;
 
   function $(id) { return document.getElementById(id); }
 
@@ -127,58 +128,37 @@
       });
   }
 
-  function renderAll() {
-    renderProducts();
-    renderIngredients();
-    renderTechCards();
-    bindButtons();
-  }
+  function renderAll() { renderProducts(); renderIngredients(); renderTechCards(); bindButtons(); }
 
   function renderProducts() {
-    var box = $('products');
-    if (!box) return;
+    var box = $('products'); if (!box) return;
     var q = norm($('productSearch') ? $('productSearch').value : '');
     var list = state.products.filter(function (p) { return !q || norm(p.name).indexOf(q) >= 0; });
     if ($('productCount')) $('productCount').textContent = state.products.length;
-    box.innerHTML = list.length ? list.map(function (p) {
-      return '<button type="button" class="btn ' + (state.selected === p.id ? 'product-active' : 'btn-ghost') + '" data-product="' + esc(p.id) + '">' + esc(p.name) + (p.category ? ' <span class="muted">· ' + esc(p.category) + '</span>' : '') + '</button>';
-    }).join('') : '<p class="muted">Нет товаров.</p>';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-product]'), function (b) {
-      b.onclick = function () { selectProduct(b.dataset.product); };
-    });
+    box.innerHTML = list.length ? list.map(function (p) { return '<button type="button" class="btn ' + (state.selected === p.id ? 'product-active' : 'btn-ghost') + '" data-product="' + esc(p.id) + '">' + esc(p.name) + (p.category ? ' <span class="muted">· ' + esc(p.category) + '</span>' : '') + '</button>'; }).join('') : '<p class="muted">Нет товаров.</p>';
+    Array.prototype.forEach.call(box.querySelectorAll('[data-product]'), function (b) { b.onclick = function () { selectProduct(b.dataset.product); }; });
   }
 
   function renderIngredients() {
-    var box = $('ingredients');
-    if (!box) return;
-    box.innerHTML = state.ingredients.length ? state.ingredients.map(function (i) {
-      return '<div class="ingredient-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div style="flex:1"><b>' + esc(i.name) + '</b><div class="muted" style="font-size:11px">' + esc(unitLabel(i.unit)) + ' · ' + Number(i.purchase_price || 0).toFixed(2) + ' ₽ / ' + esc(i.purchase_quantity || 1) + ' ' + esc(unitLabel(i.unit)) + '</div></div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-edit-ing="' + esc(i.id) + '">Изменить</button><button type="button" class="btn btn-danger btn-sm" data-delete-ing="' + esc(i.id) + '">Удалить</button></div></div>';
-    }).join('') : '<span class="muted">Пока нет ингредиентов.</span>';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-edit-ing]'), function (b) {
-      b.onclick = function () { editIngredient(b.dataset.editIng); };
-    });
-    Array.prototype.forEach.call(box.querySelectorAll('[data-delete-ing]'), function (b) {
-      b.onclick = function () { deleteIngredient(b.dataset.deleteIng); };
-    });
+    var box = $('ingredients'); if (!box) return;
+    box.innerHTML = state.ingredients.length ? state.ingredients.map(function (i) { return '<div class="ingredient-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div style="flex:1"><b>' + esc(i.name) + '</b><div class="muted" style="font-size:11px">' + esc(unitLabel(i.unit)) + ' · ' + Number(i.purchase_price || 0).toFixed(2) + ' ₽ / ' + esc(i.purchase_quantity || 1) + ' ' + esc(unitLabel(i.unit)) + '</div></div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-edit-ing="' + esc(i.id) + '">Изменить</button><button type="button" class="btn btn-danger btn-sm" data-delete-ing="' + esc(i.id) + '">Удалить</button></div></div>'; }).join('') : '<span class="muted">Пока нет ингредиентов.</span>';
+    Array.prototype.forEach.call(box.querySelectorAll('[data-edit-ing]'), function (b) { b.onclick = function () { editIngredient(b.dataset.editIng); }; });
+    Array.prototype.forEach.call(box.querySelectorAll('[data-delete-ing]'), function (b) { b.onclick = function () { deleteIngredient(b.dataset.deleteIng); }; });
   }
 
   function selectProduct(id) {
     state.selected = id;
-    var p = state.products.find(function (x) { return x.id === id; });
-    if (!p) return;
+    var p = state.products.find(function (x) { return x.id === id; }); if (!p) return;
     if ($('title')) $('title').textContent = 'Рецептура: ' + p.name;
     if ($('save')) $('save').hidden = false;
     rpc('manager_recipe_list', { p_venue_id: state.venueId, p_product_id: id }).then(function (data) {
       state.rows = (Array.isArray(data) ? data : []).map(function (r) { return { ingredient_id:r.ingredient_id, quantity:Number(r.quantity) || 0, note:r.note || '' }; });
-      renderRecipe();
-      renderProducts();
-      return loadCost();
+      renderRecipe(); renderProducts(); return loadCost();
     }).catch(function (e) { message('Ошибка загрузки рецептуры: ' + (e.message || e), true); });
   }
 
   function renderRecipe() {
-    var box = $('recipe');
-    if (!box) return;
+    var box = $('recipe'); if (!box) return;
     if (!state.selected) { box.innerHTML = '<p class="muted">Выберите товар.</p>'; return; }
     box.innerHTML = (state.rows.length ? state.rows.map(function (row, i) {
       var ing = state.ingredients.find(function (x) { return x.id === row.ingredient_id; });
@@ -191,11 +171,7 @@
     if ($('addRow')) $('addRow').onclick = function () { addRecipeRow(); };
   }
 
-  function addRecipeRow() {
-    if (!state.ingredients.length) { message('Сначала добавьте ингредиент.', true); return; }
-    state.rows.push({ ingredient_id:state.ingredients[0].id, quantity:1, note:'' });
-    renderRecipe();
-  }
+  function addRecipeRow() { if (!state.ingredients.length) { message('Сначала добавьте ингредиент.', true); return; } state.rows.push({ ingredient_id:state.ingredients[0].id, quantity:1, note:'' }); renderRecipe(); }
 
   function saveRecipe() {
     if (!state.selected) return;
@@ -211,14 +187,10 @@
     });
   }
 
-  function reloadIngredients() {
-    return rpc('manager_ingredient_list', { p_venue_id:state.venueId }).then(function (d) { state.ingredients = Array.isArray(d) ? d : []; renderIngredients(); renderRecipe(); return loadCost(); });
-  }
+  function reloadIngredients() { return rpc('manager_ingredient_list', { p_venue_id:state.venueId }).then(function (d) { state.ingredients = Array.isArray(d) ? d : []; renderIngredients(); renderRecipe(); return loadCost(); }); }
 
   function addIngredient() {
-    var name = $('iname') ? $('iname').value.trim() : '';
-    var qty = Number($('iqty') ? $('iqty').value : 0);
-    var price = Number($('iprice') ? $('iprice').value : 0);
+    var name = $('iname') ? $('iname').value.trim() : '', qty = Number($('iqty') ? $('iqty').value : 0), price = Number($('iprice') ? $('iprice').value : 0);
     if (!name) { message('Введите название ингредиента.', true); return; }
     if (!(qty > 0)) { message('Закупочное количество должно быть больше нуля.', true); return; }
     if (!Number.isFinite(price) || price < 0) { message('Некорректная закупочная цена.', true); return; }
@@ -226,33 +198,25 @@
   }
 
   function editIngredient(id) {
-    var item = state.ingredients.find(function (x) { return x.id === id; });
-    if (!item) return;
-    var name = prompt('Название ингредиента:', item.name);
-    if (name === null) return;
-    name = name.trim();
-    if (!name) return;
-    var price = Number(prompt('Закупочная цена:', item.purchase_price || 0));
-    if (!Number.isFinite(price) || price < 0) return;
+    var item = state.ingredients.find(function (x) { return x.id === id; }); if (!item) return;
+    var name = prompt('Название ингредиента:', item.name); if (name === null) return; name = name.trim(); if (!name) return;
+    var price = Number(prompt('Закупочная цена:', item.purchase_price || 0)); if (!Number.isFinite(price) || price < 0) return;
     rpc('manager_ingredient_upsert', { p_venue_id:state.venueId, p_name:name, p_unit:item.unit, p_purchase_quantity:Number(item.purchase_quantity || 1), p_purchase_price:price, p_id:id }).then(function () { message('Ингредиент изменён.'); return reloadIngredients(); }).catch(function (e) { message('Ошибка изменения: ' + (e.message || e), true); });
   }
 
   function deleteIngredient(id) {
-    var item = state.ingredients.find(function (x) { return x.id === id; });
-    if (!item || !confirm('Удалить ингредиент «' + item.name + '»?')) return;
+    var item = state.ingredients.find(function (x) { return x.id === id; }); if (!item || !confirm('Удалить ингредиент «' + item.name + '»?')) return;
     rpc('manager_ingredient_delete', { p_venue_id:state.venueId, p_ingredient_id:id }).then(function () { message('Ингредиент удалён.'); return reloadIngredients(); }).catch(function (e) { message('Не удалось удалить: ' + (e.message || e), true); });
   }
 
   function renderTechCards() {
-    var box = $('techList');
-    if (!box) return;
+    var box = $('techList'); if (!box) return;
     box.innerHTML = state.techCards.length ? state.techCards.map(function (t) { return '<div class="tech-card">' + (t.file_url ? '<img src="' + esc(t.file_url) + '" alt="">' : '') + '<b>' + esc(t.file_name || 'Техкарта') + '</b><div class="muted">' + esc(t.status === 'processed' ? 'Распознано' : 'Загружено') + '</div><button type="button" class="btn btn-ghost btn-sm" data-tech="' + esc(t.id) + '">Открыть</button></div>'; }).join('') : '<div class="muted">Техкарт пока нет.</div>';
     Array.prototype.forEach.call(box.querySelectorAll('[data-tech]'), function (b) { b.onclick = function () { var t = state.techCards.find(function (x) { return x.id === b.dataset.tech; }); if (t) showOcr(t.ocr_text || '', t); }; });
   }
 
   function renderCatalog() {
-    var box = $('catalogList');
-    if (!box) return;
+    var box = $('catalogList'); if (!box) return;
     var q = norm($('catalogSearch') ? $('catalogSearch').value : '');
     var list = state.catalog.filter(function (c) { return !q || norm([c.name,c.description,c.cuisine].join(' ')).indexOf(q) >= 0; });
     if ($('catalogStats')) $('catalogStats').textContent = 'Показано ' + list.length + ' из ' + state.catalog.length + ' рецептур';
@@ -261,8 +225,7 @@
   }
 
   function openCatalogDetail(id) {
-    var c = state.catalog.find(function (x) { return x.id === id; });
-    if (!c || !$('catalogDetailModal')) return;
+    var c = state.catalog.find(function (x) { return x.id === id; }); if (!c || !$('catalogDetailModal')) return;
     $('catalogDetailModal').hidden = false;
     if ($('catalogDetailTitle')) $('catalogDetailTitle').textContent = c.name;
     var items = state.catalogItems.filter(function (x) { return x.recipe_id === c.id; }).sort(function (a,b) { return (a.sort_order || 0) - (b.sort_order || 0); });
@@ -270,8 +233,7 @@
   }
 
   function renderGlobalIngredients() {
-    var box = $('ingredientsDbList');
-    if (!box) return;
+    var box = $('ingredientsDbList'); if (!box) return;
     var q = norm($('ingredientsSearch') ? $('ingredientsSearch').value : '');
     var list = state.globalIngredients.filter(function (x) { return !q || norm(x.name).indexOf(q) >= 0; });
     box.innerHTML = list.length ? list.map(function (x) { return '<div class="ingredient-row"><b>' + esc(x.name) + '</b><span class="muted"> · ' + esc(unitLabel(x.unit)) + '</span></div>'; }).join('') : '<p class="muted">Ничего не найдено.</p>';
@@ -290,10 +252,8 @@
   function parseOcr(text) {
     var out = [];
     String(text || '').split(/\n+/).forEach(function (line) {
-      var m = line.match(/(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?/i);
-      if (!m) return;
-      var name = line.slice(0, m.index).replace(/[,:;\-]+\s*$/, '').trim();
-      if (!name) return;
+      var m = line.match(/(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?/i); if (!m) return;
+      var name = line.slice(0, m.index).replace(/[,:;\-]+\s*$/, '').trim(); if (!name) return;
       out.push({ name:name, quantity:Number(String(m[1]).replace(',', '.')), unit:canonicalUnit(m[2]) || 'g', note:'OCR' });
     });
     return out;
