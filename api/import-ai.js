@@ -19,43 +19,29 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const rateState = new Map();
 
-const SCHEMA = {
-  type: 'OBJECT',
-  properties: {
-    venue_name: { type: 'STRING' },
-    currency: { type: 'STRING' },
-    categories: {
-      type: 'ARRAY',
-      items: {
-        type: 'OBJECT',
-        properties: {
-          name: { type: 'STRING' },
-          items: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                name: { type: 'STRING' },
-                description: { type: 'STRING' },
-                price: { type: 'NUMBER', nullable: true },
-                unit: { type: 'STRING' },
-                weight: { type: 'NUMBER', nullable: true },
-                image_url: { type: 'STRING', nullable: true },
-                allergens: { type: 'ARRAY', items: { type: 'STRING' } },
-                tags: { type: 'ARRAY', items: { type: 'STRING' } },
-                available: { type: 'BOOLEAN' }
-              },
-              required: ['name', 'description', 'price', 'unit', 'weight', 'image_url', 'allergens', 'tags', 'available']
-            }
-          }
-        },
-        required: ['name', 'items']
-      }
-    },
-    warnings: { type: 'ARRAY', items: { type: 'STRING' } }
-  },
-  required: ['venue_name', 'currency', 'categories', 'warnings']
+const AI_FEATURES = {
+  menu_import: 'ИИ-импорт меню: распознавание и структурирование меню.'
 };
+
+async function entitlementForManager(managerId, feature) {
+  if (!SUPABASE_SERVICE_ROLE_KEY) throw Object.assign(new Error('AI_PROVIDER_NOT_CONFIGURED'), { status: 503 });
+  const headers = { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY, accept: 'application/json' };
+  const now = new Date().toISOString();
+  const subUrl = SUPABASE_URL + '/rest/v1/subscriptions?manager_id=eq.' + encodeURIComponent(managerId) + '&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.' + encodeURIComponent(now) + '&select=id,plan_id,status,current_period_end&order=created_at.desc&limit=1';
+  const sr = await fetch(subUrl, { headers });
+  const subs = await sr.json().catch(() => null);
+  if (!sr.ok) throw Object.assign(new Error('SUBSCRIPTION_LOOKUP_FAILED'), { status: 500 });
+  const sub = subs?.[0];
+  if (!sub) throw Object.assign(new Error('AI_SUBSCRIPTION_REQUIRED'), { status: 403 });
+  const pr = await fetch(SUPABASE_URL + '/rest/v1/plans?id=eq.' + encodeURIComponent(sub.plan_id) + '&is_active=eq.true&select=id,name,ai_enabled,ai_features&limit=1', { headers });
+  const plans = await pr.json().catch(() => null);
+  if (!pr.ok) throw Object.assign(new Error('PLAN_LOOKUP_FAILED'), { status: 500 });
+  const plan = plans?.[0];
+  const features = plan?.ai_features && typeof plan.ai_features === 'object' ? plan.ai_features : {};
+  if (!plan || plan.ai_enabled !== true) throw Object.assign(new Error('AI_NOT_INCLUDED_IN_PLAN'), { status: 403 });
+  if (features[feature] !== true) throw Object.assign(new Error('AI_FEATURE_NOT_INCLUDED:' + feature), { status: 403 });
+  return { plan, features, subscription: sub };
+}
 
 function clean(value, max = 600) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
@@ -236,9 +222,7 @@ async function callGemini(parts) {
       try { parsed = JSON.parse(text); } catch (_) { throw Object.assign(new Error('AI_INVALID_JSON'), { status: 502 }); }
       return { data: parsed, model };
     } catch (error) {
-      if (error?.name === 'AbortError') {
-        throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504 });
-      }
+      if (error?.name === 'AbortError') throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504 });
       lastError = error;
       const status = Number(error?.status) || 0;
       const retryableHttp = status === 408 || status === 429 || status >= 500;
@@ -272,91 +256,26 @@ function normalizeItem(item, categoryName) {
   };
 }
 
-function validateAndNormalizeMenu(raw, context = {}) {
-  const warnings = Array.isArray(raw?.warnings) ? raw.warnings.map(x => clean(x, 500)).filter(Boolean).slice(0, 100) : [];
-  const categories = [];
-  const categoryMap = new Map();
-  for (const rawCategory of Array.isArray(raw?.categories) ? raw.categories : []) {
-    const name = clean(rawCategory?.name, 160);
-    if (!name) continue;
-    if (!categoryMap.has(name.toLowerCase())) {
-      const category = { name, items: [] };
-      categoryMap.set(name.toLowerCase(), category);
-      categories.push(category);
-    }
-    const category = categoryMap.get(name.toLowerCase());
-    for (const rawItem of Array.isArray(rawCategory?.items) ? rawCategory.items : []) {
-      const item = normalizeItem(rawItem, category.name);
-      if (!item.name) continue;
-      const duplicate = category.items.find(x => x.name.toLowerCase() === item.name.toLowerCase() && (x.price ?? null) === (item.price ?? null));
-      if (duplicate) continue;
-      if (item.price == null) warnings.push('Не удалось распознать цену для блюда «' + item.name + '»');
-      category.items.push(item);
-    }
-  }
-  for (let i = categories.length - 1; i >= 0; i--) {
-    if (!categories[i].items.length) {
-      warnings.push('Категория «' + categories[i].name + '» не имеет элементов');
-      categories.splice(i, 1);
-    }
-  }
-  if (!categories.length) warnings.push(context.unreadable ? 'Не удалось распознать текст меню. Проверьте качество источника.' : 'В источнике не найдено ни одной позиции меню');
-  return {
-    venue_name: clean(raw?.venue_name || context.venue_name || '', 220),
-    currency: clean(raw?.currency || 'RUB', 12).toUpperCase(),
-    categories,
-    warnings: [...new Set(warnings)].slice(0, 120)
-  };
+function validateAndNormalizeMenu(menu, options = {}) {
+  const categories = Array.isArray(menu?.categories) ? menu.categories : [];
+  const normalized = categories.map(category => ({
+    name: clean(category?.name, 160) || 'Без категории',
+    items: (Array.isArray(category?.items) ? category.items : []).map(item => normalizeItem(item, clean(category?.name, 160) || 'Без категории')).filter(item => item.name)
+  })).filter(category => category.items.length);
+  const warnings = normalizeTagArray(menu?.warnings);
+  if (options.unreadable) warnings.push('Не удалось уверенно распознать структуру меню.');
+  return { venue_name: clean(menu?.venue_name, 220), currency: clean(menu?.currency || 'RUB', 10) || 'RUB', categories: normalized, warnings: normalizeTagArray(warnings) };
 }
 
 function flattenMenu(menu) {
-  const out = [];
-  for (const category of menu.categories || []) {
-    for (const item of category.items || []) {
-      out.push({
-        name: item.name,
-        description: item.description,
-        price: item.price,
-        category: category.name,
-        image_url: item.image_url,
-        is_available: item.available !== false,
-        applies_to: 'all',
-        unit: item.unit || null,
-        weight: item.weight,
-        allergens: item.allergens,
-        tags: item.tags
-      });
-    }
-  }
-  return out;
+  return menu.categories.flatMap(category => category.items.map(item => ({ ...item, category: category.name })));
 }
 
 async function fetchExternalFile(url) {
   const safe = await assertSafeUrl(url);
-  const { response, data } = await fetchWithTimeout(safe, { headers: { 'user-agent': 'QR-Menu-Importer/1.0', accept: 'application/pdf,image/jpeg,image/png,image/webp,*/*;q=0.5' } }, 20000, MAX_FILE_BYTES);
-  const contentType = String(response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
-  return { url: response.url || safe, mime: detectMime(data, contentType), data };
-}
-
-async function deleteTempObject(path) {
-  if (!SUPABASE_SERVICE_ROLE_KEY || !path) return;
-  try {
-    await fetch(SUPABASE_URL + '/storage/v1/object/menu-images/' + String(path).split('/').map(encodeURIComponent).join('/'), {
-      method: 'DELETE',
-      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY }
-    });
-  } catch (_) {}
-}
-
-async function parseRequestBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body;
-  let text = '';
-  for await (const chunk of req) {
-    text += chunk;
-    if (Buffer.byteLength(text, 'utf8') > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 });
-  }
-  if (!text) return {};
-  try { return JSON.parse(text); } catch (_) { throw Object.assign(new Error('INVALID_JSON'), { status: 400 }); }
+  const result = await fetchWithTimeout(safe);
+  const mime = result.response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() || '';
+  return { data: result.data, mime, url: safe };
 }
 
 async function importSite(url) {
@@ -417,7 +336,10 @@ function errorMessage(code) {
     AI_INVALID_JSON: 'ИИ вернул некорректный результат. Повторите импорт.',
     AI_EMPTY_RESPONSE: 'ИИ не вернул результат. Повторите импорт.',
     UPSTREAM_TIMEOUT: 'Источник не ответил вовремя.',
-    PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.'
+    PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.',
+    AI_SUBSCRIPTION_REQUIRED: 'Для ИИ-импорта нужна активная подписка или пробный период.',
+    AI_NOT_INCLUDED_IN_PLAN: 'ИИ-импорт не включён в выбранный тариф.',
+    AI_FEATURE_NOT_INCLUDED: 'ИИ-импорт не включён в выбранный тариф.'
   };
   return map[code] || 'Ошибка импорта меню.';
 }
@@ -430,11 +352,12 @@ module.exports = async function handler(req, res) {
   try {
     const auth = await requireManagerOrAdmin(req);
     checkRateLimit(req, auth.id);
+    if (auth.role === 'manager') await entitlementForManager(auth.id, 'menu_import');
     const body = await parseRequestBody(req);
     const language = clean(body.language || 'auto', 20);
     const source = clean(body.source || (body.file ? 'file' : body.url ? 'url' : ''), 20).toLowerCase();
     let menu;
-    let meta = { provider: 'google-gemini', model: null, source: source || 'unknown' };
+    let meta = { provider: 'google-gemini', model: null, source: source || 'unknown', ai_feature: auth.role === 'manager' ? 'menu_import' : 'admin' };
 
     if (source === 'url' || source === 'site') {
       const target = clean(body.url, 2000);
