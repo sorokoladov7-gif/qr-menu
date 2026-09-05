@@ -14,8 +14,7 @@
           revenue: 0, orders: 0, clients: 0, avgCheck: 0, avgCookTime: 0,
           newClients: 0, repeatClients: 0, topItems: [], topAddons: [],
           typeStats: { pickup: 0, delivery: 0 },
-          payStats: { cash: 0, card: 0 },
-          topHours: [], daily: [],
+          payStats: { cash: 0, card: 0 }, topHours: [], daily: [],
           cooks: [], couriers: [], waiters: []
         }
       };
@@ -52,8 +51,7 @@
           var clients = Object.keys(phoneCount).length;
           var repeat = 0;
           Object.keys(phoneCount).forEach(function(p) { if (phoneCount[p] > 1) repeat++; });
-          var t = [];
-          var cm = {}, im = {}, am = {}, hours = {}, dailyMap = {};
+          var t = [], cm = {}, im = {}, am = {}, hours = {}, dailyMap = {};
           var pickup = 0, delivery = 0, cash = 0, card = 0;
           var courierMap = {}, waiterMap = {};
           os.forEach(function(o) {
@@ -69,9 +67,13 @@
               }
             }
             (o.items || []).forEach(function(it) {
-              if (!im[it.name]) im[it.name] = { name: it.name, count: 0, revenue: 0 };
-              im[it.name].count += it.qty;
-              im[it.name].revenue += it.qty * Number(it.price || 0);
+              var key = it.product_id || ('name:' + String(it.name || ''));
+              if (!im[key]) im[key] = { product_id: it.product_id || null, name: it.name || 'Без названия', count: 0, revenue: 0, price: 0 };
+              var qty = Number(it.qty) || 0;
+              var price = Number(it.price) || 0;
+              im[key].count += qty;
+              im[key].revenue += qty * price;
+              if (price > 0) im[key].price = price;
             });
             (o.addons || []).forEach(function(a) {
               if (!am[a.name]) am[a.name] = { name: a.name, count: 0 };
@@ -81,9 +83,9 @@
               var dt = new Date(o.created_at);
               var hr = dt.getHours();
               hours[hr] = (hours[hr] || 0) + 1;
-              var key = dt.toISOString().slice(0, 10);
-              if (!dailyMap[key]) dailyMap[key] = 0;
-              dailyMap[key]++;
+              var keyDay = dt.toISOString().slice(0, 10);
+              if (!dailyMap[keyDay]) dailyMap[keyDay] = 0;
+              dailyMap[keyDay]++;
             }
             if (o.status === 'done' && o.courier_name) courierMap[o.courier_name] = (courierMap[o.courier_name] || 0) + 1;
             if (o.status === 'done' && o.waiter_name) waiterMap[o.waiter_name] = (waiterMap[o.waiter_name] || 0) + 1;
@@ -132,6 +134,7 @@
           var context = JSON.stringify({
             period_days: this.analyticsPeriod === 'all' ? 'all' : Number(this.analyticsPeriod),
             venue: this.venue.name || '',
+            venue_id: this.venue.id || null,
             revenue: this.analytics.revenue,
             orders: this.analytics.orders,
             clients: this.analytics.clients,
