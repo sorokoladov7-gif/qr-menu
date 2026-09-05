@@ -67,6 +67,10 @@ module.exports=async function(req,res){
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
     const message=String(body.message||'').trim().slice(0,8000);
     if(!message)throw httpError('MESSAGE_REQUIRED',400);
+    if(message==='__entitlement_check__'){
+      res.statusCode=200;res.setHeader('Content-Type','application/json; charset=utf-8');
+      return res.end(JSON.stringify({ok:true,answer:'',plan:ent.plan.name,ai_enabled:true,subscription_status:ent.subscription.status,subscription_end:ent.subscription.current_period_end}));
+    }
     const answer=await callGemini(message,'Тариф: '+ent.plan.name+'. AI включён. Статус подписки: '+ent.subscription.status+'. До: '+ent.subscription.current_period_end+'.');
     res.statusCode=200;res.setHeader('Content-Type','application/json; charset=utf-8');
     return res.end(JSON.stringify({ok:true,answer,plan:ent.plan.name,ai_enabled:true,subscription_status:ent.subscription.status,subscription_end:ent.subscription.current_period_end}));
