@@ -18,6 +18,8 @@
     var state={};
     mixins.forEach(function(m){if(m&&m.data)Object.assign(state,m.data());});
     state.managerSubscription=state.managerSubscription||null;
+    state.aiFeatures=state.aiFeatures||{};
+    state.aiEntitlementReady=false;
     if(!state.tab)state.tab='menu';
     return state;
   };
@@ -40,6 +42,124 @@
     return limit>0&&used<limit;
   };
 
+  /* Единая точка доступа к AI-разрешениям тарифа. UI только отражает состояние;
+     окончательная проверка выполняется серверными API. */
+  appComputed.aiFeatureList=function(){return this.currentPlan&&this.currentPlan.ai_features&&typeof this.currentPlan.ai_features==='object'?this.currentPlan.ai_features:{};};
+  appComputed.aiEnabled=function(){return !!(this.profile&&this.profile.role==='admin')||!!(this.currentPlan&&this.currentPlan.ai_enabled===true);};
+
+  appMethods.hasAIFeature=function(feature){
+    if(!feature)return false;
+    if(this.profile&&this.profile.role==='admin')return true;
+    var plan=this.currentPlan;
+    if(!plan||plan.ai_enabled!==true)return false;
+    var features=plan.ai_features&&typeof plan.ai_features==='object'?plan.ai_features:{};
+    if(features[feature]===true)return true;
+    /* Старые записи планов могли иметь только ai_enabled: сохраняем assistant,
+       но не открываем этим флагом новые специализированные возможности. */
+    return feature==='assistant'&&Object.keys(features).length===0;
+  };
+
+  appMethods.aiFeatureLabel=function(feature){
+    var labels={assistant:'ИИ-помощник',menu_analysis:'Анализ меню',menu_import:'ИИ-импорт меню',analytics:'ИИ-аналитика',recipes:'ИИ-рецептуры',chef:'ИИ-помощник повара',staff:'ИИ-помощник по персоналу',marketing:'ИИ-маркетинг',settings:'ИИ-настройки',engineer:'ИИ-инженер'};
+    return labels[feature]||'ИИ-функция';
+  };
+
+  appMethods.aiFeatureError=function(feature){
+    return 'Функция «'+this.aiFeatureLabel(feature)+'» не включена в ваш тариф. Обратитесь к администратору для подключения.';
+  };
+
+  function setLockedState(el,locked,message){
+    if(!el)return;
+    el.setAttribute('data-qr-ai-locked',locked?'1':'0');
+    el.setAttribute('aria-disabled',locked?'true':'false');
+    el.title=locked?(message||'Функция не включена в тариф'):(el.getAttribute('data-qr-ai-title')||'');
+    if(locked){
+      el.classList.add('qr-ai-locked');
+      if('disabled' in el)el.disabled=true;
+    }else{
+      el.classList.remove('qr-ai-locked');
+      if('disabled' in el)el.disabled=false;
+    }
+  }
+
+  function gateManagerAI(vm){
+    if(!vm||!vm.profile||vm.profile.role==='admin'){
+      return;
+    }
+    var root=document.getElementById('app');
+    if(!root)return;
+
+    /* Общий AI-помощник. Не трогаем DOM, пока модуль ещё не создал свой центр. */
+    var assistant=root.querySelector('#qr-ai-center');
+    if(assistant){
+      var allowed=vm.hasAIFeature('assistant');
+      assistant.style.display=allowed?'':'none';
+      assistant.setAttribute('data-qr-ai-feature','assistant');
+    }
+
+    /* Универсальный маркер для уже существующих/будущих AI-кнопок. */
+    Array.prototype.forEach.call(root.querySelectorAll('[data-ai-feature]'),function(el){
+      var feature=el.getAttribute('data-ai-feature');
+      if(feature)setLockedState(el,!vm.hasAIFeature(feature),vm.aiFeatureError(feature));
+    });
+
+    /* Текущий AI-импорт меню: блокируем только AI-действия, не сам раздел меню. */
+    var importBlock=root.querySelector('#qr-menu-import-block-v2');
+    if(importBlock){
+      var importAllowed=vm.hasAIFeature('menu_import');
+      importBlock.setAttribute('data-qr-ai-feature','menu_import');
+      var notice=importBlock.querySelector('[data-qr-ai-lock-notice]');
+      if(!importAllowed){
+        Array.prototype.forEach.call(importBlock.querySelectorAll('button,input'),function(el){
+          if(!el.hasAttribute('data-qr-ai-original-disabled'))el.setAttribute('data-qr-ai-original-disabled',el.disabled?'1':'0');
+          setLockedState(el,true,vm.aiFeatureError('menu_import'));
+        });
+        if(!notice){
+          notice=document.createElement('div');
+          notice.setAttribute('data-qr-ai-lock-notice','1');
+          notice.style.cssText='margin:0 0 12px;padding:10px 12px;border:1px solid rgba(251,191,36,.28);border-radius:10px;background:rgba(251,191,36,.08);color:#fcd34d;font-size:12px;line-height:1.45;';
+          notice.textContent='🔒 ИИ-импорт меню не включён в текущий тариф.';
+          importBlock.insertBefore(notice,importBlock.firstChild);
+        }
+      }else{
+        if(notice)notice.remove();
+        Array.prototype.forEach.call(importBlock.querySelectorAll('button,input'),function(el){
+          if(el.getAttribute('data-qr-ai-locked')==='1'){
+            el.disabled=el.getAttribute('data-qr-ai-original-disabled')==='1';
+            el.removeAttribute('data-qr-ai-original-disabled');
+            setLockedState(el,false,'');
+          }
+        });
+      }
+    }
+
+    /* Уже встроенный ИИ-инженер, если его существующий UI использует текстовую кнопку.
+       Ничего нового не создаём и не подменяем существующий модуль. */
+    Array.prototype.forEach.call(root.querySelectorAll('button,a,[role="button"]'),function(el){
+      if(el.hasAttribute('data-ai-feature'))return;
+      var text=(el.textContent||'').replace(/\s+/g,' ').trim().toLowerCase();
+      if(text.indexOf('ии-инженер')!==-1||text.indexOf('ии инженер')!==-1||text.indexOf('ai engineer')!==-1){
+        el.setAttribute('data-ai-feature','engineer');
+        setLockedState(el,!vm.hasAIFeature('engineer'),vm.aiFeatureError('engineer'));
+      }
+    });
+  }
+
+  function startManagerAIGate(vm){
+    if(!vm||vm.__qrManagerAIGate)return;
+    vm.__qrManagerAIGate=true;
+    var style=document.createElement('style');
+    style.setAttribute('data-qr-manager-ai-gate-style','1');
+    style.textContent='.qr-ai-locked{opacity:.55!important;cursor:not-allowed!important;filter:saturate(.65)}[data-qr-ai-locked="1"]{cursor:not-allowed!important}';
+    document.head.appendChild(style);
+    var run=function(){try{gateManagerAI(vm);}catch(e){console.warn('[QR Manager] AI entitlement UI:',e);}};
+    run();
+    var observer=new MutationObserver(function(){clearTimeout(vm.__qrAIGateTimer);vm.__qrAIGateTimer=setTimeout(run,60);});
+    var root=document.getElementById('app');
+    if(root)observer.observe(root,{subtree:true,childList:true});
+    vm.__qrAIGateObserver=observer;
+  }
+
   var baseInit=appMethods.init;
   if(typeof baseInit==='function'){
     appMethods.init=async function(){
@@ -60,13 +180,13 @@
         sub=healed.data||null;
       }
       this.managerSubscription=sub;
+      this.aiEntitlementReady=true;
       if(sub&&sub.current_period_end)this.subscriptionEnd=sub.current_period_end;
       try{window.dispatchEvent(new CustomEvent('qr-manager-subscription-ready',{detail:{subscription:sub,managerId:this.profile.id}}));}catch(e){}
+      this.$nextTick(function(){startManagerAIGate(this);}.bind(this));
     };
   }
 
-  /* Автоподсказки названия заведения. Использует существующие названия,
-   * названия шаблонов и короткий базовый словарь. Новый файл не требуется. */
   function installVenueNameSuggestions(vm){
     if(!vm)return;
     var root=document.getElementById('app');
@@ -84,7 +204,6 @@
     if(!input)return;
     if(input.__qrVenueSuggestBound)return;
     input.__qrVenueSuggestBound=true;
-
     var box=document.createElement('div');
     box.className='qr-venue-name-suggestions';
     box.style.cssText='position:absolute;left:0;right:0;top:calc(100% + 5px);z-index:12020;background:#141821;border:1px solid rgba(148,163,184,.2);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.35);padding:5px;display:none;max-height:230px;overflow:auto;';
@@ -93,7 +212,6 @@
       if(getComputedStyle(parent).position==='static')parent.style.position='relative';
       parent.appendChild(box);
     }else return;
-
     var baseWords=['Кофейня','Coffee House','Coffee Point','Кафе','Ресторан','Пиццерия','Шаурма','Бургерная','Пекарня','Кондитерская','Суши','Суши-бар','Стритфуд','Фастфуд','Бар','Кафе-бар','Столовая','Лаунж','Чайхана','Бистро'];
     function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
     function norm(v){return clean(v).toLocaleLowerCase('ru-RU');}
@@ -217,9 +335,7 @@
     var root=document.getElementById('app');
     if(!root){console.error('[QR Manager] #app not found');return;}
     if(typeof window.Vue==='undefined'){console.error('[QR Manager] Vue is not loaded');return;}
-
     loadInstruction();
-
     var app=Vue.createApp({
       data:appData,
       computed:appComputed,
@@ -257,13 +373,16 @@
         }
       },
       mounted:function(){this.init();},
-      beforeUnmount:function(){if(this.timer)clearInterval(this.timer);}
+      beforeUnmount:function(){
+        if(this.timer)clearInterval(this.timer);
+        if(this.__qrAIGateObserver)this.__qrAIGateObserver.disconnect();
+      }
     });
-
     app.mount(root);
     window.__managerVue=app._instance&&app._instance.proxy;
     window.__QR_MANAGER_VUE_APP__=app;
     window.__QR_MANAGER_APP__=true;
+    if(window.__managerVue)startManagerAIGate(window.__managerVue);
     window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));
     loadPaymentSettings();
   }
