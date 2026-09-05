@@ -21,7 +21,6 @@ where ai_features = '{}'::jsonb;
 alter table public.plans
   drop constraint if exists plans_ai_features_object;
 alter table public.plans
-  add constraint plans_ai_features_object
-  check (jsonb_typeof(ai_features) = 'object');
+  add constraint plans_ai_features_object check (jsonb_typeof(ai_features) = 'object');
 
 commit;
