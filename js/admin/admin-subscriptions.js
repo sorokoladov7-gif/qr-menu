@@ -55,11 +55,20 @@
         return this.plans.map(function(p) {
           var ss = (self.subscriptions || []).filter(function(s){return s && s.manager_id && s.plan_id === p.id;});
           var active = ss.filter(function(s){return ['active','trialing'].indexOf(s.status)!==-1 && s.current_period_end && new Date(s.current_period_end)>now;}).length;
-          return { id:p.id, name:p.name, price:Number(p.price)||0, count:ss.length, active:active, mrr:active*(Number(p.price)||0), is_public:p.is_public !== false };
+          return { id:p.id, name:p.name, price:Number(p.price)||0, count:ss.length, active:active, mrr:active*(Number(p.price)||0), is_public:p.is_public !== false, ai_enabled:p.ai_enabled===true };
         });
       }
     },
     methods: {
+      syncPlanPrice: function(plan) {
+        if (!plan) return 0;
+        var base = Math.max(0, Number(plan.base_price != null ? plan.base_price : plan.price) || 0);
+        var addon = Math.max(0, Number(plan.ai_addon_price) || 0);
+        plan.base_price = base;
+        plan.ai_addon_price = addon;
+        plan.price = Math.round(base + (plan.ai_enabled === true ? addon : 0));
+        return plan.price;
+      },
       subClass: function(v) {
         if (!v.subscription_end) return 'b-off';
         var e = new Date(v.subscription_end);
@@ -153,6 +162,9 @@
           id: id,
           name: 'Новый индивидуальный тариф',
           price: 0,
+          base_price: 0,
+          ai_enabled: false,
+          ai_addon_price: 0,
           period: 'month',
           features: [],
           max_products: 10,
@@ -178,14 +190,21 @@
         if (!name) { this.msg = 'Укажите название тарифа'; return; }
         var id = String(plan.id || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/g,'_');
         if (!id) { this.msg = 'Некорректный идентификатор тарифа'; return; }
+        this.syncPlanPrice(plan);
         this.busy = true;
         try {
+          var features = Array.isArray(plan.features) ? plan.features.slice() : [];
+          if (plan.ai_enabled === true && !features.some(function(f){return String(f).toLowerCase().indexOf('ии-помощ')!==-1;})) features.push('ИИ-помощник');
+          if (plan.ai_enabled !== true) features = features.filter(function(f){return String(f).toLowerCase().indexOf('ии-помощ')===-1;});
           var payload = {
             id:id,
             name:name,
             price:Number(plan.price)||0,
+            base_price:Number(plan.base_price)||0,
+            ai_enabled:plan.ai_enabled === true,
+            ai_addon_price:Math.max(0,Number(plan.ai_addon_price)||0),
             period:plan.period || 'month',
-            features:Array.isArray(plan.features) ? plan.features : [],
+            features:features,
             max_products:Math.max(1,Number(plan.max_products)||1),
             max_cooks:Math.max(1,Number(plan.max_cooks)||1),
             max_venues:Math.max(1,Number(plan.max_venues)||1),
@@ -202,6 +221,7 @@
             ? await db.from('plans').insert(payload)
             : await db.from('plans').update(payload).eq('id', plan.id);
           if (r.error) throw r.error;
+          plan.features = features;
           delete plan.__draft;
           plan.id = id;
           this.msg = 'Тариф «' + name + '» сохранён';
@@ -249,21 +269,76 @@
 
   window.__QR_ADMIN_SUBSCRIPTIONS_MIXIN__ = subsMixin;
 
-  /* Добавляем в существующий шаблон индикатор и переключатель видимости до компиляции Vue. */
+  /* Добавляем AI-контролы в существующий конструктор тарифов без изменения
+     Vue-шаблона: контролы напрямую синхронизируются с активным Vue proxy. */
   function enhancePlanCards() {
     var root = document.querySelector('.plans-grid');
-    if (!root || root.getAttribute('data-plan-visibility-enhanced') === '1') return;
-    root.setAttribute('data-plan-visibility-enhanced','1');
-    var card = root.children && root.children[0];
-    if (!card) return;
-    var saveButton = Array.prototype.find.call(card.querySelectorAll('button'), function(b){ return (b.textContent||'').indexOf('Сохранить тариф') !== -1; });
-    if (!saveButton) return;
-    var box = document.createElement('div');
-    box.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0;padding:9px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025);';
-    box.innerHTML = '<span style="font-size:12px;color:#94a3b8">{{ p.is_public === false ? \'Тариф скрыт от управляющих\' : \'Тариф видим управляющим\' }}</span>' +
-      '<button type="button" class="btn btn-ghost btn-sm" v-on:click="togglePlanVisibility(p)" v-bind:disabled="busy">{{ p.is_public === false ? \'🙈 Скрыт\' : \'👁 Видим\' }}</button>';
-    saveButton.parentNode.insertBefore(box, saveButton);
+    if (!root) return;
+    var app = window.__QR_ADMIN_VUE_APP__;
+    var vm = app && app._instance ? app._instance.proxy : null;
+    if (!vm || !Array.isArray(vm.plans)) return;
+    var cards = root.children ? Array.prototype.slice.call(root.children) : [];
+    cards.forEach(function(card, index){
+      var plan = vm.plans[index];
+      if (!plan || card.getAttribute('data-ai-plan-enhanced') === '1') return;
+      card.setAttribute('data-ai-plan-enhanced','1');
+      if (plan.base_price == null) plan.base_price = Number(plan.price)||0;
+      if (plan.ai_enabled == null) plan.ai_enabled = false;
+      if (plan.ai_addon_price == null) plan.ai_addon_price = 0;
+      vm.syncPlanPrice(plan);
+
+      var fields = card.querySelectorAll('.field');
+      var priceField = fields.length > 1 ? fields[1] : null;
+      if (priceField) {
+        var label = priceField.querySelector('label');
+        var input = priceField.querySelector('input[type="number"]');
+        if (label) label.textContent = 'Итоговая цена ₽/мес';
+        if (input) {
+          input.readOnly = true;
+          input.setAttribute('aria-readonly','true');
+          input.title = 'Рассчитывается автоматически: базовая цена + доплата AI, если AI включён';
+          input.style.opacity = '.78';
+        }
+      }
+
+      var box = document.createElement('div');
+      box.className = 'plan-ai-controls';
+      box.style.cssText = 'margin:10px 0;padding:11px 12px;border:1px solid rgba(59,201,255,.22);border-radius:12px;background:linear-gradient(135deg,rgba(22,140,255,.08),rgba(99,102,241,.06));';
+      box.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px">'
+        + '<label style="display:flex;align-items:center;gap:8px;margin:0;font-size:12px;font-weight:700;color:#dff7ff;cursor:pointer">'
+        + '<input type="checkbox" class="plan-ai-toggle" style="width:auto;margin:0;accent-color:#168cff">'
+        + '<span>✦ ИИ-помощник</span></label>'
+        + '<span class="plan-ai-status" style="font-size:10px;color:#70dfff"></span></div>'
+        + '<div class="plan-ai-addon-row" style="display:grid;grid-template-columns:1fr 110px;gap:8px;align-items:center">'
+        + '<span style="font-size:11px;color:#8fa9c6">Доплата за AI</span>'
+        + '<input type="number" min="0" step="100" class="plan-ai-addon" style="width:100%;padding:7px 8px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(84,182,255,.20);color:#fff" placeholder="0">'
+        + '</div>'
+        + '<div class="plan-ai-total" style="margin-top:8px;font-size:11px;color:#9bc9ed"></div>'
+        + '<div style="margin-top:5px;font-size:10px;color:#7186a5">AI доступен в период trial и после оплаты, пока подписка активна.</div>';
+      var saveButton = Array.prototype.find.call(card.querySelectorAll('button'), function(b){ return (b.textContent||'').indexOf('Сохранить тариф') !== -1; });
+      if (saveButton && saveButton.parentNode) saveButton.parentNode.insertBefore(box,saveButton);
+      else card.appendChild(box);
+
+      var toggle=box.querySelector('.plan-ai-toggle'), addon=box.querySelector('.plan-ai-addon'), status=box.querySelector('.plan-ai-status'), total=box.querySelector('.plan-ai-total');
+      toggle.checked = plan.ai_enabled === true;
+      addon.value = Number(plan.ai_addon_price)||0;
+      function refresh(){
+        plan.ai_enabled=!!toggle.checked;
+        plan.ai_addon_price=Math.max(0,Number(addon.value)||0);
+        var final=vm.syncPlanPrice(plan);
+        var priceInput=priceField&&priceField.querySelector('input[type="number"]');
+        if(priceInput)priceInput.value=String(final);
+        status.textContent=plan.ai_enabled?'AI включён':'AI не входит';
+        status.style.color=plan.ai_enabled?'#70dfff':'#8fa0b8';
+        total.textContent='Итог: '+new Intl.NumberFormat('ru-RU').format(final)+' ₽/мес';
+      }
+      toggle.addEventListener('change',refresh);
+      addon.addEventListener('input',refresh);
+      refresh();
+    });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enhancePlanCards, {once:true});
   else enhancePlanCards();
+  var observer=new MutationObserver(function(){ setTimeout(enhancePlanCards,0); });
+  if(document.body) observer.observe(document.body,{childList:true,subtree:true});
 })();
