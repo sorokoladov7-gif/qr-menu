@@ -6,7 +6,6 @@ window.normPhone = function(p){ return (p||'').replace(/[^\d+]/g,''); };
 window.SBP_PHONE = '89053204350';
 window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='80' height='80' viewBox='0 0 80 80'><rect width='80' height='80' fill='%231f2937'/><text x='50%' y='50%' text-anchor='middle' dy='.3em' fill='%239ca3af' font-size='30'>🍽</text></svg>";
 
-/* QR-Menu PWA: мобильная кнопка принудительного обновления. */
 (function(){
   'use strict';
   if(window.__QR_PWA_REFRESH__) return;
@@ -22,40 +21,17 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
 
-/* Корпоративная навигация admin/manager. */
 (function(){'use strict';if(!/\/(admin|manager)\.html$/i.test(location.pathname))return;function initCorporateNavigation(){if(document.body.dataset.qrCorpNav==='1')return;var app=document.getElementById('app');if(!app)return;document.body.dataset.qrCorpNav='1';var toggle=document.createElement('button');toggle.className='qr-corp-nav-toggle';toggle.type='button';toggle.setAttribute('aria-label','Открыть навигацию');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';var overlay=document.createElement('div');overlay.className='qr-corp-nav-overlay';overlay.setAttribute('aria-hidden','true');document.body.appendChild(toggle);document.body.appendChild(overlay);function close(){document.body.classList.remove('nav-open');toggle.setAttribute('aria-expanded','false');toggle.textContent='☰';}function open(){document.body.classList.add('nav-open');toggle.setAttribute('aria-expanded','true');toggle.textContent='×';}toggle.addEventListener('click',function(){document.body.classList.contains('nav-open')?close():open();});overlay.addEventListener('click',close);document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});document.addEventListener('click',function(e){var t=e.target.closest&&e.target.closest('.tabs button');if(t&&window.matchMedia('(max-width:900px)').matches)setTimeout(close,0);},true);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(initCorporateNavigation,0);});else setTimeout(initCorporateNavigation,0);var observer=new MutationObserver(function(){if(!document.body.dataset.qrCorpNav)initCorporateNavigation();});if(document.body)observer.observe(document.body,{childList:true,subtree:true});})();
 
-/* QR-Menu — гарантированная вкладка «Интеграции» в кабинете управляющего. */
 (function(){
   'use strict';
   if(!/\/manager\.html$/i.test(location.pathname))return;
   var LINK_ID='qr-manager-integrations-link';
-  function ensure(){
-    var tabs=document.querySelector('.tabs');
-    if(!tabs)return;
-    var existing=document.getElementById(LINK_ID);
-    if(existing&&existing.parentNode===tabs)return;
-    if(existing)existing.remove();
-    var link=document.createElement('a');
-    link.id=LINK_ID;
-    link.href='/integrations.html';
-    link.className='btn btn-ghost';
-    link.textContent='🔗 Интеграции';
-    link.setAttribute('aria-label','Открыть интеграции');
-    link.style.cssText='text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;';
-    tabs.appendChild(link);
-  }
-  function start(){
-    ensure();
-    var attempts=0;
-    var timer=setInterval(function(){ensure();if(++attempts>=60)clearInterval(timer);},500);
-    var observer=new MutationObserver(function(){ensure();});
-    if(document.body)observer.observe(document.body,{childList:true,subtree:true});
-  }
+  function ensure(){var tabs=document.querySelector('.tabs');if(!tabs)return;var existing=document.getElementById(LINK_ID);if(existing&&existing.parentNode===tabs)return;if(existing)existing.remove();var link=document.createElement('a');link.id=LINK_ID;link.href='/integrations.html';link.className='btn btn-ghost';link.textContent='🔗 Интеграции';link.setAttribute('aria-label','Открыть интеграции');link.style.cssText='text-decoration:none;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;';tabs.appendChild(link);}
+  function start(){ensure();var attempts=0;var timer=setInterval(function(){ensure();if(++attempts>=60)clearInterval(timer);},500);var observer=new MutationObserver(function(){ensure();});if(document.body)observer.observe(document.body,{childList:true,subtree:true});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
 
-/* QR-Menu — site import loader for manager.html. */
 (function(){'use strict';if(!/\/manager\.html$/i.test(location.pathname))return;var SCRIPT_ID='qr-manager-site-import-loader',SCRIPT_SRC='/js/manager/manager-site-import.js',started=false;function loadSiteImport(){if(window.QRManagerSiteImport){if(typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();return;}if(document.getElementById(SCRIPT_ID))return;var script=document.createElement('script');script.id=SCRIPT_ID;script.src=SCRIPT_SRC;script.async=false;script.onload=function(){if(window.QRManagerSiteImport&&typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();};script.onerror=function(){console.error('[QR Manager] Не удалось загрузить manager-site-import.js:',SCRIPT_SRC);var existing=document.getElementById(SCRIPT_ID);if(existing)existing.remove();};(document.head||document.documentElement).appendChild(script);}function start(){if(started)return;started=true;loadSiteImport();var attempts=0;var timer=setInterval(function(){attempts++;loadSiteImport();if(window.QRManagerSiteImport||attempts>=60)clearInterval(timer);},500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
 
 function safeRedirect(fallbackUrl, reason){var last=parseInt(sessionStorage.getItem('last_redirect')||'0',10),now=Date.now();if(now-last<3000){document.body.innerHTML='<div style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:30px;background:#1f2937;color:#fff;border-radius:16px"><h2 style="color:#f87171">⚠️ Проблема с профилем</h2><p>Ваш email авторизован, но профиль не найден в базе данных.</p><p><b>Причина:</b> '+(reason||'неизвестно')+'</p><button onclick="sessionStorage.clear();location.reload()" style="margin-top:20px;padding:12px 24px;background:#6366f1;color:#fff;border:none;border-radius:8px">🔄 Очистить и попробовать снова</button></div>';return;}sessionStorage.setItem('last_redirect',String(now));location.replace(fallbackUrl);}
@@ -64,18 +40,27 @@ async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.cl
 
 (function(){'use strict';if(!/\/menu\.html$/i.test(location.pathname))return;var lastVenueId=null,lastFee=null;function sync(){var el=document.getElementById('app');if(!el)return;try{var vm=el.__vueParentComponent?.proxy||el.vue_app?._instance?.proxy||null;if(!vm||!vm.venue)return;var id=vm.venue.id,raw=vm.venue.delivery_fee;var fee=raw===null||raw===undefined||raw===''?150:Number(raw);if(!isFinite(fee)||fee<0)fee=150;if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}}catch(e){}}if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;function start(){sync();setInterval(sync,250);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
 
-/* Public menu modifier UI loader. */
 (function(){
   'use strict';
   if(!/\/menu\.html$/i.test(location.pathname))return;
   var ID='qr-menu-modifiers-loader';
+  function load(){if(document.getElementById(ID)||window.__QR_MENU_MODIFIERS__)return;var s=document.createElement('script');s.id=ID;s.src='/js/menu-modifiers.js';s.async=false;s.onload=function(){console.log('[QR Menu] modifiers UI loaded');};s.onerror=function(){console.error('[QR Menu] failed to load modifiers UI');};(document.head||document.documentElement).appendChild(s);}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  setTimeout(load,1000);
+})();
+
+/* QR MENU — AI assistant loader. The mascot is available on manager/admin and is draggable on desktop and mobile. */
+(function(){
+  'use strict';
+  if(!/\/(manager|admin)\.html$/i.test(location.pathname))return;
+  var ID='qr-ai-assistant-loader';
   function load(){
-    if(document.getElementById(ID)||window.__QR_MENU_MODIFIERS__)return;
-    var s=document.createElement('script');s.id=ID;s.src='/js/menu-modifiers.js';s.async=false;
-    s.onload=function(){console.log('[QR Menu] modifiers UI loaded');};
-    s.onerror=function(){console.error('[QR Menu] failed to load modifiers UI');};
+    if(window.__QR_AI_ASSISTANT__||document.getElementById(ID))return;
+    var s=document.createElement('script');s.id=ID;s.src='/js/qr-ai-assistant.js?v=1';s.async=false;
+    s.onload=function(){console.log('[QR MENU] AI assistant loaded');};
+    s.onerror=function(){console.error('[QR MENU] AI assistant failed to load');};
     (document.head||document.documentElement).appendChild(s);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
-  setTimeout(load,1000);
+  setTimeout(load,800);
 })();
