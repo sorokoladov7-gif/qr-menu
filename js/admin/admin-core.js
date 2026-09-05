@@ -34,14 +34,24 @@
           requireAuth(['admin']).then(function(profile) {
             self.profile = profile;
             if (!profile) { self.ready = true; return; }
-            self.loadBaseData().then(function() {
-              self.loadOrders();
-              self.loadGlobalStats();
-              self.loadAdminAnalytics();
-              self.loadTemplates();
-              self.loadUISettings();
-              self.ready = true;
-            });
+            return self.loadBaseData();
+          }).then(function() {
+            if (!self.profile) return;
+            self.loadOrders();
+            self.loadGlobalStats();
+            self.loadAdminAnalytics();
+            self.loadTemplates();
+            self.loadUISettings();
+            self.ready = true;
+          }).catch(function(error) {
+            console.error('[QR Admin] initialization failed:', error);
+            /*
+             * A failed secondary query must not leave the entire admin cabinet
+             * permanently behind the "Загрузка…" screen. Individual sections
+             * already tolerate empty arrays, so render the cabinet and expose
+             * the failing request in the console instead.
+             */
+            self.ready = true;
           });
         } else {
           self.ready = true;
@@ -51,7 +61,7 @@
 
       loadBaseData: function() {
         var self = this;
-        return Promise.all([
+        var requests = [
           db.from('venues').select('*').order('created_at'),
           db.from('profiles').select('*').in('role', ['manager','admin']).order('email'),
           db.from('cooks').select('*,venues(name)'),
@@ -61,7 +71,13 @@
           db.from('plans').select('*').order('price'),
           db.from('payments').select('*,venues(name),profiles(display_name)').order('created_at', {ascending:false}),
           db.from('subscriptions').select('*')
-        ]).then(function(r) {
+        ];
+        return Promise.all(requests.map(function(request, index) {
+          return Promise.resolve(request).catch(function(error) {
+            console.error('[QR Admin] base data request failed:', index, error);
+            return {data: [], error: error};
+          });
+        })).then(function(r) {
           self.venues = r[0].data || [];
           self.managers = r[1].data || [];
           self.cooksAll = r[2].data || [];
@@ -87,7 +103,8 @@
             self.ordersAll = (r.data || []).reverse();
             self.ordersLoaded = true;
             self.ordersLoading = false;
-          }).catch(function() {
+          }).catch(function(error) {
+            console.error('[QR Admin] orders load failed:', error);
             self.ordersLoading = false;
           });
       },
