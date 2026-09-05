@@ -26,6 +26,18 @@
     settings:'Проведи аудит доступных настроек заведения и укажи, что стоит проверить или изменить и почему.',
     engineer:'Проведи техническую диагностику текущего кабинета по переданному контексту и перечисли вероятные проблемы и безопасные шаги проверки.'
   };
+  var MODULE_TABS={menu_analysis:'menu',analytics:'analytics',recipes:'recipes',chef:'menu',staff:'staff',marketing:'menu',settings:'settings',engineer:null,assistant:null};
+  var QUICK_TASKS={
+    menu_analysis:['Найди самые слабые позиции меню','Проверь цены и категории','Предложи улучшение структуры меню'],
+    analytics:['Найди точки роста выручки','Разбери самые продаваемые блюда','Найди проблемы по времени заказов'],
+    recipes:['Найди неполные рецептуры','Проверь себестоимость блюд','Найди проблемные ингредиенты'],
+    chef:['Найди узкие места кухни','Предложи блюда для усиления меню','Проверь баланс категорий'],
+    staff:['Найди перегрузку персонала','Проанализируй эффективность','Предложи распределение нагрузки'],
+    marketing:['Придумай акцию из текущего меню','Сделай 5 офферов','Выдели блюда для продвижения'],
+    settings:['Проверь настройки доставки','Проверь основные настройки заведения','Найди потенциальные проблемы конфигурации'],
+    engineer:['Проверь текущую конфигурацию кабинета','Найди вероятные технические проблемы','Составь план диагностики'],
+    assistant:['Как пользоваться кабинетом?','Какие функции доступны сейчас?','Куда перейти для нужной задачи?']
+  };
   function vm(){return window.__managerVue||null;}
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
   function allowed(v,feature){try{return !!v&&typeof v.hasAIFeature==='function'&&v.hasAIFeature(feature);}catch(e){return false;}}
@@ -33,8 +45,7 @@
   function context(v,feature){
     var venue=v&&v.venue||{},products=Array.isArray(v&&v.products)?v.products:[],orders=Array.isArray(v&&v.orders)?v.orders:[],analytics=v&&v.analytics||{};
     var base={
-      feature:feature,
-      current_tab:v&&v.tab||null,
+      feature:feature,current_tab:v&&v.tab||null,
       venue:{id:venue.id||null,name:venue.name||null,address:venue.address||null},
       menu:{count:products.length,items:compact(products)},
       orders:{count:orders.length,items:orders.slice(0,80)},
@@ -43,15 +54,9 @@
       settings:{form:v&&v.vform||{},delivery_primary:v&&v.deliveryPrimaryName||null,delivery_providers:compact(v&&v.deliveryProviderCards)},
       plan:{name:v&&v.currentPlan&&v.currentPlan.name||null}
     };
-    /* Рецептуры — отдельный модуль, поэтому читаем только его опубликованное состояние. */
     var rs=window.__QR_MANAGER_RECIPES_STATE__;
-    if(rs){
-      base.recipes={venue_id:rs.venueId||null,products:compact(rs.products),ingredients:compact(rs.ingredients),selected_product:rs.selected||null,selected_rows:compact(rs.rows),tech_cards:compact(rs.techCards),catalog:compact(rs.catalog),catalog_items:compact(rs.catalogItems)};
-    }
-    /* Инженер получает диагностический контекст браузера, но не секреты. */
-    if(feature==='engineer'){
-      base.engineer={url:location.pathname,online:navigator.onLine,language:navigator.language,viewport:{width:window.innerWidth,height:window.innerHeight},user_agent:navigator.userAgent.slice(0,300),service_worker:!!navigator.serviceWorker};
-    }
+    if(rs)base.recipes={venue_id:rs.venueId||null,products:compact(rs.products),ingredients:compact(rs.ingredients),selected_product:rs.selected||null,selected_rows:compact(rs.rows),tech_cards:compact(rs.techCards),catalog:compact(rs.catalog),catalog_items:compact(rs.catalogItems)};
+    if(feature==='engineer')base.engineer={url:location.pathname,online:navigator.onLine,language:navigator.language,viewport:{width:window.innerWidth,height:window.innerHeight},user_agent:navigator.userAgent.slice(0,300),service_worker:!!navigator.serviceWorker};
     return JSON.stringify(base).slice(0,12000);
   }
   async function token(){if(!window.db||!db.auth)throw new Error('Supabase не подключен');var r=await db.auth.getSession(),t=r&&r.data&&r.data.session&&r.data.session.access_token;if(!t)throw new Error('Сессия управляющего не найдена');return t;}
@@ -64,15 +69,12 @@
     return data;
   }
   function openExistingImport(){var root=document.getElementById('app');if(!root)return false;var block=root.querySelector('#qr-menu-import-block-v2');if(!block)return false;var buttons=block.querySelectorAll('button');for(var i=0;i<buttons.length;i++){var text=(buttons[i].textContent||'').toLowerCase();if(text.indexOf('импорт')!==-1||text.indexOf('анализ')!==-1){buttons[i].click();return true;}}return false;}
+  function openModule(feature){var v=vm(),tab=MODULE_TABS[feature];if(!v||!tab)return false;if(typeof v.hasAIFeature==='function'&&!v.hasAIFeature(feature))return false;v.tab=tab;return true;}
   function install(){
     if(document.getElementById('qr-ai-feature-center'))return true;
     var v=vm();if(!v)return false;
     var root=document.createElement('div');root.id='qr-ai-feature-center';root.style.cssText='position:fixed;right:18px;bottom:18px;z-index:15000;font-family:inherit;';
-    root.innerHTML='<button type="button" id="qr-ai-feature-fab" aria-label="ИИ для управляющего" style="width:52px;height:52px;border-radius:50%;border:1px solid rgba(129,140,248,.45);background:rgba(20,24,33,.94);color:#fff;font-size:23px;box-shadow:0 10px 35px rgba(0,0,0,.35);cursor:pointer">✦</button>'+
-    '<div id="qr-ai-feature-panel" style="display:none;position:absolute;right:0;bottom:62px;width:min(410px,calc(100vw - 28px));max-height:min(680px,calc(100vh - 100px));overflow:auto;background:rgba(15,18,26,.98);border:1px solid rgba(148,163,184,.22);border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.5);padding:14px;backdrop-filter:blur(18px)">'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><div><b style="font-size:16px">ИИ для управляющего</b><div style="font-size:11px;color:#94a3b8;margin-top:3px">Доступ определяется конструктором тарифов</div></div><button type="button" id="qr-ai-feature-close" style="border:0;background:transparent;color:#94a3b8;font-size:20px;cursor:pointer">×</button></div>'+
-    '<div id="qr-ai-feature-buttons" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div>'+
-    '<div id="qr-ai-feature-work" style="display:none;margin-top:12px;border-top:1px solid rgba(148,163,184,.14);padding-top:12px"></div></div>';
+    root.innerHTML='<button type="button" id="qr-ai-feature-fab" aria-label="ИИ для управляющего" style="width:52px;height:52px;border-radius:50%;border:1px solid rgba(129,140,248,.45);background:rgba(20,24,33,.94);color:#fff;font-size:23px;box-shadow:0 10px 35px rgba(0,0,0,.35);cursor:pointer">✦</button><div id="qr-ai-feature-panel" style="display:none;position:absolute;right:0;bottom:62px;width:min(430px,calc(100vw - 28px));max-height:min(700px,calc(100vh - 100px));overflow:auto;background:rgba(15,18,26,.98);border:1px solid rgba(148,163,184,.22);border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,.5);padding:14px;backdrop-filter:blur(18px)"><div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px"><div><b style="font-size:16px">ИИ для управляющего</b><div style="font-size:11px;color:#94a3b8;margin-top:3px">Доступ определяется конструктором тарифов</div></div><button type="button" id="qr-ai-feature-close" style="border:0;background:transparent;color:#94a3b8;font-size:20px;cursor:pointer">×</button></div><div id="qr-ai-feature-buttons" style="display:grid;grid-template-columns:1fr 1fr;gap:7px"></div><div id="qr-ai-feature-work" style="display:none;margin-top:12px;border-top:1px solid rgba(148,163,184,.14);padding-top:12px"></div></div>';
     document.body.appendChild(root);
     var fab=root.querySelector('#qr-ai-feature-fab'),panel=root.querySelector('#qr-ai-feature-panel'),buttons=root.querySelector('#qr-ai-feature-buttons'),work=root.querySelector('#qr-ai-feature-work');
     fab.onclick=function(){panel.style.display=panel.style.display==='none'?'block':'none';refresh();};
@@ -90,19 +92,16 @@
       root.style.display=any?'block':'none';return any;
     }
     function openWork(f){
-      work.style.display='block';
-      var task=DEFAULT_TASKS[f[0]]||'';
-      work.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:7px">'+esc(f[1])+'</div><div style="font-size:11px;color:#94a3b8;margin-bottom:9px">'+esc(f[2])+'</div><textarea id="qr-ai-feature-input" placeholder="Напишите задачу для ИИ..." style="width:100%;min-height:90px;resize:vertical;box-sizing:border-box;background:rgba(255,255,255,.045);border:1px solid rgba(148,163,184,.18);border-radius:10px;color:#e5e7eb;padding:10px;font:inherit;font-size:12px;outline:none"></textarea><div style="display:flex;gap:7px;margin-top:8px"><button type="button" id="qr-ai-feature-send" style="flex:1;border:0;border-radius:10px;padding:10px;background:#6366f1;color:#fff;cursor:pointer;font-weight:700">Запустить ИИ</button><button type="button" id="qr-ai-feature-clear" style="border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:10px;background:transparent;color:#cbd5e1;cursor:pointer">Очистить</button></div><div id="qr-ai-feature-answer" style="display:none;margin-top:10px;white-space:pre-wrap;font-size:12px;line-height:1.55;background:rgba(255,255,255,.035);border-radius:10px;padding:11px"></div>';
-      var input=work.querySelector('#qr-ai-feature-input'),send=work.querySelector('#qr-ai-feature-send'),clear=work.querySelector('#qr-ai-feature-clear'),answer=work.querySelector('#qr-ai-feature-answer');
+      work.style.display='block';var task=DEFAULT_TASKS[f[0]]||'';
+      var chips=QUICK_TASKS[f[0]]||[];
+      var nav=MODULE_TABS[f[0]]?'<button type="button" id="qr-ai-feature-open-module" style="border:1px solid rgba(148,163,184,.18);border-radius:9px;padding:8px 10px;background:transparent;color:#cbd5e1;cursor:pointer">Открыть раздел</button>':'';
+      work.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:7px">'+esc(f[1])+'</div><div style="font-size:11px;color:#94a3b8;margin-bottom:9px">'+esc(f[2])+'</div><div id="qr-ai-feature-chips" style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px"></div><textarea id="qr-ai-feature-input" placeholder="Напишите задачу для ИИ..." style="width:100%;min-height:90px;resize:vertical;box-sizing:border-box;background:rgba(255,255,255,.045);border:1px solid rgba(148,163,184,.18);border-radius:10px;color:#e5e7eb;padding:10px;font:inherit;font-size:12px;outline:none"></textarea><div style="display:flex;gap:7px;margin-top:8px"><button type="button" id="qr-ai-feature-send" style="flex:1;border:0;border-radius:10px;padding:10px;background:#6366f1;color:#fff;cursor:pointer;font-weight:700">Запустить ИИ</button>'+nav+'<button type="button" id="qr-ai-feature-clear" style="border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:10px;background:transparent;color:#cbd5e1;cursor:pointer">Очистить</button></div><div id="qr-ai-feature-answer" style="display:none;margin-top:10px;white-space:pre-wrap;font-size:12px;line-height:1.55;background:rgba(255,255,255,.035);border-radius:10px;padding:11px"></div>';
+      var input=work.querySelector('#qr-ai-feature-input'),send=work.querySelector('#qr-ai-feature-send'),clear=work.querySelector('#qr-ai-feature-clear'),answer=work.querySelector('#qr-ai-feature-answer'),chipBox=work.querySelector('#qr-ai-feature-chips'),openBtn=work.querySelector('#qr-ai-feature-open-module');
       input.value=task;
+      chips.forEach(function(text){var c=document.createElement('button');c.type='button';c.textContent=text;c.style.cssText='border:1px solid rgba(148,163,184,.16);border-radius:999px;padding:5px 8px;background:rgba(255,255,255,.03);color:#cbd5e1;cursor:pointer;font-size:10px;';c.onclick=function(){input.value=text;input.focus();};chipBox.appendChild(c);});
+      if(openBtn)openBtn.onclick=function(){if(openModule(f[0])){panel.style.display='none';if(vm()&&vm().showToast)vm().showToast('Открыт рабочий раздел.','success');}else if(vm()&&vm().showToast)vm().showToast('Раздел недоступен или функция не включена.','error');};
       clear.onclick=function(){input.value='';answer.style.display='none';answer.textContent='';input.focus();};
-      send.onclick=async function(){
-        var message=input.value.trim();if(!message){input.focus();return;}
-        send.disabled=true;send.textContent='ИИ работает…';answer.style.display='block';answer.textContent='Выполняю запрос…';
-        try{var data=await call(f[0],message,vm());answer.textContent=data.answer||'ИИ не вернул ответ.';}
-        catch(e){answer.textContent='Ошибка: '+(e.message||String(e));if(vm()&&vm().showToast)vm().showToast(e.message||'Ошибка ИИ','error');}
-        finally{send.disabled=false;send.textContent='Запустить ИИ';}
-      };
+      send.onclick=async function(){var message=input.value.trim();if(!message){input.focus();return;}send.disabled=true;send.textContent='ИИ работает…';answer.style.display='block';answer.textContent='Выполняю запрос…';try{var data=await call(f[0],message,vm());answer.textContent=data.answer||'ИИ не вернул ответ.';}catch(e){answer.textContent='Ошибка: '+(e.message||String(e));if(vm()&&vm().showToast)vm().showToast(e.message||'Ошибка ИИ','error');}finally{send.disabled=false;send.textContent='Запустить ИИ';}};
       input.focus();
     }
     return refresh();
