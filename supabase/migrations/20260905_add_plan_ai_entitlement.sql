@@ -6,8 +6,8 @@ alter table public.plans
   add column if not exists ai_addon_price numeric not null default 0;
 
 update public.plans
-set base_price = coalesce(price, 0)
-where base_price = 0 and coalesce(price, 0) <> 0;
+set base_price = price
+where base_price = 0 and price > 0;
 
 alter table public.plans
   drop constraint if exists plans_ai_addon_price_nonnegative;
