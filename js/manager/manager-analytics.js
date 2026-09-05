@@ -8,6 +8,8 @@
     data: function() {
       return {
         analyticsPeriod: '7',
+        aiAnalyticsBusy: false,
+        aiAnalyticsAnswer: '',
         analytics: {
           revenue: 0, orders: 0, clients: 0, avgCheck: 0, avgCookTime: 0,
           newClients: 0, repeatClients: 0, topItems: [], topAddons: [],
@@ -112,9 +114,51 @@
             couriers: Object.keys(courierMap).map(function(k) { return { name: k, count: courierMap[k] }; }).sort(function(a, b) { return b.count - a.count; }),
             waiters: Object.keys(waiterMap).map(function(k) { return { name: k, count: waiterMap[k] }; }).sort(function(a, b) { return b.count - a.count; })
           };
+          self.aiAnalyticsAnswer = '';
+        }).catch(function(e) {
+          console.error('[Manager Analytics]', e);
+          self.showToast('Ошибка загрузки аналитики: '+(e.message||String(e)),'error');
         });
       },
-
+      runAIAnalytics: async function() {
+        if (typeof this.requireAIFeature === 'function' && !this.requireAIFeature('analytics')) return;
+        if (!this.venue) return;
+        this.aiAnalyticsBusy = true;
+        this.aiAnalyticsAnswer = '';
+        try {
+          var session = await db.auth.getSession();
+          var token = session && session.data && session.data.session && session.data.session.access_token;
+          if (!token) throw new Error('AUTH_REQUIRED');
+          var context = JSON.stringify({
+            period_days: this.analyticsPeriod === 'all' ? 'all' : Number(this.analyticsPeriod),
+            venue: this.venue.name || '',
+            revenue: this.analytics.revenue,
+            orders: this.analytics.orders,
+            clients: this.analytics.clients,
+            avgCheck: this.analytics.avgCheck,
+            avgCookTime: this.analytics.avgCookTime,
+            newClients: this.analytics.newClients,
+            repeatClients: this.analytics.repeatClients,
+            topItems: this.analytics.topItems.slice(0, 10),
+            topAddons: this.analytics.topAddons.slice(0, 5),
+            topHours: this.analytics.topHours,
+            typeStats: this.analytics.typeStats,
+            payStats: this.analytics.payStats,
+            cooks: this.analytics.cooks,
+            couriers: this.analytics.couriers,
+            waiters: this.analytics.waiters
+          });
+          var r = await fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'analytics',message:'Проанализируй текущую статистику заведения. Выдели 3 главных вывода, 3 проблемы/риска и 5 конкретных действий для увеличения выручки и эффективности. Не придумывай отсутствующие данные.',context:context})});
+          var data = await r.json().catch(function(){return{};});
+          if(!r.ok || !data.ok) throw new Error(data.error||('HTTP_'+r.status));
+          this.aiAnalyticsAnswer = data.answer || '';
+        } catch(e) {
+          console.error('[Manager Analytics AI]', e);
+          this.showToast('ИИ-аналитика: '+(e.message||String(e)),'error');
+        } finally {
+          this.aiAnalyticsBusy = false;
+        }
+      },
       typePercent: function(t) {
         var s = this.analytics.typeStats;
         var tot = s.pickup + s.delivery;
@@ -129,4 +173,44 @@
   };
 
   window.__QR_MANAGER_ANALYTICS_MIXIN__ = analyticsMixin;
+
+  function installAIAnalyticsButton(){
+    if(!/\/manager\.html$/i.test(location.pathname)) return;
+    if(window.__QR_MANAGER_AI_ANALYTICS_UI__) return;
+    window.__QR_MANAGER_AI_ANALYTICS_UI__=true;
+    var style=document.createElement('style');
+    style.textContent='.qr-ai-analytics-box{margin:0 0 14px;padding:14px;border:1px solid rgba(99,102,241,.35);border-radius:14px;background:rgba(99,102,241,.07)}.qr-ai-analytics-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.qr-ai-analytics-answer{white-space:pre-wrap;margin-top:12px;line-height:1.55;font-size:13px}.qr-ai-analytics-btn{display:inline-flex;align-items:center;justify-content:center;border:1px solid rgba(99,102,241,.45);background:rgba(99,102,241,.14);color:inherit;border-radius:9px;padding:8px 12px;cursor:pointer}.qr-ai-analytics-btn:disabled{opacity:.55;cursor:wait}';
+    document.head.appendChild(style);
+    function render(){
+      var vm=window.__managerVue;
+      if(!vm||vm.tab!=='analytics') return;
+      var root=document.getElementById('app');
+      if(!root||root.querySelector('.qr-ai-analytics-box')) return;
+      var candidates=root.querySelectorAll('.glass.card');
+      var host=null;
+      for(var i=0;i<candidates.length;i++){
+        var txt=(candidates[i].textContent||'');
+        if(txt.indexOf('Аналитика')!==-1||txt.indexOf('Выручка')!==-1){host=candidates[i];break;}
+      }
+      if(!host) return;
+      var box=document.createElement('div');
+      box.className='qr-ai-analytics-box';
+      box.innerHTML='<div class="qr-ai-analytics-head"><div><b>ИИ-анализ аналитики</b><div class="muted" style="font-size:11px;margin-top:3px">Интерпретация текущих показателей и конкретные действия</div></div><button type="button" class="qr-ai-analytics-btn">Запустить ИИ-анализ</button></div><div class="qr-ai-analytics-answer" hidden></div>';
+      var btn=box.querySelector('button'),answer=box.querySelector('.qr-ai-analytics-answer');
+      btn.onclick=function(){if(typeof vm.runAIAnalytics!=='function')return;vm.runAIAnalytics();};
+      function sync(){
+        var busy=!!vm.aiAnalyticsBusy;
+        btn.disabled=busy;
+        btn.textContent=busy?'ИИ анализирует…':'Запустить ИИ-анализ';
+        answer.hidden=!vm.aiAnalyticsAnswer;
+        answer.textContent=vm.aiAnalyticsAnswer||'';
+      }
+      setInterval(sync,300);
+      host.parentNode.insertBefore(box,host);
+    }
+    var observer=new MutationObserver(render);
+    observer.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});
+    setInterval(render,700);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',installAIAnalyticsButton,{once:true}); else installAIAnalyticsButton();
 })();
