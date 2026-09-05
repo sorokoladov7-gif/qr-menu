@@ -244,7 +244,7 @@
   letter-spacing: -.02em; 
   white-space: nowrap; 
   overflow: hidden; 
-  text-overflow: ellipsis; 
+  text-overflow: ellipsis;
 }
 .kpi-grid .kpi .l { 
   margin-top: 7px; 
@@ -252,7 +252,7 @@
   font-size: 12px; 
   font-weight: 600; 
   text-transform: uppercase; 
-  letter-spacing: .04em; 
+  letter-spacing: .04em;
 }
 
 .analytics-dashboard-card { padding: 20px; border-radius: 18px; transition: var(--transition-smooth); }
@@ -325,3 +325,14 @@
 
 /* Qrchick: приветственный блок дублирует интерфейс чата и не нужен внутри drawer. */
 #qr-ai-center .qr-ai-welcome { display:none !important; }
+
+/* ==========================================================
+   ADMIN PREMIUM NAV — не показываем старые Vue-тэбы одновременно
+   с новой боковой навигацией qr-admin-shell.
+   Старые .tabs сохраняются в DOM и продолжают обслуживать switchTab,
+   но являются внутренним источником состояния, а пользователь видит
+   только единственную новую боковую панель.
+   ========================================================== */
+body:has(#qr-admin-shell) #app > .wrap > .tabs {
+  display: none !important;
+}
