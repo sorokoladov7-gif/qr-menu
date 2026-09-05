@@ -1,106 +1,72 @@
 'use strict';
 
-/* Qrchick agent orchestrator. It composes the existing admin AI handler into a
-   server-side plan -> independent verification -> safe proposal pipeline. */
+/* Qrchick agent: Gemini Interactions API + safe read-only project tools.
+   Mutations remain behind the existing admin-ai-audit approval flow. */
 const auditHandler=require('./admin-ai-audit');
+const SUPABASE_URL=process.env.SUPABASE_URL||'https://ulxfsozdryqrnlxzlblt.supabase.co';
+const SUPABASE_ANON_KEY=process.env.SUPABASE_ANON_KEY||process.env.SUPABASE_PUBLISHABLE_KEY||'';
+const SUPABASE_MANAGEMENT_API_TOKEN=process.env.SUPABASE_MANAGEMENT_API_TOKEN||process.env.SUPABASE_ACCESS_TOKEN||'';
+const SUPABASE_PROJECT_REF=process.env.SUPABASE_PROJECT_REF||'ulxfsozdryqrnlxzlblt';
+const GEMINI_KEY=process.env.ADMIN_AI_KEY||process.env.GEMINI_API_KEY||'';
+const MODEL=process.env.GEMINI_AUDIT_MODEL||'gemini-3.8-flash';
+const REPO='sorokoladov7-gif/qr-menu',BRANCH='main';
+const VERCEL_PROJECT=process.env.VERCEL_PROJECT_ID||'prj_LGw7oYwZum4EsfmY3J0QiLDU4mzq',VERCEL_TEAM=process.env.VERCEL_TEAM_ID||'team_8QI087XOgioMrRulnW2TdDDF';
+const MAX_TOOL_ROUNDS=8,MAX_FILE_CHARS=30000,MAX_RESULT_CHARS=90000;
 
-function capture(){
-  const state={status:200,headers:{},body:null};
-  return {
-    setHeader(k,v){state.headers[k]=v},
-    status(code){state.status=code;return this},
-    json(body){state.body=body;return this},
-    end(body){if(body!==undefined){try{state.body=JSON.parse(body)}catch(_){state.body=body}}return this},
-    _state:state
-  };
+function clean(v,n=1000){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,n)}
+function clip(v,n=MAX_RESULT_CHARS){const s=typeof v==='string'?v:JSON.stringify(v);return s.length>n?s.slice(0,n)+'\n...[TRUNCATED]':s}
+function err(message,status){return Object.assign(new Error(message),{status})}
+function bearer(req){const h=String(req.headers?.authorization||req.headers?.Authorization||'');const m=h.match(/^Bearer\s+(.+)$/i);return m?m[1].trim():''}
+async function adminAuth(req){const token=bearer(req);if(!token)throw err('AUTH_REQUIRED',401);const r=await fetch(SUPABASE_URL+'/auth/v1/user',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token}});const u=await r.json().catch(()=>null);if(!r.ok||!u?.id)throw err('AUTH_INVALID',401);const p=await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+encodeURIComponent(u.id)+'&select=role&limit=1',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token}});const rows=await p.json().catch(()=>[]);if(!p.ok||String(rows?.[0]?.role||'').toLowerCase()!=='admin')throw err('ADMIN_ONLY',403);return{id:u.id,email:u.email||''}}
+function ghHeaders(){const h={'User-Agent':'QR-Menu-Qrchick-Agent','Accept':'application/vnd.github+json'};if(process.env.GITHUB_TOKEN)h.Authorization='Bearer '+process.env.GITHUB_TOKEN;return h}
+async function gh(path,opts){const r=await fetch('https://api.github.com/repos/'+REPO+path,Object.assign({headers:ghHeaders()},opts||{}));const b=await r.json().catch(()=>null);if(!r.ok)throw err(b?.message||'GITHUB_HTTP_'+r.status,r.status);return b}
+async function github_tree(){const t=await gh('/git/trees/'+encodeURIComponent(BRANCH)+'?recursive=1');return(t.tree||[]).filter(x=>x.type==='blob').map(x=>x.path).filter(p=>!/(^|\/)(node_modules|\.git|dist|build|coverage|\.next|\.vercel)(\/|$)/.test(p)).slice(0,3000)}
+async function github_read_file({path}){path=String(path||'');if(!/^[A-Za-z0-9._\-/]+$/.test(path)||path.includes('..')||path.startsWith('/'))throw err('INVALID_GITHUB_PATH',400);const d=await gh('/contents/'+encodeURIComponent(path)+'?ref='+encodeURIComponent(BRANCH));if(d?.encoding==='base64'&&d.content)return{path,sha:d.sha,content:Buffer.from(d.content.replace(/\s/g,''),'base64').toString('utf8').slice(0,MAX_FILE_CHARS)};return{path,sha:d?.sha||null,content:clip(d?.content||'',MAX_FILE_CHARS)}}
+async function github_search({query,limit=8}){const q=clean(query,180);if(!q)return[];const r=await fetch('https://api.github.com/search/code?q='+encodeURIComponent(q+' repo:'+REPO),{headers:ghHeaders()});const d=await r.json().catch(()=>({}));if(!r.ok)throw err(d?.message||'GITHUB_SEARCH_FAILED',r.status);return(d.items||[]).slice(0,Math.min(Number(limit)||8,15)).map(x=>({path:x.path,sha:x.sha,url:x.html_url}))}
+async function supabase_schema(){if(!SUPABASE_MANAGEMENT_API_TOKEN)return{available:false,reason:'SUPABASE_MANAGEMENT_API_TOKEN_NOT_CONFIGURED'};const q="select jsonb_build_object('tables',(select coalesce(jsonb_agg(jsonb_build_object('schema',table_schema,'table',table_name) order by table_schema,table_name),'[]'::jsonb) from information_schema.tables where table_schema not in ('pg_catalog','information_schema') and table_type='BASE TABLE'),'columns',(select coalesce(jsonb_agg(jsonb_build_object('schema',table_schema,'table',table_name,'column',column_name,'type',data_type,'nullable',is_nullable) order by table_schema,table_name,ordinal_position),'[]'::jsonb) from information_schema.columns where table_schema not in ('pg_catalog','information_schema')),'policies',(select coalesce(jsonb_agg(jsonb_build_object('schema',schemaname,'table',tablename,'policy',policyname,'command',cmd,'using',qual,'check',with_check) order by schemaname,tablename,policyname),'[]'::jsonb) from pg_policies where schemaname not in ('pg_catalog','information_schema')),'functions',(select coalesce(jsonb_agg(jsonb_build_object('schema',routine_schema,'name',routine_name,'type',routine_type) order by routine_schema,routine_name),'[]'::jsonb) from information_schema.routines where routine_schema not in ('pg_catalog','information_schema'))) as snapshot;";const d=await supabase_query({sql:q});return{available:true,snapshot:Array.isArray(d?.result)?d.result[0]?.snapshot||d.result:d}}
+async function supabase_query({sql}){if(!SUPABASE_MANAGEMENT_API_TOKEN)throw err('SUPABASE_MANAGEMENT_API_TOKEN_NOT_CONFIGURED',503);const text=String(sql||'').trim();if(!text)throw err('SQL_REQUIRED',400);const n=text.replace(/\/\*[\s\S]*?\*\//g,' ').replace(/--[^\n]*/g,' ').trim().toLowerCase();if(!/^select\b|^with\b/.test(n)||/\b(insert|update|delete|drop|alter|create|grant|revoke|truncate|execute|copy)\b/.test(n))throw err('READ_ONLY_SQL_ONLY',403);const r=await fetch('https://api.supabase.com/v1/projects/'+encodeURIComponent(SUPABASE_PROJECT_REF)+'/database/query/read-only',{method:'POST',headers:{Authorization:'Bearer '+SUPABASE_MANAGEMENT_API_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({query:text,read_only:true})});const d=await r.json().catch(()=>null);if(!r.ok)throw err(d?.message||d?.error||'SUPABASE_QUERY_FAILED',r.status);return d}
+async function vercel_deployments(){const token=process.env.VERCEL_TOKEN;if(!token)return{available:false,reason:'VERCEL_TOKEN_NOT_CONFIGURED'};const r=await fetch('https://api.vercel.com/v6/deployments?projectId='+encodeURIComponent(VERCEL_PROJECT)+'&teamId='+encodeURIComponent(VERCEL_TEAM)+'&limit=10',{headers:{Authorization:'Bearer '+token}});const d=await r.json().catch(()=>({}));if(!r.ok)throw err(d?.error?.message||'VERCEL_HTTP_'+r.status,r.status);return(d.deployments||[]).map(x=>({id:x.id,url:x.url,state:x.state,target:x.target,createdAt:x.createdAt,meta:x.meta||{}}))}
+async function vercel_runtime({deployment_id}){const token=process.env.VERCEL_TOKEN;if(!token)return{available:false,reason:'VERCEL_TOKEN_NOT_CONFIGURED'};const id=String(deployment_id||'');if(!id)return{available:false,reason:'DEPLOYMENT_ID_REQUIRED'};const r=await fetch('https://api.vercel.com/v3/deployments/'+encodeURIComponent(id)+'/events?teamId='+encodeURIComponent(VERCEL_TEAM)+'&limit=80',{headers:{Authorization:'Bearer '+token,Accept:'application/stream+json'}});const text=await r.text();return{available:r.ok,deployment_id:id,events:text.split(/\r?\n/).map(x=>{try{return JSON.parse(x)}catch(_){return null}}).filter(Boolean).slice(-80)}}
+
+const TOOLS=[
+ {type:'function',name:'github_tree',description:'Read the current repository file tree. Use before choosing files.',parameters:{type:'object',properties:{},required:[]}},
+ {type:'function',name:'github_read_file',description:'Read one existing repository file from main, including its current blob SHA.',parameters:{type:'object',properties:{path:{type:'string'}},required:['path']}},
+ {type:'function',name:'github_search',description:'Search current repository code for a symbol, error, table, endpoint, or keyword.',parameters:{type:'object',properties:{query:{type:'string'},limit:{type:'integer'}},required:['query']}},
+ {type:'function',name:'supabase_schema',description:'Read the live Supabase schema, columns, RLS policies and functions. Read-only.',parameters:{type:'object',properties:{},required:[]}},
+ {type:'function',name:'supabase_query',description:'Run a read-only SELECT/WITH query against the live Supabase database. Never use mutations.',parameters:{type:'object',properties:{sql:{type:'string'}},required:['sql']}},
+ {type:'function',name:'vercel_deployments',description:'Read recent Vercel deployments for the QR Menu project.',parameters:{type:'object',properties:{},required:[]}},
+ {type:'function',name:'vercel_runtime',description:'Read runtime/build events for a specific Vercel deployment.',parameters:{type:'object',properties:{deployment_id:{type:'string'}},required:['deployment_id']}},
+ {type:'google_search'}
+];
+async function runTool(name,args){switch(name){case'github_tree':return github_tree();case'github_read_file':return github_read_file(args);case'github_search':return github_search(args);case'supabase_schema':return supabase_schema();case'supabase_query':return supabase_query(args);case'vercel_deployments':return vercel_deployments();case'vercel_runtime':return vercel_runtime(args);default:throw err('UNKNOWN_TOOL:'+name,400)}}
+
+async function gemini(input,previousInteractionId){if(!GEMINI_KEY)throw err('GEMINI_API_KEY_NOT_CONFIGURED',503);const body={model:MODEL,input,tools:TOOLS,store:true};if(previousInteractionId)body.previous_interaction_id=previousInteractionId;const r=await fetch('https://generativelanguage.googleapis.com/v1beta/interactions',{method:'POST',headers:{'x-goog-api-key':GEMINI_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json().catch(()=>null);if(!r.ok)throw err(d?.error?.message||'GEMINI_INTERACTIONS_HTTP_'+r.status,r.status);return d}
+function stepCalls(interaction){return(interaction?.steps||[]).filter(s=>s?.type==='function_call')}
+function outputText(interaction){if(interaction?.output_text)return interaction.output_text;const steps=interaction?.steps||[];return steps.filter(s=>s?.type==='model_output').flatMap(s=>s?.content||[]).filter(c=>c?.type==='text').map(c=>c.text||'').join('\n').trim()}
+function parseJsonText(text){try{return JSON.parse(text)}catch(_){}const m=String(text||'').match(/```json\s*([\s\S]*?)```/i);if(m)try{return JSON.parse(m[1])}catch(_){}return null}
+
+async function agentRun(message,history,mode){
+ const system=`Ты Qrchick — автономный инженерный агент администратора QR Menu. Ты обязан сам выбирать инструменты, когда нужны факты. Не выдумывай состояние проекта. Сначала исследуй репозиторий/БД/Vercel, если вопрос касается них. Используй несколько инструментов последовательно, пока не получишь достаточные доказательства. Максимум 8 раундов. Никогда не выполняй изменение кода или production SQL через инструменты: только анализ и подготовка предложений. Существующие файлы предпочтительнее новых. Для изменений обязательно указывай file, operation, expected_sha и полный new_content. Для SQL указывай безопасный SQL и риск. В конце верни JSON с полями summary,answer,severity,root_cause,findings,actions,files,confidence,safe_to_change,proposed_changes,database_changes. Ответ answer должен быть на русском. История: ${clip(history||[],18000)}\nРежим: ${clean(mode||'agent',40)}`;
+ let interaction=await gemini([{type:'user_input',content:[{type:'text',text:system+'\n\nЗАПРОС АДМИНИСТРАТОРА:\n'+String(message||'').slice(0,30000)}]}]);
+ const calls=[];
+ for(let round=0;round<MAX_TOOL_ROUNDS;round++){
+   const pending=stepCalls(interaction);if(!pending.length)break;
+   const results=[];
+   for(const c of pending){const started=Date.now();let result;try{result=await runTool(c.name,c.arguments||{})}catch(e){result={error:clean(e?.message||'TOOL_FAILED',1000),status:e?.status||500}}calls.push({name:c.name,arguments:c.arguments||{},duration_ms:Date.now()-started});results.push({type:'function_result',name:c.name,call_id:c.id,result:[{type:'text',text:clip(result)}]})}
+   interaction=await gemini(results,interaction.id);
+ }
+ let text=outputText(interaction),parsed=parseJsonText(text);if(!parsed)parsed={summary:'Qrchick завершил агентный анализ.',answer:text||'Анализ завершён.',severity:'info',root_cause:'',findings:[],actions:[],files:[],confidence:0.75,safe_to_change:false,proposed_changes:[],database_changes:[]};
+ return{interaction_id:interaction.id,model:interaction.model||MODEL,result:parsed,tool_calls:calls,agent_pipeline:['context_scan','tool_selection','tool_execution','reasoning','final_verification'],capabilities:{agentic_mode:true,function_calling:true,google_search:true,read_only_project_tools:true,approval_gated_mutations:true}};
 }
 
-async function invoke(req,body){
-  const res=capture();
-  const next=Object.assign({},req,{body});
-  await auditHandler(next,res);
-  return res._state;
-}
+function capture(){const state={status:200,headers:{},body:null};return{setHeader(k,v){state.headers[k]=v},status(code){state.status=code;return this},json(body){state.body=body;return this},end(body){if(body!==undefined){try{state.body=JSON.parse(body)}catch(_){state.body=body}}return this},_state:state}}
+async function invoke(req,body){const res=capture();await auditHandler(Object.assign({},req,{body}),res);return res._state}
 
-function key(x){return String(x?.file||'')+'|'+String(x?.expected_sha||'')}
-function clean(v,n=500){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,n)}
-
-module.exports=async function handler(req,res){
-  res.setHeader('Cache-Control','no-store');
-  res.setHeader('Content-Type','application/json; charset=utf-8');
-  if(req.method!=='POST')return res.status(405).json({error:'METHOD_NOT_ALLOWED'});
-  try{
-    const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
-    const action=String(body.action||'audit');
-
-    /* Mutations stay in the original hardened handler. */
-    if(action!=='audit'){
-      const out=await invoke(req,body);
-      return res.status(out.status).json(out.body||{error:'AI_AUDIT_FAILED'});
-    }
-
-    const userMessage=String(body.message||'').trim();
-    const firstBody=Object.assign({},body,{mode:body.mode||'agent'});
-    const first=await invoke(req,firstBody);
-    if(first.status>=400)return res.status(first.status).json(first.body||{error:'AI_AGENT_PRIMARY_FAILED'});
-
-    const primary=first.body||{};
-    const primaryResult=primary.result||{};
-    const originalChanges=Array.isArray(primaryResult.proposed_changes)?primaryResult.proposed_changes:[];
-    const originalDb=Array.isArray(primaryResult.database_changes)?primaryResult.database_changes:[];
-
-    const verificationMessage=[
-      'Выполни независимую вторичную проверку предыдущего результата Qrchick.',
-      'Не принимай предыдущий вывод на веру. Повторно проверь факты по текущему репозиторию и текущей схеме.',
-      'Найди ложные срабатывания, неправильные первопричины, устаревшие expected_sha, несовместимые изменения, опасный SQL и риск регрессии.',
-      'В ответе proposed_changes оставь ТОЛЬКО те изменения кода из предыдущего результата, которые после повторной проверки действительно безопасны и обоснованы.',
-      'В database_changes оставь ТОЛЬКО действительно необходимые и безопасные SQL-изменения.',
-      'Если изменение не прошло проверку — не включай его.',
-      'ПРЕДЫДУЩИЙ РЕЗУЛЬТАТ:\n'+JSON.stringify(primaryResult).slice(0,180000),
-      'ИСХОДНЫЙ ЗАПРОС АДМИНИСТРАТОРА:\n'+userMessage
-    ].join('\n\n');
-
-    const secondBody={
-      action:'audit',
-      mode:'verification',
-      message:verificationMessage,
-      history:Array.isArray(body.history)?body.history.slice(-8):[],
-      attachments:[],
-      thinking:body.thinking||'high'
-    };
-    const second=await invoke(req,secondBody);
-    const verification=second.body?.result||{};
-    const verifiedChanges=Array.isArray(verification.proposed_changes)?verification.proposed_changes:[];
-    const verifiedDb=Array.isArray(verification.database_changes)?verification.database_changes:[];
-    const verifiedKeys=new Set(verifiedChanges.map(key));
-    const verifiedDbSql=new Set(verifiedDb.map(x=>String(x?.sql||'').replace(/\s+/g,' ').trim()));
-
-    primaryResult.proposed_changes=originalChanges.filter(x=>verifiedKeys.has(key(x)));
-    primaryResult.database_changes=originalDb.filter(x=>verifiedDbSql.has(String(x?.sql||'').replace(/\s+/g,' ').trim()));
-    primaryResult.agent_mode=true;
-    primaryResult.agent_pipeline=['context_scan','primary_reasoning','independent_verification','safe_change_filter'];
-    primaryResult.verification={
-      status:second.status>=400?'warning':'completed',
-      model:second.body?.model||null,
-      verified_findings:verification.findings||[],
-      verification_summary:verification.summary||verification.answer||'',
-      retained_code_changes:primaryResult.proposed_changes.length,
-      retained_database_changes:primaryResult.database_changes.length
-    };
-
-    return res.status(200).json(Object.assign({},primary,{
-      result:primaryResult,
-      verification:primaryResult.verification,
-      steps:[
-        {name:'Сканирование проекта',status:'completed'},
-        {name:'Основной анализ',status:'completed'},
-        {name:'Независимая проверка',status:second.status>=400?'warning':'completed'},
-        {name:'Фильтр безопасных изменений',status:'completed'}
-      ],
-      capabilities:Object.assign({},primary.capabilities||{}, {agentic_mode:true,independent_verification:true,safe_change_filter:true})
-    }));
-  }catch(e){
-    console.error('[admin-ai-agent]',e);
-    return res.status(Number(e?.status)||500).json({error:clean(e?.message||'AI_AGENT_FAILED',1400)});
-  }
-};
+module.exports=async function handler(req,res){res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type','application/json; charset=utf-8');if(req.method!=='POST')return res.status(405).json({error:'METHOD_NOT_ALLOWED'});try{const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});const admin=await adminAuth(req);const action=String(body.action||'audit');
+ if(action!=='audit'){const out=await invoke(req,body);return res.status(out.status).json(out.body||{error:'AI_AUDIT_FAILED'})}
+ const message=String(body.message||'').trim();
+ /* Multimodal/legacy audit requests retain the hardened existing path until they are normalized for Interactions input. */
+ if(Array.isArray(body.attachments)&&body.attachments.length){const out=await invoke(req,body);return res.status(out.status).json(out.body||{error:'AI_AUDIT_FAILED'})}
+ const agent=await agentRun(message,Array.isArray(body.history)?body.history.slice(-12):[],body.mode||'agent');
+ return res.status(200).json(Object.assign({},agent,{admin:{id:admin.id},steps:agent.tool_calls.map((x,i)=>({name:x.name,status:'completed',duration_ms:x.duration_ms,round:i+1}))}));
+}catch(e){console.error('[admin-ai-agent]',e);return res.status(Number(e?.status)||500).json({error:clean(e?.message||'AI_AGENT_FAILED',1400)});}};
