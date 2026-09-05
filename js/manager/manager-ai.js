@@ -15,12 +15,54 @@
     ['settings','ИИ-настройки','Настройки платформы и заведения.'],
     ['engineer','ИИ-инженер','Диагностика и технические рекомендации.']
   ];
+  var DEFAULT_TASKS={
+    assistant:'Помоги управляющему с текущей задачей и укажи точный раздел/действие в кабинете.',
+    menu_analysis:'Проанализируй текущее меню: структуру, категории, названия и цены. Найди 5 проблем и дай 5 конкретных улучшений.',
+    analytics:'Проанализируй текущие показатели заведения. Выдели 3 вывода, 3 риска и 5 действий для роста выручки.',
+    recipes:'Проанализируй текущие рецептуры и ингредиенты. Найди проблемы с нормами, себестоимостью и полнотой техкарт.',
+    chef:'Оцени меню с позиции шефа: баланс категорий, сложность кухни, заготовки, узкие места и качество процессов.',
+    staff:'Проанализируй состав и нагрузку персонала. Укажи дисбалансы, риски и практические рекомендации.',
+    marketing:'Предложи маркетинговый план на основе текущего меню: 3 акции, 3 оффера и 5 готовых рекламных формулировок.',
+    settings:'Проведи аудит доступных настроек заведения и укажи, что стоит проверить или изменить и почему.',
+    engineer:'Проведи техническую диагностику текущего кабинета по переданному контексту и перечисли вероятные проблемы и безопасные шаги проверки.'
+  };
   function vm(){return window.__managerVue||null;}
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c];});}
   function allowed(v,feature){try{return !!v&&typeof v.hasAIFeature==='function'&&v.hasAIFeature(feature);}catch(e){return false;}}
-  function context(v){var venue=v&&v.venue||{},products=Array.isArray(v&&v.products)?v.products:[],orders=Array.isArray(v&&v.orders)?v.orders:[];return JSON.stringify({venue:{id:venue.id||null,name:venue.name||null,address:venue.address||null},products_count:products.length,products:products.slice(0,120),orders_count:orders.length,orders:orders.slice(0,80),staff:{cooks:Array.isArray(v&&v.cooks)?v.cooks.length:0,couriers:Array.isArray(v&&v.couriers)?v.couriers.length:0,waiters:Array.isArray(v&&v.waiters)?v.waiters.length:0},tab:v&&v.tab||null});}
+  function compact(v){return Array.isArray(v)?v.slice(0,120):[];}
+  function context(v,feature){
+    var venue=v&&v.venue||{},products=Array.isArray(v&&v.products)?v.products:[],orders=Array.isArray(v&&v.orders)?v.orders:[],analytics=v&&v.analytics||{};
+    var base={
+      feature:feature,
+      current_tab:v&&v.tab||null,
+      venue:{id:venue.id||null,name:venue.name||null,address:venue.address||null},
+      menu:{count:products.length,items:compact(products)},
+      orders:{count:orders.length,items:orders.slice(0,80)},
+      analytics:{period_days:v&&v.analyticsPeriod||null,revenue:analytics.revenue||0,orders:analytics.orders||0,clients:analytics.clients||0,avgCheck:analytics.avgCheck||0,avgCookTime:analytics.avgCookTime||0,newClients:analytics.newClients||0,repeatClients:analytics.repeatClients||0,topItems:compact(analytics.topItems),topAddons:compact(analytics.topAddons),topHours:compact(analytics.topHours),typeStats:analytics.typeStats||{},payStats:analytics.payStats||{},cooks:compact(analytics.cooks),couriers:compact(analytics.couriers),waiters:compact(analytics.waiters)},
+      staff:{cooks:compact(v&&v.cooks),couriers:compact(v&&v.couriers),waiters:compact(v&&v.waiters),performance:v&&v.staffAnalytics||{}},
+      settings:{form:v&&v.vform||{},delivery_primary:v&&v.deliveryPrimaryName||null,delivery_providers:compact(v&&v.deliveryProviderCards)},
+      plan:{name:v&&v.currentPlan&&v.currentPlan.name||null}
+    };
+    /* Рецептуры — отдельный модуль, поэтому читаем только его опубликованное состояние. */
+    var rs=window.__QR_MANAGER_RECIPES_STATE__;
+    if(rs){
+      base.recipes={venue_id:rs.venueId||null,products:compact(rs.products),ingredients:compact(rs.ingredients),selected_product:rs.selected||null,selected_rows:compact(rs.rows),tech_cards:compact(rs.techCards),catalog:compact(rs.catalog),catalog_items:compact(rs.catalogItems)};
+    }
+    /* Инженер получает диагностический контекст браузера, но не секреты. */
+    if(feature==='engineer'){
+      base.engineer={url:location.pathname,online:navigator.onLine,language:navigator.language,viewport:{width:window.innerWidth,height:window.innerHeight},user_agent:navigator.userAgent.slice(0,300),service_worker:!!navigator.serviceWorker};
+    }
+    return JSON.stringify(base).slice(0,12000);
+  }
   async function token(){if(!window.db||!db.auth)throw new Error('Supabase не подключен');var r=await db.auth.getSession(),t=r&&r.data&&r.data.session&&r.data.session.access_token;if(!t)throw new Error('Сессия управляющего не найдена');return t;}
-  async function call(feature,message,v){if(!allowed(v,feature))throw new Error(v&&typeof v.aiFeatureError==='function'?v.aiFeatureError(feature):'Функция ИИ не включена в тариф');var t=await token();var r=await fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({feature:feature,message:String(message||'').trim().slice(0,8000),context:context(v)})});var data=await r.json().catch(function(){return{};});if(!r.ok||!data.ok)throw new Error(data.error||('HTTP_'+r.status));return data;}
+  async function call(feature,message,v){
+    if(!allowed(v,feature))throw new Error(v&&typeof v.aiFeatureError==='function'?v.aiFeatureError(feature):'Функция ИИ не включена в тариф');
+    var t=await token();
+    var r=await fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({feature:feature,message:String(message||'').trim().slice(0,8000),context:context(v,feature)})});
+    var data=await r.json().catch(function(){return{};});
+    if(!r.ok||!data.ok)throw new Error(data.error||('HTTP_'+r.status));
+    return data;
+  }
   function openExistingImport(){var root=document.getElementById('app');if(!root)return false;var block=root.querySelector('#qr-menu-import-block-v2');if(!block)return false;var buttons=block.querySelectorAll('button');for(var i=0;i<buttons.length;i++){var text=(buttons[i].textContent||'').toLowerCase();if(text.indexOf('импорт')!==-1||text.indexOf('анализ')!==-1){buttons[i].click();return true;}}return false;}
   function install(){
     if(document.getElementById('qr-ai-feature-center'))return true;
@@ -49,8 +91,10 @@
     }
     function openWork(f){
       work.style.display='block';
+      var task=DEFAULT_TASKS[f[0]]||'';
       work.innerHTML='<div style="font-size:13px;font-weight:700;margin-bottom:7px">'+esc(f[1])+'</div><div style="font-size:11px;color:#94a3b8;margin-bottom:9px">'+esc(f[2])+'</div><textarea id="qr-ai-feature-input" placeholder="Напишите задачу для ИИ..." style="width:100%;min-height:90px;resize:vertical;box-sizing:border-box;background:rgba(255,255,255,.045);border:1px solid rgba(148,163,184,.18);border-radius:10px;color:#e5e7eb;padding:10px;font:inherit;font-size:12px;outline:none"></textarea><div style="display:flex;gap:7px;margin-top:8px"><button type="button" id="qr-ai-feature-send" style="flex:1;border:0;border-radius:10px;padding:10px;background:#6366f1;color:#fff;cursor:pointer;font-weight:700">Запустить ИИ</button><button type="button" id="qr-ai-feature-clear" style="border:1px solid rgba(148,163,184,.18);border-radius:10px;padding:10px;background:transparent;color:#cbd5e1;cursor:pointer">Очистить</button></div><div id="qr-ai-feature-answer" style="display:none;margin-top:10px;white-space:pre-wrap;font-size:12px;line-height:1.55;background:rgba(255,255,255,.035);border-radius:10px;padding:11px"></div>';
       var input=work.querySelector('#qr-ai-feature-input'),send=work.querySelector('#qr-ai-feature-send'),clear=work.querySelector('#qr-ai-feature-clear'),answer=work.querySelector('#qr-ai-feature-answer');
+      input.value=task;
       clear.onclick=function(){input.value='';answer.style.display='none';answer.textContent='';input.focus();};
       send.onclick=async function(){
         var message=input.value.trim();if(!message){input.focus();return;}
