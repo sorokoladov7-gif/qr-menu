@@ -56,11 +56,27 @@ async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.cl
   var ID='qr-ai-assistant-loader';
   function load(){
     if(window.__QR_AI_ASSISTANT__||document.getElementById(ID))return;
-    var s=document.createElement('script');s.id=ID;s.src='/js/qr-ai-assistant.js?v=2';s.async=false;
+    var s=document.createElement('script');s.id=ID;s.src='/js/qr-ai-assistant.js?v=1';s.async=false;
     s.onload=function(){console.log('[QR MENU] AI assistant loaded');};
     s.onerror=function(){console.error('[QR MENU] AI assistant failed to load');};
     (document.head||document.documentElement).appendChild(s);
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
   setTimeout(load,800);
+})();
+
+/* QR MENU — Admin Qrchick visual skin loader. It waits for the existing Qrchick center, so its chat/audit/DB logic remains untouched. */
+(function(){
+  'use strict';
+  if(!/\/admin\.html$/i.test(location.pathname))return;
+  var ID='qr-admin-ai-skin-loader';
+  function load(){
+    if(window.__QR_ADMIN_AI_SKIN__||document.getElementById(ID))return;
+    var s=document.createElement('script');s.id=ID;s.src='/js/admin/admin-ai-skin.js?v=2';s.async=false;
+    s.onload=function(){console.log('[QR MENU] Qrchick premium skin loaded');};
+    s.onerror=function(){console.error('[QR MENU] Qrchick premium skin failed to load');};
+    (document.head||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
+  setTimeout(load,900);
 })();
