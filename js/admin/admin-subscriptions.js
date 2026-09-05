@@ -76,7 +76,9 @@
   }
 
   function enhance(){
-    var root=document.querySelector('.plans-grid'),app=window.__QR_ADMIN_VUE_APP__,vm=app&&app._instance?app._instance.proxy:null;
+    var root=document.querySelector('.plans-grid');
+    var app=window.__QR_ADMIN_VUE_APP__;
+    var vm=window.__QR_ADMIN_VUE_VM__ || (app&&app._instance?app._instance.proxy:null);
     if(!root||!vm||!Array.isArray(vm.plans))return;
     injectStyles();
     Array.prototype.slice.call(root.querySelectorAll(':scope > .card')).forEach(function(card,index){
