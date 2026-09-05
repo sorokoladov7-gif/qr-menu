@@ -12,7 +12,6 @@ async function enhanceHtml(r){
   const pathname=new URL(r.url).pathname;
   if(pathname==='/menu.html' && !/delivery-calc\\.js/i.test(text)) extra+='<script src="/js/delivery-calc.js?v=24"></script>';
   if(pathname==='/manager.html' && !/manager-hall-ai\\.js/i.test(text)) extra+='<script src="/js/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
-  if(pathname==='/admin.html' && !/qr-ai-assistant\\.js/i.test(text)) extra+='<script src="/js/qr-ai-assistant.js?v=25" data-qr-ai-assistant="25"></script>';
   return new Response(text.replace(/<\\/body>/i,extra+'</body>'),{status:r.status,statusText:r.statusText,headers:r.headers});
 }
 
@@ -21,7 +20,7 @@ self.addEventListener('fetch', e => {
   if(e.request.method!=='GET'||u.origin!==location.origin)return;
   if(/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(u.hostname))return;
 
-  const noStore=u.pathname==='/integrations.html' || u.pathname==='/js/manager-hall-ai.js' || u.pathname==='/js/qr-ai-assistant.js';
+  const noStore=u.pathname==='/integrations.html' || u.pathname==='/js/manager-hall-ai.js';
   if(noStore){e.respondWith(fetch(e.request,{cache:'no-store'}));return;}
 
   e.respondWith(fetch(e.request).then(async r=>{
