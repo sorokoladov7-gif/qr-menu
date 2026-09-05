@@ -322,3 +322,6 @@
   .template-editor .field-group { grid-template-columns:1fr; }
   .template-editor .product-row { grid-template-columns:40px 1fr 1fr; }
 }
+
+/* Qrchick: приветственный блок дублирует интерфейс чата и не нужен внутри drawer. */
+#qr-ai-center .qr-ai-welcome { display:none !important; }
