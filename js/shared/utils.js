@@ -14,14 +14,16 @@ window.copyText=function(text,showToast){try{navigator.clipboard.writeText(text)
 
 function initCorporateShell(){
  if(!document.body)return;
- var body=document.body,app=document.getElementById('app')||body,root=document.documentElement,nav=null,toggle=null;
+ var body=document.body,app=document.getElementById('app')||body,root=document.documentElement,nav=null,toggle=null,overlay=null;
  body.classList.add('qr-corp-shell');
- function closeNav(){body.classList.remove('nav-open');if(toggle){toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Открыть меню');toggle.innerHTML='<span aria-hidden="true">☰</span>';}root.style.overflow='';}
+ function closeNav(){body.classList.remove('nav-open');if(toggle){toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Открыть меню');toggle.innerHTML='<span aria-hidden="true">☰</span>';}if(overlay)overlay.setAttribute('aria-hidden','true');root.style.overflow='';}
  function setupNav(){
   var next=document.querySelector('.qr-corp-shell .tabs');if(!next||next===nav)return;nav=next;
   document.querySelectorAll('.qr-corp-nav-toggle,.qr-corp-nav-overlay').forEach(function(el){el.remove();});
   toggle=document.createElement('button');toggle.type='button';toggle.className='qr-corp-nav-toggle';toggle.setAttribute('aria-label','Открыть меню');toggle.setAttribute('aria-expanded','false');toggle.innerHTML='<span aria-hidden="true">☰</span>';body.appendChild(toggle);
-  toggle.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var open=!body.classList.contains('nav-open');body.classList.toggle('nav-open',open);toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Закрыть меню':'Открыть меню');toggle.innerHTML=open?'<span aria-hidden="true">×</span>':'<span aria-hidden="true">☰</span>';root.style.overflow=open?'hidden':'';});
+  overlay=document.createElement('button');overlay.type='button';overlay.className='qr-corp-nav-overlay';overlay.setAttribute('aria-label','Закрыть меню');overlay.setAttribute('aria-hidden','true');body.appendChild(overlay);
+  toggle.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();var open=!body.classList.contains('nav-open');body.classList.toggle('nav-open',open);toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Закрыть меню':'Открыть меню');toggle.innerHTML=open?'<span aria-hidden="true">×</span>':'<span aria-hidden="true">☰</span>';overlay.setAttribute('aria-hidden',String(!open));root.style.overflow=open?'hidden':'';});
+  overlay.addEventListener('click',function(e){e.preventDefault();closeNav();});
   nav.addEventListener('click',function(ev){var btn=ev.target.closest&&ev.target.closest('button');if(btn&&window.matchMedia('(max-width:900px)').matches)setTimeout(closeNav,120);});
  }
  setupNav();new MutationObserver(setupNav).observe(app,{childList:true,subtree:true});
