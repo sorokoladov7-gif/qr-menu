@@ -128,4 +128,14 @@
   };
 
   window.__QR_ADMIN_CORE_MIXIN__ = coreMixin;
+
+  /* Load the premium console bridge after the Vue admin app is available. */
+  (function loadEnhancer(){
+    if(document.getElementById('qr-admin-console-enhancer-loader')) return;
+    var s=document.createElement('script');
+    s.id='qr-admin-console-enhancer-loader';
+    s.src='/js/admin/admin-console-enhancer.js';
+    s.async=true;
+    document.head.appendChild(s);
+  })();
 })();
