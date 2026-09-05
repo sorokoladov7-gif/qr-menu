@@ -129,8 +129,6 @@
 
   window.__QR_ADMIN_CORE_MIXIN__ = coreMixin;
 
-  /* Make the new sidebar Design button use the exact same Vue action as the
-     original admin design control, regardless of load timing. */
   document.addEventListener('click', function(event) {
     var button = event.target && event.target.closest
       ? event.target.closest('#qr-admin-shell .qr-nav button[data-nav-key="design"]')
@@ -143,7 +141,6 @@
     }
   }, true);
 
-  /* Load the premium console bridge after the Vue admin app is available. */
   (function loadEnhancer(){
     if(document.getElementById('qr-admin-console-enhancer-loader')) return;
     var s=document.createElement('script');
@@ -151,5 +148,10 @@
     s.src='/js/admin/admin-console-enhancer.js';
     s.async=true;
     document.head.appendChild(s);
+    var usage=document.createElement('script');
+    usage.id='qr-admin-ai-usage-loader';
+    usage.src='/js/admin/admin-ai-usage.js';
+    usage.async=true;
+    document.head.appendChild(usage);
   })();
 })();
