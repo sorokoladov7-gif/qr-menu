@@ -42,6 +42,16 @@
       planStats:function(){var self=this,now=new Date();return this.plans.map(function(p){var ss=(self.subscriptions||[]).filter(function(s){return s&&s.manager_id&&s.plan_id===p.id;}),active=ss.filter(function(s){return ['active','trialing'].indexOf(s.status)!==-1&&s.current_period_end&&new Date(s.current_period_end)>now;}).length;return {id:p.id,name:p.name,price:Number(p.price)||0,count:ss.length,active:active,mrr:active*(Number(p.price)||0),is_public:p.is_public!==false,ai_enabled:p.ai_enabled===true,ai_count:countFeatures(p)};});}
     },
     methods:{
+      aiFeatureList:function(){return AI_FEATURES;},
+      aiFeatureCount:function(plan){return countFeatures(plan);},
+      togglePlanAIFeature:function(plan,key){
+        if(!plan||!key)return;
+        var f=featureObject(plan);
+        if(!(key in f))return;
+        f[key]=!f[key];
+        plan.ai_features=f;
+        plan.ai_enabled=Object.keys(f).some(function(k){return f[k];});
+      },
       syncPlanPrice:function(plan){if(!plan)return 0;var base=Math.max(0,Number(plan.base_price!=null?plan.base_price:plan.price)||0);plan.base_price=base;plan.price=Math.round(base);return plan.price;},
       subClass:function(v){if(!v.subscription_end)return'b-off';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'b-off':d<=3?'b-trial':'b-on';},
       subLabel:function(v){if(!v.subscription_end)return'Нет';var e=new Date(v.subscription_end),d=(e-new Date())/864e5;return e<new Date()?'Истекла':d<=3?'Осталось '+Math.ceil(d)+' дн':'Активна';},
