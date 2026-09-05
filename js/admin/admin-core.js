@@ -20,6 +20,12 @@
     computed: {
       profileName: function() {
         return this.profile ? this.profile.display_name : '';
+      },
+      currentDesignTemplate: function() {
+        if (this.designTarget && this.designTarget !== 'global') {
+          return this.venueDesignTemplate || this.adminDesignTemplate || {};
+        }
+        return this.adminDesignTemplate || {};
       }
     },
     methods: {
@@ -45,12 +51,6 @@
             self.ready = true;
           }).catch(function(error) {
             console.error('[QR Admin] initialization failed:', error);
-            /*
-             * A failed secondary query must not leave the entire admin cabinet
-             * permanently behind the "Загрузка…" screen. Individual sections
-             * already tolerate empty arrays, so render the cabinet and expose
-             * the failing request in the console instead.
-             */
             self.ready = true;
           });
         } else {
