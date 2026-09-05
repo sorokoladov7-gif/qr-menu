@@ -35,7 +35,7 @@ window.DEFAULT_IMG = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000
 (function(){'use strict';if(!/\/manager\.html$/i.test(location.pathname))return;var SCRIPT_ID='qr-manager-site-import-loader',SCRIPT_SRC='/js/manager/manager-site-import.js',started=false;function loadSiteImport(){if(window.QRManagerSiteImport){if(typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();return;}if(document.getElementById(SCRIPT_ID))return;var script=document.createElement('script');script.id=SCRIPT_ID;script.src=SCRIPT_SRC;script.async=false;script.onload=function(){if(window.QRManagerSiteImport&&typeof window.QRManagerSiteImport.scan==='function')window.QRManagerSiteImport.scan();};script.onerror=function(){console.error('[QR Manager] Не удалось загрузить manager-site-import.js:',SCRIPT_SRC);var existing=document.getElementById(SCRIPT_ID);if(existing)existing.remove();};(document.head||document.documentElement).appendChild(script);}function start(){if(started)return;started=true;loadSiteImport();var attempts=0;var timer=setInterval(function(){attempts++;loadSiteImport();if(window.QRManagerSiteImport||attempts>=60)clearInterval(timer);},500);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
 
 function safeRedirect(fallbackUrl, reason){var last=parseInt(sessionStorage.getItem('last_redirect')||'0',10),now=Date.now();if(now-last<3000){document.body.innerHTML='<div style="font-family:sans-serif;max-width:600px;margin:60px auto;padding:30px;background:#1f2937;color:#fff;border-radius:16px"><h2 style="color:#f87171">⚠️ Проблема с профилем</h2><p>Ваш email авторизован, но профиль не найден в базе данных.</p><p><b>Причина:</b> '+(reason||'неизвестно')+'</p><button onclick="sessionStorage.clear();location.reload()" style="margin-top:20px;padding:12px 24px;background:#6366f1;color:#fff;border:none;border-radius:8px">🔄 Очистить и попробовать снова</button></div>';return;}sessionStorage.setItem('last_redirect',String(now));location.replace(fallbackUrl);}
-async function requireAuth(roles){try{const {data:{session}}=await db.auth.getSession();if(!session){safeRedirect('/login.html','нет активной сессии');return null;}const {data:profile,error}=await db.from('profiles').select('*').eq('id',session.user.id).maybeSingle();if(error){console.error('Profile fetch error:',error);safeRedirect('/login.html','ошибка чтения профиля: '+error.message);return null;}if(!profile){safeRedirect('/login.html','профиль ещё не создан серверной системой регистрации');return null;}if(roles&&roles.length&&roles.indexOf(profile.role)===-1){safeRedirect('/login.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role);return null;}return profile;}catch(e){console.error(e);safeRedirect('/login.html','исключение: '+e.message);return null;}}
+async function requireAuth(roles){try{const {data:{session}}=await db.auth.getSession();if(!session){safeRedirect('/login.html','нет активной сессии');return null;}const {data:profile,error}=await db.from('profiles').select('*').eq('id',session.user.id).maybeSingle();if(error){console.error('Profile fetch error:',error);safeRedirect('/login.html','ошибка чтения профиля: '+error.message);return null;}if(!profile){safeRedirect('/login.html','профиль ещё не создан серверной системой регистрации');return null;}if(roles&&roles.length&&roles.indexOf(profile.role)===-1){safeRedirect('/login.html','нет доступа: нужна роль '+roles.join('/')+', у вас '+profile.role);return null;}return profile;}catch(e){console.error(e);safeRedirect('/login.html','исключение: '+e.message);}}
 async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.clear();location.href='/login.html';}
 
 (function(){'use strict';if(!/\/menu\.html$/i.test(location.pathname))return;var lastVenueId=null,lastFee=null;function sync(){var el=document.getElementById('app');if(!el)return;try{var vm=el.__vueParentComponent?.proxy||el.vue_app?._instance?.proxy||null;if(!vm||!vm.venue)return;var id=vm.venue.id,raw=vm.venue.delivery_fee;var fee=raw===null||raw===undefined||raw===''?150:Number(raw);if(!isFinite(fee)||fee<0)fee=150;if(id!==lastVenueId||fee!==lastFee){window.DELIVERY_FEE=fee;lastVenueId=id;lastFee=fee;}}catch(e){}}if(typeof window.DELIVERY_FEE==='undefined')window.DELIVERY_FEE=150;function start(){sync();setInterval(sync,250);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start);else start();})();
@@ -47,6 +47,21 @@ async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.cl
   function load(){if(document.getElementById(ID)||window.__QR_MENU_MODIFIERS__)return;var s=document.createElement('script');s.id=ID;s.src='/js/menu-modifiers.js';s.async=false;s.onload=function(){console.log('[QR Menu] modifiers UI loaded');};s.onerror=function(){console.error('[QR Menu] failed to load modifiers UI');};(document.head||document.documentElement).appendChild(s);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
   setTimeout(load,1000);
+})();
+
+/* QR MENU — Manager AI assistant. Access is enforced server-side by /api/manager-ai. */
+(function(){
+  'use strict';
+  if(!/\/manager\.html$/i.test(location.pathname))return;
+  var ID='qr-ai-assistant-loader';
+  function load(){
+    if(window.__QR_AI_ASSISTANT__||document.getElementById(ID))return;
+    var s=document.createElement('script');s.id=ID;s.src='/js/qr-ai-assistant.js?v=2';s.async=false;
+    s.onload=function(){console.log('[QR MENU] Manager AI assistant loaded');};
+    s.onerror=function(){console.error('[QR MENU] Manager AI assistant failed to load:',s.src);};
+    (document.head||document.documentElement).appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();
 })();
 
 /* QR MENU — Admin Qrchick visual skin loader. It waits for the existing Qrchick center, so its chat/audit/DB logic remains untouched. */
