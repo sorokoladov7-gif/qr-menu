@@ -49,6 +49,45 @@
         });
       },
 
+      /* Refresh plan data so tariff AI flags changed in the admin cabinet are
+         reflected in an already-open manager session without a page reload. */
+      refreshPlanEntitlements: function() {
+        var self = this;
+        if (!self.profile || self.profile.role === 'admin') return Promise.resolve(false);
+        return db.from('plans').select('*').order('price').then(function(r) {
+          if (r.error) throw r.error;
+          var next = Array.isArray(r.data) ? r.data : [];
+          var prevSignature = JSON.stringify((self.plans || []).map(function(p) {
+            return { id: p.id, ai_enabled: p.ai_enabled, ai_features: p.ai_features || {} };
+          }));
+          var nextSignature = JSON.stringify(next.map(function(p) {
+            return { id: p.id, ai_enabled: p.ai_enabled, ai_features: p.ai_features || {} };
+          }));
+          if (prevSignature === nextSignature) return false;
+          self.plans = next;
+
+          /* manager-app.js owns the actual UI gate. Trigger its existing
+             MutationObserver after reactive plan data has been refreshed. */
+          try {
+            var root = document.getElementById('app');
+            if (root) {
+              var marker = document.createComment('qr-manager-ai-entitlements-sync');
+              root.appendChild(marker);
+              root.removeChild(marker);
+            }
+          } catch (e) {}
+          try {
+            window.dispatchEvent(new CustomEvent('qr-manager-ai-entitlements-updated', {
+              detail: { managerId: self.profile.id }
+            }));
+          } catch (e) {}
+          return true;
+        }).catch(function(e) {
+          console.warn('[QR Manager] Не удалось обновить тарифные AI-разрешения:', e);
+          return false;
+        });
+      },
+
       choosePlan: function(p) {
         if (!p) return;
         if (Number(p.price) === 0) {
@@ -108,6 +147,52 @@
       }
     }
   };
+
+  function startPlanEntitlementSync(vm) {
+    if (!vm || vm.__qrManagerPlanSync || !vm.profile || vm.profile.role === 'admin') return;
+    vm.__qrManagerPlanSync = true;
+
+    var refresh = function() {
+      if (!window.__managerVue || window.__managerVue !== vm) return;
+      if (document.visibilityState && document.visibilityState !== 'visible') return;
+      if (typeof vm.refreshPlanEntitlements === 'function') vm.refreshPlanEntitlements();
+    };
+
+    /* First sync as soon as Vue/subscription is ready. Then keep the open
+       manager cabinet current while an admin changes tariff AI flags. */
+    refresh();
+    vm.__qrManagerPlanSyncTimer = setInterval(refresh, 20000);
+
+    vm.__qrManagerPlanSyncVisibility = function() {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', vm.__qrManagerPlanSyncVisibility);
+
+    vm.__qrManagerPlanSyncFocus = refresh;
+    window.addEventListener('focus', vm.__qrManagerPlanSyncFocus);
+  }
+
+  function stopPlanEntitlementSync(vm) {
+    if (!vm) return;
+    if (vm.__qrManagerPlanSyncTimer) clearInterval(vm.__qrManagerPlanSyncTimer);
+    if (vm.__qrManagerPlanSyncVisibility) document.removeEventListener('visibilitychange', vm.__qrManagerPlanSyncVisibility);
+    if (vm.__qrManagerPlanSyncFocus) window.removeEventListener('focus', vm.__qrManagerPlanSyncFocus);
+    vm.__qrManagerPlanSyncTimer = null;
+  }
+
+  window.addEventListener('qr-manager-vue-ready', function() {
+    var vm = window.__managerVue;
+    if (vm) startPlanEntitlementSync(vm);
+  });
+
+  window.addEventListener('qr-manager-subscription-ready', function() {
+    var vm = window.__managerVue;
+    if (vm) startPlanEntitlementSync(vm);
+  });
+
+  window.addEventListener('pagehide', function() {
+    stopPlanEntitlementSync(window.__managerVue);
+  });
 
   window.__QR_MANAGER_BILLING_MIXIN__ = billingMixin;
 })();
