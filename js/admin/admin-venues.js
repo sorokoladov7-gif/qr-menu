@@ -12,7 +12,7 @@
         if (!self.nform.name || !self.nform.slug) { self.msg = 'Заполните название и slug'; return; }
         self.busy = true;
         var end = new Date();
-        end.setDate(end.getDate() + 5);
+        end.setDate(end.getDate() + 10);
         db.from('venues').insert({ name: self.nform.name, slug: self.nform.slug.toLowerCase(), plan: self.nform.plan, subscription_end: end.toISOString() }).select().single().then(function(r) {
           if (r.error) { self.msg = 'Ошибка: ' + r.error.message; self.busy = false; return Promise.reject(r.error); }
           return r;
