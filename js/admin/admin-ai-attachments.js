@@ -1,154 +1,41 @@
-/* QR Menu — Qrchick admin chat attachments */
+/* QR Menu — Qrchick admin chat bridge + attachments */
 (function(){
   'use strict';
-  if(window.__QRCHICK_ATTACHMENTS__)return;
-  window.__QRCHICK_ATTACHMENTS__=true;
+  if(window.__QRCHICK_ATTACHMENTS_V2__)return;
+  window.__QRCHICK_ATTACHMENTS_V2__=true;
 
-  var MAX_BYTES=3*1024*1024,MAX_FILES=3,pending=[];
+  var MAX_BYTES=3*1024*1024,MAX_FILES=3,pending=[],bound=false,busy=false;
   var ACCEPT='image/*,application/pdf,text/plain,text/markdown,text/csv,application/json,application/javascript,text/javascript,text/css,text/html,application/xml,text/xml';
+  var STORAGE='qrchick_admin_chat_v3';
 
-  function session(){
-    try{return window.db&&db.auth&&db.auth.getSession?db.auth.getSession():Promise.resolve({data:{session:null}});}
-    catch(e){return Promise.resolve({data:{session:null}});}
-  }
   function esc(v){return String(v==null?'':v).replace(/[&<>\"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c];});}
-  function fmt(n){n=Number(n)||0;if(n<1024)return n+' Б';if(n<1048576)return (n/1024).toFixed(1)+' КБ';return (n/1048576).toFixed(1)+' МБ';}
+  function session(){try{return window.db&&db.auth&&db.auth.getSession?db.auth.getSession():Promise.resolve({data:{session:null}});}catch(e){return Promise.resolve({data:{session:null}});}}
   function status(t){var e=document.getElementById('qc-status');if(e)e.textContent=t;}
-
-  function compressImage(file){
-    if(file.size<=MAX_BYTES)return Promise.resolve(file);
-    return new Promise(function(resolve,reject){
-      var r=new FileReader();
-      r.onerror=function(){reject(new Error('Не удалось прочитать изображение'));};
-      r.onload=function(ev){
-        var img=new Image();
-        img.onerror=function(){reject(new Error('Не удалось обработать изображение'));};
-        img.onload=function(){
-          var max=1800,w=img.width,h=img.height;
-          if(w>max){h=Math.round(h*max/w);w=max;}
-          if(h>max){w=Math.round(w*max/h);h=max;}
-          var c=document.createElement('canvas');c.width=w;c.height=h;
-          var ctx=c.getContext('2d');ctx.drawImage(img,0,0,w,h);
-          c.toBlob(function(blob){
-            if(!blob||blob.size>MAX_BYTES)return reject(new Error('Изображение после сжатия всё ещё больше 3 МБ'));
-            resolve(new File([blob],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg',lastModified:Date.now()}));
-          },'image/jpeg',.78);
-        };
-        img.src=ev.target.result;
-      };
-      r.readAsDataURL(file);
-    });
+  function scroll(){var e=document.getElementById('qc-scroll');if(e)e.scrollTop=e.scrollHeight;}
+  function md(v){var s=esc(v);s=s.replace(/```([\s\S]*?)```/g,function(_,c){return '<pre class="qc-code">'+c.replace(/^\n|\n$/g,'')+'</pre>';});s=s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');return s.replace(/\n/g,'<br>');}
+  function getState(){try{var x=JSON.parse(localStorage.getItem(STORAGE)||'{}');return {history:Array.isArray(x.history)?x.history:[],previousInteractionId:String(x.previousInteractionId||'')};}catch(e){return {history:[],previousInteractionId:''};}}
+  function putState(x){try{localStorage.setItem(STORAGE,JSON.stringify(x));}catch(e){}}
+  function ensureChatOpen(){var c=document.getElementById('qr-center');if(c)c.classList.add('open');}
+  function renderFallbackMessage(role,content){var box=document.getElementById('qc-messages');if(!box)return;var article=document.createElement('article');article.className='qc-message '+(role==='user'?'qc-user':'qc-ai');article.innerHTML='<div class="qc-msg-wrap">'+(role==='user'?'':'<div class="qc-avatar qc-avatar-sm">Q</div>')+'<div class="qc-msg-content">'+(role==='user'?'':'<div class="qc-msg-name">Qrchick</div>')+'<div class="qc-text">'+md(content)+'</div></div></div>';box.appendChild(article);scroll();}
+  function addFiles(files){files=Array.prototype.slice.call(files||[]);if(!files.length)return;if(pending.length+files.length>MAX_FILES){alert('Можно прикрепить максимум '+MAX_FILES+' файла за сообщение.');return;}files.forEach(function(f){if(f.size>MAX_BYTES&&!/^image\//i.test(f.type)){alert(f.name+': файл больше 3 МБ.');return;}pending.push({file:f});});renderAttachments();}
+  function fmt(n){n=Number(n)||0;if(n<1024)return n+' Б';if(n<1048576)return (n/1024).toFixed(1)+' КБ';return (n/1048576).toFixed(1)+' МБ';}
+  function renderAttachments(){var old=document.getElementById('qc-attachments');if(old)old.remove();if(!pending.length)return;var wrap=document.querySelector('.qc-input-wrap');if(!wrap)return;var bar=document.createElement('div');bar.id='qc-attachments';bar.className='qc-attachments';bar.innerHTML=pending.map(function(a,i){var t=a.file.type||'',icon=t.indexOf('image/')===0?'▧':t==='application/pdf'?'PDF':'TXT';return '<div class="qc-attachment"><span class="qc-attachment-icon">'+icon+'</span><div><b>'+esc(a.file.name)+'</b><small>'+fmt(a.file.size)+'</small></div><button type="button" data-qc-remove="'+i+'">×</button></div>';}).join('');wrap.parentNode.insertBefore(bar,wrap);bar.querySelectorAll('[data-qc-remove]').forEach(function(b){b.onclick=function(){pending.splice(Number(b.dataset.qcRemove),1);renderAttachments();};});}
+  function readData(file){return new Promise(function(resolve,reject){var r=new FileReader();r.onerror=function(){reject(new Error('Не удалось прочитать '+file.name));};r.onload=function(){resolve(String(r.result||'').split(',').pop()||'');};r.readAsDataURL(file);});}
+  function compressImage(file){if(file.size<=MAX_BYTES)return Promise.resolve(file);return new Promise(function(resolve,reject){var r=new FileReader();r.onerror=function(){reject(new Error('Не удалось прочитать изображение'));};r.onload=function(ev){var img=new Image();img.onerror=function(){reject(new Error('Не удалось обработать изображение'));};img.onload=function(){var max=1800,w=img.width,h=img.height;if(w>max){h=Math.round(h*max/w);w=max;}if(h>max){w=Math.round(w*max/h);h=max;}var c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);c.toBlob(function(b){if(!b||b.size>MAX_BYTES)return reject(new Error('Изображение после сжатия всё ещё больше 3 МБ'));resolve(new File([b],file.name.replace(/\.[^.]+$/,'')+'.jpg',{type:'image/jpeg'}));},'image/jpeg',.78);};img.src=ev.target.result;};r.readAsDataURL(file);});}
+  async function uploadAttachment(item,prompt,access){var f=await compressImage(item.file),data=await readData(f);var r=await fetch('/api/admin-ai-attachment',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+access},body:JSON.stringify({prompt:prompt,file:{name:f.name,type:f.type,size:f.size,data:data}})});var d=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(d.error||('Ошибка обработки '+f.name));return {name:f.name,analysis:String(d.analysis||'').slice(0,14000)};}
+  async function directSend(){
+    if(busy)return;var input=document.getElementById('qc-input'),text=input?String(input.value||'').trim():'';if(!text&&!pending.length)return;ensureChatOpen();busy=true;var send=document.getElementById('qc-send'),stop=document.getElementById('qc-stop');if(send)send.disabled=true;if(stop)stop.style.display='inline-flex';var state=getState(),userMessage=text;
+    try{
+      var s=await session(),access=s&&s.data&&s.data.session&&s.data.session.access_token;if(!access)throw new Error('Сессия администратора не найдена');
+      renderFallbackMessage('user',userMessage||'Анализ вложений');state.history.push({role:'user',content:userMessage||'Анализ вложений'});if(input)input.value='';var attachmentContext='';
+      if(pending.length){status('Qrchick анализирует вложения…');var rs=[],files=pending.slice();pending=[];renderAttachments();for(var i=0;i<files.length;i++){status('Qrchick читает вложение '+(i+1)+' из '+files.length+'…');rs.push(await uploadAttachment(files[i],userMessage||'Проанализируй это вложение и сопоставь его с проектом.',access));}attachmentContext='\n\n[ВЛОЖЕНИЯ]\n'+rs.map(function(x){return '\nФайл: '+x.name+'\n'+x.analysis;}).join('\n')+'\n\n';}
+      status('Qrchick анализирует запрос…');var historyForRequest=state.history.slice(-12);if(attachmentContext)historyForRequest[historyForRequest.length-1]={role:'user',content:(userMessage||'Анализ вложений')+attachmentContext};
+      var r=await fetch('/api/admin-ai-audit',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+access},body:JSON.stringify({action:'audit',mode:'agent',message:(userMessage||'Проанализируй вложения')+attachmentContext,history:historyForRequest,previous_interaction_id:state.previousInteractionId})});
+      var d=await r.json().catch(function(){return{};});if(!r.ok)throw new Error(d.error||'Qrchick: ошибка AI');var x=d.result||{},answer=x.answer||x.summary||'Анализ завершён.';state.previousInteractionId=d.interaction_id||state.previousInteractionId;state.history.push({role:'assistant',content:answer});putState(state);renderFallbackMessage('assistant',answer);status('Готов');
+      var result=document.getElementById('qc-result');if(result&&Array.isArray(x.findings)&&x.findings.length){result.innerHTML='<div class="qc-card"><div class="qc-card-title">Найдено · '+x.findings.length+'</div>'+x.findings.map(function(f){return '<div class="qc-finding"><b>'+esc(f.title||'Проблема')+'</b><span>'+esc(f.severity||'')+'</span><small>'+esc(f.file||'')+'</small><div>'+md(f.explanation||f.evidence||'')+'</div></div>';}).join('')+'</div>';}
+    }catch(e){state.history.push({role:'assistant',content:'Ошибка: '+e.message});putState(state);renderFallbackMessage('assistant','Ошибка: '+e.message);status('Ошибка');}finally{busy=false;if(send)send.disabled=false;if(stop)stop.style.display='none';scroll();}
   }
-  function readBase64(file){
-    return new Promise(function(resolve,reject){
-      var r=new FileReader();
-      r.onerror=function(){reject(new Error('Не удалось прочитать '+file.name));};
-      r.onload=function(){var s=String(r.result||'');resolve(s.split(',').pop()||'');};
-      r.readAsDataURL(file);
-    });
-  }
-
-  function render(){
-    var old=document.getElementById('qc-attachments');if(old)old.remove();
-    if(!pending.length)return;
-    var inputWrap=document.querySelector('.qc-input-wrap');if(!inputWrap)return;
-    var bar=document.createElement('div');bar.id='qc-attachments';bar.className='qc-attachments';
-    bar.innerHTML=pending.map(function(a,i){
-      var type=a.file.type||'';
-      var icon=type.indexOf('image/')===0?'▧':type==='application/pdf'?'PDF':'TXT';
-      return '<div class="qc-attachment"><span class="qc-attachment-icon">'+icon+'</span><div><b>'+esc(a.file.name)+'</b><small>'+fmt(a.file.size)+'</small></div><button type="button" data-remove-attachment="'+i+'" aria-label="Удалить">×</button></div>';
-    }).join('');
-    inputWrap.parentNode.insertBefore(bar,inputWrap);
-    bar.querySelectorAll('[data-remove-attachment]').forEach(function(b){b.onclick=function(){pending.splice(Number(b.dataset.removeAttachment),1);render();};});
-  }
-
-  function addFiles(files){
-    files=Array.prototype.slice.call(files||[]);
-    if(!files.length)return;
-    if(pending.length+files.length>MAX_FILES){alert('Можно прикрепить максимум '+MAX_FILES+' файла за сообщение.');return;}
-    files.forEach(function(file){
-      if(file.size>MAX_BYTES&&!/^image\//i.test(file.type)){alert(file.name+': файл больше 3 МБ. Для PDF и документов текущий лимит — 3 МБ.');return;}
-      pending.push({file:file});
-    });
-    render();
-  }
-
-  async function analyzeOne(item,prompt,access){
-    var file=await compressImage(item.file);
-    if(file.size>MAX_BYTES)throw new Error(file.name+': больше 3 МБ');
-    var data=await readBase64(file);
-    var r=await fetch('/api/admin-ai-attachment',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+access},body:JSON.stringify({prompt:prompt,file:{name:file.name,type:file.type,size:file.size,data:data}})});
-    var d=await r.json().catch(function(){return{};});
-    if(!r.ok)throw new Error(d.error||('Ошибка обработки '+file.name));
-    return {name:file.name,analysis:String(d.analysis||'').slice(0,14000)};
-  }
-
-  async function sendWithAttachments(send){
-    if(!pending.length)return false;
-    var input=document.getElementById('qc-input');
-    var message=input?input.value.trim():'';
-    if(!message)message='Проанализируй прикреплённые материалы и сопоставь их с текущим проектом.';
-    var s=await session(),access=s&&s.data&&s.data.session&&s.data.session.access_token;
-    if(!access)throw new Error('Сессия администратора не найдена');
-    var current=pending.slice(),results=[];
-    status('Qrchick анализирует вложения…');
-    for(var i=0;i<current.length;i++){
-      status('Qrchick читает вложение '+(i+1)+' из '+current.length+'…');
-      results.push(await analyzeOne(current[i],message,access));
-    }
-    var context='\n\n[ВЛОЖЕНИЯ ПЕРЕДАНЫ QRCHICK]\n'+results.map(function(x){return '\nФайл: '+x.name+'\nАнализ вложения:\n'+x.analysis;}).join('\n')+'\n\nИспользуй этот контекст вместе с GitHub, Supabase и Vercel. Если вложение показывает ошибку интерфейса или код, сопоставь его с реальным проектом и не делай выводов, не подтверждённых репозиторием.';
-    pending=[];render();
-    input.value=message+context;
-    if(send.__qrchickOriginal)send.__qrchickOriginal.call(send);
-    else send.click();
-    return true;
-  }
-
-  function hideProviderNames(){
-    var root=document.getElementById('qr-center');if(!root)return;
-    root.querySelectorAll('.qc-model span').forEach(function(e){e.remove();});
-    root.querySelectorAll('.qc-cap').forEach(function(e){if(/gemini|flash/i.test(e.textContent))e.textContent='AI-агент · готов';});
-    var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),nodes=[],n;
-    while((n=walker.nextNode()))nodes.push(n);
-    nodes.forEach(function(t){
-      if(/gemini/i.test(t.nodeValue))t.nodeValue=t.nodeValue.replace(/Gemini(?:\s+3(?:\.\d+)?(?:\s+Flash(?:\s+(?:Lite|Pro))?)?|\s+API)?/gi,'AI-агент');
-    });
-  }
-
-  function polish(){
-    var model=document.querySelector('.qc-model span');if(model)model.remove();
-    hideProviderNames();
-    var input=document.getElementById('qc-input');
-    if(input){input.placeholder='Сообщение…';input.setAttribute('aria-label','Сообщение для Qrchick');}
-    var attach=document.getElementById('qc-attach');
-    if(attach){attach.setAttribute('aria-label','Прикрепить файл');attach.title='Прикрепить файл';}
-    var send=document.getElementById('qc-send');if(send)send.setAttribute('aria-label','Отправить сообщение');
-    if(!document.getElementById('qc-chat-polish')){
-      var style=document.createElement('style');style.id='qc-chat-polish';style.textContent='.qc-model span{display:none!important}.qc-attachments{display:flex;gap:7px;flex-wrap:wrap;margin:0 0 7px}.qc-attachment{display:flex;align-items:center;gap:7px;min-width:150px;max-width:260px;padding:7px 8px;border:1px solid rgba(83,203,255,.18);border-radius:10px;background:rgba(9,31,51,.8)}.qc-attachment-icon{width:25px;height:25px;border-radius:7px;background:#0c3855;color:#8fe5ff;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800}.qc-attachment div{min-width:0;flex:1}.qc-attachment b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}.qc-attachment small{display:block;color:#6788a4;font-size:9px;margin-top:2px}.qc-attachment button{border:0;background:transparent;color:#6f8da7;font-size:18px;cursor:pointer}.qc-attach-drag .qc-input-wrap{border-color:#36cfff;box-shadow:0 0 0 2px rgba(54,207,255,.08)}.qc-input-wrap:focus-within{border-color:rgba(91,207,255,.48);box-shadow:0 0 0 3px rgba(53,190,255,.07),0 12px 35px rgba(0,0,0,.28)}';document.head.appendChild(style);
-    }
-  }
-
-  function bind(){
-    var attach=document.getElementById('qc-attach'),send=document.getElementById('qc-send'),input=document.getElementById('qc-input');
-    if(!attach||!send||!input){setTimeout(bind,200);return;}
-    if(attach.__qrBound)return;
-    attach.__qrBound=true;polish();
-    var picker=document.createElement('input');picker.type='file';picker.id='qc-file-picker';picker.multiple=true;picker.accept=ACCEPT;picker.style.display='none';document.body.appendChild(picker);
-    attach.onclick=function(e){e.preventDefault();picker.click();};
-    picker.onchange=function(){addFiles(picker.files);picker.value='';};
-    input.addEventListener('paste',function(e){var files=Array.prototype.slice.call((e.clipboardData&&e.clipboardData.files)||[]).filter(function(f){return /^image\//i.test(f.type);});if(files.length){e.preventDefault();addFiles(files);}});
-    var compose=document.querySelector('.qc-compose');
-    if(compose){compose.addEventListener('dragover',function(e){e.preventDefault();compose.classList.add('qc-attach-drag');});compose.addEventListener('dragleave',function(){compose.classList.remove('qc-attach-drag');});compose.addEventListener('drop',function(e){e.preventDefault();compose.classList.remove('qc-attach-drag');addFiles(e.dataTransfer&&e.dataTransfer.files);});}
-    send.__qrchickOriginal=send.onclick;
-    send.onclick=function(){
-      if(!pending.length)return send.__qrchickOriginal&&send.__qrchickOriginal.call(send);
-      if(send.__qrAttachmentBusy)return;
-      send.__qrAttachmentBusy=true;send.disabled=true;
-      sendWithAttachments(send).catch(function(e){alert('Qrchick: '+e.message);status('Ошибка');}).finally(function(){send.__qrAttachmentBusy=false;send.disabled=false;});
-    };
-    hideProviderNames();
-    try{new MutationObserver(function(){polish();hideProviderNames();}).observe(document.getElementById('qr-center'),{childList:true,subtree:true});}catch(e){}
-  }
-
+  function hideProviderNames(){var root=document.getElementById('qr-center');if(!root)return;root.querySelectorAll('.qc-model span').forEach(function(e){e.remove();});root.querySelectorAll('.qc-cap').forEach(function(e){if(/gemini|flash/i.test(e.textContent))e.textContent='AI-агент · готов';});var walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null),n;while((n=walker.nextNode())){if(/gemini/i.test(n.nodeValue||''))n.nodeValue=n.nodeValue.replace(/Gemini(?:\s+3(?:\.\d+)?(?:\s+Flash(?:\s+(?:Lite|Pro))?)?|\s+API)?/gi,'AI-агент');}}
+  function bind(){var attach=document.getElementById('qc-attach'),send=document.getElementById('qc-send'),input=document.getElementById('qc-input');if(!attach||!send||!input){setTimeout(bind,200);return;}if(bound)return;bound=true;var picker=document.createElement('input');picker.type='file';picker.id='qc-file-picker';picker.multiple=true;picker.accept=ACCEPT;picker.style.display='none';document.body.appendChild(picker);attach.onclick=function(e){e.preventDefault();picker.click();};picker.onchange=function(){addFiles(picker.files);picker.value='';};input.addEventListener('paste',function(e){var fs=Array.prototype.slice.call((e.clipboardData&&e.clipboardData.files)||[]).filter(function(f){return /^image\//i.test(f.type);});if(fs.length){e.preventDefault();addFiles(fs);}});var form=document.querySelector('.qc-compose');if(form){form.addEventListener('dragover',function(e){e.preventDefault();form.classList.add('qc-attach-drag');});form.addEventListener('dragleave',function(){form.classList.remove('qc-attach-drag');});form.addEventListener('drop',function(e){e.preventDefault();form.classList.remove('qc-attach-drag');addFiles(e.dataTransfer&&e.dataTransfer.files);});}send.onclick=function(e){e.preventDefault();directSend();};input.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();directSend();}});document.querySelectorAll('[data-prompt]').forEach(function(b){b.addEventListener('click',function(){input.value=b.getAttribute('data-prompt')||'';input.focus();directSend();});});hideProviderNames();try{new MutationObserver(function(){hideProviderNames();}).observe(document.getElementById('qr-center'),{childList:true,subtree:true});}catch(e){}}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else setTimeout(bind,50);
 })();
