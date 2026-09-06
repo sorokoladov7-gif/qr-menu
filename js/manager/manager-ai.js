@@ -56,7 +56,7 @@
   async function call(feature,message,v){
     if(!allowed(v,feature))throw new Error(v&&v.aiFeatureError?v.aiFeatureError(feature):'Функция ИИ не включена в тариф');
     var body={feature:feature,message:String(message||'').trim().slice(0,8000),context:makeContext(v,feature)};
-    return post(feature==='assistant'?'/api/manager-ai-assistant-action':'/api/manager-ai',body);
+    return post('/api/manager-ai',body);
   }
   function openImport(){var b=document.getElementById('qr-menu-import-block-v2');if(!b)return false;var bs=b.querySelectorAll('button');for(var i=0;i<bs.length;i++){var t=(bs[i].textContent||'').toLowerCase();if(t.indexOf('импорт')>=0||t.indexOf('анализ')>=0){bs[i].click();return true;}}return false;}
   function openModule(f){var v=vm(),tab=MODULE_TABS[f];if(!v||!tab||!allowed(v,f))return false;v.tab=tab;return true;}
@@ -81,7 +81,7 @@
         try{
           var v=vm(),copy=JSON.parse(JSON.stringify(action));copy.payload=copy.payload||{};
           if(!copy.payload.venue_id&&v&&v.venue&&v.venue.id)copy.payload.venue_id=v.venue.id;
-          await post('/api/manager-ai-assistant-action',{feature:'assistant',confirm:true,action:copy});
+          await post('/api/manager-ai-action',{feature:'assistant',action:copy});
           btn.textContent='Выполнено';btn.style.opacity='.55';status.style.color='#86efac';status.textContent='Изменение подтверждено сервером и применено.';
           if(v&&typeof v.loadProducts==='function')await v.loadProducts();
           if(v&&typeof v.loadDeliverySettings==='function')await v.loadDeliverySettings();
