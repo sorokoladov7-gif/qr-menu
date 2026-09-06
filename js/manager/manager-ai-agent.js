@@ -9,8 +9,7 @@
   function validSubscription(s){
     if(!s)return false;
     var status=String(s.status||'').toLowerCase();
-    if(status==='trialing')return true;
-    if(status!=='active')return false;
+    if(status!=='trialing'&&status!=='active')return false;
     return !s.current_period_end || new Date(s.current_period_end)>=new Date();
   }
 
