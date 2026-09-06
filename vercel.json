@@ -3,7 +3,7 @@
   "env": {
     "SUPABASE_URL": "https://ulxfsozdryqrnlxzlblt.supabase.co",
     "SUPABASE_ANON_KEY": "sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq",
-    "GEMINI_AUDIT_MODEL": "gemini-3.8-flash"
+    "GEMINI_AUDIT_MODEL": "gemini-3.6-flash"
   },
   "git": {"deploymentEnabled":{"main":true}},
   "github": {"enabled":true},
