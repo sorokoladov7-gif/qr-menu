@@ -23,6 +23,75 @@ const AI_FEATURES = {
   menu_import: 'ИИ-импорт меню: распознавание и структурирование меню.'
 };
 
+const SCHEMA = {
+  type: 'object',
+  properties: {
+    venue_name: { type: 'string' },
+    currency: { type: 'string' },
+    categories: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          items: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                description: { type: 'string' },
+                price: { type: ['number', 'null'] },
+                unit: { type: 'string' },
+                weight: { type: ['number', 'null'] },
+                image_url: { type: ['string', 'null'] },
+                allergens: { type: 'array', items: { type: 'string' } },
+                tags: { type: 'array', items: { type: 'string' } },
+                available: { type: 'boolean' }
+              },
+              required: ['name', 'description', 'price', 'unit', 'weight', 'image_url', 'allergens', 'tags', 'available']
+            }
+          }
+        },
+        required: ['name', 'items']
+      }
+    },
+    warnings: { type: 'array', items: { type: 'string' } }
+  },
+  required: ['venue_name', 'currency', 'categories', 'warnings']
+};
+
+async function parseRequestBody(req) {
+  if (req && req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const buf = Buffer.from(chunk);
+    size += buf.length;
+    if (size > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 });
+    chunks.push(buf);
+  }
+  const raw = Buffer.concat(chunks).toString('utf8').trim();
+  if (!raw) return {};
+  try { return JSON.parse(raw); }
+  catch (_) { throw Object.assign(new Error('INVALID_REQUEST_BODY'), { status: 400 }); }
+}
+
+async function deleteTempObject(tempPath) {
+  if (!tempPath || !SUPABASE_SERVICE_ROLE_KEY) return;
+  try {
+    const u = new URL(String(tempPath));
+    const match = u.pathname.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/(.+)$/i);
+    if (!match) return;
+    const bucket = decodeURIComponent(match[1]);
+    const objectPath = decodeURIComponent(match[2]);
+    await fetch(SUPABASE_URL + '/storage/v1/object/' + encodeURIComponent(bucket) + '/' + objectPath, {
+      method: 'DELETE',
+      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY }
+    }).catch(() => null);
+  } catch (_) {}
+}
+
 async function entitlementForManager(managerId, feature) {
   if (!SUPABASE_SERVICE_ROLE_KEY) throw Object.assign(new Error('AI_PROVIDER_NOT_CONFIGURED'), { status: 503 });
   const headers = { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY, accept: 'application/json' };
@@ -38,6 +107,7 @@ async function entitlementForManager(managerId, feature) {
   if (!pr.ok) throw Object.assign(new Error('PLAN_LOOKUP_FAILED'), { status: 500 });
   const plan = plans?.[0];
   const features = plan?.ai_features && typeof plan.ai_features === 'object' ? plan.ai_features : {};
+  if (sub.status === 'trialing') return { plan: plan || null, features, subscription: sub };
   if (!plan || plan.ai_enabled !== true) throw Object.assign(new Error('AI_NOT_INCLUDED_IN_PLAN'), { status: 403 });
   if (features[feature] !== true) throw Object.assign(new Error('AI_FEATURE_NOT_INCLUDED:' + feature), { status: 403 });
   return { plan, features, subscription: sub };
@@ -56,10 +126,7 @@ function checkRateLimit(req, userId) {
   const key = userId + ':' + clientIp(req);
   const now = Date.now();
   const current = rateState.get(key) || { started: now, count: 0 };
-  if (now - current.started >= RATE_WINDOW_MS) {
-    current.started = now;
-    current.count = 0;
-  }
+  if (now - current.started >= RATE_WINDOW_MS) { current.started = now; current.count = 0; }
   current.count += 1;
   rateState.set(key, current);
   for (const [k, v] of rateState) if (now - v.started > RATE_WINDOW_MS * 2) rateState.delete(k);
@@ -75,14 +142,10 @@ function parseBearer(req) {
 async function requireManagerOrAdmin(req) {
   const token = parseBearer(req);
   if (!token) throw Object.assign(new Error('AUTH_REQUIRED'), { status: 401 });
-  const authResponse = await fetch(SUPABASE_URL + '/auth/v1/user', {
-    headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token }
-  });
+  const authResponse = await fetch(SUPABASE_URL + '/auth/v1/user', { headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token } });
   const user = await authResponse.json().catch(() => null);
   if (!authResponse.ok || !user?.id) throw Object.assign(new Error('AUTH_INVALID'), { status: 401 });
-  const profileResponse = await fetch(SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(user.id) + '&select=role&limit=1', {
-    headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token, accept: 'application/json' }
-  });
+  const profileResponse = await fetch(SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(user.id) + '&select=role&limit=1', { headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token, accept: 'application/json' } });
   const profiles = await profileResponse.json().catch(() => []);
   const role = String(profiles?.[0]?.role || '').toLowerCase();
   if (!profileResponse.ok || !['manager', 'admin'].includes(role)) throw Object.assign(new Error('ROLE_FORBIDDEN'), { status: 403 });
@@ -105,8 +168,7 @@ function isPrivateIp(ip) {
 
 async function assertSafeUrl(raw) {
   let url;
-  try { url = new URL(String(raw || '').trim()); }
-  catch (_) { throw Object.assign(new Error('INVALID_URL'), { status: 400 }); }
+  try { url = new URL(String(raw || '').trim()); } catch (_) { throw Object.assign(new Error('INVALID_URL'), { status: 400 }); }
   if (!/^https?:$/i.test(url.protocol) || url.username || url.password) throw Object.assign(new Error('INVALID_URL'), { status: 400 });
   if (url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local') || (net.isIP(url.hostname) && isPrivateIp(url.hostname))) throw Object.assign(new Error('URL_BLOCKED'), { status: 400 });
   try {
@@ -155,9 +217,7 @@ function detectMime(buffer, claimed = '') {
   return mime;
 }
 
-function supportedFileMime(mime) {
-  return ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(String(mime || '').toLowerCase());
-}
+function supportedFileMime(mime) { return ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(String(mime || '').toLowerCase()); }
 
 function pdfPageEstimate(buffer) {
   const text = buffer.subarray(0, Math.min(buffer.length, MAX_FILE_BYTES)).toString('latin1');
@@ -204,15 +264,7 @@ async function callGemini(parts) {
         method: 'POST',
         signal: controller.signal,
         headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: SCHEMA,
-            maxOutputTokens: 24000,
-            thinkingConfig: { thinkingLevel: 'low' }
-          }
-        })
+        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, maxOutputTokens: 24000, thinkingConfig: { thinkingLevel: 'low' } } })
       });
       const data = await response.json().catch(() => null);
       if (!response.ok) throw Object.assign(new Error(data?.error?.message || 'Gemini HTTP ' + response.status), { status: response.status });
@@ -233,43 +285,25 @@ async function callGemini(parts) {
   throw lastError || Object.assign(new Error('AI_IMPORT_FAILED'), { status: 502 });
 }
 
-function normalizeTagArray(value) {
-  return [...new Set((Array.isArray(value) ? value : []).map(x => clean(x, 80)).filter(Boolean))].slice(0, 20);
-}
+function normalizeTagArray(value) { return [...new Set((Array.isArray(value) ? value : []).map(x => clean(x, 80)).filter(Boolean))].slice(0, 20); }
 
 function normalizeItem(item, categoryName) {
   const name = clean(item?.name, 220);
   const price = item?.price == null || item?.price === '' ? null : Number(item.price);
   const weight = item?.weight == null || item?.weight === '' ? null : Number(item.weight);
   const unit = clean(item?.unit, 20).toLowerCase();
-  return {
-    name,
-    description: clean(item?.description, 600),
-    price: Number.isFinite(price) && price >= 0 ? price : null,
-    unit: ['шт', 'г', 'мл', 'порция'].includes(unit) ? unit : '',
-    weight: Number.isFinite(weight) && weight > 0 ? weight : null,
-    image_url: /^https?:\/\//i.test(String(item?.image_url || '').trim()) ? String(item.image_url).trim() : null,
-    allergens: normalizeTagArray(item?.allergens),
-    tags: normalizeTagArray(item?.tags),
-    available: item?.available !== false,
-    category: categoryName
-  };
+  return { name, description: clean(item?.description, 600), price: Number.isFinite(price) && price >= 0 ? price : null, unit: ['шт', 'г', 'мл', 'порция'].includes(unit) ? unit : '', weight: Number.isFinite(weight) && weight > 0 ? weight : null, image_url: /^https?:\/\//i.test(String(item?.image_url || '').trim()) ? String(item.image_url).trim() : null, allergens: normalizeTagArray(item?.allergens), tags: normalizeTagArray(item?.tags), available: item?.available !== false, category: categoryName };
 }
 
 function validateAndNormalizeMenu(menu, options = {}) {
   const categories = Array.isArray(menu?.categories) ? menu.categories : [];
-  const normalized = categories.map(category => ({
-    name: clean(category?.name, 160) || 'Без категории',
-    items: (Array.isArray(category?.items) ? category.items : []).map(item => normalizeItem(item, clean(category?.name, 160) || 'Без категории')).filter(item => item.name)
-  })).filter(category => category.items.length);
+  const normalized = categories.map(category => ({ name: clean(category?.name, 160) || 'Без категории', items: (Array.isArray(category?.items) ? category.items : []).map(item => normalizeItem(item, clean(category?.name, 160) || 'Без категории')).filter(item => item.name) })).filter(category => category.items.length);
   const warnings = normalizeTagArray(menu?.warnings);
   if (options.unreadable) warnings.push('Не удалось уверенно распознать структуру меню.');
   return { venue_name: clean(menu?.venue_name, 220), currency: clean(menu?.currency || 'RUB', 10) || 'RUB', categories: normalized, warnings: normalizeTagArray(warnings) };
 }
 
-function flattenMenu(menu) {
-  return menu.categories.flatMap(category => category.items.map(item => ({ ...item, category: category.name })));
-}
+function flattenMenu(menu) { return menu.categories.flatMap(category => category.items.map(item => ({ ...item, category: category.name }))); }
 
 async function fetchExternalFile(url) {
   const safe = await assertSafeUrl(url);
@@ -281,34 +315,16 @@ async function fetchExternalFile(url) {
 async function importSite(url) {
   const safe = await assertSafeUrl(url);
   try {
-    const result = await Promise.race([
-      analyzeSite(safe),
-      new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error('SITE_TIMEOUT'), { status: 504 })), SITE_TIMEOUT_MS))
-    ]);
+    const result = await Promise.race([analyzeSite(safe), new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error('SITE_TIMEOUT'), { status: 504 })), SITE_TIMEOUT_MS))]);
     const products = Array.isArray(result?.products) ? result.products : [];
     const grouped = new Map();
     for (const product of products) {
       const category = clean(product?.category || 'Основные блюда', 160);
       if (!grouped.has(category)) grouped.set(category, []);
-      grouped.get(category).push({
-        name: clean(product?.name, 220),
-        description: clean(product?.description, 600),
-        price: Number.isFinite(Number(product?.price)) && Number(product.price) > 0 ? Number(product.price) : null,
-        unit: '',
-        weight: null,
-        image_url: /^https?:\/\//i.test(String(product?.image_url || '')) ? String(product.image_url) : null,
-        allergens: [],
-        tags: [],
-        available: true
-      });
+      grouped.get(category).push({ name: clean(product?.name, 220), description: clean(product?.description, 600), price: Number.isFinite(Number(product?.price)) && Number(product.price) > 0 ? Number(product.price) : null, unit: '', weight: null, image_url: /^https?:\/\//i.test(String(product?.image_url || '')) ? String(product.image_url) : null, allergens: [], tags: [], available: true });
     }
-    const raw = {
-      venue_name: clean(result?.venue?.name || result?.meta?.name || '', 220),
-      currency: 'RUB',
-      categories: [...grouped.entries()].map(([name, items]) => ({ name, items })),
-      warnings: []
-    };
-    return { menu: validateAndNormalizeMenu(raw, { venue_name: raw.venue_name }), meta: { source_url: safe, analyzer: 'site-menu-analyzer-v3', site_menu_found: products.length > 0 } };
+    const raw = { venue_name: clean(result?.venue?.name || result?.meta?.name || '', 220), currency: 'RUB', categories: [...grouped.entries()].map(([name, items]) => ({ name, items })), warnings: [] };
+    return { menu: validateAndNormalizeMenu(raw), meta: { source_url: safe, analyzer: 'site-menu-analyzer-v3', site_menu_found: products.length > 0 } };
   } catch (error) {
     if (error?.status === 504) throw Object.assign(new Error('SITE_IMPORT_TIMEOUT'), { status: 504 });
     throw error;
@@ -316,31 +332,7 @@ async function importSite(url) {
 }
 
 function errorMessage(code) {
-  const map = {
-    AUTH_REQUIRED: 'Требуется авторизация управляющего.',
-    AUTH_INVALID: 'Сессия авторизации недействительна. Войдите в кабинет заново.',
-    ROLE_FORBIDDEN: 'Импорт меню доступен только управляющему или администратору.',
-    RATE_LIMITED: 'Слишком много попыток импорта. Повторите позже.',
-    REQUEST_TOO_LARGE: 'Слишком большой запрос. Для файла до 10 МБ используйте обычную загрузку файла.',
-    FILE_TOO_LARGE: 'Файл превышает лимит 10 МБ.',
-    EMPTY_FILE: 'Файл пустой. Выберите корректный PDF или изображение.',
-    INVALID_FILE_DATA: 'Не удалось прочитать файл.',
-    UNSUPPORTED_FILE: 'Поддерживаются только PDF, JPG, PNG и WEBP.',
-    INVALID_URL: 'Укажите корректную ссылку http/https.',
-    URL_BLOCKED: 'Ссылка заблокирована по правилам безопасности.',
-    URL_UNREACHABLE: 'Не удалось открыть ссылку.',
-    SITE_IMPORT_TIMEOUT: 'Сайт слишком долго отвечает. Укажите прямую ссылку на страницу меню.',
-    SITE_NO_MENU: 'Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.',
-    GEMINI_API_KEY_NOT_CONFIGURED: 'Не настроен серверный ключ AI-импорта.',
-    GEMINI_TIMEOUT: 'ИИ не ответил вовремя. Повторите импорт.',
-    AI_INVALID_JSON: 'ИИ вернул некорректный результат. Повторите импорт.',
-    AI_EMPTY_RESPONSE: 'ИИ не вернул результат. Повторите импорт.',
-    UPSTREAM_TIMEOUT: 'Источник не ответил вовремя.',
-    PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.',
-    AI_SUBSCRIPTION_REQUIRED: 'Для ИИ-импорта нужна активная подписка или пробный период.',
-    AI_NOT_INCLUDED_IN_PLAN: 'ИИ-импорт не включён в выбранный тариф.',
-    AI_FEATURE_NOT_INCLUDED: 'ИИ-импорт не включён в выбранный тариф.'
-  };
+  const map = { AUTH_REQUIRED: 'Требуется авторизация управляющего.', AUTH_INVALID: 'Сессия авторизации недействительна. Войдите в кабинет заново.', ROLE_FORBIDDEN: 'Импорт меню доступен только управляющему или администратору.', RATE_LIMITED: 'Слишком много попыток импорта. Повторите позже.', REQUEST_TOO_LARGE: 'Слишком большой запрос. Для файла до 10 МБ используйте обычную загрузку файла.', FILE_TOO_LARGE: 'Файл превышает лимит 10 МБ.', EMPTY_FILE: 'Файл пустой. Выберите корректный PDF или изображение.', INVALID_FILE_DATA: 'Не удалось прочитать файл.', INVALID_REQUEST_BODY: 'Не удалось прочитать запрос.', UNSUPPORTED_FILE: 'Поддерживаются только PDF, JPG, PNG и WEBP.', INVALID_URL: 'Укажите корректную ссылку http/https.', URL_BLOCKED: 'Ссылка заблокирована по правилам безопасности.', URL_UNREACHABLE: 'Не удалось открыть ссылку.', SITE_IMPORT_TIMEOUT: 'Сайт слишком долго отвечает. Укажите прямую ссылку на страницу меню.', SITE_NO_MENU: 'Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.', GEMINI_API_KEY_NOT_CONFIGURED: 'Не настроен серверный ключ AI-импорта.', GEMINI_TIMEOUT: 'ИИ не ответил вовремя. Повторите импорт.', AI_INVALID_JSON: 'ИИ вернул некорректный результат. Повторите импорт.', AI_EMPTY_RESPONSE: 'ИИ не вернул результат. Повторите импорт.', UPSTREAM_TIMEOUT: 'Источник не ответил вовремя.', PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.', AI_SUBSCRIPTION_REQUIRED: 'Для ИИ-импорта нужна активная подписка или пробный период.', AI_NOT_INCLUDED_IN_PLAN: 'ИИ-импорт не включён в выбранный тариф.', AI_FEATURE_NOT_INCLUDED: 'ИИ-импорт не включён в выбранный тариф.' };
   return map[code] || 'Ошибка импорта меню.';
 }
 
@@ -363,65 +355,36 @@ module.exports = async function handler(req, res) {
       const target = clean(body.url, 2000);
       if (!target) throw Object.assign(new Error('INVALID_URL'), { status: 400 });
       let external = null;
-      try { external = await fetchExternalFile(target); } catch (error) {
-        if (['URL_BLOCKED', 'INVALID_URL'].includes(String(error?.message))) throw error;
-      }
+      try { external = await fetchExternalFile(target); } catch (error) { if (['URL_BLOCKED', 'INVALID_URL'].includes(String(error?.message))) throw error; }
       if (external && supportedFileMime(external.mime)) {
         const pdfPages = external.mime === 'application/pdf' ? pdfPageEstimate(external.data) : null;
         if (pdfPages && pdfPages > 80) throw Object.assign(new Error('PDF_TOO_MANY_PAGES'), { status: 400 });
-        const ai = await callGemini([
-          { text: buildPrompt(external.mime === 'application/pdf' ? 'PDF по URL' : 'изображение по URL', language, 'URL: ' + target + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) },
-          { inline_data: { mime_type: external.mime, data: external.data.toString('base64') } }
-        ]);
+        const ai = await callGemini([{ text: buildPrompt(external.mime === 'application/pdf' ? 'PDF по URL' : 'изображение по URL', language, 'URL: ' + target + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) }, { inline_data: { mime_type: external.mime, data: external.data.toString('base64') } }]);
         menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories) || !ai.data.categories.length });
-        meta.model = ai.model;
-        meta.mime = external.mime;
-        meta.pages = pdfPages;
+        meta.model = ai.model; meta.mime = external.mime; meta.pages = pdfPages;
       } else {
         const siteResult = await importSite(target);
-        menu = siteResult.menu;
-        meta = { ...meta, ...siteResult.meta };
+        menu = siteResult.menu; meta = { ...meta, ...siteResult.meta };
         if (!siteResult.meta.site_menu_found) menu.warnings.push('Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.');
       }
     } else if (source === 'file') {
       const file = body.file && typeof body.file === 'object' ? body.file : {};
       let external;
-      if (file.url) {
-        external = await fetchExternalFile(file.url);
-        tempPath = clean(file.temp_path || '', 500);
-      } else if (file.data) {
-        if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 });
-        external = parseDataUrl(file.data);
-      } else {
-        throw Object.assign(new Error('INVALID_FILE_DATA'), { status: 400 });
-      }
+      if (file.url) { external = await fetchExternalFile(file.url); tempPath = clean(file.temp_path || '', 500); }
+      else if (file.data) { if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 }); external = parseDataUrl(file.data); }
+      else throw Object.assign(new Error('INVALID_FILE_DATA'), { status: 400 });
       const mime = detectMime(external.data, external.mime || file.mime);
       if (!supportedFileMime(mime)) throw Object.assign(new Error('UNSUPPORTED_FILE'), { status: 415 });
       if (external.data.length > MAX_FILE_BYTES) throw Object.assign(new Error('FILE_TOO_LARGE'), { status: 413 });
       const pdfPages = mime === 'application/pdf' ? pdfPageEstimate(external.data) : null;
       if (pdfPages && pdfPages > 80) throw Object.assign(new Error('PDF_TOO_MANY_PAGES'), { status: 400 });
-      const ai = await callGemini([
-        { text: buildPrompt(mime === 'application/pdf' ? 'PDF меню' : 'фото меню', language, 'Имя файла: ' + clean(file.name, 200) + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) },
-        { inline_data: { mime_type: mime, data: external.data.toString('base64') } }
-      ]);
+      const ai = await callGemini([{ text: buildPrompt(mime === 'application/pdf' ? 'PDF меню' : 'фото меню', language, 'Имя файла: ' + clean(file.name, 200) + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) }, { inline_data: { mime_type: mime, data: external.data.toString('base64') } }]);
       menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories) || !ai.data.categories.length });
-      meta.model = ai.model;
-      meta.mime = mime;
-      meta.pages = pdfPages;
-      meta.bytes = external.data.length;
-    } else {
-      throw Object.assign(new Error('INVALID_URL'), { status: 400 });
-    }
+      meta.model = ai.model; meta.mime = mime; meta.pages = pdfPages; meta.bytes = external.data.length;
+    } else throw Object.assign(new Error('INVALID_URL'), { status: 400 });
 
     const products = flattenMenu(menu);
-    return res.status(200).json({
-      ok: true,
-      job_id: crypto.randomUUID(),
-      menu,
-      products,
-      warnings: menu.warnings,
-      meta: { ...meta, products_found: products.length, categories_found: menu.categories.length, role: auth.role }
-    });
+    return res.status(200).json({ ok: true, job_id: crypto.randomUUID(), menu, products, warnings: menu.warnings, meta: { ...meta, products_found: products.length, categories_found: menu.categories.length, role: auth.role } });
   } catch (error) {
     const code = String(error?.message || 'IMPORT_ERROR');
     const status = Number(error?.status) || (code === 'UNSUPPORTED_FILE' ? 415 : 500);
