@@ -1,0 +1,48 @@
+name: batch-repair
+on:
+  workflow_dispatch:
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/manager-ai-chat-entitlement-2026-09-06
+      - name: Apply batch fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('js/admin/admin-venues.js')
+          s=p.read_text()
+          s=s.replace("end.setDate(end.getDate() + 3);", "end.setDate(end.getDate() + 5);")
+          old="""          return db.from('subscriptions').insert({ venue_id: r.data.id, plan_id: self.nform.plan, status: 'trialing', current_period_end: end.toISOString() });
+        }).then(function() {"""
+          new="""          /* Platform subscriptions are manager-scoped (manager_id is NOT NULL).
+             A venue created by an admin has no manager yet, so do not create an
+             invalid subscription row here. The manager onboarding/self-heal RPC
+             creates the platform subscription when a manager signs in. */
+          }).then(function() {"""
+          if old not in s:
+              raise SystemExit('admin-venues target not found')
+          p.write_text(s.replace(old,new))
+
+          p=Path('api/manager-ai-propose.js')
+          s=p.read_text()
+          old="function subscriptionActive(s){if(!s)return false;const status=String(s.status||'').toLowerCase();if(status==='trialing')return true;if(status!=='active')return false;return !s.current_period_end||new Date(s.current_period_end)>=new Date();}"
+          new="function subscriptionActive(s){if(!s)return false;const status=String(s.status||'').toLowerCase();if(status!=='trialing'&&status!=='active')return false;if(!s.current_period_end)return true;const end=new Date(s.current_period_end);return !Number.isNaN(end.getTime())&&end>=new Date();}"
+          if old not in s:
+              raise SystemExit('manager-ai-propose target not found')
+          p.write_text(s.replace(old,new))
+          PY
+          node --check js/admin/admin-venues.js
+          node --check api/manager-ai-propose.js
+      - name: Commit batch fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/admin/admin-venues.js api/manager-ai-propose.js
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix manager subscription creation and AI trial expiry"
+          git push origin HEAD:fix/manager-ai-chat-entitlement-2026-09-06
