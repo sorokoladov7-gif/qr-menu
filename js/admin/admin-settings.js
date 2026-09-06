@@ -3,140 +3,18 @@
   'use strict';
   if (window.__QR_ADMIN_SETTINGS__) return;
   window.__QR_ADMIN_SETTINGS__ = true;
-
+  var DARK_BG='#020617',DARK_TEXT='#f8fafc',DARK_CARD='rgba(255,255,255,0.03)';
+  function isLight(hex){var m=String(hex||'').match(/^#([0-9a-f]{6})$/i);if(!m)return false;var n=parseInt(m[1],16),r=n>>16&255,g=n>>8&255,b=n&255;return (r*299+g*587+b*114)/1000>205;}
   var settingsMixin = {
-    data: function() {
-      return {
-        uiSettings: {
-          background_color: '#0b1120',
-          text_color: '#eef2f7',
-          button_primary_bg: '#8b5cf6',
-          button_primary_text: '#ffffff',
-          card_bg: 'rgba(255,255,255,0.03)',
-          card_radius: 12,
-          button_radius: 12,
-          background_image: ''
-        }
-      };
-    },
+    data: function() { return { uiSettings:{background_color:DARK_BG,text_color:DARK_TEXT,button_primary_bg:'#8b5cf6',button_primary_text:'#ffffff',card_bg:DARK_CARD,card_radius:12,button_radius:12,background_image:''} }; },
     methods: {
-      loadUISettings: function() {
-        var saved = localStorage.getItem('adminUISettings');
-        if (saved) {
-          try {
-            var parsed = JSON.parse(saved);
-            Object.keys(parsed).forEach(function(key) {
-              if (key in this.uiSettings) {
-                this.uiSettings[key] = parsed[key];
-              }
-            }.bind(this));
-          } catch(e) {}
-        }
-        this.applyUISettings();
-      },
-
-      saveUISettings: function() {
-        localStorage.setItem('adminUISettings', JSON.stringify(this.uiSettings));
-        this.applyUISettings();
-        alert('Настройки сохранены!');
-      },
-
-      resetUISettings: function() {
-        if (!confirm('Сбросить настройки интерфейса к стандартным?')) return;
-        this.uiSettings = {
-          background_color: '#0b1120',
-          text_color: '#eef2f7',
-          button_primary_bg: '#8b5cf6',
-          button_primary_text: '#ffffff',
-          card_bg: 'rgba(255,255,255,0.03)',
-          card_radius: 12,
-          button_radius: 12,
-          background_image: ''
-        };
-        localStorage.removeItem('adminUISettings');
-        this.applyUISettings();
-        alert('Настройки сброшены');
-      },
-
-      applyUISettings: function() {
-        var s = this.uiSettings;
-        var root = document.documentElement;
-        root.style.setProperty('--admin-bg', s.background_color);
-        root.style.setProperty('--admin-text', s.text_color);
-        root.style.setProperty('--admin-btn-bg', s.button_primary_bg);
-        root.style.setProperty('--admin-btn-text', s.button_primary_text);
-        root.style.setProperty('--admin-card-bg', s.card_bg);
-        root.style.setProperty('--admin-card-radius', s.card_radius + 'px');
-        root.style.setProperty('--admin-btn-radius', s.button_radius + 'px');
-        if (s.background_image) {
-          document.body.style.backgroundImage = 'url(' + s.background_image + ')';
-          document.body.style.backgroundSize = 'cover';
-          document.body.style.backgroundPosition = 'center';
-        } else {
-          document.body.style.backgroundImage = 'none';
-        }
-        document.body.style.backgroundColor = s.background_color;
-        document.body.style.color = s.text_color;
-        var style = document.getElementById('admin-ui-style');
-        if (!style) {
-          style = document.createElement('style');
-          style.id = 'admin-ui-style';
-          document.head.appendChild(style);
-        }
-        style.textContent = `
-          body { background-color: ${s.background_color}; color: ${s.text_color}; }
-          .glass { background: ${s.card_bg}; border-radius: ${s.card_radius}px; }
-          .btn-primary { background: ${s.button_primary_bg}; color: ${s.button_primary_text}; border-color: ${s.button_primary_bg}; }
-          .btn-primary:hover { background: ${s.button_primary_bg}dd; border-color: ${s.button_primary_bg}dd; }
-          .btn { border-radius: ${s.button_radius}px; }
-          .btn-sm { border-radius: ${s.button_radius}px; }
-          .topbar { background: ${s.background_color}cc; backdrop-filter: blur(6px); }
-        `;
-      },
-
-      uploadAdminBg: function(ev) {
-        var self = this;
-        var f = ev.target.files[0];
-        if (!f) return;
-        self.resizeImage(f, 1920, 0.8).then(function(blob) {
-          var fn = 'admin_bg/' + Date.now() + '.jpg';
-          return db.storage.from('menu-images').upload(fn, blob, { cacheControl: '3600', upsert: true, contentType: 'image/jpeg' })
-            .then(function(r) {
-              if (r.error) throw r.error;
-              var url = db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;
-              self.uiSettings.background_image = url;
-              self.saveUISettings();
-            });
-        }).catch(function(e) {
-          alert('Ошибка загрузки фона: ' + e.message);
-        }).finally(function() {
-          ev.target.value = '';
-        });
-      },
-
-      // вспомогательная функция resizeImage (такая же как в admin-venues)
-      resizeImage: function(file, mw, q) {
-        return new Promise(function(res, rej) {
-          var reader = new FileReader();
-          reader.onload = function(e) {
-            var img = new Image();
-            img.onload = function() {
-              var canvas = document.createElement('canvas');
-              var w = img.width, h = img.height;
-              if (w > mw) { h = Math.round(h * mw / w); w = mw; }
-              canvas.width = w; canvas.height = h;
-              canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-              canvas.toBlob(function(b) { b ? res(b) : rej(new Error('err')); }, 'image/jpeg', q);
-            };
-            img.onerror = function() { rej(new Error('err')); };
-            img.src = e.target.result;
-          };
-          reader.onerror = function() { rej(new Error('err')); };
-          reader.readAsDataURL(file);
-        });
-      }
+      loadUISettings:function(){var saved=localStorage.getItem('adminUISettings'),reset=false;if(saved){try{var parsed=JSON.parse(saved);Object.keys(parsed).forEach(function(key){if(key in this.uiSettings)this.uiSettings[key]=parsed[key];}.bind(this));if(isLight(this.uiSettings.background_color)){reset=true;this.uiSettings.background_color=DARK_BG;this.uiSettings.text_color=DARK_TEXT;this.uiSettings.card_bg=DARK_CARD;}}catch(e){reset=true;}}if(reset)localStorage.removeItem('adminUISettings');this.applyUISettings();},
+      saveUISettings:function(){localStorage.setItem('adminUISettings',JSON.stringify(this.uiSettings));this.applyUISettings();alert('Настройки сохранены!');},
+      resetUISettings:function(){if(!confirm('Сбросить настройки интерфейса к стандартным?'))return;this.uiSettings={background_color:DARK_BG,text_color:DARK_TEXT,button_primary_bg:'#8b5cf6',button_primary_text:'#ffffff',card_bg:DARK_CARD,card_radius:12,button_radius:12,background_image:''};localStorage.removeItem('adminUISettings');this.applyUISettings();alert('Настройки сброшены');},
+      applyUISettings:function(){var s=this.uiSettings,root=document.documentElement;root.style.setProperty('--admin-bg',s.background_color);root.style.setProperty('--admin-text',s.text_color);root.style.setProperty('--admin-btn-bg',s.button_primary_bg);root.style.setProperty('--admin-btn-text',s.button_primary_text);root.style.setProperty('--admin-card-bg',s.card_bg);root.style.setProperty('--admin-card-radius',s.card_radius+'px');root.style.setProperty('--admin-btn-radius',s.button_radius+'px');if(s.background_image){document.body.style.backgroundImage='url('+s.background_image+')';document.body.style.backgroundSize='cover';document.body.style.backgroundPosition='center';}else{document.body.style.backgroundImage='none';}document.body.style.backgroundColor=s.background_color;document.body.style.color=s.text_color;var style=document.getElementById('admin-ui-style');if(!style){style=document.createElement('style');style.id='admin-ui-style';document.head.appendChild(style);}style.textContent='body{background-color:'+s.background_color+';color:'+s.text_color+'}.glass{background:'+s.card_bg+';border-radius:'+s.card_radius+'px}.btn-primary{background:'+s.button_primary_bg+';color:'+s.button_primary_text+';border-color:'+s.button_primary_bg+'}.btn-primary:hover{background:'+s.button_primary_bg+'dd;border-color:'+s.button_primary_bg+'dd}.btn{border-radius:'+s.button_radius+'px}.btn-sm{border-radius:'+s.button_radius+'px}.topbar{background:'+s.background_color+'cc;backdrop-filter:blur(6px)}';},
+      uploadAdminBg:function(ev){var self=this,f=ev.target.files[0];if(!f)return;self.resizeImage(f,1920,.8).then(function(blob){var fn='admin_bg/'+Date.now()+'.jpg';return db.storage.from('menu-images').upload(fn,blob,{cacheControl:'3600',upsert:true,contentType:'image/jpeg'}).then(function(r){if(r.error)throw r.error;var url=db.storage.from('menu-images').getPublicUrl(fn).data.publicUrl;self.uiSettings.background_image=url;self.saveUISettings();});}).catch(function(e){alert('Ошибка загрузки фона: '+e.message);}).finally(function(){ev.target.value='';});},
+      resizeImage:function(file,mw,q){return new Promise(function(res,rej){var reader=new FileReader();reader.onload=function(e){var img=new Image();img.onload=function(){var canvas=document.createElement('canvas'),w=img.width,h=img.height;if(w>mw){h=Math.round(h*mw/w);w=mw;}canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(function(b){b?res(b):rej(new Error('err'));},'image/jpeg',q);};img.onerror=function(){rej(new Error('err'));};img.src=e.target.result;};reader.onerror=function(){rej(new Error('err'));};reader.readAsDataURL(file);});}
     }
   };
-
-  window.__QR_ADMIN_SETTINGS_MIXIN__ = settingsMixin;
+  window.__QR_ADMIN_SETTINGS_MIXIN__=settingsMixin;
 })();
