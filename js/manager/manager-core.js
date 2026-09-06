@@ -110,4 +110,17 @@
   function watchSettingsPersistence(){var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);watchDeliverySettingsMount();if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);}
   window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();},{once:true});
   if(window.__managerVue){watchSettingsPersistence();watchDeliverySettingsMount();}
+
+  /* Qrchick manager agent loader. Keep the assistant in an existing manager bundle so the
+     production page does not need another HTML dependency and the AI remains feature-gated. */
+  function loadManagerAIAgent(){
+    if(!/\/manager\.html$/i.test(location.pathname))return;
+    if(document.querySelector('script[data-qr-manager-ai-agent]'))return;
+    var s=document.createElement('script');
+    s.src='/js/manager/manager-ai-agent.js?v=1';
+    s.async=true;
+    s.setAttribute('data-qr-manager-ai-agent','1');
+    document.head.appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadManagerAIAgent,{once:true});else loadManagerAIAgent();
 })();
