@@ -1,1 +1,1 @@
-Production deploy trigger after admin AI execution bridge (v15).
+Production deploy trigger after Qrchick recovery, execution bridge, and branded avatar (v16).
