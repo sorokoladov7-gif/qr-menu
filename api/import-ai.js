@@ -7,11 +7,13 @@ const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
-const FALLBACK_MODELS = ['gemini-3.8-flash'];
-const GEMINI_TIMEOUT_MS = 50000;
+const FALLBACK_MODELS = ['gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite'];
+const GEMINI_TIMEOUT_MS = 45000;
 const SITE_TIMEOUT_MS = 46000;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
+const MAX_PDF_PAGES = 32;
+const PDF_CHUNK_PAGES = 4;
 const RATE_WINDOW_MS = 5 * 60 * 1000;
 const RATE_LIMIT = 12;
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
@@ -19,379 +21,65 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const rateState = new Map();
 
-const AI_FEATURES = {
-  menu_import: 'ИИ-импорт меню: распознавание и структурирование меню.'
-};
+const AI_FEATURES = { menu_import: 'ИИ-импорт меню: распознавание и структурирование меню.' };
 
 const SCHEMA = {
   type: 'object',
   properties: {
-    venue_name: { type: 'string' },
-    currency: { type: 'string' },
-    categories: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          name: { type: 'string' },
-          items: {
-            type: 'array',
-            items: {
-              type: 'object',
-              properties: {
-                name: { type: 'string' },
-                description: { type: 'string' },
-                price: { type: ['number', 'null'] },
-                unit: { type: 'string' },
-                weight: { type: ['number', 'null'] },
-                image_url: { type: ['string', 'null'] },
-                allergens: { type: 'array', items: { type: 'string' } },
-                tags: { type: 'array', items: { type: 'string' } },
-                available: { type: 'boolean' }
-              },
-              required: ['name', 'description', 'price', 'unit', 'weight', 'image_url', 'allergens', 'tags', 'available']
-            }
-          }
-        },
-        required: ['name', 'items']
-      }
-    },
+    venue_name: { type: 'string' }, currency: { type: 'string' },
+    categories: { type: 'array', items: { type: 'object', properties: {
+      name: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: {
+        name: { type: 'string' }, description: { type: 'string' }, price: { type: ['number', 'null'] }, unit: { type: 'string' }, weight: { type: ['number', 'null'] }, image_url: { type: ['string', 'null'] }, allergens: { type: 'array', items: { type: 'string' } }, tags: { type: 'array', items: { type: 'string' } }, available: { type: 'boolean' }
+      }, required: ['name','description','price','unit','weight','image_url','allergens','tags','available'] } } }
+    }, required: ['name','items'] } },
     warnings: { type: 'array', items: { type: 'string' } }
-  },
-  required: ['venue_name', 'currency', 'categories', 'warnings']
+  }, required: ['venue_name','currency','categories','warnings']
 };
 
 async function parseRequestBody(req) {
   if (req && req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    const buf = Buffer.from(chunk);
-    size += buf.length;
-    if (size > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 });
-    chunks.push(buf);
-  }
-  const raw = Buffer.concat(chunks).toString('utf8').trim();
-  if (!raw) return {};
-  try { return JSON.parse(raw); }
-  catch (_) { throw Object.assign(new Error('INVALID_REQUEST_BODY'), { status: 400 }); }
+  const chunks=[]; let size=0;
+  for await (const chunk of req) { const buf=Buffer.from(chunk); size+=buf.length; if(size>MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'),{status:413}); chunks.push(buf); }
+  const raw=Buffer.concat(chunks).toString('utf8').trim(); if(!raw)return {};
+  try{return JSON.parse(raw);}catch(_){throw Object.assign(new Error('INVALID_REQUEST_BODY'),{status:400});}
 }
 
-async function deleteTempObject(tempPath) {
-  if (!tempPath || !SUPABASE_SERVICE_ROLE_KEY) return;
-  try {
-    const u = new URL(String(tempPath));
-    const match = u.pathname.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/(.+)$/i);
-    if (!match) return;
-    const bucket = decodeURIComponent(match[1]);
-    const objectPath = decodeURIComponent(match[2]);
-    await fetch(SUPABASE_URL + '/storage/v1/object/' + encodeURIComponent(bucket) + '/' + objectPath, {
-      method: 'DELETE',
-      headers: { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY }
-    }).catch(() => null);
-  } catch (_) {}
+async function deleteTempObject(tempPath){ if(!tempPath||!SUPABASE_SERVICE_ROLE_KEY)return; try{const u=new URL(String(tempPath));const m=u.pathname.match(/\/storage\/v1\/object\/(?:sign|public|authenticated)\/([^/]+)\/(.+)$/i);if(!m)return;const bucket=decodeURIComponent(m[1]);const objectPath=decodeURIComponent(m[2]);await fetch(SUPABASE_URL+'/storage/v1/object/'+encodeURIComponent(bucket)+'/'+objectPath,{method:'DELETE',headers:{apikey:SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+SUPABASE_SERVICE_ROLE_KEY}}).catch(()=>null);}catch(_){} }
+
+async function entitlementForManager(managerId,feature){
+  if(!SUPABASE_SERVICE_ROLE_KEY)throw Object.assign(new Error('AI_PROVIDER_NOT_CONFIGURED'),{status:503});
+  const headers={apikey:SUPABASE_SERVICE_ROLE_KEY,authorization:'Bearer '+SUPABASE_SERVICE_ROLE_KEY,accept:'application/json'}; const now=new Date().toISOString();
+  const sr=await fetch(SUPABASE_URL+'/rest/v1/subscriptions?manager_id=eq.'+encodeURIComponent(managerId)+'&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.'+encodeURIComponent(now)+'&select=id,plan_id,status,current_period_end&order=created_at.desc&limit=1',{headers}); const subs=await sr.json().catch(()=>null); if(!sr.ok)throw Object.assign(new Error('SUBSCRIPTION_LOOKUP_FAILED'),{status:500}); const sub=subs?.[0]; if(!sub)throw Object.assign(new Error('AI_SUBSCRIPTION_REQUIRED'),{status:403});
+  const pr=await fetch(SUPABASE_URL+'/rest/v1/plans?id=eq.'+encodeURIComponent(sub.plan_id)+'&is_active=eq.true&select=id,name,ai_enabled,ai_features&limit=1',{headers}); const plans=await pr.json().catch(()=>null); if(!pr.ok)throw Object.assign(new Error('PLAN_LOOKUP_FAILED'),{status:500}); const plan=plans?.[0]; const features=plan?.ai_features&&typeof plan.ai_features==='object'?plan.ai_features:{}; if(sub.status==='trialing')return{plan:plan||null,features,subscription:sub}; if(!plan||plan.ai_enabled!==true)throw Object.assign(new Error('AI_NOT_INCLUDED_IN_PLAN'),{status:403}); if(features[feature]!==true)throw Object.assign(new Error('AI_FEATURE_NOT_INCLUDED:'+feature),{status:403}); return{plan,features,subscription:sub};
 }
+function clean(value,max=600){return String(value==null?'':value).replace(/\s+/g,' ').trim().slice(0,max);}
+function clientIp(req){const forwarded=String(req.headers?.['x-forwarded-for']||'').split(',')[0].trim();return forwarded||String(req.headers?.['x-real-ip']||'unknown').trim()||'unknown';}
+function checkRateLimit(req,userId){const key=userId+':'+clientIp(req);const now=Date.now();const current=rateState.get(key)||{started:now,count:0};if(now-current.started>=RATE_WINDOW_MS){current.started=now;current.count=0;}current.count++;rateState.set(key,current);for(const[k,v]of rateState)if(now-v.started>RATE_WINDOW_MS*2)rateState.delete(k);if(current.count>RATE_LIMIT)throw Object.assign(new Error('RATE_LIMITED'),{status:429});}
+function parseBearer(req){const header=String(req.headers?.authorization||req.headers?.Authorization||'');const match=header.match(/^Bearer\s+(.+)$/i);return match?match[1].trim():'';}
+async function requireManagerOrAdmin(req){const token=parseBearer(req);if(!token)throw Object.assign(new Error('AUTH_REQUIRED'),{status:401});const ar=await fetch(SUPABASE_URL+'/auth/v1/user',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token}});const user=await ar.json().catch(()=>null);if(!ar.ok||!user?.id)throw Object.assign(new Error('AUTH_INVALID'),{status:401});const pr=await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+encodeURIComponent(user.id)+'&select=role&limit=1',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token,accept:'application/json'}});const profiles=await pr.json().catch(()=>[]);const role=String(profiles?.[0]?.role||'').toLowerCase();if(!pr.ok||!['manager','admin'].includes(role))throw Object.assign(new Error('ROLE_FORBIDDEN'),{status:403});return{id:user.id,role};}
+function isPrivateIp(ip){const version=net.isIP(ip);if(version===4){const[a,b]=ip.split('.').map(Number);return a===0||a===10||a===127||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&b===168)||(a===100&&b>=64&&b<=127)||(a===192&&b===0)||(a===198&&b===18)||(a>=224);}if(version===6){const n=ip.toLowerCase();if(n==='::1'||n==='::'||n.startsWith('fc')||n.startsWith('fd')||n.startsWith('fe8')||n.startsWith('fe9')||n.startsWith('fea')||n.startsWith('feb'))return true;if(n.startsWith('::ffff:'))return isPrivateIp(n.slice(7));}return false;}
+async function assertSafeUrl(raw){let url;try{url=new URL(String(raw||'').trim());}catch(_){throw Object.assign(new Error('INVALID_URL'),{status:400});}if(!/^https?:$/i.test(url.protocol)||url.username||url.password)throw Object.assign(new Error('INVALID_URL'),{status:400});if(url.hostname==='localhost'||url.hostname.endsWith('.localhost')||url.hostname.endsWith('.local')||(net.isIP(url.hostname)&&isPrivateIp(url.hostname)))throw Object.assign(new Error('URL_BLOCKED'),{status:400});try{const addresses=await dns.lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(x=>isPrivateIp(x.address)))throw Object.assign(new Error('URL_BLOCKED'),{status:400});}catch(error){if(error?.status)throw error;throw Object.assign(new Error('URL_UNREACHABLE'),{status:400});}url.hash='';return url.href;}
+async function fetchWithTimeout(url,options={},timeoutMs=18000,maxBytes=MAX_FILE_BYTES){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),timeoutMs);try{const response=await fetch(url,{...options,signal:controller.signal,redirect:'follow'});if(!response.ok)throw Object.assign(new Error('HTTP_'+response.status),{status:response.status});const length=Number(response.headers.get('content-length')||0);if(length>maxBytes)throw Object.assign(new Error('FILE_TOO_LARGE'),{status:413});const data=Buffer.from(await response.arrayBuffer());if(data.length>maxBytes)throw Object.assign(new Error('FILE_TOO_LARGE'),{status:413});return{response,data};}catch(error){if(error?.name==='AbortError')throw Object.assign(new Error('UPSTREAM_TIMEOUT'),{status:504});throw error;}finally{clearTimeout(timer);}}
+function parseDataUrl(value){const m=String(value||'').match(/^data:([^;,]+);base64,(.+)$/s);if(!m)throw Object.assign(new Error('INVALID_FILE_DATA'),{status:400});const data=Buffer.from(m[2],'base64');if(!data.length)throw Object.assign(new Error('EMPTY_FILE'),{status:400});if(data.length>MAX_FILE_BYTES)throw Object.assign(new Error('FILE_TOO_LARGE'),{status:413});return{mime:m[1].toLowerCase(),data};}
+function detectMime(buffer,claimed=''){const mime=String(claimed||'').toLowerCase();if(buffer.subarray(0,5).toString('ascii')==='%PDF-')return'application/pdf';if(buffer.subarray(0,3).equals(Buffer.from([255,216,255])))return'image/jpeg';if(buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])))return'image/png';if(buffer.subarray(0,4).toString('ascii')==='RIFF'&&buffer.subarray(8,12).toString('ascii')==='WEBP')return'image/webp';return mime;}
+function supportedFileMime(mime){return['application/pdf','image/jpeg','image/png','image/webp'].includes(String(mime||'').toLowerCase());}
+function pdfPageEstimate(buffer){const text=buffer.toString('latin1');const matches=text.match(/\/Type\s*\/Page(?:\s|\/|>|])/g);return matches?matches.length:null;}
+function buildPrompt(kind,language,extra=''){return['Ты — точный парсер ресторанного меню для QR Menu.','Работай как человек, который вручную проверяет каждую страницу, колонку и цену. Сначала восстанови структуру, затем извлеки позиции.','Сохраняй оригинальные названия блюд. Допускаются только очевидные исправления OCR, не меняющие смысл.','Ничего не выдумывай: отсутствующие данные должны быть null или пустым массивом.','Категории определяй по явным заголовкам разделов и контексту страницы. Если блюдо встречается в разных категориях — сохрани его в каждой категории.','Цена — число без валюты. Если цена не найдена, price=null и добавь warning с названием блюда.','unit допускается только: шт, г, мл, порция; если явно не указан — пустая строка.','weight — число без единицы измерения; если вес/объём не указан — null.','allergens и tags заполняй только по явным данным источника; не делай догадок.','image_url заполняй только если источник содержит реальную URL изображения. Для PDF/фото — null.','available=true по умолчанию, если источник не сообщает об обратном.','Удали навигацию, футер, рекламу, телефоны, адреса, часы работы, номера страниц, служебные кнопки и дубли.','Не объединяй разные позиции только потому, что их названия похожи. Не теряй позиции из-за отсутствия цены.','Язык результата — язык меню. language_hint='+clean(language||'auto',20)+'.','Источник: '+kind+'.',extra].join('\n');}
+function getOutputText(data){const parts=data?.candidates?.[0]?.content?.parts;return Array.isArray(parts)?parts.map(x=>x?.text||'').join(''):'';}
+async function callGemini(parts){const key=process.env.GEMINI_API_KEY;if(!key)throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'),{status:503});const models=[PRIMARY_MODEL,...FALLBACK_MODELS].filter((x,i,a)=>x&&a.indexOf(x)===i);let lastError=null;for(const model of models){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),GEMINI_TIMEOUT_MS);try{const response=await fetch(GEMINI_URL+model+':generateContent',{method:'POST',signal:controller.signal,headers:{'x-goog-api-key':key,'content-type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{responseMimeType:'application/json',responseSchema:SCHEMA,maxOutputTokens:32000,thinkingConfig:{thinkingLevel:'low'}}})});const data=await response.json().catch(()=>null);if(!response.ok)throw Object.assign(new Error(data?.error?.message||'Gemini HTTP '+response.status),{status:response.status});const text=getOutputText(data);if(!text)throw Object.assign(new Error('AI_EMPTY_RESPONSE'),{status:502});let parsed;try{parsed=JSON.parse(text);}catch(_){throw Object.assign(new Error('AI_INVALID_JSON'),{status:502});}return{data:parsed,model};}catch(error){if(error?.name==='AbortError')throw Object.assign(new Error('GEMINI_TIMEOUT'),{status:504});lastError=error;const status=Number(error?.status)||0;const retryable=status===408||status===429||status>=500;console.error('[menu-import] Gemini upstream',{model,status,message:clean(error?.message,300)});if(!retryable)throw error;}finally{clearTimeout(timer);}}throw lastError||Object.assign(new Error('AI_IMPORT_FAILED'),{status:502});}
+function normalizeTagArray(value){return[...new Set((Array.isArray(value)?value:[]).map(x=>clean(x,80)).filter(Boolean))].slice(0,20);}
+function normalizeItem(item,categoryName){const name=clean(item?.name,220);const price=item?.price==null||item?.price===''?null:Number(item.price);const weight=item?.weight==null||item?.weight===''?null:Number(item.weight);const unit=clean(item?.unit,20).toLowerCase();return{name,description:clean(item?.description,600),price:Number.isFinite(price)&&price>=0?price:null,unit:['шт','г','мл','порция'].includes(unit)?unit:'',weight:Number.isFinite(weight)&&weight>0?weight:null,image_url:/^https?:\/\//i.test(String(item?.image_url||'').trim())?String(item.image_url).trim():null,allergens:normalizeTagArray(item?.allergens),tags:normalizeTagArray(item?.tags),available:item?.available!==false,category:categoryName};}
+function validateAndNormalizeMenu(menu,options={}){const categories=Array.isArray(menu?.categories)?menu.categories:[];const normalized=categories.map(category=>({name:clean(category?.name,160)||'Без категории',items:(Array.isArray(category?.items)?category.items:[]).map(item=>normalizeItem(item,clean(category?.name,160)||'Без категории')).filter(item=>item.name)})).filter(category=>category.items.length);const warnings=normalizeTagArray(menu?.warnings);if(options.unreadable)warnings.push('Не удалось уверенно распознать структуру меню.');return{venue_name:clean(menu?.venue_name,220),currency:clean(menu?.currency||'RUB',10)||'RUB',categories:normalized,warnings:normalizeTagArray(warnings)};}
+function flattenMenu(menu){return menu.categories.flatMap(category=>category.items.map(item=>({...item,category:category.name})));}
+function mergeMenus(menus){const out={venue_name:'',currency:'RUB',categories:[],warnings:[]};const categoryMap=new Map();for(const raw of menus){const menu=validateAndNormalizeMenu(raw);if(!out.venue_name&&menu.venue_name)out.venue_name=menu.venue_name;if(menu.currency)out.currency=menu.currency;for(const w of menu.warnings)if(!out.warnings.includes(w))out.warnings.push(w);for(const category of menu.categories){const ck=clean(category.name,160).toLowerCase().replace(/ё/g,'е');if(!categoryMap.has(ck)){categoryMap.set(ck,{name:category.name,items:[]});out.categories.push(categoryMap.get(ck));}const target=categoryMap.get(ck);for(const item of category.items){const ik=clean(item.name,220).toLowerCase().replace(/ё/g,'е');const existing=target.items.find(x=>clean(x.name,220).toLowerCase().replace(/ё/g,'е')===ik);if(!existing)target.items.push(item);else{if(!existing.description&&item.description)existing.description=item.description;if(existing.price==null&&item.price!=null)existing.price=item.price;if(!existing.weight&&item.weight)existing.weight=item.weight;if(!existing.unit&&item.unit)existing.unit=item.unit;existing.allergens=[...new Set([...existing.allergens,...item.allergens])].slice(0,20);existing.tags=[...new Set([...existing.tags,...item.tags])].slice(0,20);}}}}return validateAndNormalizeMenu(out);}
+async function importPdf(data,mime,language,fileName){const pages=pdfPageEstimate(data);if(!pages||pages<=PDF_CHUNK_PAGES){const ai=await callGemini([{text:buildPrompt('PDF меню',language,'Имя файла: '+clean(fileName,200)+(pages?'\nСтраниц: '+pages:''))},{inline_data:{mime_type:mime,data:data.toString('base64')}}]);return{menu:validateAndNormalizeMenu(ai.data,{unreadable:!Array.isArray(ai.data?.categories)||!ai.data.categories.length}),model:ai.model,pages,processed_pages:pages||null,chunks:1,warnings:[]};}if(pages>MAX_PDF_PAGES)throw Object.assign(new Error('PDF_TOO_MANY_PAGES'),{status:400});const ranges=[];for(let start=1;start<=pages;start+=PDF_CHUNK_PAGES)ranges.push({start,end:Math.min(pages,start+PDF_CHUNK_PAGES-1)});const results=await Promise.all(ranges.map(async range=>{const extra='Имя файла: '+clean(fileName,200)+'\nКРИТИЧЕСКИ ВАЖНО: это многостраничный PDF. Обработай ТОЛЬКО страницы '+range.start+'–'+range.end+'. Не извлекай позиции с других страниц. Сохраняй все блюда, даже без цены.\nДиапазон страниц: '+range.start+'–'+range.end+' из '+pages+'.';try{const ai=await callGemini([{text:buildPrompt('часть PDF меню',language,extra)},{inline_data:{mime_type:mime,data:data.toString('base64')}}]);return{ok:true,menu:validateAndNormalizeMenu(ai.data,{unreadable:!Array.isArray(ai.data?.categories)||!ai.data.categories.length}),model:ai.model,range};}catch(error){console.error('[menu-import] PDF chunk failed',range,error?.message);return{ok:false,range,error:String(error?.message||'IMPORT_ERROR')};}}));const successful=results.filter(x=>x.ok);if(!successful.length)throw Object.assign(new Error('AI_IMPORT_FAILED'),{status:502});const merged=mergeMenus(successful.map(x=>x.menu));const failed=results.filter(x=>!x.ok).map(x=>'Не обработаны страницы '+x.range.start+'–'+x.range.end+'.');merged.warnings=[...new Set([...merged.warnings,...failed])];return{menu:merged,model:[...new Set(successful.map(x=>x.model))].join(', '),pages,processed_pages:successful.flatMap(x=>Array.from({length:x.range.end-x.range.start+1},(_,i)=>x.range.start+i)),chunks:ranges.length,warnings:failed};}
+async function fetchExternalFile(url){const safe=await assertSafeUrl(url);const result=await fetchWithTimeout(safe);const mime=result.response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase()||'';return{data:result.data,mime,url:safe};}
+async function importSite(url){const safe=await assertSafeUrl(url);try{const result=await Promise.race([analyzeSite(safe),new Promise((_,reject)=>setTimeout(()=>reject(Object.assign(new Error('SITE_TIMEOUT'),{status:504})),SITE_TIMEOUT_MS))]);const products=Array.isArray(result?.products)?result.products:[];const grouped=new Map();for(const product of products){const category=clean(product?.category||'Основные блюда',160);if(!grouped.has(category))grouped.set(category,[]);grouped.get(category).push({name:clean(product?.name,220),description:clean(product?.description,600),price:Number.isFinite(Number(product?.price))&&Number(product.price)>0?Number(product.price):null,unit:'',weight:null,image_url:/^https?:\/\//i.test(String(product?.image_url||''))?String(product.image_url):null,allergens:[],tags:[],available:true});}const raw={venue_name:clean(result?.venue?.name||result?.meta?.name||'',220),currency:'RUB',categories:[...grouped.entries()].map(([name,items])=>({name,items})),warnings:[]};return{menu:validateAndNormalizeMenu(raw),meta:{source_url:safe,analyzer:'site-menu-analyzer-v3',site_menu_found:products.length>0}};}catch(error){if(error?.status===504)throw Object.assign(new Error('SITE_IMPORT_TIMEOUT'),{status:504});throw error;}}
+function errorMessage(code){const map={AUTH_REQUIRED:'Требуется авторизация управляющего.',AUTH_INVALID:'Сессия авторизации недействительна. Войдите в кабинет заново.',ROLE_FORBIDDEN:'Импорт меню доступен только управляющему или администратору.',RATE_LIMITED:'Слишком много попыток импорта. Повторите позже.',REQUEST_TOO_LARGE:'Слишком большой запрос. Для файла до 10 МБ используйте обычную загрузку файла.',FILE_TOO_LARGE:'Файл превышает лимит 10 МБ.',EMPTY_FILE:'Файл пустой. Выберите корректный PDF или изображение.',INVALID_FILE_DATA:'Не удалось прочитать файл.',INVALID_REQUEST_BODY:'Не удалось прочитать запрос.',UNSUPPORTED_FILE:'Поддерживаются только PDF, JPG, PNG и WEBP.',INVALID_URL:'Укажите корректную ссылку http/https.',URL_BLOCKED:'Ссылка заблокирована по правилам безопасности.',URL_UNREACHABLE:'Не удалось открыть ссылку.',SITE_IMPORT_TIMEOUT:'Сайт слишком долго отвечает. Укажите прямую ссылку на страницу меню.',SITE_NO_MENU:'Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.',GEMINI_API_KEY_NOT_CONFIGURED:'Не настроен серверный ключ AI-импорта.',GEMINI_TIMEOUT:'ИИ не ответил вовремя. Повторите импорт.',AI_INVALID_JSON:'ИИ вернул некорректный результат. Повторите импорт.',AI_EMPTY_RESPONSE:'ИИ не вернул результат. Повторите импорт.',UPSTREAM_TIMEOUT:'Источник не ответил вовремя.',PDF_TOO_MANY_PAGES:'PDF слишком большой. Максимум 32 страницы за один импорт.',AI_SUBSCRIPTION_REQUIRED:'Для ИИ-импорта нужна активная подписка или пробный период.',AI_NOT_INCLUDED_IN_PLAN:'ИИ-импорт не включён в выбранный тариф.',AI_FEATURE_NOT_INCLUDED:'ИИ-импорт не включён в выбранный тариф.'};return map[code]||'Ошибка импорта меню.';}
 
-async function entitlementForManager(managerId, feature) {
-  if (!SUPABASE_SERVICE_ROLE_KEY) throw Object.assign(new Error('AI_PROVIDER_NOT_CONFIGURED'), { status: 503 });
-  const headers = { apikey: SUPABASE_SERVICE_ROLE_KEY, authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY, accept: 'application/json' };
-  const now = new Date().toISOString();
-  const subUrl = SUPABASE_URL + '/rest/v1/subscriptions?manager_id=eq.' + encodeURIComponent(managerId) + '&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.' + encodeURIComponent(now) + '&select=id,plan_id,status,current_period_end&order=created_at.desc&limit=1';
-  const sr = await fetch(subUrl, { headers });
-  const subs = await sr.json().catch(() => null);
-  if (!sr.ok) throw Object.assign(new Error('SUBSCRIPTION_LOOKUP_FAILED'), { status: 500 });
-  const sub = subs?.[0];
-  if (!sub) throw Object.assign(new Error('AI_SUBSCRIPTION_REQUIRED'), { status: 403 });
-  const pr = await fetch(SUPABASE_URL + '/rest/v1/plans?id=eq.' + encodeURIComponent(sub.plan_id) + '&is_active=eq.true&select=id,name,ai_enabled,ai_features&limit=1', { headers });
-  const plans = await pr.json().catch(() => null);
-  if (!pr.ok) throw Object.assign(new Error('PLAN_LOOKUP_FAILED'), { status: 500 });
-  const plan = plans?.[0];
-  const features = plan?.ai_features && typeof plan.ai_features === 'object' ? plan.ai_features : {};
-  if (sub.status === 'trialing') return { plan: plan || null, features, subscription: sub };
-  if (!plan || plan.ai_enabled !== true) throw Object.assign(new Error('AI_NOT_INCLUDED_IN_PLAN'), { status: 403 });
-  if (features[feature] !== true) throw Object.assign(new Error('AI_FEATURE_NOT_INCLUDED:' + feature), { status: 403 });
-  return { plan, features, subscription: sub };
-}
-
-function clean(value, max = 600) {
-  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
-}
-
-function clientIp(req) {
-  const forwarded = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
-  return forwarded || String(req.headers?.['x-real-ip'] || 'unknown').trim() || 'unknown';
-}
-
-function checkRateLimit(req, userId) {
-  const key = userId + ':' + clientIp(req);
-  const now = Date.now();
-  const current = rateState.get(key) || { started: now, count: 0 };
-  if (now - current.started >= RATE_WINDOW_MS) { current.started = now; current.count = 0; }
-  current.count += 1;
-  rateState.set(key, current);
-  for (const [k, v] of rateState) if (now - v.started > RATE_WINDOW_MS * 2) rateState.delete(k);
-  if (current.count > RATE_LIMIT) throw Object.assign(new Error('RATE_LIMITED'), { status: 429 });
-}
-
-function parseBearer(req) {
-  const header = String(req.headers?.authorization || req.headers?.Authorization || '');
-  const match = header.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : '';
-}
-
-async function requireManagerOrAdmin(req) {
-  const token = parseBearer(req);
-  if (!token) throw Object.assign(new Error('AUTH_REQUIRED'), { status: 401 });
-  const authResponse = await fetch(SUPABASE_URL + '/auth/v1/user', { headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token } });
-  const user = await authResponse.json().catch(() => null);
-  if (!authResponse.ok || !user?.id) throw Object.assign(new Error('AUTH_INVALID'), { status: 401 });
-  const profileResponse = await fetch(SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(user.id) + '&select=role&limit=1', { headers: { apikey: SUPABASE_ANON_KEY, authorization: 'Bearer ' + token, accept: 'application/json' } });
-  const profiles = await profileResponse.json().catch(() => []);
-  const role = String(profiles?.[0]?.role || '').toLowerCase();
-  if (!profileResponse.ok || !['manager', 'admin'].includes(role)) throw Object.assign(new Error('ROLE_FORBIDDEN'), { status: 403 });
-  return { id: user.id, role };
-}
-
-function isPrivateIp(ip) {
-  const version = net.isIP(ip);
-  if (version === 4) {
-    const [a, b] = ip.split('.').map(Number);
-    return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || (a === 192 && b === 0) || (a === 198 && b === 18) || (a >= 224);
-  }
-  if (version === 6) {
-    const normalized = ip.toLowerCase();
-    if (normalized === '::1' || normalized === '::' || normalized.startsWith('fc') || normalized.startsWith('fd') || normalized.startsWith('fe8') || normalized.startsWith('fe9') || normalized.startsWith('fea') || normalized.startsWith('feb')) return true;
-    if (normalized.startsWith('::ffff:')) return isPrivateIp(normalized.slice(7));
-  }
-  return false;
-}
-
-async function assertSafeUrl(raw) {
-  let url;
-  try { url = new URL(String(raw || '').trim()); } catch (_) { throw Object.assign(new Error('INVALID_URL'), { status: 400 }); }
-  if (!/^https?:$/i.test(url.protocol) || url.username || url.password) throw Object.assign(new Error('INVALID_URL'), { status: 400 });
-  if (url.hostname === 'localhost' || url.hostname.endsWith('.localhost') || url.hostname.endsWith('.local') || (net.isIP(url.hostname) && isPrivateIp(url.hostname))) throw Object.assign(new Error('URL_BLOCKED'), { status: 400 });
-  try {
-    const addresses = await dns.lookup(url.hostname, { all: true });
-    if (!addresses.length || addresses.some(x => isPrivateIp(x.address))) throw Object.assign(new Error('URL_BLOCKED'), { status: 400 });
-  } catch (error) {
-    if (error?.status) throw error;
-    throw Object.assign(new Error('URL_UNREACHABLE'), { status: 400 });
-  }
-  url.hash = '';
-  return url.href;
-}
-
-async function fetchWithTimeout(url, options = {}, timeoutMs = 18000, maxBytes = MAX_FILE_BYTES) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(url, { ...options, signal: controller.signal, redirect: 'follow' });
-    if (!response.ok) throw Object.assign(new Error('HTTP_' + response.status), { status: response.status });
-    const length = Number(response.headers.get('content-length') || 0);
-    if (length > maxBytes) throw Object.assign(new Error('FILE_TOO_LARGE'), { status: 413 });
-    const data = Buffer.from(await response.arrayBuffer());
-    if (data.length > maxBytes) throw Object.assign(new Error('FILE_TOO_LARGE'), { status: 413 });
-    return { response, data };
-  } catch (error) {
-    if (error?.name === 'AbortError') throw Object.assign(new Error('UPSTREAM_TIMEOUT'), { status: 504 });
-    throw error;
-  } finally { clearTimeout(timer); }
-}
-
-function parseDataUrl(value) {
-  const match = String(value || '').match(/^data:([^;,]+);base64,(.+)$/s);
-  if (!match) throw Object.assign(new Error('INVALID_FILE_DATA'), { status: 400 });
-  const data = Buffer.from(match[2], 'base64');
-  if (!data.length) throw Object.assign(new Error('EMPTY_FILE'), { status: 400 });
-  if (data.length > MAX_FILE_BYTES) throw Object.assign(new Error('FILE_TOO_LARGE'), { status: 413 });
-  return { mime: match[1].toLowerCase(), data };
-}
-
-function detectMime(buffer, claimed = '') {
-  const mime = String(claimed || '').toLowerCase();
-  if (buffer.subarray(0, 5).toString('ascii') === '%PDF-') return 'application/pdf';
-  if (buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]))) return 'image/jpeg';
-  if (buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]))) return 'image/png';
-  if (buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP') return 'image/webp';
-  return mime;
-}
-
-function supportedFileMime(mime) { return ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(String(mime || '').toLowerCase()); }
-
-function pdfPageEstimate(buffer) {
-  const text = buffer.subarray(0, Math.min(buffer.length, MAX_FILE_BYTES)).toString('latin1');
-  const matches = text.match(/\/Type\s*\/Page(?:\s|\/|>|])/g);
-  return matches ? matches.length : null;
-}
-
-function buildPrompt(kind, language, extra = '') {
-  return [
-    'Ты — точный парсер ресторанного меню для QR Menu.',
-    'Работай как человек, который вручную проверяет каждую страницу, колонку и цену. Сначала восстанови структуру, затем извлеки позиции.',
-    'Сохраняй оригинальные названия блюд. Допускаются только очевидные исправления OCR, не меняющие смысл.',
-    'Ничего не выдумывай: отсутствующие данные должны быть null или пустым массивом.',
-    'Категории определяй по явным заголовкам разделов и контексту страницы. Если блюдо встречается в разных категориях — сохрани его в каждой категории.',
-    'Цена — число без валюты. Если цена не найдена, price=null и добавь warning с названием блюда.',
-    'unit допускается только: шт, г, мл, порция; если явно не указан — пустая строка.',
-    'weight — число без единицы измерения; если вес/объём не указан — null.',
-    'allergens и tags заполняй только по явным данным источника; не делай догадок.',
-    'image_url заполняй только если источник содержит реальную URL изображения. Для PDF/фото — null.',
-    'available=true по умолчанию, если источник не сообщает об обратном.',
-    'Удали навигацию, футер, рекламу, телефоны, адреса, часы работы, номера страниц, служебные кнопки и дубли.',
-    'Не объединяй разные позиции только потому, что их названия похожи. Не теряй позиции из-за отсутствия цены.',
-    'Язык результата — язык меню. language_hint=' + clean(language || 'auto', 20) + '.',
-    'Источник: ' + kind + '.',
-    extra
-  ].join('\n');
-}
-
-function getOutputText(data) {
-  const parts = data?.candidates?.[0]?.content?.parts;
-  return Array.isArray(parts) ? parts.map(x => x?.text || '').join('') : '';
-}
-
-async function callGemini(parts) {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) throw Object.assign(new Error('GEMINI_API_KEY_NOT_CONFIGURED'), { status: 503 });
-  const models = [PRIMARY_MODEL, ...FALLBACK_MODELS].filter((x, i, a) => x && a.indexOf(x) === i);
-  let lastError = null;
-  for (const model of models) {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-    try {
-      const response = await fetch(GEMINI_URL + model + ':generateContent', {
-        method: 'POST',
-        signal: controller.signal,
-        headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts }], generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, maxOutputTokens: 24000, thinkingConfig: { thinkingLevel: 'low' } } })
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw Object.assign(new Error(data?.error?.message || 'Gemini HTTP ' + response.status), { status: response.status });
-      const text = getOutputText(data);
-      if (!text) throw Object.assign(new Error('AI_EMPTY_RESPONSE'), { status: 502 });
-      let parsed;
-      try { parsed = JSON.parse(text); } catch (_) { throw Object.assign(new Error('AI_INVALID_JSON'), { status: 502 }); }
-      return { data: parsed, model };
-    } catch (error) {
-      if (error?.name === 'AbortError') throw Object.assign(new Error('GEMINI_TIMEOUT'), { status: 504 });
-      lastError = error;
-      const status = Number(error?.status) || 0;
-      const retryableHttp = status === 408 || status === 429 || status >= 500;
-      console.error('[menu-import] Gemini upstream', { model, status, message: clean(error?.message, 300) });
-      if (!retryableHttp) throw error;
-    } finally { clearTimeout(timer); }
-  }
-  throw lastError || Object.assign(new Error('AI_IMPORT_FAILED'), { status: 502 });
-}
-
-function normalizeTagArray(value) { return [...new Set((Array.isArray(value) ? value : []).map(x => clean(x, 80)).filter(Boolean))].slice(0, 20); }
-
-function normalizeItem(item, categoryName) {
-  const name = clean(item?.name, 220);
-  const price = item?.price == null || item?.price === '' ? null : Number(item.price);
-  const weight = item?.weight == null || item?.weight === '' ? null : Number(item.weight);
-  const unit = clean(item?.unit, 20).toLowerCase();
-  return { name, description: clean(item?.description, 600), price: Number.isFinite(price) && price >= 0 ? price : null, unit: ['шт', 'г', 'мл', 'порция'].includes(unit) ? unit : '', weight: Number.isFinite(weight) && weight > 0 ? weight : null, image_url: /^https?:\/\//i.test(String(item?.image_url || '').trim()) ? String(item.image_url).trim() : null, allergens: normalizeTagArray(item?.allergens), tags: normalizeTagArray(item?.tags), available: item?.available !== false, category: categoryName };
-}
-
-function validateAndNormalizeMenu(menu, options = {}) {
-  const categories = Array.isArray(menu?.categories) ? menu.categories : [];
-  const normalized = categories.map(category => ({ name: clean(category?.name, 160) || 'Без категории', items: (Array.isArray(category?.items) ? category.items : []).map(item => normalizeItem(item, clean(category?.name, 160) || 'Без категории')).filter(item => item.name) })).filter(category => category.items.length);
-  const warnings = normalizeTagArray(menu?.warnings);
-  if (options.unreadable) warnings.push('Не удалось уверенно распознать структуру меню.');
-  return { venue_name: clean(menu?.venue_name, 220), currency: clean(menu?.currency || 'RUB', 10) || 'RUB', categories: normalized, warnings: normalizeTagArray(warnings) };
-}
-
-function flattenMenu(menu) { return menu.categories.flatMap(category => category.items.map(item => ({ ...item, category: category.name }))); }
-
-async function fetchExternalFile(url) {
-  const safe = await assertSafeUrl(url);
-  const result = await fetchWithTimeout(safe);
-  const mime = result.response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() || '';
-  return { data: result.data, mime, url: safe };
-}
-
-async function importSite(url) {
-  const safe = await assertSafeUrl(url);
-  try {
-    const result = await Promise.race([analyzeSite(safe), new Promise((_, reject) => setTimeout(() => reject(Object.assign(new Error('SITE_TIMEOUT'), { status: 504 })), SITE_TIMEOUT_MS))]);
-    const products = Array.isArray(result?.products) ? result.products : [];
-    const grouped = new Map();
-    for (const product of products) {
-      const category = clean(product?.category || 'Основные блюда', 160);
-      if (!grouped.has(category)) grouped.set(category, []);
-      grouped.get(category).push({ name: clean(product?.name, 220), description: clean(product?.description, 600), price: Number.isFinite(Number(product?.price)) && Number(product.price) > 0 ? Number(product.price) : null, unit: '', weight: null, image_url: /^https?:\/\//i.test(String(product?.image_url || '')) ? String(product.image_url) : null, allergens: [], tags: [], available: true });
-    }
-    const raw = { venue_name: clean(result?.venue?.name || result?.meta?.name || '', 220), currency: 'RUB', categories: [...grouped.entries()].map(([name, items]) => ({ name, items })), warnings: [] };
-    return { menu: validateAndNormalizeMenu(raw), meta: { source_url: safe, analyzer: 'site-menu-analyzer-v3', site_menu_found: products.length > 0 } };
-  } catch (error) {
-    if (error?.status === 504) throw Object.assign(new Error('SITE_IMPORT_TIMEOUT'), { status: 504 });
-    throw error;
-  }
-}
-
-function errorMessage(code) {
-  const map = { AUTH_REQUIRED: 'Требуется авторизация управляющего.', AUTH_INVALID: 'Сессия авторизации недействительна. Войдите в кабинет заново.', ROLE_FORBIDDEN: 'Импорт меню доступен только управляющему или администратору.', RATE_LIMITED: 'Слишком много попыток импорта. Повторите позже.', REQUEST_TOO_LARGE: 'Слишком большой запрос. Для файла до 10 МБ используйте обычную загрузку файла.', FILE_TOO_LARGE: 'Файл превышает лимит 10 МБ.', EMPTY_FILE: 'Файл пустой. Выберите корректный PDF или изображение.', INVALID_FILE_DATA: 'Не удалось прочитать файл.', INVALID_REQUEST_BODY: 'Не удалось прочитать запрос.', UNSUPPORTED_FILE: 'Поддерживаются только PDF, JPG, PNG и WEBP.', INVALID_URL: 'Укажите корректную ссылку http/https.', URL_BLOCKED: 'Ссылка заблокирована по правилам безопасности.', URL_UNREACHABLE: 'Не удалось открыть ссылку.', SITE_IMPORT_TIMEOUT: 'Сайт слишком долго отвечает. Укажите прямую ссылку на страницу меню.', SITE_NO_MENU: 'Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.', GEMINI_API_KEY_NOT_CONFIGURED: 'Не настроен серверный ключ AI-импорта.', GEMINI_TIMEOUT: 'ИИ не ответил вовремя. Повторите импорт.', AI_INVALID_JSON: 'ИИ вернул некорректный результат. Повторите импорт.', AI_EMPTY_RESPONSE: 'ИИ не вернул результат. Повторите импорт.', UPSTREAM_TIMEOUT: 'Источник не ответил вовремя.', PDF_TOO_MANY_PAGES: 'Превышен лимит страниц PDF. Разделите файл на части.', AI_SUBSCRIPTION_REQUIRED: 'Для ИИ-импорта нужна активная подписка или пробный период.', AI_NOT_INCLUDED_IN_PLAN: 'ИИ-импорт не включён в выбранный тариф.', AI_FEATURE_NOT_INCLUDED: 'ИИ-импорт не включён в выбранный тариф.' };
-  return map[code] || 'Ошибка импорта меню.';
-}
-
-module.exports = async function handler(req, res) {
-  res.setHeader('Cache-Control', 'no-store, max-age=0');
-  res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: { code: 'METHOD_NOT_ALLOWED', message: 'Используйте POST' } });
-  let tempPath = '';
-  try {
-    const auth = await requireManagerOrAdmin(req);
-    checkRateLimit(req, auth.id);
-    if (auth.role === 'manager') await entitlementForManager(auth.id, 'menu_import');
-    const body = await parseRequestBody(req);
-    const language = clean(body.language || 'auto', 20);
-    const source = clean(body.source || (body.file ? 'file' : body.url ? 'url' : ''), 20).toLowerCase();
-    let menu;
-    let meta = { provider: 'google-gemini', model: null, source: source || 'unknown', ai_feature: auth.role === 'manager' ? 'menu_import' : 'admin' };
-
-    if (source === 'url' || source === 'site') {
-      const target = clean(body.url, 2000);
-      if (!target) throw Object.assign(new Error('INVALID_URL'), { status: 400 });
-      let external = null;
-      try { external = await fetchExternalFile(target); } catch (error) { if (['URL_BLOCKED', 'INVALID_URL'].includes(String(error?.message))) throw error; }
-      if (external && supportedFileMime(external.mime)) {
-        const pdfPages = external.mime === 'application/pdf' ? pdfPageEstimate(external.data) : null;
-        if (pdfPages && pdfPages > 80) throw Object.assign(new Error('PDF_TOO_MANY_PAGES'), { status: 400 });
-        const ai = await callGemini([{ text: buildPrompt(external.mime === 'application/pdf' ? 'PDF по URL' : 'изображение по URL', language, 'URL: ' + target + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) }, { inline_data: { mime_type: external.mime, data: external.data.toString('base64') } }]);
-        menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories) || !ai.data.categories.length });
-        meta.model = ai.model; meta.mime = external.mime; meta.pages = pdfPages;
-      } else {
-        const siteResult = await importSite(target);
-        menu = siteResult.menu; meta = { ...meta, ...siteResult.meta };
-        if (!siteResult.meta.site_menu_found) menu.warnings.push('Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.');
-      }
-    } else if (source === 'file') {
-      const file = body.file && typeof body.file === 'object' ? body.file : {};
-      let external;
-      if (file.url) { external = await fetchExternalFile(file.url); tempPath = clean(file.temp_path || '', 500); }
-      else if (file.data) { if (Buffer.byteLength(JSON.stringify(body), 'utf8') > MAX_REQUEST_BYTES) throw Object.assign(new Error('REQUEST_TOO_LARGE'), { status: 413 }); external = parseDataUrl(file.data); }
-      else throw Object.assign(new Error('INVALID_FILE_DATA'), { status: 400 });
-      const mime = detectMime(external.data, external.mime || file.mime);
-      if (!supportedFileMime(mime)) throw Object.assign(new Error('UNSUPPORTED_FILE'), { status: 415 });
-      if (external.data.length > MAX_FILE_BYTES) throw Object.assign(new Error('FILE_TOO_LARGE'), { status: 413 });
-      const pdfPages = mime === 'application/pdf' ? pdfPageEstimate(external.data) : null;
-      if (pdfPages && pdfPages > 80) throw Object.assign(new Error('PDF_TOO_MANY_PAGES'), { status: 400 });
-      const ai = await callGemini([{ text: buildPrompt(mime === 'application/pdf' ? 'PDF меню' : 'фото меню', language, 'Имя файла: ' + clean(file.name, 200) + (pdfPages ? '\nОценочное число страниц: ' + pdfPages : '')) }, { inline_data: { mime_type: mime, data: external.data.toString('base64') } }]);
-      menu = validateAndNormalizeMenu(ai.data, { unreadable: !Array.isArray(ai.data?.categories) || !ai.data.categories.length });
-      meta.model = ai.model; meta.mime = mime; meta.pages = pdfPages; meta.bytes = external.data.length;
-    } else throw Object.assign(new Error('INVALID_URL'), { status: 400 });
-
-    const products = flattenMenu(menu);
-    return res.status(200).json({ ok: true, job_id: crypto.randomUUID(), menu, products, warnings: menu.warnings, meta: { ...meta, products_found: products.length, categories_found: menu.categories.length, role: auth.role } });
-  } catch (error) {
-    const code = String(error?.message || 'IMPORT_ERROR');
-    const status = Number(error?.status) || (code === 'UNSUPPORTED_FILE' ? 415 : 500);
-    const safeCode = code.length > 80 || /\s/.test(code) ? 'IMPORT_ERROR' : code;
-    console.error('[menu-import]', safeCode, status, clean(error?.message, 300));
-    return res.status(status).json({ ok: false, error: { code: safeCode, message: errorMessage(safeCode) } });
-  } finally {
-    await deleteTempObject(tempPath);
-  }
-};
+module.exports=async function handler(req,res){res.setHeader('Cache-Control','no-store, max-age=0');res.setHeader('Content-Type','application/json; charset=utf-8');if(req.method!=='POST')return res.status(405).json({ok:false,error:{code:'METHOD_NOT_ALLOWED',message:'Используйте POST'}});let tempPath='';try{const auth=await requireManagerOrAdmin(req);checkRateLimit(req,auth.id);if(auth.role==='manager')await entitlementForManager(auth.id,'menu_import');const body=await parseRequestBody(req);const language=clean(body.language||'auto',20);const source=clean(body.source||(body.file?'file':body.url?'url':''),20).toLowerCase();let menu;let meta={provider:'google-gemini',model:null,source:source||'unknown',ai_feature:auth.role==='manager'?'menu_import':'admin'};
+if(source==='url'||source==='site'){const target=clean(body.url,2000);if(!target)throw Object.assign(new Error('INVALID_URL'),{status:400});let external=null;try{external=await fetchExternalFile(target);}catch(error){if(['URL_BLOCKED','INVALID_URL'].includes(String(error?.message)))throw error;}if(external&&supportedFileMime(external.mime)){const pdfPages=external.mime==='application/pdf'?pdfPageEstimate(external.data):null;if(pdfPages&&pdfPages>MAX_PDF_PAGES)throw Object.assign(new Error('PDF_TOO_MANY_PAGES'),{status:400});if(external.mime==='application/pdf'){const ai=await importPdf(external.data,external.mime,language,target);menu=ai.menu;meta.model=ai.model;meta.mime=external.mime;meta.pages=ai.pages;meta.processed_pages=ai.processed_pages;meta.pdf_chunks=ai.chunks;meta.pdf_failed_warnings=ai.warnings;}else{const ai=await callGemini([{text:buildPrompt('изображение по URL',language,'URL: '+target)},{inline_data:{mime_type:external.mime,data:external.data.toString('base64')}}]);menu=validateAndNormalizeMenu(ai.data,{unreadable:!Array.isArray(ai.data?.categories)||!ai.data.categories.length});meta.model=ai.model;meta.mime=external.mime;meta.pages=null;}}else{const siteResult=await importSite(target);menu=siteResult.menu;meta={...meta,...siteResult.meta};if(!siteResult.meta.site_menu_found)menu.warnings.push('Ссылка не содержит меню. Укажите прямую ссылку на страницу меню.');}}
+else if(source==='file'){const file=body.file&&typeof body.file==='object'?body.file:{};let external;if(file.url){external=await fetchExternalFile(file.url);tempPath=clean(file.temp_path||'',500);}else if(file.data){if(Buffer.byteLength(JSON.stringify(body),'utf8')>MAX_REQUEST_BYTES)throw Object.assign(new Error('REQUEST_TOO_LARGE'),{status:413});external=parseDataUrl(file.data);}else throw Object.assign(new Error('INVALID_FILE_DATA'),{status:400});const mime=detectMime(external.data,external.mime||file.mime);if(!supportedFileMime(mime))throw Object.assign(new Error('UNSUPPORTED_FILE'),{status:415});if(external.data.length>MAX_FILE_BYTES)throw Object.assign(new Error('FILE_TOO_LARGE'),{status:413});const pdfPages=mime==='application/pdf'?pdfPageEstimate(external.data):null;if(pdfPages&&pdfPages>MAX_PDF_PAGES)throw Object.assign(new Error('PDF_TOO_MANY_PAGES'),{status:400});if(mime==='application/pdf'){const ai=await importPdf(external.data,mime,language,file.name);menu=ai.menu;meta.model=ai.model;meta.mime=mime;meta.pages=ai.pages;meta.processed_pages=ai.processed_pages;meta.pdf_chunks=ai.chunks;meta.pdf_failed_warnings=ai.warnings;meta.bytes=external.data.length;}else{const ai=await callGemini([{text:buildPrompt('фото меню',language,'Имя файла: '+clean(file.name,200))},{inline_data:{mime_type:mime,data:external.data.toString('base64')}}]);menu=validateAndNormalizeMenu(ai.data,{unreadable:!Array.isArray(ai.data?.categories)||!ai.data.categories.length});meta.model=ai.model;meta.mime=mime;meta.pages=null;meta.bytes=external.data.length;}}
+else throw Object.assign(new Error('INVALID_URL'),{status:400});
+const products=flattenMenu(menu);return res.status(200).json({ok:true,job_id:crypto.randomUUID(),menu,products,warnings:menu.warnings,meta:{...meta,products_found:products.length,categories_found:menu.categories.length,role:auth.role}});
+}catch(error){const code=String(error?.message||'IMPORT_ERROR');const status=Number(error?.status)||(code==='UNSUPPORTED_FILE'?415:500);const safeCode=code.length>80||/\s/.test(code)?'IMPORT_ERROR':code;console.error('[menu-import]',safeCode,status,clean(error?.message,300));return res.status(status).json({ok:false,error:{code:safeCode,message:errorMessage(safeCode)}});}finally{await deleteTempObject(tempPath);}};
