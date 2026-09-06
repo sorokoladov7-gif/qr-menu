@@ -41,10 +41,10 @@ const SCHEMA = {
               properties: {
                 name: { type: 'string' },
                 description: { type: 'string' },
-                price: { type: ['number', 'null'] },
+                price: { type: 'number', nullable: true },
                 unit: { type: 'string' },
-                weight: { type: ['number', 'null'] },
-                image_url: { type: ['string', 'null'] },
+                weight: { type: 'number', nullable: true },
+                image_url: { type: 'string', nullable: true },
                 allergens: { type: 'array', items: { type: 'string' } },
                 tags: { type: 'array', items: { type: 'string' } },
                 available: { type: 'boolean' }
