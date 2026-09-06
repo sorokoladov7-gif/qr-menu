@@ -2,7 +2,7 @@
 const U=process.env.SUPABASE_URL||'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const A=process.env.SUPABASE_ANON_KEY||process.env.SUPABASE_PUBLISHABLE_KEY||'';
 const S=process.env.SUPABASE_SERVICE_ROLE_KEY||'';
-const K=process.env.GEMINI_API_KEY||process.env.MANAGER_API_KEY||'';
+const K=process.env.MANAGER_API_KEY||process.env.GEMINI_API_KEY||'';
 const M=process.env.GEMINI_MANAGER_MODEL||'gemini-3.8-flash';
 const ALLOWED={assistant:['create_product','create_ingredient','attach_ingredients','create_staff','update_order','create_order','create_tech_card','update_venue_settings','update_delivery_settings'],menu_analysis:['update_product','update_product_price'],analytics:['update_product_price'],recipes:['save_recipe','update_product_price','create_ingredient','attach_ingredients','create_tech_card'],chef:['update_product','update_product_price','save_recipe','create_product','create_ingredient','create_tech_card'],staff:['create_staff'],marketing:['marketing_draft'],settings:['update_venue_settings','update_delivery_settings','update_order']};
 const fail=(m,s)=>Object.assign(new Error(m),{status:s});
