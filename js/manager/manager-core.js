@@ -117,7 +117,7 @@
     if(!/\/manager\.html$/i.test(location.pathname))return;
     if(document.querySelector('script[data-qr-manager-ai-agent]'))return;
     var s=document.createElement('script');
-    s.src='/js/manager/manager-ai-agent.js?v=1';
+    s.src='/js/manager/manager-ai-agent.js?v=2';
     s.async=true;
     s.setAttribute('data-qr-manager-ai-agent','1');
     document.head.appendChild(s);
