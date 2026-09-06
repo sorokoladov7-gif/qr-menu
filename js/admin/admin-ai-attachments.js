@@ -101,11 +101,28 @@
       return true;
     }catch(e){status('Ошибка вложения');throw e;}
   }
+  function polishChat(){
+    var model=document.querySelector('.qc-model span');
+    if(model)model.remove();
+    document.querySelectorAll('.qc-cap').forEach(function(e){
+      if(/gemini|flash/i.test(e.textContent))e.textContent='AI-агент · готов';
+    });
+    var input=document.getElementById('qc-input');
+    if(input){input.placeholder='Сообщение…';input.setAttribute('aria-label','Сообщение для Qrchick');}
+    var send=document.getElementById('qc-send');
+    if(send)send.setAttribute('aria-label','Отправить сообщение');
+    var attach=document.getElementById('qc-attach');
+    if(attach)attach.setAttribute('aria-label','Прикрепить файл');
+    var style=document.createElement('style');style.id='qc-chat-polish';
+    style.textContent='.qc-model span{display:none!important}.qc-side-bottom .qc-cap:first-child{color:#78a8c9}.qc-input-wrap:focus-within{border-color:rgba(91,207,255,.48);box-shadow:0 0 0 3px rgba(53,190,255,.07),0 12px 35px rgba(0,0,0,.28)}.qc-attachment{box-shadow:0 4px 16px rgba(0,0,0,.14)}.qc-suggestions button:hover{border-color:rgba(91,207,255,.34);color:#c9f3ff}.qc-msg-tools button{transition:.15s}.qc-msg-tools button:hover{background:rgba(255,255,255,.04);border-radius:6px}';
+    if(!document.getElementById('qc-chat-polish'))document.head.appendChild(style);
+  }
   function bind(){
     var attach=document.getElementById('qc-attach'),send=document.getElementById('qc-send'),input=document.getElementById('qc-input');
     if(!attach||!send||!input){setTimeout(bind,150);return;}
     if(attach.__qrBound)return;
     attach.__qrBound=true;
+    polishChat();
     var picker=document.createElement('input');picker.type='file';picker.id='qc-file-picker';picker.multiple=true;picker.accept=ACCEPT;picker.style.display='none';document.body.appendChild(picker);
     attach.onclick=function(e){e.preventDefault();picker.click();};
     picker.onchange=function(){setInputFile(picker);};
