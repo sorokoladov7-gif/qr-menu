@@ -1,1 +1,1 @@
-Production deploy trigger after Vercel Hobby API function consolidation (v12).
+Production deploy trigger after admin AI cleanup (v13).
