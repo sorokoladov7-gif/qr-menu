@@ -1,4 +1,5 @@
 /* QR-Menu — настройки интерфейса админки */
+/* Qrchick multimodal attachments enabled */
 (function(){
   'use strict';
   if (window.__QR_ADMIN_SETTINGS__) return;
