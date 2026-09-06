@@ -4,4 +4,5 @@
   if(window.__QR_MANAGER_AI_ACTIONS__)return;
   window.__QR_MANAGER_AI_ACTIONS__=true;
   /* The canonical action UI and execution flow live in manager-ai.js. */
+  /* Keep this file intentionally side-effect free: Qrchick is implemented once. */
 })();
