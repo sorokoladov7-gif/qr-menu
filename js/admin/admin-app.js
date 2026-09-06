@@ -52,7 +52,7 @@
   };
   appMethods.onDesignTargetChange = function() {
     if (this.designTarget === 'global') { this.venueDesignTemplate = null; return; }
-    var venue = (this.venues || []).find(function(v){ return v.id === this.designTarget; }.bind(this));
+    var venue = (this.venues || []).find(function(v){ return v.id === this.designTarget; });
     if (!venue) { this.venueDesignTemplate = null; return; }
     this.venueDesignTemplate = venue.design_settings
       ? JSON.parse(JSON.stringify(venue.design_settings))
@@ -87,20 +87,20 @@
     var settings=JSON.parse(JSON.stringify(this.adminDesignTemplate));
     db.from('venues').update({design_settings:settings}).eq('id',this.designTarget).then(function(r){
       if(r.error) throw r.error; self.venueDesignTemplate=settings; return self.loadBaseData();
-    }).then(function(){alert('Глобальный шаблон применён к заведению \"'+venue.name+'\"');}).catch(function(e){alert('Ошибка: '+e.message);});
+    }).then(function(){alert('Глобальный шаблон применён к заведению "'+venue.name+'"');}).catch(function(e){alert('Ошибка: '+e.message);});
   };
   appMethods.applyGlobalToVenueById = function(venueId) {
     var self=this, venue=(this.venues||[]).find(function(v){return v.id===venueId;});
-    if(!venue || !confirm('Применить глобальный шаблон к заведению \"'+venue.name+'\" ?')) return;
+    if(!venue || !confirm('Применить глобальный шаблон к заведению "'+venue.name+'" ?')) return;
     var settings=JSON.parse(JSON.stringify(this.adminDesignTemplate));
     db.from('venues').update({design_settings:settings}).eq('id',venueId).then(function(r){
       if(r.error) throw r.error; return self.loadBaseData();
-    }).then(function(){alert('Глобальный шаблон применён к заведению \"'+venue.name+'\"');}).catch(function(e){alert('Ошибка: '+e.message);});
+    }).then(function(){alert('Глобальный шаблон применён к заведению "'+venue.name+'"');}).catch(function(e){alert('Ошибка: '+e.message);});
   };
   appMethods.resetVenueDesign = function() {
     if (this.designTarget === 'global') return;
     var self=this, venue=(this.venues||[]).find(function(v){return v.id===self.designTarget;});
-    if(!venue || !confirm('Сбросить настройки дизайна для заведения \"'+venue.name+'\" на глобальный шаблон?')) return;
+    if(!venue || !confirm('Сбросить настройки дизайна для заведения "'+venue.name+'" на глобальный шаблон?')) return;
     db.from('venues').update({design_settings:null}).eq('id',this.designTarget).then(function(r){
       if(r.error) throw r.error; self.venueDesignTemplate=null; return self.loadBaseData();
     }).then(function(){alert('Настройки сброшены. Теперь заведение использует глобальный шаблон.');}).catch(function(e){alert('Ошибка: '+e.message);});
@@ -131,6 +131,7 @@
       });
     }).catch(function(e){alert('Ошибка: '+e.message);});
   };
+  appMethods.uploadAdminBg = appMethods.uploadBgImage;
 
   var appWatch = {
     tab:function(newTab){
@@ -198,31 +199,11 @@
     });
   }
 
-  function injectPlanAIControlsIntoTemplate(root){
-    if(!root || root.__qrPlanAIInjected) return;
-    var marker='<div class="field"><label>Позиций меню</label><input class="num-in" v-model.number="p.max_products" type="number" min="1"></div>';
-    var block='<div class="plan-ai-controls" style="margin:12px 0;padding:12px;border:1px solid rgba(99,102,241,.24);border-radius:14px;background:rgba(99,102,241,.06)">'+
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">'+
-        '<div><b>🤖 ИИ-функции тарифа</b><div class="muted" style="font-size:11px;margin-top:3px">{{ aiFeatureCount(p) }}/10 функций подключено</div></div>'+
-        '<div class="field" style="margin:0;min-width:130px"><label style="font-size:11px">Доплата за ИИ ₽/мес</label><input v-model.number="p.ai_addon_price" type="number" min="0" step="1" style="width:100%;box-sizing:border-box"></div>'+
-      '</div>'+ 
-      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px">'+
-        '<button v-for="feature in aiFeatureList()" v-bind:key="feature[0]" type="button" class="btn btn-sm" v-on:click="togglePlanAIFeature(p,feature[0])" v-bind:style="{textAlign:\'left\',justifyContent:\'flex-start\',width:\'100%\',borderColor:p.ai_features&&p.ai_features[feature[0]]?\'rgba(52,211,153,.55)\':\'rgba(255,255,255,.08)\',background:p.ai_features&&p.ai_features[feature[0]]?\'rgba(52,211,153,.10)\':\'rgba(255,255,255,.025)\'}">{{ p.ai_features&&p.ai_features[feature[0]] ? \'✓ \' : \'○ \' }}{{ feature[1] }}</button>'+ 
-      '</div>'+ 
-      '<div class="muted" style="font-size:10px;margin-top:8px">Состояние сохраняется вместе с тарифом. Серверные API дополнительно проверяют разрешение функции.</div>'+ 
-    '</div>';
-    if(root.innerHTML.indexOf('plan-ai-controls')!==-1){root.__qrPlanAIInjected=true;return;}
-    if(root.innerHTML.indexOf(marker)===-1){console.warn('[QR Admin] tariff AI template marker not found');return;}
-    root.innerHTML=root.innerHTML.replace(marker,marker+block);
-    root.__qrPlanAIInjected=true;
-  }
-
   function mountApp(){
     if(window.__QR_ADMIN_VUE_APP__) return;
     var root=document.getElementById('app');
     if(!root){console.error('[QR Admin] #app not found');return;}
     if(typeof window.Vue==='undefined'){console.error('[QR Admin] Vue is not loaded');return;}
-    injectPlanAIControlsIntoTemplate(root);
     var app=Vue.createApp({data:appData,computed:appComputed,methods:appMethods,watch:appWatch,mounted:function(){this.init();}});
     var vm=app.mount(root);
     window.__QR_ADMIN_VUE_VM__=vm;
