@@ -105,4 +105,15 @@
     }
   };
   window.__QR_ADMIN_SETTINGS_MIXIN__=settingsMixin;
+
+  function loadQrchickAttachments(){
+    if(window.__QRCHICK_ATTACHMENTS_LOADER__)return;
+    window.__QRCHICK_ATTACHMENTS_LOADER__=true;
+    var s=document.createElement('script');
+    s.src='/js/admin/admin-ai-attachments.js';
+    s.async=true;
+    document.head.appendChild(s);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',loadQrchickAttachments,{once:true});
+  else setTimeout(loadQrchickAttachments,0);
 })();
