@@ -1,0 +1,47 @@
+name: repair-once
+on:
+  push:
+    branches: [fix/manager-ai-chat-entitlement-2026-09-06]
+jobs:
+  repair:
+    if: "!contains(github.event.head_commit.message, 'Apply batched runtime repairs')"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply repairs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          replacements = {
+            'api/manager-ai-propose.js': [
+              ("function subscriptionActive(s){if(!s)return false;const status=String(s.status||'').toLowerCase();if(status==='trialing')return true;if(status!=='active')return false;return !s.current_period_end||new Date(s.current_period_end)>=new Date();}",
+               "function subscriptionActive(s){if(!s)return false;const status=String(s.status||'').toLowerCase();if(status!=='trialing'&&status!=='active')return false;if(!s.current_period_end)return true;const end=new Date(s.current_period_end);return !Number.isNaN(end.getTime())&&end>=new Date();}")
+            ],
+            'api/manager-ai-action.js': [
+              ("function subscriptionActive(s){if(!s)return false;const status=String(s.status||'').toLowerCase();if(status==='trialing')return true;if(status!=='active')return false;return !s.current_period_end||new Date(s.current_period_end)>=new Date();}",
+               "function subscriptionActive(s){if(!s)return false;const status=String(s.status||'').toLowerCase();if(status!=='trialing'&&status!=='active')return false;if(!s.current_period_end)return true;const end=new Date(s.current_period_end);return !Number.isNaN(end.getTime())&&end>=new Date();}")
+            ],
+            'api/import-ai.js': [
+              ("price: { type: ['number', 'null'] }", "price: { type: 'number', nullable: true }"),
+              ("weight: { type: ['number', 'null'] }", "weight: { type: 'number', nullable: true }"),
+              ("image_url: { type: ['string', 'null'] }", "image_url: { type: 'string', nullable: true }")
+            ]
+          }
+          for name, pairs in replacements.items():
+            p=Path(name); s=p.read_text()
+            for old,new in pairs:
+              if old not in s: raise SystemExit(f'target not found: {name}: {old}')
+              s=s.replace(old,new)
+            p.write_text(s)
+          PY
+          node --check api/manager-ai-propose.js
+          node --check api/manager-ai-action.js
+          node --check api/import-ai.js
+          rm -f .github/workflows/repair-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add api/manager-ai-propose.js api/manager-ai-action.js api/import-ai.js .github/workflows/repair-once.yml
+          git commit -m 'Apply batched runtime repairs'
+          git push origin HEAD:fix/manager-ai-chat-entitlement-2026-09-06
