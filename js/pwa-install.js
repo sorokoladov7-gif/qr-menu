@@ -31,9 +31,7 @@
         deferredPrompt.prompt();
         const result = await deferredPrompt.userChoice;
         deferredPrompt = null;
-        if (result.outcome === 'accepted') {
-          isAppInstalled = true;
-        }
+        if (result.outcome === 'accepted') isAppInstalled = true;
         box.remove();
       }
     };
@@ -47,13 +45,10 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then(() => console.log('[PWA] Service Worker registered with scope /'))
-        .catch(err => {
-          console.warn('[PWA] SW registration failed:', err);
-        });
+        .catch(err => console.warn('[PWA] SW registration failed:', err));
     }
   }
 
-  // Восстановление полей входа для официанта (если нужно)
   function installWaiterLoginRecovery() {
     if (!/\/waiter\.html$/i.test(location.pathname)) return;
     let lastSlug = '', lastPin = '';
@@ -88,9 +83,7 @@
     };
 
     if (!originalRpcReady()) {
-      const timer = setInterval(() => {
-        if (originalRpcReady()) clearInterval(timer);
-      }, 50);
+      const timer = setInterval(() => { if (originalRpcReady()) clearInterval(timer); }, 50);
       setTimeout(() => clearInterval(timer), 10000);
     }
   }
@@ -121,15 +114,19 @@
             p_delivery_fee: null
           }, options);
         }
+        if (name === 'public_get_order_by_phone' && params) {
+          return rpc('customer_track_order_json', {
+            p_venue_id: params.p_venue_id,
+            p_customer_phone: params.p_phone
+          }, options);
+        }
         return rpc(name, params, options);
       };
       db.__qrCanonicalOrderRpcPatch = true;
       return true;
     };
     if (!ready()) {
-      const timer = setInterval(() => {
-        if (ready()) clearInterval(timer);
-      }, 50);
+      const timer = setInterval(() => { if (ready()) clearInterval(timer); }, 50);
       setTimeout(() => clearInterval(timer), 10000);
     }
   }
@@ -142,7 +139,6 @@
     const esc = value => String(value ?? '')
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-
     const getToken = () => sessionStorage.getItem('cook_token') || '';
 
     const ensureButton = () => {
@@ -156,16 +152,10 @@
       button.textContent = '📖 Рецептуры';
       button.addEventListener('click', openRecipes);
       const refresh = tabs.querySelector('.refresh-top');
-      if (refresh) tabs.insertBefore(button, refresh);
-      else tabs.appendChild(button);
+      if (refresh) tabs.insertBefore(button, refresh); else tabs.appendChild(button);
       return true;
     };
-
-    const closeRecipes = () => {
-      const modal = document.getElementById('cook-recipes-modal');
-      if (modal) modal.remove();
-    };
-
+    const closeRecipes = () => { const modal = document.getElementById('cook-recipes-modal'); if (modal) modal.remove(); };
     const showModal = (title, body) => {
       closeRecipes();
       const modal = document.createElement('div');
@@ -176,7 +166,6 @@
       document.getElementById('cook-recipes-close').onclick = closeRecipes;
       modal.addEventListener('click', e => { if (e.target === modal) closeRecipes(); });
     };
-
     const renderRecipes = payload => {
       const products = Array.isArray(payload?.products) ? payload.products : [];
       const sync = payload?.sync || {};
@@ -184,34 +173,21 @@
         '<span style="padding:7px 10px;border-radius:999px;background:#ffffff08;color:#cbd5e1;font-size:12px">Блюд: ' + products.length + '</span>' +
         '<span style="padding:7px 10px;border-radius:999px;background:rgba(52,211,153,.12);color:#6ee7b7;font-size:12px">С рецептами: ' + products.filter(p => p.status === 'ready').length + '</span>' +
         '<span style="padding:7px 10px;border-radius:999px;background:rgba(245,158,11,.12);color:#fbbf24;font-size:12px">Без сопоставления: ' + products.filter(p => p.status === 'missing_recipe').length + '</span>' +
-        '<span style="padding:7px 10px;border-radius:999px;background:rgba(99,102,241,.12);color:#a5b4fc;font-size:12px">Создано ингредиентов: ' + Number(sync.ingredients_created || 0) + '</span>' +
-        '</div>';
-
+        '<span style="padding:7px 10px;border-radius:999px;background:rgba(99,102,241,.12);color:#a5b4fc;font-size:12px">Создано ингредиентов: ' + Number(sync.ingredients_created || 0) + '</span>' + '</div>';
       if (!products.length) return summary + '<div style="text-align:center;color:#94a3b8;padding:40px">В меню заведения нет блюд.</div>';
-
       const cards = products.map((p, idx) => {
         const ingredients = Array.isArray(p.ingredients) ? p.ingredients : [];
-        const status = p.status === 'ready'
-          ? '<span style="color:#6ee7b7">✓ Рецептура подключена</span>'
-          : p.status === 'missing_recipe'
-            ? '<span style="color:#fbbf24">⚠ Стандартный рецепт не найден</span>'
-            : '<span style="color:#fbbf24">⚠ Рецептура требует проверки</span>';
-        const ingredientHtml = ingredients.length
-          ? ingredients.map(i => '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span>' + esc(i.name) + (i.note ? ' <small style="color:#64748b">(' + esc(i.note) + ')</small>' : '') + '</span><b style="white-space:nowrap">' + esc(i.quantity) + ' ' + esc(i.unit) + '</b></div>').join('')
-          : '<div style="color:#64748b;padding:10px 0">Ингредиенты пока не подключены.</div>';
+        const status = p.status === 'ready' ? '<span style="color:#6ee7b7">✓ Рецептура подключена</span>' : p.status === 'missing_recipe' ? '<span style="color:#fbbf24">⚠ Стандартный рецепт не найден</span>' : '<span style="color:#fbbf24">⚠ Рецептура требует проверки</span>';
+        const ingredientHtml = ingredients.length ? ingredients.map(i => '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span>' + esc(i.name) + (i.note ? ' <small style="color:#64748b">(' + esc(i.note) + ')</small>' : '') + '</span><b style="white-space:nowrap">' + esc(i.quantity) + ' ' + esc(i.unit) + '</b></div>').join('') : '<div style="color:#64748b;padding:10px 0">Ингредиенты пока не подключены.</div>';
         const steps = Array.isArray(p.steps) ? p.steps : [];
         const stepsHtml = steps.length ? '<div style="margin-top:14px"><b>Приготовление</b><ol style="margin:8px 0 0 20px;color:#cbd5e1;line-height:1.6">' + steps.map(s => '<li style="margin-bottom:5px">' + esc(typeof s === 'string' ? s : (s?.text || s?.description || JSON.stringify(s))) + '</li>').join('') + '</ol></div>' : '';
         return '<details style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:13px" ' + (idx === 0 ? 'open' : '') + '><summary style="cursor:pointer;list-style:none"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><div style="font-size:16px;font-weight:800">' + esc(p.product_name) + '</div><div style="font-size:12px;color:#94a3b8;margin-top:4px">' + esc(p.category || 'Основное') + ' · ' + esc(p.price) + ' ₽</div></div><div style="font-size:12px">' + status + '</div></div></summary><div style="margin-top:14px;border-top:1px solid rgba(255,255,255,.07);padding-top:12px"><div style="display:flex;gap:8px;flex-wrap:wrap;color:#94a3b8;font-size:12px;margin-bottom:10px">' + (p.recipe_name ? '<span>База: ' + esc(p.recipe_name) + '</span>' : '') + (p.base_servings ? '<span>Порций: ' + esc(p.base_servings) + '</span>' : '') + (p.prep_minutes ? '<span>Подготовка: ' + esc(p.prep_minutes) + ' мин</span>' : '') + (p.cook_minutes ? '<span>Готовка: ' + esc(p.cook_minutes) + ' мин</span>' : '') + '</div><div style="font-weight:800;margin-bottom:6px">Ингредиенты (' + ingredients.length + ')</div>' + ingredientHtml + stepsHtml + '</div></details>';
       }).join('');
       return summary + '<div style="display:grid;gap:10px">' + cards + '</div>';
     };
-
     async function loadRecipes() {
       const token = getToken();
-      if (!token) {
-        showModal('📖 Рецептуры', '<div style="color:#f87171;padding:30px;text-align:center">Сессия повара не найдена. Выполните вход заново.</div>');
-        return;
-      }
+      if (!token) { showModal('📖 Рецептуры', '<div style="color:#f87171;padding:30px;text-align:center">Сессия повара не найдена. Выполните вход заново.</div>'); return; }
       showModal('📖 Рецептуры', '<div style="text-align:center;color:#94a3b8;padding:40px">Синхронизация рецептур и ингредиентов…</div>');
       try {
         const db = window.db;
@@ -226,28 +202,18 @@
         if (body) body.innerHTML = '<div style="color:#f87171;padding:30px;text-align:center">Ошибка: ' + esc(e.message || e) + '</div>';
       }
     }
-
     function openRecipes() { loadRecipes(); }
-
     const observer = new MutationObserver(() => { ensureButton(); });
-    const start = () => {
-      if (!document.body) return;
-      observer.observe(document.body, { childList: true, subtree: true });
-      ensureButton();
-    };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
-    else start();
+    const start = () => { if (!document.body) return; observer.observe(document.body, { childList: true, subtree: true }); ensureButton(); };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
     setInterval(ensureButton, 1000);
   }
 
   window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     deferredPrompt = e;
-    if (!sessionStorage.getItem('pwa_install_dismissed')) {
-      setTimeout(showInstallPrompt, 900);
-    }
+    if (!sessionStorage.getItem('pwa_install_dismissed')) setTimeout(showInstallPrompt, 900);
   });
-
   window.addEventListener('appinstalled', () => {
     isAppInstalled = true;
     deferredPrompt = null;
@@ -255,20 +221,13 @@
     if (box) box.remove();
     sessionStorage.removeItem('pwa_install_dismissed');
   });
-
   document.addEventListener('click', function(e) {
     const laterBtn = e.target && e.target.id === 'pwa-later';
-    if (laterBtn) {
-      sessionStorage.setItem('pwa_install_dismissed', '1');
-    }
+    if (laterBtn) sessionStorage.setItem('pwa_install_dismissed', '1');
   });
-
   registerServiceWorker();
   installWaiterLoginRecovery();
   patchCanonicalOrderRpc();
   installCookRecipeUi();
-
-  if (isStandalone()) {
-    isAppInstalled = true;
-  }
+  if (isStandalone()) isAppInstalled = true;
 })();
