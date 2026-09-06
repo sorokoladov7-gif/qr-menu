@@ -23,6 +23,7 @@
     {"source":"/api/integrations/:path*","destination":"/api/integrations"},
     {"source":"/api/payments/yookassa/:path*","destination":"/api/payments"},
     {"source":"/api/cron/integration-sync","destination":"/api/cron"},
+    {"source":"/api/manager-ai","destination":"/api/manager-ai-propose"},
     {"source":"/api/manager-ai-assistant-action","destination":"/api/manager-ai-action"},
     {"source":"/recipe-images/:slug*","destination":"https://theunitools.com/recipes/:slug*"}
   ],
