@@ -669,6 +669,16 @@
 <div class="field" style="flex:1"><label>Курьеров</label><input class="num-in" v-model.number="p.max_couriers" type="number" min="1"></div>
 <div class="field" style="flex:1"><label>Официантов</label><input class="num-in" v-model.number="p.max_waiters" type="number" min="1"></div></div>
 <div class="field"><label>Позиций меню</label><input class="num-in" v-model.number="p.max_products" type="number" min="1"></div>
+<div class="plan-ai-controls" style="margin:12px 0;padding:12px;border:1px solid rgba(99,102,241,.24);border-radius:14px;background:rgba(99,102,241,.06)">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+    <div><b>ИИ-функции тарифа</b><div class="muted" style="font-size:11px;margin-top:3px">{{ aiFeatureCount(p) }}/10 функций подключено</div></div>
+    <div class="field" style="margin:0;min-width:130px"><label style="font-size:11px">Доплата за ИИ ₽/мес</label><input v-model.number="p.ai_addon_price" type="number" min="0" step="1" style="width:100%;box-sizing:border-box"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:7px">
+    <button v-for="feature in aiFeatureList()" :key="feature[0]" type="button" class="btn btn-sm" @click="togglePlanAIFeature(p,feature[0])" :style="{textAlign:'left',justifyContent:'flex-start',width:'100%',borderColor:p.ai_features&&p.ai_features[feature[0]]?'rgba(52,211,153,.55)':'rgba(255,255,255,.08)',background:p.ai_features&&p.ai_features[feature[0]]?'rgba(52,211,153,.10)':'rgba(255,255,255,.025)'}">{{ p.ai_features&&p.ai_features[feature[0]] ? '✓ ' : '○ ' }}{{ feature[1] }}</button>
+  </div>
+  <div class="muted" style="font-size:10px;margin-top:8px">Настройка сохраняется вместе с тарифом. Серверная проверка доступа остаётся обязательной.</div>
+</div>
 <div class="plan-visibility" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)">
   <span class="muted" style="font-size:11px">
     {{ p.is_public === false ? 'Тариф скрыт от управляющих' : 'Тариф видим управляющим' }}
