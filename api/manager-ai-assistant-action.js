@@ -1,17 +1,84 @@
 'use strict';
 
-const U=process.env.SUPABASE_URL||'https://ulxfsozdryqrnlxzlblt.supabase.co';
-const A=process.env.SUPABASE_ANON_KEY||process.env.SUPABASE_PUBLISHABLE_KEY||'';
-const S=process.env.SUPABASE_SERVICE_ROLE_KEY||'';
-const KEY=process.env.GEMINI_API_KEY||process.env.MANAGER_API_KEY||'';
-const MODEL=process.env.GEMINI_MANAGER_MODEL||'gemini-3.8-flash';
-const fail=(m,s)=>Object.assign(new Error(m),{status:s});
-const bearer=req=>{const m=String(req.headers?.authorization||'').match(/^Bearer\s+(.+)$/i);return m?m[1]:'';};
-async function api(path,token,method='GET',body){const key=S||A,auth=S||token,r=await fetch(U+'/rest/v1/'+path,{method,headers:{apikey:key,authorization:'Bearer '+auth,accept:'application/json','Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)}),d=await r.json().catch(()=>null);if(!r.ok)throw fail(d?.message||d?.hint||'SUPABASE_HTTP_'+r.status,r.status);return d;}
-async function auth(req){const t=bearer(req);if(!t)throw fail('AUTH_REQUIRED',401);const r=await fetch(U+'/auth/v1/user',{headers:{apikey:A,authorization:'Bearer '+t}}),u=await r.json().catch(()=>null);if(!r.ok||!u?.id)throw fail('AUTH_INVALID',401);const p=await api('profiles?id=eq.'+encodeURIComponent(u.id)+'&select=id,role&limit=1',t);if(!p?.[0]||String(p[0].role).toLowerCase()!=='manager')throw fail('MANAGER_ONLY',403);return {token:t,user:u};}
-async function entitlement(c){const s=await api('subscriptions?manager_id=eq.'+encodeURIComponent(c.user.id)+'&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.'+encodeURIComponent(new Date().toISOString())+'&select=plan_id,status&order=created_at.desc&limit=1',c.token);if(!s?.[0])throw fail('AI_SUBSCRIPTION_REQUIRED',403);const p=await api('plans?id=eq.'+encodeURIComponent(s[0].plan_id)+'&is_active=eq.true&select=id,name,ai_enabled,ai_features&limit=1',c.token),plan=p?.[0],f=plan?.ai_features&&typeof plan.ai_features==='object'?plan.ai_features:{};if(!plan||plan.ai_enabled!==true||!(s[0].status==='trialing'||f.assistant===true))throw fail('AI_FEATURE_NOT_INCLUDED:assistant',403);return plan;}
-async function venue(c,id){if(!id)throw fail('VENUE_REQUIRED',400);const rows=await api('manager_venues?manager_id=eq.'+encodeURIComponent(c.user.id)+'&venue_id=eq.'+encodeURIComponent(id)+'&select=id,venue_id&limit=1',c.token);if(!rows?.[0])throw fail('VENUE_ACCESS_DENIED',403);const perms=await api('manager_venue_permissions?manager_id=eq.'+encodeURIComponent(c.user.id)+'&venue_id=eq.'+encodeURIComponent(id)+'&select=can_edit_menu,can_edit_prices,can_edit_venue&limit=1',c.token);return {id,perms:perms?.[0]||{}};}
-function clean(v,n=500){return String(v==null?'':v).replace(/\s+/g,' ').trim().slice(0,n);}
-async function propose(message,context){if(!KEY)throw fail('AI_PROVIDER_NOT_CONFIGURED',503);const schema={type:'object',properties:{answer:{type:'string'},actions:{type:'array',items:{type:'object',properties:{type:{type:'string',enum:['update_product','update_product_price','update_venue_settings']},title:{type:'string'},reason:{type:'string'},payload:{type:'object'}}}}},required:['answer','actions']};const prompt=['Ты — ИИ-помощник управляющего QR MENU. Теперь помощник может предложить РЕАЛЬНОЕ действие в кабинете, но только после явного подтверждения управляющего.','Разрешённые действия: update_product, update_product_price, update_venue_settings.','Никогда не создавай UUID и не придумывай product_id или venue_id — используй только ID из context.','Для изменения цены используй только существующий product_id и цену. Изменение цены не более 10%.','Для update_product используй только существующий товар из context.menu.items.','Для update_venue_settings используй только безопасные поля из context.settings.form.','Не предлагай удаление, массовые изменения, изменение тарифа, прав доступа, пользователей, платежей или системных секретов.','Если данных недостаточно — actions: [].','Верни только JSON.','CONTEXT: '+String(context||'').slice(0,12000),'COMMAND: '+clean(message,4000)].join('\n\n');const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(MODEL)+':generateContent?key='+encodeURIComponent(KEY),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:.1,maxOutputTokens:1800,responseMimeType:'application/json',responseSchema:schema}})});const d=await r.json().catch(()=>({}));if(!r.ok)throw fail(d?.error?.message||'GEMINI_HTTP_'+r.status,502);const text=(d?.candidates||[]).flatMap(x=>x?.content?.parts||[]).map(x=>x?.text||'').join('');try{return JSON.parse(text);}catch(_){throw fail('AI_INVALID_JSON',502);}}
-async function run(c,action){const p=action?.payload&&typeof action.payload==='object'?action.payload:{};const v=await venue(c,String(p.venue_id||''));const type=String(action?.type||'');if(type==='update_product'||type==='update_product_price'){if(type==='update_product'&&!v.perms.can_edit_menu)throw fail('PRODUCT_EDIT_PERMISSION_DENIED',403);if(type==='update_product_price'&&!v.perms.can_edit_prices)throw fail('PRICE_EDIT_PERMISSION_DENIED',403);const pid=String(p.product_id||'');if(!pid)throw fail('PRODUCT_ID_REQUIRED',400);const own=await api('products?id=eq.'+encodeURIComponent(pid)+'&venue_id=eq.'+encodeURIComponent(v.id)+'&select=id,name,price&limit=1',c.token);if(!own?.[0])throw fail('PRODUCT_ACCESS_DENIED',403);if(type==='update_product_price'){const old=Number(own[0].price),price=Number(p.price);if(!Number.isFinite(price)||price<=0||!Number.isFinite(old)||old<=0||Math.abs(price-old)/old>.100001)throw fail('AI_PRICE_CHANGE_LIMIT',400);await api('products?id=eq.'+encodeURIComponent(pid)+'&venue_id=eq.'+encodeURIComponent(v.id),c.token,'PATCH',{price:Math.round(price*100)/100});return {type,status:'applied',product_id:pid,fields:['price']};}const patch={};['name','description','price','category','image_url','is_available','applies_to'].forEach(k=>{if(Object.prototype.hasOwnProperty.call(p,k))patch[k]=p[k];});if(patch.price!==undefined){const price=Number(patch.price);const old=Number(own[0].price);if(!Number.isFinite(price)||price<0||!Number.isFinite(old)||old<=0||Math.abs(price-old)/old>.100001)throw fail('AI_PRICE_CHANGE_LIMIT',400);patch.price=Math.round(price*100)/100;}if(patch.name!==undefined){patch.name=clean(patch.name,220);if(!patch.name)throw fail('PRODUCT_NAME_REQUIRED',400);}await api('products?id=eq.'+encodeURIComponent(pid)+'&venue_id=eq.'+encodeURIComponent(v.id),c.token,'PATCH',patch);return {type,status:'applied',product_id:pid,fields:Object.keys(patch)};}if(type==='update_venue_settings'){if(!v.perms.can_edit_venue)throw fail('VENUE_EDIT_PERMISSION_DENIED',403);const patch={};['name','description','brand_color','logo_url','address','latitude','longitude','lat','lng','delivery_min_order','delivery_min_order_free','delivery_base_fee','delivery_rate_per_km','delivery_max_km'].forEach(k=>{if(Object.prototype.hasOwnProperty.call(p,k))patch[k]=p[k];});delete patch.venue_id;if(patch.brand_color!==undefined&&!/^#[0-9a-fA-F]{6}$/.test(String(patch.brand_color)))throw fail('BRAND_COLOR_INVALID',400);await api('venues?id=eq.'+encodeURIComponent(v.id),c.token,'PATCH',patch);return {type,status:'applied',venue_id:v.id,fields:Object.keys(patch)};}throw fail('ACTION_UNSUPPORTED',400);}
-module.exports=async(req,res)=>{if(req.method!=='POST'){res.statusCode=405;return res.end(JSON.stringify({ok:false,error:'METHOD_NOT_ALLOWED'}));}try{const c=await auth(req);await entitlement(c);const b=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});const message=clean(b.message,4000),context=String(b.context||'').slice(0,12000);if(!message)throw fail('MESSAGE_REQUIRED',400);if(b.confirm===true){const result=await run(c,b.action);res.statusCode=200;res.setHeader('Content-Type','application/json; charset=utf-8');return res.end(JSON.stringify({ok:true,executed:true,result}));}const out=await propose(message,context);res.statusCode=200;res.setHeader('Content-Type','application/json; charset=utf-8');return res.end(JSON.stringify({ok:true,answer:clean(out.answer,3000),actions:Array.isArray(out.actions)?out.actions.slice(0,5):[]}));}catch(e){res.statusCode=Number(e?.status)||500;res.setHeader('Content-Type','application/json; charset=utf-8');return res.end(JSON.stringify({ok:false,error:e?.message||'MANAGER_AI_ASSISTANT_ACTION_FAILED'}));}};
+/*
+ * QR Menu — compatibility bridge for the manager's existing Qrchick UI.
+ * The UI historically called this endpoint for the assistant. Keep the URL
+ * stable, but use the unified proposal/action engines so the assistant can
+ * create and update real manager data after explicit confirmation.
+ */
+
+const fail=(message,status)=>Object.assign(new Error(message),{status});
+
+function bearer(req){
+  const h=String(req.headers?.authorization||req.headers?.Authorization||'');
+  const m=h.match(/^Bearer\s+(.+)$/i);
+  return m?m[1].trim():'';
+}
+
+async function forward(req,path,body){
+  const token=bearer(req);
+  if(!token)throw fail('AUTH_REQUIRED',401);
+  const host=String(req.headers?.host||'').trim();
+  if(!host)throw fail('REQUEST_HOST_REQUIRED',500);
+  const protocol=String(req.headers?.['x-forwarded-proto']||'https').split(',')[0].trim()||'https';
+  const r=await fetch(protocol+'://'+host+path,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':'Bearer '+token
+    },
+    body:JSON.stringify(body||{})
+  });
+  const data=await r.json().catch(()=>({ok:false,error:'INVALID_UPSTREAM_RESPONSE'}));
+  if(!r.ok||data?.ok===false)throw fail(data?.error||('UPSTREAM_HTTP_'+r.status),r.status||502);
+  return data;
+}
+
+module.exports=async function(req,res){
+  if(req.method!=='POST'){
+    res.statusCode=405;
+    res.setHeader('Allow','POST');
+    return res.end(JSON.stringify({ok:false,error:'METHOD_NOT_ALLOWED'}));
+  }
+  try{
+    const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{});
+    const confirm=body.confirm===true;
+
+    if(confirm){
+      const action=body.action&&typeof body.action==='object'?body.action:{};
+      const feature=String(body.feature||'assistant').trim().toLowerCase();
+      const result=await forward(req,'/api/manager-ai-action',{
+        feature,
+        action
+      });
+      res.statusCode=200;
+      res.setHeader('Content-Type','application/json; charset=utf-8');
+      return res.end(JSON.stringify(result));
+    }
+
+    const message=String(body.message||'').trim();
+    if(!message)throw fail('MESSAGE_REQUIRED',400);
+
+    const result=await forward(req,'/api/manager-ai-propose',{
+      feature:'assistant',
+      message,
+      context:String(body.context||'').slice(0,14000),
+      venue_id:body.venue_id||null
+    });
+
+    res.statusCode=200;
+    res.setHeader('Content-Type','application/json; charset=utf-8');
+    return res.end(JSON.stringify({
+      ok:true,
+      feature:'assistant',
+      plan:result.plan||null,
+      answer:result.answer||'Действие подготовлено для подтверждения.',
+      actions:Array.isArray(result.actions)?result.actions:[]
+    }));
+  }catch(e){
+    const status=Number(e?.status)||500;
+    res.statusCode=status;
+    res.setHeader('Content-Type','application/json; charset=utf-8');
+    return res.end(JSON.stringify({ok:false,error:e?.message||'MANAGER_AI_ASSISTANT_ACTION_FAILED'}));
+  }
+};
