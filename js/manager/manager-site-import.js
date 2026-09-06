@@ -11,13 +11,13 @@
 
   function vm(){return window.__managerVue||null;}
   function clean(v){return String(v==null?'':v).replace(/\s+/g,' ').trim();}
+  function key(v){return clean(v).toLowerCase().replace(/[ё]/g,'е');}
   function esc(v){return String(v==null?'':v).replace(/[&<>\\\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\\"':'&quot;',"'":'&#39;'}[c];});}
   function block(){return document.querySelector('#qr-menu-import-block-v2');}
   function setStatus(text,error){var b=block(),el=b&&b.querySelector('#qr-menu-import-status-v2');if(el){el.textContent=text||'';el.style.color=error?'#fca5a5':'';}}
   function decodeExp(token){try{var p=String(token||'').split('.')[1];if(!p)return 0;p=p.replace(/-/g,'+').replace(/_/g,'/');while(p.length%4)p+='=';return Number(JSON.parse(atob(p)).exp||0);}catch(e){return 0;}}
   async function token(force){try{var s=await db.auth.getSession(),session=s&&s.data&&s.data.session,t=session&&session.access_token||'';if(!force&&t&&(!decodeExp(t)||decodeExp(t)>Date.now()/1000+90))return t;var r=await db.auth.refreshSession(),fresh=r&&r.data&&r.data.session;return fresh&&fresh.access_token||'';}catch(e){return '';}}
   async function request(payload){var t=await token(false);if(!t)throw new Error('AUTH_REQUIRED');var headers={'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+t};var r=await fetch(API,{method:'POST',headers:headers,credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload)});var d=await r.json().catch(function(){return null;});if(r.status===401){t=await token(true);if(t){headers.Authorization='Bearer '+t;r=await fetch(API,{method:'POST',headers:headers,credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload)});d=await r.json().catch(function(){return null;});}}if(!r.ok||!d||d.ok===false){var e=new Error(d&&d.error&&d.error.message||('HTTP '+r.status));e.code=d&&d.error&&d.error.code||'';e.status=r.status;throw e;}return d;}
-  function fileToDataUrl(file){return new Promise(function(resolve,reject){var r=new FileReader();r.onload=function(){resolve(String(r.result||''));};r.onerror=function(){reject(new Error('Не удалось прочитать файл'));};r.readAsDataURL(file);});}
   async function uploadTemp(file,v){
     if(!db||!db.storage)throw new Error('Storage недоступен');
     var id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2));
@@ -29,11 +29,36 @@
     return {url:url,path:path};
   }
   async function deleteTemp(path){if(!path||!db||!db.storage)return;try{await db.storage.from(BUCKET).remove([path]);}catch(e){}}
+
   function normalizeMenu(data){
-    var menu=data&&data.menu||{};var categories=Array.isArray(menu.categories)?menu.categories:[];var out=[];
-    categories.forEach(function(c){var cn=clean(c&&c.name)||'Основные блюда';(Array.isArray(c&&c.items)?c.items:[]).forEach(function(i){out.push({name:clean(i&&i.name),description:clean(i&&i.description),price:i&&i.price!=null&&i.price!==''?Number(i.price):null,category:cn,unit:clean(i&&i.unit),weight:i&&i.weight!=null?Number(i.weight):null,image_url:i&&i.image_url?String(i.image_url):null,allergens:Array.isArray(i&&i.allergens)?i.allergens:[],tags:Array.isArray(i&&i.tags)?i.tags:[],is_available:i&&i.available!==false,applies_to:'all'});});});
-    return out.filter(function(x){return x.name;});
+    var menu=data&&data.menu||{};var categories=Array.isArray(menu.categories)?menu.categories:[];var out=[];var seen={};
+    categories.forEach(function(c){
+      var cn=clean(c&&c.name)||'Основные блюда';
+      (Array.isArray(c&&c.items)?c.items:[]).forEach(function(i){
+        var name=clean(i&&i.name);if(!name)return;
+        var item={name:name,description:clean(i&&i.description),price:i&&i.price!=null&&i.price!==''?Number(i.price):null,category:cn,unit:clean(i&&i.unit),weight:i&&i.weight!=null?Number(i.weight):null,image_url:i&&i.image_url?String(i.image_url):null,allergens:Array.isArray(i&&i.allergens)?i.allergens:[],tags:Array.isArray(i&&i.tags)?i.tags:[],is_available:i&&i.available!==false,applies_to:'all'};
+        var k=key(cn)+'::'+key(name);
+        if(seen[k]){
+          if(seen[k].price==null&&item.price!=null)seen[k].price=item.price;
+          if(!seen[k].description&&item.description)seen[k].description=item.description;
+          return;
+        }
+        seen[k]=item;out.push(item);
+      });
+    });
+    return out;
   }
+
+  function mergeImportResult(v,data,label){
+    var next=normalizeMenu(data);var current=Array.isArray(v.importItems)?v.importItems:[];var map={};current.forEach(function(x){map[key(x.category)+'::'+key(x.name)]=x;});
+    next.forEach(function(x){var k=key(x.category)+'::'+key(x.name);if(map[k]){if(map[k].price==null&&x.price!=null)map[k].price=x.price;if(!map[k].description&&x.description)map[k].description=x.description;}else{map[k]=x;current.push(x);}});
+    v.importItems=current.filter(function(x){return x&&x.name;});
+    var warnings=Array.isArray(v.importWarnings)?v.importWarnings.slice():[];
+    (Array.isArray(data&&data.warnings)?data.warnings:[]).forEach(function(w){var text=clean(w);if(text&&!warnings.some(function(x){return key(x)===key(text);}))warnings.push(label?label+': '+text:text);});
+    v.importWarnings=warnings;
+    return next.length;
+  }
+
   function inputValue(v){return v==null?'':String(v);}
   function render(items,warnings){
     var b=block();if(!b)return;var p=b.querySelector('#qr-menu-import-preview-v2'),count=b.querySelector('#qr-menu-import-count-v2'),save=b.querySelector('#qr-menu-import-save-v2'),clear=b.querySelector('#qr-menu-import-clear-v2');if(!p)return;items=items||[];
@@ -47,9 +72,36 @@
   function syncFromDom(v){var b=block(),rows=b&&b.querySelectorAll('[data-import-row]');if(!rows)return;var items=[];Array.prototype.forEach.call(rows,function(row,idx){var x=(v.importItems||[])[idx]||{};x.name=clean((row.querySelector('[data-field="name"]')||{}).value);x.price=(row.querySelector('[data-field="price"]')||{}).value===''?null:Number((row.querySelector('[data-field="price"]')||{}).value);x.category=clean((row.querySelector('[data-field="category"]')||{}).value)||'Основные блюда';x.description=clean((row.querySelector('[data-field="description"]')||{}).value);x.unit=clean((row.querySelector('[data-field="unit"]')||{}).value).toLowerCase();x.weight=(row.querySelector('[data-field="weight"]')||{}).value===''?null:Number((row.querySelector('[data-field="weight"]')||{}).value);items.push(x);});v.importItems=items.filter(function(x){return x.name;});}
   function setBusy(v,busy){v.importBusy=!!busy;var b=block();if(!b)return;Array.prototype.forEach.call(b.querySelectorAll('button,input'),function(x){x.disabled=!!busy;});}
   function validateForSave(v){syncFromDom(v);var bad=(v.importItems||[]).filter(function(x){return !x.name||x.price==null||!Number.isFinite(Number(x.price))||Number(x.price)<0||!x.category;});if(bad.length)throw new Error('Перед сохранением укажите цену и категорию для всех позиций.');}
-  async function save(v){validateForSave(v);var items=v.importItems||[];if(!items.length)throw new Error('Нет позиций для сохранения');if(!v.venue)throw new Error('Не выбрано заведение');if(v.perms&&!v.perms.products&&!v.perms.addons)throw new Error('Нет прав на добавление позиций');var limit=v.currentPlan?Number(v.currentPlan.max_products||0):0;var available=limit?Math.max(0,limit-v.products.length):items.length;if(!available)throw new Error('Лимит позиций меню исчерпан');if(items.length>available)items=items.slice(0,available);setStatus('Сохраняю '+items.length+' позиций…');for(var i=0;i<items.length;i+=50){var rows=items.slice(i,i+50).map(function(x){return{venue_id:v.venue.id,name:x.name,description:x.description||null,price:Number(x.price),category:x.category||'Основные блюда',image_url:x.image_url||null,is_available:x.is_available!==false,applies_to:'all'};});var r=await db.from('products').insert(rows);if(r.error)throw r.error;}if(typeof v.loadProducts==='function')await v.loadProducts();v.importItems=[];render([],[]);setStatus('✓ Меню сохранено: '+items.length+' позиций');}
-  async function startFile(file,v){if(!file)return;if(file.size>MAX_FILE)throw new Error('Файл превышает лимит 10 МБ.');var mime=String(file.type||'').toLowerCase();var ok=(mime==='application/pdf'||mime==='image/jpeg'||mime==='image/png'||mime==='image/webp'||/\.pdf$/i.test(file.name)||/\.(jpe?g|png|webp)$/i.test(file.name));if(!ok)throw new Error('Поддерживаются только PDF, JPG, PNG и WEBP.');var temp=await uploadTemp(file,v);try{setStatus(mime==='application/pdf'||/\.pdf$/i.test(file.name)?'🤖 Qrchick анализирует весь PDF целиком…':'🤖 Qrchick анализирует изображение…');var data=await request({source:'file',language:'ru',file:{url:temp.url,temp_path:temp.path,name:file.name,mime:file.type,size:file.size}});v.importItems=normalizeMenu(data);v.importWarnings=Array.isArray(data.warnings)?data.warnings:[];render(v.importItems,v.importWarnings);setStatus('✓ Qrchick завершил анализ: '+v.importItems.length+' позиций'+(v.importWarnings.length?' · есть предупреждения':''));}finally{await deleteTemp(temp.path);}}
-  async function startUrl(url,v){url=clean(url);if(!/^https?:\/\//i.test(url))throw new Error('Укажите корректную ссылку http/https.');setStatus('🤖 Qrchick анализирует сайт…');var data=await request({source:'url',language:'ru',url:url});v.importItems=normalizeMenu(data);v.importWarnings=Array.isArray(data.warnings)?data.warnings:[];render(v.importItems,v.importWarnings);setStatus(v.importItems.length?'✓ Qrchick завершил анализ сайта: '+v.importItems.length+' позиций':'⚠ Qrchick не нашёл меню. Укажите прямую ссылку на страницу меню.',!v.importItems.length);if(data.menu&&data.menu.venue_name)v.importVenue={name:data.menu.venue_name};}
+
+  async function save(v){
+    validateForSave(v);var items=v.importItems||[];
+    if(!items.length)throw new Error('Нет позиций для сохранения');
+    if(!v.venue)throw new Error('Не выбрано заведение');
+    if(v.perms&&!v.perms.products&&!v.perms.addons)throw new Error('Нет прав на добавление позиций');
+    var limit=v.currentPlan?Number(v.currentPlan.max_products||0):0;var available=limit?Math.max(0,limit-v.products.length):items.length;
+    if(!available)throw new Error('Лимит позиций меню исчерпан');
+    if(items.length>available)items=items.slice(0,available);
+    var existing=Array.isArray(v.products)?v.products:[];var existingKeys={};existing.forEach(function(p){existingKeys[key(p.category)+'::'+key(p.name)]=true;});
+    var fresh=[];var skipped=0;
+    items.forEach(function(x){var k=key(x.category)+'::'+key(x.name);if(existingKeys[k]){skipped++;return;}existingKeys[k]=true;fresh.push(x);});
+    if(!fresh.length)throw new Error('Все импортированные позиции уже есть в меню.');
+    setStatus('Сохраняю '+fresh.length+' новых позиций…');
+    for(var i=0;i<fresh.length;i+=50){var rows=fresh.slice(i,i+50).map(function(x){return{venue_id:v.venue.id,name:x.name,description:x.description||null,price:Number(x.price),category:x.category||'Основные блюда',image_url:x.image_url||null,is_available:x.is_available!==false,applies_to:'all'};});var r=await db.from('products').insert(rows);if(r.error)throw r.error;}
+    if(typeof v.loadProducts==='function')await v.loadProducts();v.importItems=[];render([],[]);setStatus('✓ Меню сохранено: '+fresh.length+' новых позиций'+(skipped?' · пропущено дублей: '+skipped:''));
+  }
+
+  async function startFile(file,v){
+    if(!file)return;if(file.size>MAX_FILE)throw new Error('Файл превышает лимит 10 МБ.');
+    var mime=String(file.type||'').toLowerCase();var ok=(mime==='application/pdf'||mime==='image/jpeg'||mime==='image/png'||mime==='image/webp'||/\.pdf$/i.test(file.name)||/\.(jpe?g|png|webp)$/i.test(file.name));
+    if(!ok)throw new Error('Поддерживаются только PDF, JPG, PNG и WEBP.');
+    var temp=await uploadTemp(file,v);try{
+      setStatus(mime==='application/pdf'||/\.pdf$/i.test(file.name)?'🤖 Qrchick анализирует весь PDF целиком…':'🤖 Qrchick анализирует изображение…');
+      var data=await request({source:'file',language:'ru',file:{url:temp.url,temp_path:temp.path,name:file.name,mime:file.type,size:file.size}});
+      var added=mergeImportResult(v,data,file.name);render(v.importItems,v.importWarnings);setStatus('✓ Qrchick обработал '+file.name+': '+added+' позиций · всего подготовлено '+v.importItems.length+(v.importWarnings.length?' · есть предупреждения':''));
+    }finally{await deleteTemp(temp.path);}
+  }
+
+  async function startUrl(url,v){url=clean(url);if(!/^https?:\/\//i.test(url))throw new Error('Укажите корректную ссылку http/https.');setStatus('🤖 Qrchick анализирует сайт…');var data=await request({source:'url',language:'ru',url:url});mergeImportResult(v,data,'Сайт');render(v.importItems,v.importWarnings);setStatus(v.importItems.length?'✓ Qrchick завершил анализ сайта: '+v.importItems.length+' позиций':'⚠ Qrchick не нашёл меню. Укажите прямую ссылку на страницу меню.',!v.importItems.length);if(data.menu&&data.menu.venue_name)v.importVenue={name:data.menu.venue_name};}
 
   document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('#qr-menu-import-pdf-v2,#qr-menu-import-photo-v2,#qr-menu-import-site-v2,#qr-menu-import-save-v2,#qr-menu-import-clear-v2,[data-remove-import]'):null;if(!t)return;var b=t.closest('#qr-menu-import-block-v2'),v=vm();if(!b||!v)return;e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();
     if(v.importBusy)return;
