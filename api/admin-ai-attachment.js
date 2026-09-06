@@ -2,9 +2,9 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
-const AI_KEY = process.env.ADMIN_AI_KEY || process.env.GEMINI_API_KEY || '';
+/* Admin Qrchick is strictly isolated: never fall back to the menu-import key. */
+const AI_KEY = process.env.ADMIN_AI_KEY || '';
 const MODELS = [
-  'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash',
@@ -65,7 +65,7 @@ async function analyze(model, file, prompt) {
     input: content,
     store: true,
     generation_config: /^gemini-3\./.test(model)
-      ? { max_output_tokens: 2500, thinking_level: /3\.8/.test(model) ? 'medium' : (/lite/.test(model) ? 'minimal' : 'medium') }
+      ? { max_output_tokens: 2500, thinking_level: /lite/.test(model) ? 'minimal' : 'medium' }
       : { max_output_tokens: 2500 }
   };
   const r = await fetch('https://generativelanguage.googleapis.com/v1beta/interactions', {
@@ -84,7 +84,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
   try {
     await adminAuth(req);
-    if (!AI_KEY) throw fail('AI_PROVIDER_KEY_NOT_CONFIGURED', 503);
+    if (!AI_KEY) throw fail('ADMIN_AI_KEY_NOT_CONFIGURED', 503);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const file = body.file || {};
     const name = String(file.name || 'attachment').slice(0, 180);
