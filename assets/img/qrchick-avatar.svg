@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Qrchick — AI-помощник QR Menu">
+<defs>
+  <radialGradient id="bg" cx="50%" cy="42%" r="62%"><stop offset="0" stop-color="#174a86"/><stop offset=".62" stop-color="#071b38"/><stop offset="1" stop-color="#020816"/></radialGradient>
+  <radialGradient id="face" cx="50%" cy="35%" r="72%"><stop offset="0" stop-color="#172b4c"/><stop offset=".72" stop-color="#030914"/><stop offset="1" stop-color="#00030a"/></radialGradient>
+  <linearGradient id="wire" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d8fbff"/><stop offset=".25" stop-color="#5eeaff"/><stop offset=".55" stop-color="#178cff"/><stop offset=".82" stop-color="#7e52ff"/><stop offset="1" stop-color="#d6f8ff"/></linearGradient>
+  <linearGradient id="glow" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8fffff"/><stop offset=".5" stop-color="#219cff"/><stop offset="1" stop-color="#8b55ff"/></linearGradient>
+  <filter id="soft"><feGaussianBlur stdDeviation="12"/></filter>
+  <filter id="neon"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<circle cx="256" cy="256" r="248" fill="url(#bg)"/>
+<circle cx="256" cy="240" r="192" fill="#168dff" opacity=".14" filter="url(#soft)"/>
+<g fill="none" stroke="url(#wire)" stroke-linecap="round" filter="url(#neon)">
+  <ellipse cx="256" cy="246" rx="171" ry="174" stroke-width="12"/>
+  <ellipse cx="256" cy="246" rx="184" ry="157" stroke-width="7" transform="rotate(17 256 246)"/>
+  <ellipse cx="256" cy="246" rx="184" ry="157" stroke-width="7" transform="rotate(-17 256 246)"/>
+  <ellipse cx="256" cy="246" rx="166" ry="181" stroke-width="6" transform="rotate(43 256 246)"/>
+  <ellipse cx="256" cy="246" rx="166" ry="181" stroke-width="6" transform="rotate(-43 256 246)"/>
+  <path d="M96 223c55-90 146-126 247-95 49 15 78 43 91 82" stroke-width="5"/>
+  <path d="M91 280c43 87 141 132 244 105 47-12 82-38 96-75" stroke-width="5"/>
+</g>
+<circle cx="256" cy="248" r="130" fill="url(#face)" stroke="#55dfff" stroke-width="5"/>
+<circle cx="256" cy="248" r="139" fill="none" stroke="#1a9dff" stroke-opacity=".5" stroke-width="3"/>
+<g fill="#b9faff" filter="url(#neon)"><circle cx="207" cy="226" r="23"/><circle cx="305" cy="226" r="23"/></g>
+<path d="M208 284c29 31 67 31 96 0" fill="none" stroke="#69efff" stroke-width="14" stroke-linecap="round" filter="url(#neon)"/>
+<path d="M175 169c18-18 43-30 70-34M337 169c-18-18-43-30-70-34" fill="none" stroke="#8b55ff" stroke-width="7" stroke-linecap="round" opacity=".9"/>
+<g transform="translate(366 318) rotate(-10)" filter="url(#neon)">
+  <rect x="0" y="0" width="104" height="104" rx="17" fill="#071c3a" stroke="#63eaff" stroke-width="5"/>
+  <rect x="16" y="16" width="25" height="25" fill="none" stroke="#c8ffff" stroke-width="7"/><rect x="63" y="16" width="25" height="25" fill="none" stroke="#c8ffff" stroke-width="7"/>
+  <rect x="16" y="63" width="25" height="25" fill="none" stroke="#c8ffff" stroke-width="7"/><path d="M63 63h9v9h-9zm18 0h7v7h-7zm-18 18h7v7h-7zm16-4h11v11H79z" fill="#c8ffff"/>
+</g>
+<g stroke="url(#glow)" stroke-width="12" stroke-linecap="round" fill="none" filter="url(#neon)"><path d="M106 348c-35 24-44 55-23 79 15 17 37 17 53 0l18-21"/><path d="M407 310c35-12 58 3 62 25 4 22-15 40-38 39l-31-1"/></g>
+<circle cx="453" cy="414" r="17" fill="#28e58a" stroke="#06152b" stroke-width="8"/>
+</svg>
