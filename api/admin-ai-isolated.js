@@ -1,11 +1,9 @@
 'use strict';
 
-/* Qrchick admin execution bridge.
- * Read/analysis requests stay on the existing agent. Confirmed database changes
- * are executed here with the authenticated admin session and server-side
- * Supabase Management API credentials.
+/* Qrchick admin gateway.
+ * The existing admin AI agent remains the single intelligence layer.
+ * This gateway only routes authenticated, explicitly confirmed mutations.
  */
-process.env.GEMINI_API_KEY = '';
 const agent = require('./admin-ai-agent');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
