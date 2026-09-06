@@ -1,6 +1,8 @@
 'use strict';
 
 /* Qrchick admin gateway. The existing admin AI agent remains the single intelligence layer. */
+/* Admin AI is intentionally isolated from every other provider key. */
+process.env.GEMINI_API_KEY = '';
 const agent = require('./admin-ai-agent');
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://ulxfsozdryqrnlxzlblt.supabase.co';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || '';
