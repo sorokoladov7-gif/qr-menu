@@ -190,6 +190,46 @@
     if (vm) startPlanEntitlementSync(vm);
   });
 
+  /* The HTML entry still references manager-ai.js?v=3 for compatibility.
+     Some browsers may keep that old asset even after production deploy.
+     This loader promotes the already-updated canonical Qrchick client to v4,
+     removes legacy AI UI, and then lets v4 own the assistant surface. */
+  function promoteCanonicalManagerAI() {
+    if (window.__QR_MANAGER_AI_CACHE_BRIDGE__) return;
+    if (!window.__managerVue) return;
+    window.__QR_MANAGER_AI_CACHE_BRIDGE__ = true;
+
+    var old = document.getElementById('qr-ai-center');
+    if (old) old.remove();
+    var current = document.getElementById('qrchick-manager-root');
+    if (current) current.remove();
+
+    window.__QR_MANAGER_AI_CENTER__ = false;
+
+    var script = document.createElement('script');
+    script.src = '/js/manager/manager-ai.js?v=4';
+    script.async = false;
+    script.setAttribute('data-qr-manager-ai-canonical', 'v4');
+    script.onload = function() {
+      setTimeout(function() {
+        var legacy = document.getElementById('qr-ai-center');
+        if (legacy) legacy.remove();
+      }, 350);
+    };
+    script.onerror = function() {
+      console.error('[QR Manager] Не удалось загрузить канонический Qrchick v4:', script.src);
+    };
+    document.head.appendChild(script);
+  }
+
+  window.addEventListener('qr-manager-vue-ready', function() {
+    setTimeout(promoteCanonicalManagerAI, 0);
+    setTimeout(promoteCanonicalManagerAI, 250);
+  });
+  window.addEventListener('qr-manager-subscription-ready', function() {
+    setTimeout(promoteCanonicalManagerAI, 0);
+  });
+
   window.addEventListener('pagehide', function() {
     stopPlanEntitlementSync(window.__managerVue);
   });
