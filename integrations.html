@@ -56,13 +56,6 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           var sync=c.querySelector('.hub-sync');if(sync){sync.textContent='Синхронизировать сейчас';sync.disabled=false;}
           c.querySelectorAll('.hub-connect,.hub-test,.hub-import,.hub-disconnect').forEach(function(x){x.disabled=false;});
         },0);
-      }else{
-        setTimeout(function(){
-          if(!c)return;
-          c.classList.remove('syncing');
-          var sync=c.querySelector('.hub-sync');if(sync)sync.disabled=false;
-          if(response.ok){};
-        },50);
       }
       return response;
     },function(err){setTimeout(function(){setBusy(c,false);},0);throw err;});
