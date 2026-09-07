@@ -21,7 +21,8 @@
   async function uploadTemp(file,v){
     if(!db||!db.storage)throw new Error('Storage недоступен');
     var id=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random().toString(36).slice(2));
-    var safe=clean(file.name||'menu').replace(/[^a-zа-яё0-9._-]/giu,'-').slice(-120)||'menu';
+    var rawName=clean(file.name||'menu');
+    var safe=(rawName.normalize?rawName.normalize('NFKD'):rawName).replace(/[^A-Za-z0-9._-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(-120)||'menu';
     var path='imports/'+(v&&v.userId?v.userId:'session')+'/'+id+'-'+safe;
     var up=await db.storage.from(BUCKET).upload(path,file,{cacheControl:'300',upsert:false,contentType:file.type||'application/octet-stream'});
     if(up.error)throw up.error;
