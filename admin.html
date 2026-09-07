@@ -29,20 +29,268 @@
 <script src="js/admin/admin-templates.js"></script>
 <script src="js/admin/admin-statistics.js"></script>
 <script src="js/admin/admin-app.js"></script>
+
+<style>
+/* ══════════════════════════════════════
+   ANIMATION LAYER — OS QR-Menu Admin
+   ══════════════════════════════════════ */
+
+/* ── LOADER ── */
+.app-loader{position:fixed;inset:0;z-index:99999;background:#0a0f1a;display:grid;place-items:center;transition:opacity .6s ease,visibility .6s ease}
+.app-loader.hide{opacity:0;visibility:hidden;pointer-events:none}
+.app-loader .loader-inner{text-align:center}
+.app-loader .loader-ring{width:56px;height:56px;border-radius:50%;border:3px solid rgba(99,102,241,.12);border-top-color:#6366f1;border-right-color:#818cf8;animation:ldSpin .8s linear infinite;margin:0 auto}
+@keyframes ldSpin{to{transform:rotate(360deg)}}
+.app-loader .loader-text{margin-top:16px;color:#94a3b8;font:600 13px 'Plus Jakarta Sans',system-ui,sans-serif;animation:ldPulse 1.5s ease-in-out infinite}
+@keyframes ldPulse{0%,100%{opacity:.35}50%{opacity:1}}
+.app-loader .loader-bar{width:140px;height:3px;background:rgba(255,255,255,.06);border-radius:3px;margin:12px auto 0;overflow:hidden}
+.app-loader .loader-bar::after{content:'';display:block;width:50%;height:100%;background:linear-gradient(90deg,#6366f1,#818cf8);border-radius:3px;animation:ldBar 1.2s ease-in-out infinite}
+@keyframes ldBar{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+
+/* ── BG ORBS ── */
+.bg-orbs{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.bg-orbs .orb{position:absolute;border-radius:50%;filter:blur(100px)}
+.bg-orbs .o1{width:500px;height:500px;background:rgba(99,102,241,.08);top:-180px;left:-180px;animation:orbFloat1 18s ease-in-out infinite}
+.bg-orbs .o2{width:400px;height:400px;background:rgba(52,211,153,.06);bottom:-120px;right:-120px;animation:orbFloat2 20s ease-in-out infinite}
+.bg-orbs .o3{width:300px;height:300px;background:rgba(251,191,36,.05);top:40%;left:60%;animation:orbFloat3 22s ease-in-out infinite}
+@keyframes orbFloat1{0%,100%{transform:translate(0,0)}50%{transform:translate(80px,50px)}}
+@keyframes orbFloat2{0%,100%{transform:translate(0,0)}50%{transform:translate(-60px,-40px)}}
+@keyframes orbFloat3{0%,100%{transform:translate(0,0)}50%{transform:translate(-40px,60px)}}
+
+/* ── NOISE ── */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.02;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+
+/* ── TOPBAR ── */
+.topbar{animation:slideDown .45s cubic-bezier(.22,1,.36,1) both}
+@keyframes slideDown{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
+
+/* ── MAIN WRAP ── */
+.wrap{position:relative;z-index:2}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px}
+.tabs button{transition:all .25s cubic-bezier(.22,1,.36,1);position:relative;overflow:hidden}
+.tabs button:hover{transform:translateY(-1px)}
+.tabs button:active{transform:scale(.96)}
+.tabs button.on{animation:tabActivate .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes tabActivate{0%{transform:scale(.92)}100%{transform:scale(1)}}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stats .stat{opacity:0;transform:translateY(18px);animation:statReveal .5s cubic-bezier(.22,1,.36,1) forwards;transition:transform .25s,box-shadow .3s}
+.stats .stat:nth-child(1){animation-delay:.04s}
+.stats .stat:nth-child(2){animation-delay:.08s}
+.stats .stat:nth-child(3){animation-delay:.12s}
+.stats .stat:nth-child(4){animation-delay:.16s}
+.stats .stat:nth-child(5){animation-delay:.20s}
+.stats .stat:nth-child(6){animation-delay:.24s}
+.stats .stat:nth-child(7){animation-delay:.28s}
+@keyframes statReveal{to{opacity:1;transform:translateY(0)}}
+.stats .stat:hover{transform:translateY(-4px);box-shadow:0 12px 32px rgba(0,0,0,.2)}
+
+/* ── GLASS CARDS ── */
+.glass.card{transition:transform .3s cubic-bezier(.22,1,.36,1),border-color .3s,box-shadow .35s;opacity:0;animation:cardFadeUp .5s ease-out forwards}
+.glass.card:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.15)}
+@keyframes cardFadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── ANALYTICS GRID ── */
+.analytics-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.analytics-grid .stat{opacity:0;animation:statReveal .5s ease-out forwards}
+.analytics-grid .stat:nth-child(1){animation-delay:.04s}
+.analytics-grid .stat:nth-child(2){animation-delay:.09s}
+.analytics-grid .stat:nth-child(3){animation-delay:.14s}
+.analytics-grid .stat:nth-child(4){animation-delay:.19s}
+.analytics-grid .stat:nth-child(5){animation-delay:.24s}
+
+/* ── KPI GRID ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{opacity:0;transform:translateY(14px);animation:statReveal .45s ease-out forwards}
+.kpi:nth-child(1){animation-delay:.03s}
+.kpi:nth-child(2){animation-delay:.07s}
+.kpi:nth-child(3){animation-delay:.11s}
+.kpi:nth-child(4){animation-delay:.15s}
+.kpi:nth-child(5){animation-delay:.19s}
+.kpi:nth-child(6){animation-delay:.23s}
+.kpi:nth-child(7){animation-delay:.27s}
+.kpi:nth-child(8){animation-delay:.31s}
+.kpi:hover{transform:translateY(-2px)}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse}
+.tbl tr{transition:background .2s,transform .15s}
+.tbl tr:hover{background:rgba(99,102,241,.04)}
+.tbl th{animation:fadeIn .4s ease-out both}
+.tbl td{animation:fadeIn .3s ease-out both}
+
+/* ── TABLE ROWS STAGGER ── */
+.tbl tr{opacity:0;animation:tableRowIn .35s ease-out forwards}
+.tbl tr:nth-child(1){animation-delay:0s}
+.tbl tr:nth-child(2){animation-delay:.03s}
+.tbl tr:nth-child(3){animation-delay:.06s}
+.tbl tr:nth-child(4){animation-delay:.09s}
+.tbl tr:nth-child(5){animation-delay:.12s}
+.tbl tr:nth-child(6){animation-delay:.15s}
+.tbl tr:nth-child(7){animation-delay:.18s}
+.tbl tr:nth-child(8){animation-delay:.21s}
+.tbl tr:nth-child(9){animation-delay:.24s}
+.tbl tr:nth-child(10){animation-delay:.27s}
+@keyframes tableRowIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+
+/* ── BAR CHARTS ── */
+.bar{height:10px;background:rgba(255,255,255,.06);border-radius:6px;overflow:hidden}
+.bar-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,#6366f1,#818cf8);transition:width .8s cubic-bezier(.22,1,.36,1);animation:barGrow .8s ease-out both}
+@keyframes barGrow{from{width:0!important}}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;transition:transform .25s}
+.badge:hover{transform:scale(1.08)}
+.badge.b-on{background:rgba(52,211,153,.15);color:#34d399}
+.badge.b-off{background:rgba(248,113,113,.15);color:#f87171}
+.badge.b-trial{background:rgba(251,191,36,.15);color:#fbbf24}
+.badge.b-pend{background:rgba(99,102,241,.15);color:#818cf8}
+
+/* ── BUTTONS ── */
+.btn{transition:transform .2s cubic-bezier(.22,1,.36,1),box-shadow .25s,background .2s;position:relative;overflow:hidden}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:scale(.96) translateY(0)}
+.btn-primary{box-shadow:0 4px 14px rgba(99,102,241,.25)}
+.btn-primary:hover{box-shadow:0 8px 24px rgba(99,102,241,.35)}
+.btn-green{box-shadow:0 4px 14px rgba(4,120,87,.25)}
+.btn-green:hover{box-shadow:0 8px 24px rgba(4,120,87,.35)}
+.btn-danger{box-shadow:0 4px 14px rgba(153,27,27,.2)}
+.btn-danger:hover{box-shadow:0 8px 24px rgba(153,27,27,.3)}
+
+/* ── RIPPLE ── */
+.ani-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.25);transform:scale(0);animation:ripple .6s ease-out forwards;pointer-events:none}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+
+/* ── MODALS ── */
+.modal{animation:modalBgIn .25s ease}
+@keyframes modalBgIn{from{opacity:0}to{opacity:1}}
+.modal .glass.box{animation:sheetUp .35s cubic-bezier(.22,1,.36,1) both}
+@keyframes sheetUp{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── TEMPLATE GRID ── */
+.template-grid{display:grid;grid-template-columns:260px 1fr;gap:16px}
+.template-list{max-height:70vh;overflow-y:auto}
+.template-item{padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .25s;border:1px solid transparent;margin-bottom:6px}
+.template-item:hover{background:rgba(255,255,255,.04);border-color:rgba(99,102,241,.2)}
+.template-item.active{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.35);animation:templateSelect .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes templateSelect{0%{transform:scale(.97)}100%{transform:scale(1)}}
+.template-item .name{font-weight:700;font-size:14px}
+.template-item .meta{font-size:12px;color:#94a3b8;margin-top:2px}
+.template-editor{padding:14px}
+.product-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px;margin-bottom:6px;border-radius:10px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);transition:background .2s,transform .2s}
+.product-row:hover{background:rgba(255,255,255,.04);transform:translateX(2px)}
+
+/* ── PLANS GRID ── */
+.plans-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+.plans-grid .glass.card{transition:transform .3s,border-color .3s,box-shadow .35s}
+.plans-grid .glass.card:hover{transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,0,0,.18);border-color:rgba(99,102,241,.3)}
+
+/* ── MENU GRID ── */
+.menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.menu-grid .glass.card{text-align:center;padding:14px;transition:transform .25s,border-color .25s}
+.menu-grid .glass.card:hover{transform:translateY(-3px) scale(1.01);border-color:rgba(99,102,241,.3)}
+.menu-grid img{width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:8px}
+.menu-grid .name{font-weight:700;font-size:14px}
+.menu-grid .desc{font-size:12px;color:#94a3b8}
+.menu-grid .price{font-weight:800;color:#34d399;margin-top:4px}
+.menu-grid .status{font-size:11px;margin-top:4px}
+.menu-grid .category{font-size:11px;color:#64748b;margin-top:2px}
+
+/* ── FIELD INPUTS ── */
+.field input,.field select,.field textarea{
+  transition:border-color .25s,box-shadow .25s,transform .15s
+}
+.field input:focus,.field select:focus,.field textarea:focus{
+  border-color:#6366f1;
+  box-shadow:0 0 0 3px rgba(99,102,241,.15);
+  outline:none
+}
+
+/* ── DESIGN PANEL ── */
+.design-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.design-field{padding:12px;border-radius:12px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);transition:background .2s,border-color .2s}
+.design-field:hover{background:rgba(255,255,255,.04);border-color:rgba(99,102,241,.15)}
+.design-field label{font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.design-field .hint{font-size:11px;color:#64748b;margin-top:6px;line-height:1.5}
+.color-preview{display:inline-block;width:16px;height:16px;border-radius:4px;border:1px solid rgba(255,255,255,.15);vertical-align:middle}
+.design-group{margin-bottom:18px}
+.design-group h4{margin:0 0 10px;font-size:15px;color:#e2e8f0}
+.venue-selector{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;padding:12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)}
+.venue-selector select{padding:8px;border-radius:8px;background:#0e1219;color:#fff;border:1px solid #303746}
+.current-venue-name{font-size:12px;color:#94a3b8}
+
+/* ── SETTINGS GRID ── */
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+
+/* ── CHECKBOX GROUP ── */
+.checkbox-group{display:flex;flex-wrap:wrap;gap:8px}
+.checkbox-label{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.04);font-size:13px;cursor:pointer;transition:background .2s}
+.checkbox-label:hover{background:rgba(99,102,241,.1)}
+
+/* ── LOADING SPINNER ── */
+.loading-orders{display:flex;align-items:center;gap:10px;justify-content:center;padding:30px;color:#94a3b8}
+.spinner{width:20px;height:20px;border-radius:50%;border:2px solid rgba(99,102,241,.15);border-top-color:#6366f1;animation:ldSpin .7s linear infinite}
+
+/* ── REFRESH BUTTON ── */
+.refresh-btn-analytics{transition:transform .2s}
+.refresh-btn-analytics:active{transform:scale(.92) rotate(180deg)}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:6px}
+::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.18)}
+
+/* ── FIELD GROUP ── */
+.field-group{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.field-group .field.full{grid-column:1/-1}
+
+/* ── PULSE FOR PENDING ── */
+.pulse-pending{animation:pulseGlow 2s ease-in-out infinite}
+@keyframes pulseGlow{0%,100%{box-shadow:0 0 0 0 rgba(251,191,36,0)}50%{box-shadow:0 0 0 4px rgba(251,191,36,.12)}}
+
+/* ── SECTION FADE ── */
+[v-if]>*{animation:fadeIn .3s ease-out}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* ── SKELETON FOR LOADING ── */
+.skeleton{background:linear-gradient(90deg,rgba(255,255,255,.04) 25%,rgba(255,255,255,.08) 50%,rgba(255,255,255,.04) 75%);background-size:200% 100%;animation:shimmer 1.5s ease-in-out infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* ── RESPONSIVE ── */
+@media(max-width:720px){
+  .template-grid{grid-template-columns:1fr}
+  .design-grid{grid-template-columns:1fr}
+  .settings-grid{grid-template-columns:1fr}
+  .kpi-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
 </head>
 <body>
+
+<!-- LOADER -->
+<div class="app-loader" id="appLoader">
+  <div class="loader-inner">
+    <div class="loader-ring"></div>
+    <div class="loader-text">Загрузка админ-панели...</div>
+    <div class="loader-bar"></div>
+  </div>
+</div>
+
+<!-- BG ORBS -->
+<div class="bg-orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+
 <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
 <div id="app" v-cloak>
-<!-- ########################################################### -->
-<!-- ВЕСЬ ШАБЛОН – ТОЧНО КАК В ОРИГИНАЛЬНОМ admin.html           -->
-<!-- (скопирован из оригинального файла, который вы прислали)    -->
-<!-- ########################################################### -->
 <div class="topbar">
   <div class="brand" style="display:flex;align-items:center;gap:8px;">
     <div class="logo">⚙️</div>
     <span>Админ-панель</span>
-    <button v-if="profile && profile.role === 'admin'" 
-            class="btn btn-ghost btn-sm" 
+    <button v-if="profile && profile.role === 'admin'"
+            class="btn btn-ghost btn-sm"
             style="padding:4px 8px; font-size:16px; opacity:0.5; transition:opacity 0.2s;"
             @click="openDesignPanel"
             title="Настройки дизайна (только для администраторов)">
@@ -55,7 +303,10 @@
   </div>
 </div>
 <div class="wrap">
-<div v-if="!ready" class="muted" style="text-align:center;padding:60px">Загрузка…</div>
+<div v-if="!ready" class="muted" style="text-align:center;padding:60px">
+  <div class="spinner" style="margin:0 auto 12px;width:32px;height:32px"></div>
+  Загрузка…
+</div>
 <template v-else>
 <div class="stats" style="margin-bottom:18px">
 <div class="glass stat"><div class="num">{{ venues.length }}</div><div class="lbl">Заведений</div></div>
@@ -79,7 +330,7 @@
 <button v-bind:class="{on:tab==='settings'}" v-on:click="switchTab('settings')">⚙️ Настройки</button>
 </div>
 <!-- Настройки админки -->
-<div v-if="tab==='settings'">
+<div v-if="tab==='settings'" style="animation:cardFadeUp .4s ease-out">
   <h3 style="margin:0 0 14px;">⚙️ Настройки внешнего вида кабинета</h3>
   <div class="glass card">
     <div class="settings-grid">
@@ -128,7 +379,7 @@
   </div>
 </div>
 <!-- Шаблоны заведений -->
-<div v-if="tab==='templates'">
+<div v-if="tab==='templates'" style="animation:cardFadeUp .4s ease-out">
   <div class="spread" style="margin-bottom:14px">
     <div>
       <h3 style="margin:0">🍽️ Шаблоны заведений</h3>
@@ -144,9 +395,9 @@
   </div>
   <div class="glass card template-grid">
     <div class="template-list">
-      <input class="search" style="width:100%;box-sizing:border-box;margin-bottom:12px;background:#0e1219;color:#fff;border:1px solid #303746;border-radius:10px;padding:10px" 
+      <input class="search" style="width:100%;box-sizing:border-box;margin-bottom:12px;background:#0e1219;color:#fff;border:1px solid #303746;border-radius:10px;padding:10px"
              v-model.trim="searchQuery" placeholder="Поиск шаблона...">
-      <div v-for="t in filteredTemplates" :key="t.id" 
+      <div v-for="t in filteredTemplates" :key="t.id"
            class="template-item" :class="{active: selectedTemplate && selectedTemplate.id === t.id}"
            @click="selectTemplate(t)">
         <div class="name">{{ t.emoji || '🍽️' }} {{ t.name }}</div>
@@ -286,7 +537,7 @@
   </div>
 </div>
 <!-- Статистика -->
-<div v-if="tab==='stats'">
+<div v-if="tab==='stats'" style="animation:cardFadeUp .4s ease-out">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">🏆 Рейтинг заведений</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
 <option value="7">За 7 дней</option><option value="30">За 30 дней</option><option value="all">За всё время</option></select></div>
@@ -298,7 +549,7 @@
 <tr v-if="!globalStats.venueStats.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
 </div>
 <!-- Подписки -->
-<div v-if="tab==='subs'">
+<div v-if="tab==='subs'" style="animation:cardFadeUp .4s ease-out">
 <h3 style="margin:0 0 14px">📈 Аналитика по подпискам</h3>
 <div class="analytics-grid">
 <div class="glass stat"><div class="num">{{ subStats.total }}</div><div class="lbl">Всего подписок</div></div>
@@ -324,7 +575,7 @@
 <tr v-if="!venueSubs.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет заведений</td></tr></table></div>
 </div>
 <!-- Аналитика -->
-<div v-if="tab==='analytics'">
+<div v-if="tab==='analytics'" style="animation:cardFadeUp .4s ease-out">
 <div class="spread" style="margin-bottom:14px">
   <h3 style="margin:0">📈 Полная аналитика платформы</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -382,7 +633,7 @@
 </div>
 </div>
 <!-- Расширенная аналитика -->
-<div v-if="tab==='analytics'" data-admin-analytics-expanded="1" style="margin-top:14px">
+<div v-if="tab==='analytics'" data-admin-analytics-expanded="1" style="margin-top:14px;animation:cardFadeUp .5s ease-out .1s both">
   <div class="glass card" style="margin-bottom:14px">
     <div class="spread" style="margin-bottom:12px">
       <div>
@@ -440,59 +691,19 @@
     </div>
     <div class="glass card tblwrap" style="flex:1;min-width:320px">
   <h4 style="margin:0 0 12px">👥 Эффективность персонала</h4>
-
   <table class="tbl">
-    <tr>
-      <th>Сотрудник</th>
-      <th>Заведение</th>
-      <th>Заказы</th>
-      <th>Показатель</th>
+    <tr><th>Сотрудник</th><th>Заведение</th><th>Заказы</th><th>Показатель</th></tr>
+    <tr v-for="c in (adminAnalytics.cookActivity || []).slice(0,8)" v-bind:key="'c'+c.id">
+      <td>👨‍🍳 {{ c.name }}</td><td>{{ c.venue }}</td><td>{{ c.orders }}</td><td>{{ c.avgTime }} мин</td>
     </tr>
-
-    <!-- Повара -->
-    <tr
-      v-for="c in (adminAnalytics.cookActivity || []).slice(0,8)"
-      v-bind:key="'c'+c.id"
-    >
-      <td>👨‍🍳 {{ c.name }}</td>
-      <td>{{ c.venue }}</td>
-      <td>{{ c.orders }}</td>
-      <td>{{ c.avgTime }} мин</td>
+    <tr v-for="c in (adminAnalytics.courierActivity || []).slice(0,4)" v-bind:key="'r'+c.id">
+      <td>🚗 {{ c.name }}</td><td>{{ c.venue }}</td><td>{{ c.delivered }}</td><td>доставок</td>
     </tr>
-
-    <!-- Курьеры -->
-    <tr
-      v-for="c in (adminAnalytics.courierActivity || []).slice(0,4)"
-      v-bind:key="'r'+c.id"
-    >
-      <td>🚗 {{ c.name }}</td>
-      <td>{{ c.venue }}</td>
-      <td>{{ c.delivered }}</td>
-      <td>доставок</td>
+    <tr v-for="w in (adminAnalytics.waiterActivity || []).slice(0,4)" v-bind:key="'w'+w.id">
+      <td>🤵 {{ w.name }}</td><td>{{ w.venue }}</td><td>{{ w.served }}</td><td>обслужено</td>
     </tr>
-
-    <!-- Официанты -->
-    <tr
-      v-for="w in (adminAnalytics.waiterActivity || []).slice(0,4)"
-      v-bind:key="'w'+w.id"
-    >
-      <td>🤵 {{ w.name }}</td>
-      <td>{{ w.venue }}</td>
-      <td>{{ w.served }}</td>
-      <td>обслужено</td>
-    </tr>
-
-    <!-- Нет данных -->
-    <tr
-      v-if="
-        !(adminAnalytics.cookActivity || []).length &&
-        !(adminAnalytics.courierActivity || []).length &&
-        !(adminAnalytics.waiterActivity || []).length
-      "
-    >
-      <td colspan="4" class="muted" style="text-align:center;padding:20px">
-        Нет данных
-      </td>
+    <tr v-if="!(adminAnalytics.cookActivity || []).length && !(adminAnalytics.courierActivity || []).length && !(adminAnalytics.waiterActivity || []).length">
+      <td colspan="4" class="muted" style="text-align:center;padding:20px">Нет данных</td>
     </tr>
   </table>
 </div>
@@ -507,7 +718,7 @@
   </div>
 </div>
 <!-- Активность -->
-<div v-if="tab==='activity'">
+<div v-if="tab==='activity'" style="animation:cardFadeUp .4s ease-out">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность заведений и управляющих</h3>
 <select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
 <option value="7">За 7 дней</option><option value="30">За 30 дней</option><option value="all">За всё время</option></select></div>
@@ -529,7 +740,7 @@
 </template>
 </div>
 <!-- Заведения -->
-<div v-if="tab==='venues'">
+<div v-if="tab==='venues'" style="animation:cardFadeUp .4s ease-out">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Заведения</h3>
 <button class="btn btn-primary btn-sm" v-on:click="showModal=true">+ Создать</button></div>
 <div class="glass card tblwrap"><table class="tbl">
@@ -546,7 +757,7 @@
 <p v-if="!venues.length" class="muted" style="padding:14px">Заведений нет.</p></div>
 </div>
 <!-- Меню заведения -->
-<div v-if="tab==='menu'">
+<div v-if="tab==='menu'" style="animation:cardFadeUp .4s ease-out">
   <div class="spread" style="margin-bottom:14px">
     <h3 style="margin:0">🍔 Меню заведения</h3>
     <div class="field" style="margin-bottom:12px;">
@@ -582,7 +793,7 @@
   </div>
 </div>
 <!-- Управляющие -->
-<div v-if="tab==='managers'">
+<div v-if="tab==='managers'" style="animation:cardFadeUp .4s ease-out">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Управляющие</h3>
 <button class="btn btn-primary btn-sm" v-on:click="addMgrModal.show=true">+ Добавить управляющего</button></div>
 <div class="glass card tblwrap"><table class="tbl">
@@ -594,22 +805,11 @@
 <td>
   <div class="checkbox-group">
     <template v-if="managerVenuesMap[m.id] && managerVenuesMap[m.id].length">
-      <span
-        v-for="v in managerVenuesMap[m.id]"
-        v-bind:key="v.id"
-        class="checkbox-label"
-        style="cursor:default;"
-      >
+      <span v-for="v in managerVenuesMap[m.id]" v-bind:key="v.id" class="checkbox-label" style="cursor:default;">
         🏢 {{ v.name }}
       </span>
     </template>
-
-    <span
-      v-else
-      class="muted"
-    >
-      Нет назначенных заведений
-    </span>
+    <span v-else class="muted">Нет назначенных заведений</span>
   </div>
 </td>
 <td>
@@ -619,29 +819,14 @@
       <select v-bind:value="v.plan" v-on:change="changePlan(v,$event.target.value)" style="width:auto;padding:4px;font-size:12px;">
         <option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option>
       </select>
-      <select
-  v-model.number="managerPeriods[m.id]"
-  style="width:auto;min-width:105px;padding:5px 7px;font-size:11px;border-radius:7px"
->
-  <option :value="15">+15 дней</option>
-  <option :value="20">+20 дней</option>
-  <option :value="30">+30 дней</option>
-  <option :value="45">+45 дней</option>
-  <option :value="60">+60 дней</option>
-  <option :value="90">+90 дней</option>
-  <option :value="120">+120 дней</option>
-  <option :value="180">+180 дней</option>
-  <option :value="365">+1 год</option>
+      <select v-model.number="managerPeriods[m.id]" style="width:auto;min-width:105px;padding:5px 7px;font-size:11px;border-radius:7px">
+  <option :value="15">+15 дней</option><option :value="20">+20 дней</option><option :value="30">+30 дней</option>
+  <option :value="45">+45 дней</option><option :value="60">+60 дней</option><option :value="90">+90 дней</option>
+  <option :value="120">+120 дней</option><option :value="180">+180 дней</option><option :value="365">+1 год</option>
 </select>
       <span class="badge" v-bind:class="subClass(v)">{{ subLabel(v) }}</span>
       <span style="font-size:12px;">{{ fmtDate(v.subscription_end) }}</span>
-      <button
-  class="btn btn-ghost btn-sm"
-  style="padding:4px 8px;font-size:11px"
-  v-on:click="extendManagerSub(m, managerPeriods[m.id] || 30)"
->
-  Продлить
-</button>
+      <button class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:11px" v-on:click="extendManagerSub(m, managerPeriods[m.id] || 30)">Продлить</button>
   </div>
   <span v-if="!managerVenuesMap[m.id] || !managerVenuesMap[m.id].length" class="muted">Нет заведений</span>
 </td>
@@ -652,7 +837,7 @@
 <p v-if="!managers.length" class="muted" style="padding:14px">Нет управляющих.</p></div>
 </div>
 <!-- Тарифы и оплаты -->
-<div v-if="tab==='plans'">
+<div v-if="tab==='plans'" style="animation:cardFadeUp .4s ease-out">
 <div class="spread" style="margin-bottom:14px"><h3 style="margin:0">⚙️ Конструктор тарифов</h3>
 <button class="btn btn-primary btn-sm" v-on:click="createPlan">+ Создать тариф</button></div>
 <p class="muted" style="font-size:12px;margin-bottom:14px">Персональные тарифы назначаются в «🏢 Управляющие» → «Тариф».</p>
@@ -673,21 +858,11 @@
   <span class="muted" style="font-size:11px">
     {{ p.is_public === false ? 'Тариф скрыт от управляющих' : 'Тариф видим управляющим' }}
   </span>
-
-  <button
-    type="button"
-    class="btn btn-ghost btn-sm"
-    style="padding:5px 9px;font-size:11px"
-    v-on:click="togglePlanVisibility(p)"
-    v-bind:disabled="busy"
-  >
+  <button type="button" class="btn btn-ghost btn-sm" style="padding:5px 9px;font-size:11px" v-on:click="togglePlanVisibility(p)" v-bind:disabled="busy">
     {{ p.is_public === false ? '🙈 Скрыт' : '👁 Видим' }}
   </button>
 </div>
-
-<button class="btn btn-primary btn-sm" style="width:100%" v-on:click="savePlan(p)">
-  💾 Сохранить тариф
-</button>
+<button class="btn btn-primary btn-sm" style="width:100%" v-on:click="savePlan(p)">💾 Сохранить тариф</button>
 </div></div>
 <div class="glass card" style="margin-bottom:24px;border-color:#34d399">
 💳 <b>Приём оплат по СБП:</b> номер <b style="color:#6ee7b7">8 905 320-43-50</b>. Когда управляющий нажимает «Я оплатил», заявка появляется ниже — подтвердите её вручную.</div>
@@ -750,17 +925,10 @@
   <input v-model="p.name" style="flex:2" v-on:change="saveProductRow(p)">
   <input v-model.number="p.price" type="number" min="0" style="flex:1" v-on:change="saveProductRow(p)">
   <select v-model="p.category" style="flex:1" v-on:change="saveProductRow(p)">
-    <option value="main">🍽 Блюдо</option>
-    <option value="drink">🥤 Напиток</option>
-    <option value="addon">🧂 Доп</option>
-    <option value="breakfast">🍳 Завтрак</option>
-    <option value="salad">🥗 Салат</option>
-    <option value="soup">🍲 Суп</option>
-    <option value="dessert">🍰 Десерт</option>
-    <option value="sauce">🌶 Соус</option>
-    <option value="snack">🥨 Закуска</option>
-    <option value="hot">🔥 Горячее</option>
-    <option value="bbq">🥩 Гриль</option>
+    <option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option>
+    <option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
+    <option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+    <option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
   </select>
   <button class="btn btn-ghost btn-sm" v-on:click="toggleAvailRow(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
   <button class="btn btn-danger btn-sm" v-on:click="delProductRow(p)">🗑</button>
@@ -770,17 +938,10 @@
   <input v-model="prodModal.form.name" placeholder="Название" style="flex:2">
   <input v-model.number="prodModal.form.price" type="number" placeholder="Цена" style="flex:1">
   <select v-model="prodModal.form.category" style="flex:1">
-    <option value="main">🍽 Блюдо</option>
-    <option value="drink">🥤 Напиток</option>
-    <option value="addon">🧂 Доп</option>
-    <option value="breakfast">🍳 Завтрак</option>
-    <option value="salad">🥗 Салат</option>
-    <option value="soup">🍲 Суп</option>
-    <option value="dessert">🍰 Десерт</option>
-    <option value="sauce">🌶 Соус</option>
-    <option value="snack">🥨 Закуска</option>
-    <option value="hot">🔥 Горячее</option>
-    <option value="bbq">🥩 Гриль</option>
+    <option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option>
+    <option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
+    <option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+    <option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
   </select>
 </div>
 <button class="btn btn-green btn-sm" style="margin-top:8px" v-on:click="addProductRow">+ Добавить позицию</button>
@@ -834,7 +995,7 @@
     <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
     <p class="muted" style="font-size:12px;margin-bottom:14px">
       Здесь вы можете настроить внешний вид глобально или для конкретного заведения.
-      Изменения применяются после сохранения. 
+      Изменения применяются после сохранения.
       Ниже — пояснения, что именно меняет каждый параметр.
     </p>
     <div class="venue-selector">
@@ -853,229 +1014,61 @@
       <div class="design-group">
         <h4>🎨 Основные цвета</h4>
         <div class="design-grid">
-          <div class="design-field">
-            <label>Брендовый цвет <span class="color-preview" v-bind:style="{background:currentDesignTemplate.brand_color}"></span></label>
-            <input v-model="currentDesignTemplate.brand_color" type="color">
-            <div class="hint">Главный цвет заведения. Используется для кнопок, заголовков, акцентных элементов. Пример: если выбрать синий, все кнопки «Заказать» станут синими.</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_color}"></span></label>
-            <input v-model="currentDesignTemplate.button_color" type="color">
-            <div class="hint">Цвет фона для всех кнопок действия (добавить в корзину, оформить заказ и т.д.).</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет заголовков <span class="color-preview" v-bind:style="{background:currentDesignTemplate.header_color}"></span></label>
-            <input v-model="currentDesignTemplate.header_color" type="color">
-            <div class="hint">Цвет всех крупных заголовков (названия блюд, разделов меню).</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет фона страницы <span class="color-preview" v-bind:style="{background:currentDesignTemplate.background_color}"></span></label>
-            <input v-model="currentDesignTemplate.background_color" type="color">
-            <div class="hint">Фон всей страницы заведения. Влияет на восприятие контента.</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет фона карточек <span class="color-preview" v-bind:style="{background:currentDesignTemplate.card_background}"></span></label>
-            <input v-model="currentDesignTemplate.card_background" type="color">
-            <div class="hint">Фон карточек товаров (блюд и напитков).</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет текста <span class="color-preview" v-bind:style="{background:currentDesignTemplate.text_color}"></span></label>
-            <input v-model="currentDesignTemplate.text_color" type="color">
-            <div class="hint">Основной цвет текста на странице (описания, цены).</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет акцентов <span class="color-preview" v-bind:style="{background:currentDesignTemplate.accent_color}"></span></label>
-            <input v-model="currentDesignTemplate.accent_color" type="color">
-            <div class="hint">Дополнительный акцентный цвет (например, для иконок, выделения специальных предложений).</div>
-          </div>
-          <div class="design-field">
-            <label>Цвет границ <span class="color-preview" v-bind:style="{background:currentDesignTemplate.border_color}"></span></label>
-            <input v-model="currentDesignTemplate.border_color" type="color">
-            <div class="hint">Цвет рамок и разделителей между элементами.</div>
-          </div>
+          <div class="design-field"><label>Брендовый цвет <span class="color-preview" v-bind:style="{background:currentDesignTemplate.brand_color}"></span></label><input v-model="currentDesignTemplate.brand_color" type="color"><div class="hint">Главный цвет заведения. Используется для кнопок, заголовков, акцентных элементов.</div></div>
+          <div class="design-field"><label>Цвет кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_color}"></span></label><input v-model="currentDesignTemplate.button_color" type="color"><div class="hint">Цвет фона для всех кнопок действия.</div></div>
+          <div class="design-field"><label>Цвет заголовков <span class="color-preview" v-bind:style="{background:currentDesignTemplate.header_color}"></span></label><input v-model="currentDesignTemplate.header_color" type="color"><div class="hint">Цвет всех крупных заголовков.</div></div>
+          <div class="design-field"><label>Цвет фона страницы <span class="color-preview" v-bind:style="{background:currentDesignTemplate.background_color}"></span></label><input v-model="currentDesignTemplate.background_color" type="color"><div class="hint">Фон всей страницы заведения.</div></div>
+          <div class="design-field"><label>Цвет фона карточек <span class="color-preview" v-bind:style="{background:currentDesignTemplate.card_background}"></span></label><input v-model="currentDesignTemplate.card_background" type="color"><div class="hint">Фон карточек товаров.</div></div>
+          <div class="design-field"><label>Цвет текста <span class="color-preview" v-bind:style="{background:currentDesignTemplate.text_color}"></span></label><input v-model="currentDesignTemplate.text_color" type="color"><div class="hint">Основной цвет текста на странице.</div></div>
+          <div class="design-field"><label>Цвет акцентов <span class="color-preview" v-bind:style="{background:currentDesignTemplate.accent_color}"></span></label><input v-model="currentDesignTemplate.accent_color" type="color"><div class="hint">Дополнительный акцентный цвет.</div></div>
+          <div class="design-field"><label>Цвет границ <span class="color-preview" v-bind:style="{background:currentDesignTemplate.border_color}"></span></label><input v-model="currentDesignTemplate.border_color" type="color"><div class="hint">Цвет рамок и разделителей.</div></div>
         </div>
       </div>
       <div class="design-group">
         <h4>🖼️ Фон (градиент и изображение)</h4>
         <div class="design-grid">
-          <div class="design-field">
-            <label>Градиент (цвет 1) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_start}"></span></label>
-            <input v-model="currentDesignTemplate.gradient_start" type="color">
-            <div class="hint">Первый цвет градиента фона (если используется градиент вместо сплошного цвета).</div>
-          </div>
-          <div class="design-field">
-            <label>Градиент (цвет 2) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_end}"></span></label>
-            <input v-model="currentDesignTemplate.gradient_end" type="color">
-            <div class="hint">Второй цвет градиента.</div>
-          </div>
-          <div class="design-field">
-            <label>Направление градиента</label>
-            <select v-model="currentDesignTemplate.gradient_direction">
-              <option value="to right">→ вправо</option>
-              <option value="to left">← влево</option>
-              <option value="to bottom">↓ вниз</option>
-              <option value="to top">↑ вверх</option>
-              <option value="135deg">↘ диагональ</option>
-              <option value="45deg">↗ диагональ</option>
-            </select>
-            <div class="hint">Как будет располагаться градиент: горизонтально, вертикально или по диагонали.</div>
-          </div>
-          <div class="design-field">
-            <label>Фоновое изображение (URL)</label>
-            <input v-model="currentDesignTemplate.background_image" placeholder="https://example.com/bg.jpg">
-            <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px">
-              <span>📤 Загрузить</span>
-              <input type="file" accept="image/*" v-on:change="uploadBgImage" style="display:none">
-            </label>
-            <div class="hint">Если указать ссылку на изображение, оно станет фоном страницы (поверх градиента).</div>
-          </div>
+          <div class="design-field"><label>Градиент (цвет 1) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_start}"></span></label><input v-model="currentDesignTemplate.gradient_start" type="color"><div class="hint">Первый цвет градиента фона.</div></div>
+          <div class="design-field"><label>Градиент (цвет 2) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_end}"></span></label><input v-model="currentDesignTemplate.gradient_end" type="color"><div class="hint">Второй цвет градиента.</div></div>
+          <div class="design-field"><label>Направление градиента</label><select v-model="currentDesignTemplate.gradient_direction"><option value="to right">→ вправо</option><option value="to left">← влево</option><option value="to bottom">↓ вниз</option><option value="to top">↑ вверх</option><option value="135deg">↘ диагональ</option><option value="45deg">↗ диагональ</option></select><div class="hint">Как будет располагаться градиент.</div></div>
+          <div class="design-field"><label>Фоновое изображение (URL)</label><input v-model="currentDesignTemplate.background_image" placeholder="https://example.com/bg.jpg"><label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px"><span>📤 Загрузить</span><input type="file" accept="image/*" v-on:change="uploadBgImage" style="display:none"></label><div class="hint">Если указать ссылку на изображение, оно станет фоном страницы.</div></div>
         </div>
       </div>
       <div class="design-group">
-        <h4>🔤 Типографика (шрифты и размеры)</h4>
+        <h4>🔤 Типографика</h4>
         <div class="design-grid">
-          <div class="design-field">
-            <label>Шрифт</label>
-            <select v-model="currentDesignTemplate.font_family">
-              <option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option>
-              <option value="Inter">Inter</option>
-              <option value="Roboto">Roboto</option>
-              <option value="Montserrat">Montserrat</option>
-              <option value="Oswald">Oswald</option>
-            </select>
-            <div class="hint">Выберите шрифт для всего текста на сайте заведения.</div>
-          </div>
-          <div class="design-field">
-            <label>Размер шрифта (px)</label>
-            <input v-model.number="currentDesignTemplate.font_size" type="number" min="12" max="24">
-            <div class="hint">Базовый размер текста. Влияет на читаемость.</div>
-          </div>
-          <div class="design-field">
-            <label>Жирность заголовков</label>
-            <select v-model="currentDesignTemplate.heading_weight">
-              <option value="400">400 (обычный)</option>
-              <option value="600">600 (полужирный)</option>
-              <option value="700">700 (жирный)</option>
-              <option value="800">800 (очень жирный)</option>
-            </select>
-            <div class="hint">Насыщенность шрифта для названий блюд и разделов.</div>
-          </div>
-          <div class="design-field">
-            <label>Жирность текста</label>
-            <select v-model="currentDesignTemplate.body_weight">
-              <option value="300">300 (лёгкий)</option>
-              <option value="400">400 (обычный)</option>
-              <option value="500">500 (средний)</option>
-              <option value="600">600 (полужирный)</option>
-            </select>
-            <div class="hint">Насыщенность основного текста (описания, цены).</div>
-          </div>
-          <div class="design-field">
-            <label>Межстрочный интервал</label>
-            <select v-model="currentDesignTemplate.line_height">
-              <option value="1.4">1.4 (уплотнённый)</option>
-              <option value="1.6">1.6 (стандартный)</option>
-              <option value="1.8">1.8 (разреженный)</option>
-              <option value="2.0">2.0 (очень разреженный)</option>
-            </select>
-            <div class="hint">Расстояние между строками текста. Больше — легче читать.</div>
-          </div>
-          <div class="design-field">
-            <label>Межбуквенный интервал (px)</label>
-            <input v-model.number="currentDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5">
-            <div class="hint">Расстояние между буквами. Может сделать текст более «воздушным».</div>
-          </div>
+          <div class="design-field"><label>Шрифт</label><select v-model="currentDesignTemplate.font_family"><option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option><option value="Inter">Inter</option><option value="Roboto">Roboto</option><option value="Montserrat">Montserrat</option><option value="Oswald">Oswald</option></select><div class="hint">Шрифт для всего текста.</div></div>
+          <div class="design-field"><label>Размер шрифта (px)</label><input v-model.number="currentDesignTemplate.font_size" type="number" min="12" max="24"><div class="hint">Базовый размер текста.</div></div>
+          <div class="design-field"><label>Жирность заголовков</label><select v-model="currentDesignTemplate.heading_weight"><option value="400">400</option><option value="600">600</option><option value="700">700</option><option value="800">800</option></select><div class="hint">Насыщенность шрифта заголовков.</div></div>
+          <div class="design-field"><label>Жирность текста</label><select v-model="currentDesignTemplate.body_weight"><option value="300">300</option><option value="400">400</option><option value="500">500</option><option value="600">600</option></select><div class="hint">Насыщенность основного текста.</div></div>
+          <div class="design-field"><label>Межстрочный интервал</label><select v-model="currentDesignTemplate.line_height"><option value="1.4">1.4</option><option value="1.6">1.6</option><option value="1.8">1.8</option><option value="2.0">2.0</option></select><div class="hint">Расстояние между строками.</div></div>
+          <div class="design-field"><label>Межбуквенный интервал (px)</label><input v-model.number="currentDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5"><div class="hint">Расстояние между буквами.</div></div>
         </div>
       </div>
       <div class="design-group">
-        <h4>🃏 Карточки товаров (блюд и напитков)</h4>
+        <h4>🃏 Карточки товаров</h4>
         <div class="design-grid">
-          <div class="design-field">
-            <label>Внутренний отступ (px)</label>
-            <input v-model.number="currentDesignTemplate.card_padding" type="number" min="4" max="24">
-            <div class="hint">Расстояние от края карточки до содержимого. Больше — «воздушнее».</div>
-          </div>
-          <div class="design-field">
-            <label>Высота изображения (px)</label>
-            <input v-model.number="currentDesignTemplate.card_image_height" type="number" min="80" max="300">
-            <div class="hint">Высота фото блюда в карточке. Ширина подстроится автоматически.</div>
-          </div>
-          <div class="design-field">
-            <label>Выравнивание текста</label>
-            <select v-model="currentDesignTemplate.card_text_align">
-              <option value="left">Слева</option>
-              <option value="center">По центру</option>
-            </select>
-            <div class="hint">Как выравнивать название и описание внутри карточки.</div>
-          </div>
-          <div class="design-field" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-            <label><input type="checkbox" v-model="currentDesignTemplate.show_description"> Показывать описание</label>
-            <label><input type="checkbox" v-model="currentDesignTemplate.show_price"> Показывать цену</label>
-            <div class="hint" style="width:100%">Включите, чтобы отображать эти поля на карточке.</div>
-          </div>
+          <div class="design-field"><label>Внутренний отступ (px)</label><input v-model.number="currentDesignTemplate.card_padding" type="number" min="4" max="24"><div class="hint">Расстояние от края карточки до содержимого.</div></div>
+          <div class="design-field"><label>Высота изображения (px)</label><input v-model.number="currentDesignTemplate.card_image_height" type="number" min="80" max="300"><div class="hint">Высота фото блюда в карточке.</div></div>
+          <div class="design-field"><label>Выравнивание текста</label><select v-model="currentDesignTemplate.card_text_align"><option value="left">Слева</option><option value="center">По центру</option></select><div class="hint">Выравнивание внутри карточки.</div></div>
+          <div class="design-field" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label><input type="checkbox" v-model="currentDesignTemplate.show_description"> Показывать описание</label><label><input type="checkbox" v-model="currentDesignTemplate.show_price"> Показывать цену</label></div>
         </div>
       </div>
       <div class="design-group">
         <h4>🔘 Кнопки</h4>
         <div class="design-grid">
-          <div class="design-field">
-            <label>Цвет текста кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_text_color}"></span></label>
-            <input v-model="currentDesignTemplate.button_text_color" type="color">
-            <div class="hint">Цвет текста на кнопках.</div>
-          </div>
-          <div class="design-field">
-            <label>Жирность текста кнопок</label>
-            <select v-model="currentDesignTemplate.button_weight">
-              <option value="400">400</option>
-              <option value="600">600</option>
-              <option value="700">700</option>
-            </select>
-            <div class="hint">Насыщенность шрифта на кнопках.</div>
-          </div>
-          <div class="design-field">
-            <label>Эффект при наведении</label>
-            <select v-model="currentDesignTemplate.button_hover">
-              <option value="scale">Увеличение (легкое увеличение размера)</option>
-              <option value="shadow">Тень (появление тени)</option>
-              <option value="none">Без эффекта</option>
-            </select>
-            <div class="hint">Как кнопка реагирует на наведение курсора.</div>
-          </div>
+          <div class="design-field"><label>Цвет текста кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_text_color}"></span></label><input v-model="currentDesignTemplate.button_text_color" type="color"><div class="hint">Цвет текста на кнопках.</div></div>
+          <div class="design-field"><label>Жирность текста кнопок</label><select v-model="currentDesignTemplate.button_weight"><option value="400">400</option><option value="600">600</option><option value="700">700</option></select><div class="hint">Насыщенность шрифта на кнопках.</div></div>
+          <div class="design-field"><label>Эффект при наведении</label><select v-model="currentDesignTemplate.button_hover"><option value="scale">Увеличение</option><option value="shadow">Тень</option><option value="none">Без эффекта</option></select><div class="hint">Реакция кнопки на наведение курсора.</div></div>
         </div>
       </div>
       <div class="design-group">
-        <h4>⚙️ Дополнительно (рамки, тени, анимация)</h4>
+        <h4>⚙️ Дополнительно</h4>
         <div class="design-grid">
-          <div class="design-field">
-            <label>Толщина границ (px)</label>
-            <input v-model.number="currentDesignTemplate.border_width" type="number" min="0" max="4">
-            <div class="hint">Толщина рамок вокруг карточек, кнопок и других элементов.</div>
-          </div>
-          <div class="design-field">
-            <label>Скругление карточек (px)</label>
-            <input v-model.number="currentDesignTemplate.border_radius" type="number" min="0" max="30">
-            <div class="hint">Закругление углов у карточек товаров. Больше — более «мягкий» вид.</div>
-          </div>
-          <div class="design-field">
-            <label>Скругление кнопок (px)</label>
-            <input v-model.number="currentDesignTemplate.button_radius" type="number" min="0" max="30">
-            <div class="hint">Закругление углов кнопок.</div>
-          </div>
-          <div class="design-field">
-            <label>Тень (px)</label>
-            <input v-model.number="currentDesignTemplate.shadow" type="number" min="0" max="20">
-            <div class="hint">Размер тени у карточек и кнопок. 0 — тени нет.</div>
-          </div>
-          <div class="design-field">
-            <label>Скорость анимации (s)</label>
-            <select v-model="currentDesignTemplate.transition_speed">
-              <option value="0.1">0.1 (очень быстро)</option>
-              <option value="0.2">0.2 (быстро)</option>
-              <option value="0.3">0.3 (средне)</option>
-              <option value="0.5">0.5 (медленно)</option>
-            </select>
-            <div class="hint">Время, за которое происходят анимации (наведение, появление).</div>
-          </div>
+          <div class="design-field"><label>Толщина границ (px)</label><input v-model.number="currentDesignTemplate.border_width" type="number" min="0" max="4"><div class="hint">Толщина рамок.</div></div>
+          <div class="design-field"><label>Скругление карточек (px)</label><input v-model.number="currentDesignTemplate.border_radius" type="number" min="0" max="30"><div class="hint">Закругление углов карточек.</div></div>
+          <div class="design-field"><label>Скругление кнопок (px)</label><input v-model.number="currentDesignTemplate.button_radius" type="number" min="0" max="30"><div class="hint">Закругление углов кнопок.</div></div>
+          <div class="design-field"><label>Тень (px)</label><input v-model.number="currentDesignTemplate.shadow" type="number" min="0" max="20"><div class="hint">Размер тени. 0 — без тени.</div></div>
+          <div class="design-field"><label>Скорость анимации (s)</label><select v-model="currentDesignTemplate.transition_speed"><option value="0.1">0.1</option><option value="0.2">0.2</option><option value="0.3">0.3</option><option value="0.5">0.5</option></select><div class="hint">Время анимаций.</div></div>
         </div>
       </div>
       <div class="row" style="margin-top:16px;flex-wrap:wrap;gap:8px">
@@ -1085,15 +1078,15 @@
         </template>
         <template v-else>
           <button class="btn btn-primary btn-sm" v-on:click="saveVenueDesign">💾 Сохранить для этого заведения</button>
-          <button class="btn btn-ghost btn-sm" v-on:click="applyGlobalToVenue">📥 Применить глобальный шаблон к этому заведению</button>
-          <button class="btn btn-danger btn-sm" v-on:click="resetVenueDesign">↺ Сбросить на глобальный (удалить настройки)</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="applyGlobalToVenue">📥 Применить глобальный шаблон</button>
+          <button class="btn btn-danger btn-sm" v-on:click="resetVenueDesign">↺ Сбросить на глобальный</button>
         </template>
         <button class="btn btn-ghost btn-sm" v-on:click="resetAdminTemplate">↺ Сбросить глобальный шаблон</button>
         <button class="btn btn-ghost btn-sm" v-on:click="secretDesignPanel=false">✖ Закрыть</button>
       </div>
     </div>
     <h4>Текущие настройки заведений</h4>
-    <p class="muted" style="font-size:12px;">Ниже показаны активные настройки для каждого заведения. Вы можете применить глобальный шаблон к выбранному заведению кнопкой «Применить шаблон».</p>
+    <p class="muted" style="font-size:12px;">Ниже показаны активные настройки для каждого заведения.</p>
     <div class="tblwrap">
       <table class="tbl">
         <tr><th>Заведение</th><th>Брендовый цвет</th><th>Цвет кнопок</th><th>Шрифт</th><th>Действие</th></tr>
@@ -1130,5 +1123,24 @@
   </div>
 </div>
 </div>
+
+<script>
+/* ── Hide loader ── */
+window.addEventListener('load',function(){setTimeout(function(){var l=document.getElementById('appLoader');if(l)l.classList.add('hide')},500)});
+
+/* ── Ripple effect on all buttons ── */
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('.btn');
+  if(!btn)return;
+  var r=document.createElement('span');r.className='ani-ripple';
+  var rect=btn.getBoundingClientRect();
+  var size=Math.max(rect.width,rect.height);
+  r.style.width=r.style.height=size+'px';
+  r.style.left=(e.clientX-rect.left-size/2)+'px';
+  r.style.top=(e.clientY-rect.top-size/2)+'px';
+  btn.appendChild(r);
+  setTimeout(function(){r.remove()},600);
+});
+</script>
 </body>
 </html>
