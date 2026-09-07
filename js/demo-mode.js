@@ -7,8 +7,13 @@ var isManager=/manager\.html$/i.test(path);
 var isManagerDemo=/manager-demo\.html$/i.test(path);
 var isPublicMenu=/menu\.html$/i.test(path);
 var demoPage=isStaff||isManager||isManagerDemo;
-if(params.get('demo')==='0'||isPublicMenu)localStorage.removeItem('qr_demo_mode');
-if(params.get('demo')==='1'&&demoPage)localStorage.setItem('qr_demo_mode','1');
+var explicitDemo=params.get('demo')==='1';
+var explicitProduction=params.get('demo')==='0';
+/* demo-venue is valid only for an explicitly requested demo session.
+   A stale localStorage flag must never turn the real manager cabinet into
+   demo mode, otherwise demo-venue is sent to UUID columns in Supabase. */
+if(explicitProduction||isPublicMenu||(isManager&&!explicitDemo))localStorage.removeItem('qr_demo_mode');
+if(explicitDemo&&demoPage)localStorage.setItem('qr_demo_mode','1');
 var isDemo=localStorage.getItem('qr_demo_mode')==='1'&&demoPage;
 window.__isDemoMode=isDemo;
 if(!isDemo)return;
