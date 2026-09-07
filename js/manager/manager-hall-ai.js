@@ -4,12 +4,10 @@
   if(window.__QR_MANAGER_HALL_AI_ROOT_LOADER__) return;
   window.__QR_MANAGER_HALL_AI_ROOT_LOADER__=true;
 
-  /*
-   * The old manager AI UI can survive as a dynamically injected modal from an
-   * older cached runtime. Its DOM id is not stable, so targeting #qr-ai-center
-   * alone is insufficient. Qrchick is now the only manager AI entry point.
-   */
+  /* Qrchick is the only manager AI entry point. Keep the compatibility guard
+     small and safe: never call MutationObserver.observe() before body exists. */
   function hideLegacyAI(){
+    if(!document.body)return;
     var nodes=document.querySelectorAll('body *');
     for(var i=0;i<nodes.length;i++){
       var el=nodes[i];
@@ -43,6 +41,10 @@
 
   function installAIConflictGuard(){
     if(window.__QR_MANAGER_AI_CONFLICT_GUARD__)return;
+    if(!document.body){
+      document.addEventListener('DOMContentLoaded',installAIConflictGuard,{once:true});
+      return;
+    }
     window.__QR_MANAGER_AI_CONFLICT_GUARD__=true;
     hideLegacyAI();
     document.addEventListener('click',function(e){
@@ -61,7 +63,7 @@
   installAIConflictGuard();
 
   var s=document.createElement('script');
-  s.src='/js/manager-hall-ai.js?v=fix-20260907-2';
+  s.src='/js/manager-hall-ai.js?v=fix-20260907-3';
   s.async=false;
   s.onload=function(){installAIConflictGuard();};
   s.onerror=function(){console.error('[QR Manager] Failed to load canonical hall AI:',s.src);};
