@@ -1,4 +1,4 @@
-/* QR Menu — compatibility entrypoint. Canonical manager design lives at /js/manager-design.js. */
+/* QR Menu — compatibility entrypoint. Canonical manager design lives at /js/manager-design.js. Production sync marker 2026-09-07. */
 (function(){
   'use strict';
   if(window.__QR_MANAGER_DESIGN_ROOT_LOADER__) return;
