@@ -58,18 +58,21 @@
     return !!(this.profile&&this.profile.role==='admin')||!!(this.currentPlan&&this.currentPlan.ai_enabled===true);
   };
 
+  /* Qrchick is the core manager chat. Its server endpoint remains the final
+     subscription/authorization authority, so the client must not hide it
+     based on an incompletely hydrated plan object. Specialized AI features
+     continue to use plan.ai_features below. */
   appMethods.hasAIFeature=function(feature){
     if(!feature)return false;
     if(this.profile&&this.profile.role==='admin')return true;
+    if(feature==='assistant')return !!(this.profile&&this.profile.role==='manager');
     var s=this.managerSubscription;
     if(s&&s.status==='trialing'&&s.current_period_end&&new Date(s.current_period_end)>=new Date())return true;
     var plan=this.currentPlan;
     if(!plan||plan.ai_enabled!==true)return false;
     var features=plan.ai_features&&typeof plan.ai_features==='object'?plan.ai_features:{};
     if(features[feature]===true)return true;
-    /* Старые записи планов могли иметь только ai_enabled: сохраняем assistant,
-       но не открываем этим флагом новые специализированные возможности. */
-    return feature==='assistant'&&Object.keys(features).length===0;
+    return false;
   };
 
   appMethods.aiFeatureLabel=function(feature){
@@ -258,139 +261,41 @@
       if(!items.length){hide();return;}
       box.innerHTML='';
       items.forEach(function(item){
-        var row=document.createElement('button');
-        row.type='button';
-        row.textContent=item.text;
-        row.style.cssText='display:block;width:100%;text-align:left;border:0;background:transparent;color:#e5e7eb;padding:9px 10px;border-radius:7px;cursor:pointer;font-size:13px;';
-        row.addEventListener('mouseenter',function(){row.style.background='rgba(99,102,241,.12)';});
-        row.addEventListener('mouseleave',function(){row.style.background='transparent';});
-        row.addEventListener('mousedown',function(e){e.preventDefault();choose(item.text);});
-        box.appendChild(row);
+        var btn=document.createElement('button');
+        btn.type='button';btn.textContent=item.text;
+        btn.style.cssText='display:block;width:100%;text-align:left;border:0;background:transparent;color:#e2e8f0;padding:8px 9px;border-radius:7px;cursor:pointer;font-size:12px;';
+        btn.onmouseenter=function(){btn.style.background='rgba(99,102,241,.12)';};
+        btn.onmouseleave=function(){btn.style.background='transparent';};
+        btn.onclick=function(){choose(item.text);};
+        box.appendChild(btn);
       });
       box.style.display='block';
     }
     input.addEventListener('input',render);
     input.addEventListener('focus',render);
-    input.addEventListener('blur',function(){setTimeout(hide,140);});
-    document.addEventListener('keydown',function(e){if(e.key==='Escape')hide();});
-    vm.$nextTick(render);
+    document.addEventListener('click',function(e){if(e.target!==input&&!box.contains(e.target))hide();});
   }
 
-  var basePrepareCreateVenueModal=appMethods.prepareCreateVenueModal;
-  if(typeof basePrepareCreateVenueModal==='function'){
-    appMethods.prepareCreateVenueModal=function(){
-      var self=this;
-      return Promise.resolve(basePrepareCreateVenueModal.apply(this,arguments)).then(function(result){
-        self.$nextTick(function(){installVenueNameSuggestions(self);});
-        return result;
-      });
-    };
+  function startVenueNameSuggestions(vm){
+    var tries=0;
+    var timer=setInterval(function(){
+      if(!window.__managerVue){if(++tries>120)clearInterval(timer);return;}
+      installVenueNameSuggestions(vm||window.__managerVue);
+      if((vm||window.__managerVue).__qrVenueSuggestBound||++tries>120)clearInterval(timer);
+    },250);
   }
 
-  function loadInstruction(){
-    if(window.__QR_MANAGER_INSTRUCTION_V6__||window.__QR_MANAGER_INSTRUCTION_LOADING__)return;
-    window.__QR_MANAGER_INSTRUCTION_LOADING__=true;
-    var script=document.createElement('script');
-    script.src='/js/manager-instruction-tab-v2.js?v=6';
-    script.async=false;
-    script.setAttribute('data-qr-manager-instruction','v6');
-    script.onload=function(){window.__QR_MANAGER_INSTRUCTION_LOADING__=false;};
-    script.onerror=function(){window.__QR_MANAGER_INSTRUCTION_LOADING__=false;console.error('[QR Manager] Не удалось загрузить полную инструкцию:',script.src);};
-    document.head.appendChild(script);
-  }
+  window.__QR_MANAGER_APP_MIXIN__={data:appData,computed:appComputed,methods:appMethods};
 
-  if(!appMethods.openStaffGuide){
-    appMethods.openStaffGuide=function(){
-      if(typeof window.__QR_MANAGER_INSTRUCTION_SHOW__==='function'){
-        window.__QR_MANAGER_INSTRUCTION_SHOW__('start');
-        return;
-      }
-      loadInstruction();
-      setTimeout(function(){
-        if(typeof window.__QR_MANAGER_INSTRUCTION_SHOW__==='function')window.__QR_MANAGER_INSTRUCTION_SHOW__('start');
-      },100);
-    };
+  function boot(){
+    var el=document.getElementById('app');
+    if(!el||!window.Vue)return setTimeout(boot,50);
+    var mount=Vue.createApp(window.__QR_MANAGER_APP_MIXIN__);
+    var vm=mount.mount(el);
+    window.__managerVue=vm;
+    try{window.dispatchEvent(new CustomEvent('qr-manager-vue-ready',{detail:{vm:vm}}));}catch(e){}
+    vm.init().catch(function(e){console.error('[Manager] init failed:',e);});
+    startVenueNameSuggestions(vm);
   }
-
-  if(!appMethods.renderHall){
-    appMethods.renderHall=function(){
-      var container=document.getElementById('hall-container');
-      if(!container||!window.QRManagerHall||typeof window.QRManagerHall.renderIn!=='function')return;
-      if(!this.hallRendered){
-        window.QRManagerHall.renderIn(container,this.venue);
-        this.hallRendered=true;
-      }
-    };
-  }
-
-  function loadPaymentSettings(){
-    if(window.__QR_MANAGER_PAYMENT_SETTINGS_V3__)return;
-    if(document.querySelector('script[data-qr-manager-payment-settings]'))return;
-    var script=document.createElement('script');
-    script.src='/js/manager-payment-settings.js';
-    script.async=false;
-    script.setAttribute('data-qr-manager-payment-settings','1');
-    script.onerror=function(){console.error('[QR Manager] Не удалось загрузить модуль СБП:',script.src);};
-    document.head.appendChild(script);
-  }
-
-  function mountApp(){
-    if(window.__QR_MANAGER_VUE_APP__)return;
-    var root=document.getElementById('app');
-    if(!root){console.error('[QR Manager] #app not found');return;}
-    if(typeof window.Vue==='undefined'){console.error('[QR Manager] Vue is not loaded');return;}
-    loadInstruction();
-    var app=Vue.createApp({
-      data:appData,
-      computed:appComputed,
-      methods:appMethods,
-      watch:{
-        tab:function(newTab){
-          if(newTab==='orders'&&this.venue){
-            var self=this;
-            if(typeof self.loadOrders==='function')self.loadOrders().catch(function(e){
-              console.error('[Manager] Ошибка загрузки заказов:',e);
-              self.showToast('Не удалось загрузить заказы: '+(e.message||e),'error');
-            });
-          }
-          if(newTab==='hall'&&this.venue){
-            var self=this;
-            this.$nextTick(function(){self.renderHall();});
-          }
-          if(newTab==='staff'&&this.venue){
-            var self=this;
-            self.staffAnalyticsDays=self.staffAnalyticsDays||'30';
-            Promise.all([
-              typeof self.loadCooks==='function'?self.loadCooks():Promise.resolve(),
-              typeof self.loadCouriers==='function'?self.loadCouriers():Promise.resolve(),
-              typeof self.loadWaiters==='function'?self.loadWaiters():Promise.resolve(),
-              typeof self.loadStaffAnalytics==='function'?self.loadStaffAnalytics():Promise.resolve()
-            ]).catch(function(e){
-              console.error('[Manager] Ошибка загрузки персонала:',e);
-              self.showToast('Не удалось загрузить персонал: '+(e.message||e),'error');
-            });
-          }
-        },
-        showCreateVenue:function(show){
-          if(!show||typeof this.prepareCreateVenueModal!=='function')return;
-          this.prepareCreateVenueModal();
-        }
-      },
-      mounted:function(){this.init();},
-      beforeUnmount:function(){
-        if(this.timer)clearInterval(this.timer);
-        if(this.__qrAIGateObserver)this.__qrAIGateObserver.disconnect();
-      }
-    });
-    app.mount(root);
-    window.__managerVue=app._instance&&app._instance.proxy;
-    window.__QR_MANAGER_VUE_APP__=app;
-    window.__QR_MANAGER_APP__=true;
-    if(window.__managerVue)startManagerAIGate(window.__managerVue);
-    window.dispatchEvent(new CustomEvent('qr-manager-vue-ready'));
-    loadPaymentSettings();
-  }
-
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountApp,{once:true});
-  else mountApp();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
