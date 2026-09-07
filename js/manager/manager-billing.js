@@ -48,9 +48,6 @@
           self.myPayments = [];
         });
       },
-
-      /* Refresh plan data so tariff AI flags changed in the admin cabinet are
-         reflected in an already-open manager session without a page reload. */
       refreshPlanEntitlements: function() {
         var self = this;
         if (!self.profile || self.profile.role === 'admin') return Promise.resolve(false);
@@ -66,9 +63,7 @@
           if (prevSignature === nextSignature) return false;
           self.plans = next;
           try {
-            window.dispatchEvent(new CustomEvent('qr-manager-ai-entitlements-updated', {
-              detail: { managerId: self.profile.id }
-            }));
+            window.dispatchEvent(new CustomEvent('qr-manager-ai-entitlements-updated', { detail: { managerId: self.profile.id } }));
           } catch (e) {}
           return true;
         }).catch(function(e) {
@@ -76,7 +71,6 @@
           return false;
         });
       },
-
       choosePlan: function(p) {
         if (!p) return;
         if (Number(p.price) === 0) {
@@ -85,11 +79,9 @@
         }
         this.payPlan = p;
       },
-
       subscribeFree: async function() {
         this.showToast('Изменение тарифа выполняется через биллинг', 'error');
       },
-
       markPaid: function() {
         var self = this;
         if (!this.payPlan || !this.profile) return;
@@ -111,54 +103,45 @@
           self.busy = false;
         });
       },
-
-      planPriceLabel: function(p) {
-        return Number(p.price) === 0 ? '0' : this.fmt(p.price) + ' ₽';
-      },
-      planBtnLabel: function(p) {
-        return (this.currentPlan && this.currentPlan.id === p.id) ? 'Текущий' : 'Выбрать';
-      },
-      planBtnClass: function(p) {
-        return (this.currentPlan && this.currentPlan.id === p.id) ? 'btn-ghost' : 'btn-primary';
-      },
-      isCurrentPlan: function(p) {
-        return this.currentPlan && this.currentPlan.id === p.id;
-      },
-      payBadge: function(s) {
-        return s === 'confirmed' ? 'b-ready' : s === 'rejected' ? 'b-cancelled' : 'b-cooking';
-      },
-      payLabel: function(s) {
-        return s === 'confirmed' ? 'Активна' : s === 'rejected' ? 'Отклонена' : 'На проверке';
-      },
-      copySbp: function() {
-        this.copyText(window.SBP_PHONE || '89053204350');
-      }
+      planPriceLabel: function(p) { return Number(p.price) === 0 ? '0' : this.fmt(p.price) + ' ₽'; },
+      planBtnLabel: function(p) { return (this.currentPlan && this.currentPlan.id === p.id) ? 'Текущий' : 'Выбрать'; },
+      planBtnClass: function(p) { return (this.currentPlan && this.currentPlan.id === p.id) ? 'btn-ghost' : 'btn-primary'; },
+      isCurrentPlan: function(p) { return this.currentPlan && this.currentPlan.id === p.id; },
+      payBadge: function(s) { return s === 'confirmed' ? 'b-ready' : s === 'rejected' ? 'b-cancelled' : 'b-cooking'; },
+      payLabel: function(s) { return s === 'confirmed' ? 'Активна' : s === 'rejected' ? 'Отклонена' : 'На проверке'; },
+      copySbp: function() { this.copyText(window.SBP_PHONE || '89053204350'); }
     }
   };
 
   /* Canonical client-side AI entitlement bridge.
-     The manager subscription's plan_id is the source of truth. */
+     The manager subscription determines access. assistant is the core Qrchick chat
+     and is available for any unexpired active/trialing subscription; specialized
+     AI features remain controlled by plan.ai_features. */
   function installAIEntitlementBridge(vm) {
-    if (!vm || vm.__qrManagerAIEntitlementBridge) return;
-    vm.__qrManagerAIEntitlementBridge = true;
+    if (!vm) return;
+    if (vm.__qrManagerAIEntitlementBridgeInstalled) return;
+    vm.__qrManagerAIEntitlementBridgeInstalled = true;
+
     vm.hasAIFeature = function(feature) {
       feature = String(feature || '').trim();
       if (!feature) return false;
       if (this.profile && this.profile.role === 'admin') return true;
-      /* Subscription is loaded asynchronously during manager startup. An
-         unresolved entitlement is not a denial; backend authorization remains
-         authoritative once the request is sent. */
-      if (this.aiEntitlementReady !== true) return true;
+
       var sub = this.managerSubscription;
-      if (!sub || ['active', 'trialing'].indexOf(sub.status) === -1 || !sub.current_period_end || new Date(sub.current_period_end) < new Date()) return false;
+      var active = !!(sub && ['active', 'trialing'].indexOf(sub.status) !== -1 && sub.current_period_end && new Date(sub.current_period_end) >= new Date());
+      if (!active) return false;
+
+      /* Qrchick itself is the core manager AI chat. Once the manager has a
+         current subscription, the chat must never disappear because the
+         plan catalogue failed to hydrate in the browser. */
+      if (feature === 'assistant') return true;
       if (sub.status === 'trialing') return true;
+
       var plans = Array.isArray(this.plans) ? this.plans : [];
       var plan = plans.find(function(p) { return p && p.id === sub.plan_id; }) || null;
-      if (!plan) return false;
-      if (plan.ai_enabled !== true) return false;
+      if (!plan || plan.ai_enabled !== true) return false;
       var features = plan.ai_features && typeof plan.ai_features === 'object' ? plan.ai_features : {};
-      if (features[feature] === true) return true;
-      return feature === 'assistant' && Object.keys(features).length === 0;
+      return features[feature] === true;
     };
   }
 
@@ -166,21 +149,15 @@
     if (!vm || vm.__qrManagerPlanSync || !vm.profile || vm.profile.role === 'admin') return;
     vm.__qrManagerPlanSync = true;
     installAIEntitlementBridge(vm);
-
     var refresh = function() {
       if (!window.__managerVue || window.__managerVue !== vm) return;
       if (document.visibilityState && document.visibilityState !== 'visible') return;
       if (typeof vm.refreshPlanEntitlements === 'function') vm.refreshPlanEntitlements();
     };
-
     refresh();
     vm.__qrManagerPlanSyncTimer = setInterval(refresh, 20000);
-
-    vm.__qrManagerPlanSyncVisibility = function() {
-      if (document.visibilityState === 'visible') refresh();
-    };
+    vm.__qrManagerPlanSyncVisibility = function() { if (document.visibilityState === 'visible') refresh(); };
     document.addEventListener('visibilitychange', vm.__qrManagerPlanSyncVisibility);
-
     vm.__qrManagerPlanSyncFocus = refresh;
     window.addEventListener('focus', vm.__qrManagerPlanSyncFocus);
   }
@@ -213,23 +190,18 @@
     vm.__qrManagerPlanSyncTimer = null;
   }
 
-  window.addEventListener('qr-manager-vue-ready', function() {
-    queuePlanEntitlementSync();
-  });
-
+  window.addEventListener('qr-manager-vue-ready', function() { queuePlanEntitlementSync(); });
   window.addEventListener('qr-manager-subscription-ready', function() {
     queuePlanEntitlementSync();
+    setTimeout(function() {
+      var v = window.__managerVue;
+      if (v) { installAIEntitlementBridge(v); if (typeof v.$nextTick === 'function') v.$nextTick(function(){ try { window.dispatchEvent(new CustomEvent('qr-manager-ai-entitlements-updated')); } catch(e) {} }); }
+    }, 0);
   });
 
-  if (window.__managerVue && window.__managerVue.profile) {
-    startPlanEntitlementSync(window.__managerVue);
-  } else {
-    queuePlanEntitlementSync();
-  }
+  if (window.__managerVue && window.__managerVue.profile) startPlanEntitlementSync(window.__managerVue);
+  else queuePlanEntitlementSync();
 
-  window.addEventListener('pagehide', function() {
-    stopPlanEntitlementSync(window.__managerVue);
-  });
-
+  window.addEventListener('pagehide', function() { stopPlanEntitlementSync(window.__managerVue); });
   window.__QR_MANAGER_BILLING_MIXIN__ = billingMixin;
 })();
