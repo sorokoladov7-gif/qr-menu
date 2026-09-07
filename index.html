@@ -7,50 +7,576 @@
   <meta name="description" content="ОС QR-Menu — цифровая система для меню, заказов, кухни, зала, доставки и аналитики ресторана." />
   <title>ОС QR-Menu — система, в которой ресторан работает быстрее</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="manifest" href="manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root{--bg:#070816;--bg2:#0b1024;--card:rgba(16,22,48,.66);--line:rgba(176,195,255,.16);--txt:#f6f8ff;--muted:#aeb9d7;--violet:#8668ff;--cyan:#4de5ff;--green:#5cf0b1;--orange:#ffbc65;--shadow:0 24px 80px rgba(0,0,0,.34)}
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.55 Manrope,Arial,sans-serif;overflow-x:hidden}.noise{position:fixed;inset:0;pointer-events:none;z-index:20;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}.orb{position:absolute;border-radius:50%;filter:blur(14px);pointer-events:none}.orb.one{width:560px;height:560px;background:rgba(116,85,255,.28);top:-220px;left:-230px}.orb.two{width:470px;height:470px;background:rgba(48,213,255,.16);top:120px;right:-190px}.orb.three{width:380px;height:380px;background:rgba(82,239,167,.12);bottom:160px;left:35%;filter:blur(45px)}a{color:inherit;text-decoration:none}.container{width:min(1160px,calc(100% - 40px));margin:auto}.nav{height:82px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:5}.brand{font-family:Unbounded,sans-serif;font-weight:800;letter-spacing:-1px;font-size:20px;display:flex;gap:10px;align-items:center}.brand i{width:31px;height:31px;border-radius:10px;background:conic-gradient(from 210deg,var(--cyan),var(--violet),#f472b6,var(--cyan));display:inline-block;box-shadow:0 0 32px rgba(111,100,255,.7)}.navlinks{display:flex;align-items:center;gap:24px;color:#c7d0ea;font-size:14px}.navlinks a:hover{color:#fff}.navbtn,.btn{border:1px solid transparent;border-radius:14px;padding:13px 18px;font:700 14px Manrope,sans-serif;cursor:pointer;transition:.25s transform,.25s box-shadow,.25s background;display:inline-flex;align-items:center;justify-content:center;gap:9px}.navbtn,.btn.primary{background:linear-gradient(135deg,#7957ff,#9e70ff);box-shadow:0 10px 30px rgba(120,87,255,.3)}.navbtn:hover,.btn.primary:hover{transform:translateY(-2px);box-shadow:0 18px 42px rgba(120,87,255,.45)}.btn.dark{background:rgba(255,255,255,.07);border-color:var(--line)}.btn.dark:hover{background:rgba(255,255,255,.12);transform:translateY(-2px)}.hero{position:relative;padding:70px 0 100px;min-height:680px}.eyebrow{display:inline-flex;gap:9px;align-items:center;color:#dce7ff;background:rgba(116,104,255,.12);border:1px solid rgba(145,128,255,.28);border-radius:99px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}.pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(92,240,177,.6);animation:pulse 1.8s infinite}@keyframes pulse{70%{box-shadow:0 0 0 9px rgba(92,240,177,0)}100%{box-shadow:0 0 0 0 rgba(92,240,177,0)}}.hero-grid{display:grid;grid-template-columns:1.03fr .97fr;gap:42px;align-items:center;position:relative;z-index:1}.hero h1{font:800 clamp(38px,5.2vw,72px)/1.07 Unbounded,sans-serif;letter-spacing:-3.5px;margin:20px 0}.gradient{background:linear-gradient(100deg,#fff 18%,#8eeeff 50%,#a68cff 78%);-webkit-background-clip:text;background-clip:text;color:transparent}.hero p{max-width:620px;font-size:18px;color:var(--muted);margin:0 0 27px}.actions{display:flex;gap:12px;flex-wrap:wrap}.trust{display:flex;gap:18px;align-items:center;margin-top:28px;color:#aeb9d7;font-size:13px}.trust b{color:#fff}.avatars{display:flex}.avatars span{width:30px;height:30px;border-radius:50%;border:2px solid var(--bg);margin-left:-8px;background:linear-gradient(140deg,#5de6ff,#7456ff)}.avatars span:nth-child(2){background:linear-gradient(140deg,#ffbd67,#ff6f9e)}.avatars span:nth-child(3){background:linear-gradient(140deg,#65f0b5,#49a7ff)}.avatars span:first-child{margin-left:0}.product{position:relative;min-height:450px}.glass{background:linear-gradient(145deg,rgba(28,37,77,.85),rgba(11,15,36,.78));border:1px solid rgba(177,196,255,.2);box-shadow:var(--shadow);backdrop-filter:blur(18px)}.phone{width:270px;border-radius:34px;padding:10px;background:#0a0d21;position:absolute;top:10px;left:50%;transform:translateX(-50%) rotate(4deg);z-index:3}.phone-inner{border-radius:26px;padding:18px 14px 15px;min-height:410px;background:linear-gradient(155deg,#171650,#0e1738 47%,#15234b)}.notch{width:92px;height:19px;border-radius:20px;background:#050713;margin:-7px auto 18px}.mini-head{font-size:10px;color:#bdcbef;display:flex;justify-content:space-between}.venue{font:700 17px Unbounded,sans-serif;margin:13px 0 9px}.mini-card{border-radius:17px;padding:11px;margin-top:10px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.1);display:flex;gap:10px}.food{width:50px;height:50px;border-radius:13px;background:linear-gradient(145deg,#ffc46d,#ee715e)}.food.b{background:linear-gradient(145deg,#81e8ff,#605bff)}.food.c{background:linear-gradient(145deg,#ff8db5,#ffbb6c)}.mini-card strong{font-size:11px;display:block}.mini-card small{font-size:9px;color:#c6d0ec}.price{font-size:11px;color:#80f6c4;font-weight:800;margin-top:3px}.float{position:absolute;border-radius:17px;padding:13px 15px;z-index:5;font-size:12px}.float.order{top:62px;left:0}.float.order b{display:block;font-size:16px}.float.order small,.float.ai small{display:block;color:#b7c2df}.float.kitchen{right:-8px;bottom:60px}.float.kitchen .dot{display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:6px}.float.ai{bottom:5px;left:8px;display:flex;gap:9px;align-items:center}.ai-avatar{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#a98bff,#53e6ff);display:grid;place-items:center;font-size:16px}.logos{padding:20px 0 75px;color:#8691b5;text-align:center;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.logo-row{margin-top:17px;display:flex;justify-content:space-around;gap:20px;flex-wrap:wrap;color:#7985a8;font:700 18px Unbounded,sans-serif;letter-spacing:-1px}.section{padding:96px 0;position:relative}.section-tag{color:var(--cyan);font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:800}.title{max-width:800px;font:800 clamp(30px,4vw,51px)/1.12 Unbounded,sans-serif;letter-spacing:-2.4px;margin:13px 0 16px}.lead{color:var(--muted);max-width:650px;font-size:17px}.flow{margin-top:42px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.step{border-radius:22px;padding:24px;min-height:218px;position:relative;overflow:hidden}.num{color:#6ddff7;font:700 13px Unbounded,sans-serif}.step h3{font-size:18px;margin:23px 0 8px}.step p{font-size:13px;color:var(--muted);margin:0}.step-icon{font-size:32px;position:absolute;right:20px;bottom:16px;opacity:.85}.feature-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;margin-top:42px}.feature{padding:31px;border-radius:25px;position:relative;overflow:hidden}.feature.big{min-height:460px;background:linear-gradient(145deg,rgba(38,31,105,.84),rgba(10,16,39,.91))}.feature h3{font:700 24px/1.2 Unbounded,sans-serif;letter-spacing:-1px;margin:0 0 11px}.feature p{color:var(--muted);max-width:420px;margin:0}.mini-features{display:grid;gap:18px}.feature.small{min-height:221px}.feature small{color:var(--cyan);font-weight:800;letter-spacing:.08em;text-transform:uppercase}.dash{position:absolute;left:31px;right:31px;bottom:30px;border-radius:20px;padding:16px;background:rgba(7,10,29,.66);border:1px solid rgba(255,255,255,.1)}.dash-row{display:flex;gap:8px}.kpi{flex:1;background:rgba(255,255,255,.06);border-radius:12px;padding:11px;font-size:10px;color:#b7c1dc}.kpi b{display:block;color:#fff;font-size:19px;margin-top:4px}.chart{height:62px;margin-top:13px;display:flex;gap:5px;align-items:end}.chart span{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(#55e7ff,#775dff)}.teamchips{display:flex;gap:7px;margin-top:25px;flex-wrap:wrap}.chip{padding:7px 9px;border-radius:9px;background:rgba(255,255,255,.08);font-size:11px}.ai-orbit{width:145px;height:145px;border-radius:50%;border:1px dashed rgba(112,222,255,.5);position:absolute;right:30px;bottom:20px;display:grid;place-items:center;animation:spin 16s linear infinite}.ai-core{width:75px;height:75px;border-radius:26px;background:linear-gradient(135deg,#9c82ff,#4ce4ff);box-shadow:0 0 38px rgba(86,220,255,.36);display:grid;place-items:center;font-size:36px;animation:spin 16s linear infinite reverse}@keyframes spin{to{transform:rotate(360deg)}}.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:17px;margin-top:40px;align-items:stretch}.plan{border-radius:23px;padding:27px;position:relative}.plan.featured{background:linear-gradient(145deg,rgba(111,82,255,.95),rgba(58,44,151,.86));border:1px solid rgba(193,180,255,.6);transform:translateY(-12px);box-shadow:0 25px 65px rgba(77,50,190,.35)}.badge{position:absolute;right:18px;top:17px;border-radius:100px;background:#dffeff;color:#142242;padding:5px 9px;font-size:10px;font-weight:800}.plan h3{font:700 20px Unbounded,sans-serif;margin:0}.plan .desc{color:#c3cdea;font-size:13px;height:48px;margin:10px 0}.cost{font:800 37px Unbounded,sans-serif;letter-spacing:-2px;margin:18px 0 4px}.cost span{font:500 13px Manrope,sans-serif;letter-spacing:0;color:#cad4ef}.plan ul{padding:0;margin:18px 0 25px;list-style:none;font-size:13px;color:#dbe3fb}.plan li{margin:10px 0}.plan li:before{content:'✓';color:#72f5be;margin-right:8px;font-weight:900}.plan .btn{width:100%}.compare-note{font-size:12px;color:#9eaacd;margin-top:16px}.demo{border-radius:30px;padding:56px;display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center;background:radial-gradient(circle at 88% 20%,rgba(71,229,255,.25),transparent 30%),linear-gradient(135deg,#251a70,#101a4b 62%,#102a4a)}.demo h2{font:800 clamp(28px,4vw,46px)/1.15 Unbounded,sans-serif;letter-spacing:-2px;margin:0 0 15px}.demo p{max-width:610px;color:#d0daf6;margin:0}.demo .actions{margin-top:25px}.screen{width:200px;padding:12px;border-radius:20px;transform:rotate(7deg)}.screen .line{height:9px;background:rgba(255,255,255,.14);border-radius:8px;margin:9px 0}.screen .line.one{width:75%;background:#65e9ff}.screen .line.two{width:53%;background:#957bff}.screen .line.three{width:88%;background:#66f4ba}.faq{margin-top:38px;display:grid;grid-template-columns:1fr 1fr;gap:12px}.faq details{border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:15px;padding:17px 18px}.faq summary{font-weight:800;cursor:pointer;list-style:none}.faq summary::-webkit-details-marker{display:none}.faq summary:after{content:'+';float:right;color:var(--cyan);font-size:20px;line-height:16px}.faq details[open] summary:after{content:'–'}.faq p{margin:11px 0 0;color:var(--muted);font-size:14px}.footer{padding:32px 0 43px;color:#8590b4;font-size:13px;display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line);margin-top:90px}.reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}.reveal.show{opacity:1;transform:none}@media(max-width:880px){.navlinks{display:none}.hero{padding-top:36px}.hero-grid,.feature-grid,.demo{grid-template-columns:1fr}.product{min-height:430px;margin-top:10px}.flow{grid-template-columns:1fr 1fr}.plans{grid-template-columns:1fr}.plan.featured{transform:none}.demo{padding:36px}.screen{display:none}}@media(max-width:540px){.container{width:min(100% - 28px,1160px)}.nav{height:70px}.brand{font-size:16px}.navbtn{padding:10px 12px;font-size:12px}.hero h1{letter-spacing:-2.2px}.hero p{font-size:16px}.flow,.faq{grid-template-columns:1fr}.section{padding:68px 0}.float.order{left:-3px}.float.kitchen{right:-6px}.phone{width:248px}.trust{align-items:flex-start}.logo-row{font-size:14px}.demo{border-radius:22px;padding:27px}.footer{flex-direction:column;margin-top:65px}}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--txt);font:16px/1.55 Manrope,Arial,sans-serif;overflow-x:hidden}
+
+    /* ── LOADER ── */
+    .loader-wrap{position:fixed;inset:0;z-index:9999;background:var(--bg);display:grid;place-items:center;transition:opacity .6s ease,visibility .6s ease}
+    .loader-wrap.hide{opacity:0;visibility:hidden}
+    .loader-ring{width:64px;height:64px;border-radius:50%;border:3px solid rgba(134,104,255,.15);border-top-color:var(--cyan);border-right-color:var(--violet);animation:loaderSpin .9s linear infinite}
+    @keyframes loaderSpin{to{transform:rotate(360deg)}}
+    .loader-text{margin-top:18px;font-family:Unbounded,sans-serif;font-weight:700;font-size:14px;color:var(--muted);animation:loaderPulse 1.4s ease-in-out infinite}
+    @keyframes loaderPulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+    /* ── NOISE ── */
+    .noise{position:fixed;inset:0;pointer-events:none;z-index:20;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+
+    /* ── ORBS with floating ── */
+    .orb{position:absolute;border-radius:50%;filter:blur(14px);pointer-events:none;will-change:transform}
+    .orb.one{width:560px;height:560px;background:rgba(116,85,255,.28);top:-220px;left:-230px;animation:orbFloat1 12s ease-in-out infinite}
+    .orb.two{width:470px;height:470px;background:rgba(48,213,255,.16);top:120px;right:-190px;animation:orbFloat2 14s ease-in-out infinite}
+    .orb.three{width:380px;height:380px;background:rgba(82,239,167,.12);bottom:160px;left:35%;filter:blur(45px);animation:orbFloat3 16s ease-in-out infinite}
+    @keyframes orbFloat1{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,30px) scale(1.08)}}
+    @keyframes orbFloat2{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-35px,25px) scale(1.05)}}
+    @keyframes orbFloat3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(25px,-35px) scale(1.12)}}
+
+    /* ── PARTICLES ── */
+    .particles{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
+    .particle{position:absolute;width:3px;height:3px;border-radius:50%;background:rgba(134,104,255,.4);animation:particleRise linear infinite}
+    @keyframes particleRise{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+
+    a{color:inherit;text-decoration:none}
+    .container{width:min(1160px,calc(100% - 40px));margin:auto}
+
+    /* ── NAV ── */
+    .nav{height:82px;display:flex;align-items:center;justify-content:space-between;position:relative;z-index:5}
+    .nav.scrolled{background:rgba(7,8,22,.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--line);transition:background .3s}
+    .brand{font-family:Unbounded,sans-serif;font-weight:800;letter-spacing:-1px;font-size:20px;display:flex;gap:10px;align-items:center}
+    .brand i{width:31px;height:31px;border-radius:10px;background:conic-gradient(from 210deg,var(--cyan),var(--violet),#f472b6,var(--cyan));display:inline-block;box-shadow:0 0 32px rgba(111,100,255,.7);animation:brandSpin 8s linear infinite}
+    @keyframes brandSpin{to{filter:hue-rotate(360deg)}}
+    .navlinks{display:flex;align-items:center;gap:24px;color:#c7d0ea;font-size:14px}
+    .navlinks a{position:relative;transition:color .3s}
+    .navlinks a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:linear-gradient(90deg,var(--cyan),var(--violet));border-radius:2px;transition:width .3s ease}
+    .navlinks a:hover{color:#fff}
+    .navlinks a:hover::after{width:100%}
+    .navbtn,.btn{border:1px solid transparent;border-radius:14px;padding:13px 18px;font:700 14px Manrope,sans-serif;cursor:pointer;transition:.3s transform,.3s box-shadow,.3s background;position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:9px}
+    .btn-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.3);transform:scale(0);animation:ripple .6s ease-out;pointer-events:none}
+    @keyframes ripple{to{transform:scale(4);opacity:0}}
+    .navbtn,.btn.primary{background:linear-gradient(135deg,#7957ff,#9e70ff);box-shadow:0 10px 30px rgba(120,87,255,.3)}
+    .navbtn:hover,.btn.primary:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 18px 42px rgba(120,87,255,.5)}
+    .navbtn:active,.btn.primary:active{transform:translateY(0) scale(.98)}
+    .btn.dark{background:rgba(255,255,255,.07);border-color:var(--line)}
+    .btn.dark:hover{background:rgba(255,255,255,.14);transform:translateY(-3px) scale(1.02);box-shadow:0 12px 30px rgba(0,0,0,.2)}
+    .btn.dark:active{transform:translateY(0) scale(.98)}
+    .btn .shimmer{position:absolute;inset:0;background:linear-gradient(110deg,transparent 33%,rgba(255,255,255,.12) 50%,transparent 67%);transform:translateX(-100%);animation:shimmer 3s ease-in-out infinite}
+    @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+    /* ── HERO ── */
+    .hero{position:relative;padding:70px 0 100px;min-height:680px}
+    .eyebrow{display:inline-flex;gap:9px;align-items:center;color:#dce7ff;background:rgba(116,104,255,.12);border:1px solid rgba(145,128,255,.28);border-radius:99px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+    .pulse{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 0 0 rgba(92,240,177,.6);animation:pulse 1.8s infinite}
+    @keyframes pulse{70%{box-shadow:0 0 0 9px rgba(92,240,177,0)}100%{box-shadow:0 0 0 0 rgba(92,240,177,0)}}
+    .hero-grid{display:grid;grid-template-columns:1.03fr .97fr;gap:42px;align-items:center;position:relative;z-index:1}
+    .hero h1{font:800 clamp(38px,5.2vw,72px)/1.07 Unbounded,sans-serif;letter-spacing:-3.5px;margin:20px 0}
+    .gradient{background:linear-gradient(100deg,#fff 18%,#8eeeff 50%,#a68cff 78%);-webkit-background-clip:text;background-clip:text;color:transparent;background-size:200% 100%;animation:gradientShift 5s ease-in-out infinite alternate}
+    @keyframes gradientShift{0%{background-position:0% 50%}100%{background-position:100% 50%}}
+    .hero p{max-width:620px;font-size:18px;color:var(--muted);margin:0 0 27px}
+    .actions{display:flex;gap:12px;flex-wrap:wrap}
+    .trust{display:flex;gap:18px;align-items:center;margin-top:28px;color:#aeb9d7;font-size:13px}
+    .trust b{color:#fff}
+    .avatars{display:flex}
+    .avatars span{width:30px;height:30px;border-radius:50%;border:2px solid var(--bg);margin-left:-8px;background:linear-gradient(140deg,#5de6ff,#7456ff);transition:transform .3s}
+    .avatars span:nth-child(2){background:linear-gradient(140deg,#ffbd67,#ff6f9e);animation-delay:.2s}
+    .avatars span:nth-child(3){background:linear-gradient(140deg,#65f0b5,#49a7ff);animation-delay:.4s}
+    .avatars span:first-child{margin-left:0}
+    .avatars span:hover{transform:scale(1.25) translateY(-4px);z-index:2}
+
+    /* ── PHONE MOCKUP ── */
+    .product{position:relative;min-height:450px}
+    .glass{background:linear-gradient(145deg,rgba(28,37,77,.85),rgba(11,15,36,.78));border:1px solid rgba(177,196,255,.2);box-shadow:var(--shadow);backdrop-filter:blur(18px)}
+    .phone{width:270px;border-radius:34px;padding:10px;background:#0a0d21;position:absolute;top:10px;left:50%;transform:translateX(-50%) rotate(4deg);z-index:3;animation:phoneFloat 6s ease-in-out infinite}
+    @keyframes phoneFloat{0%,100%{transform:translateX(-50%) rotate(4deg) translateY(0)}50%{transform:translateX(-50%) rotate(4deg) translateY(-12px)}}
+    .phone-glow{position:absolute;inset:-20px;border-radius:50px;background:radial-gradient(ellipse,rgba(134,104,255,.15),transparent 70%);animation:phoneGlow 4s ease-in-out infinite alternate;z-index:2}
+    @keyframes phoneGlow{0%{opacity:.3;transform:scale(.95)}100%{opacity:.8;transform:scale(1.05)}}
+    .phone-inner{border-radius:26px;padding:18px 14px 15px;min-height:410px;background:linear-gradient(155deg,#171650,#0e1738 47%,#15234b)}
+    .notch{width:92px;height:19px;border-radius:20px;background:#050713;margin:-7px auto 18px}
+    .mini-head{font-size:10px;color:#bdcbef;display:flex;justify-content:space-between}
+    .venue{font:700 17px Unbounded,sans-serif;margin:13px 0 9px}
+    .mini-card{border-radius:17px;padding:11px;margin-top:10px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.1);display:flex;gap:10px;transition:transform .3s,background .3s}
+    .mini-card:hover{transform:translateX(4px);background:rgba(255,255,255,.14)}
+    .food{width:50px;height:50px;border-radius:13px;background:linear-gradient(145deg,#ffc46d,#ee715e)}
+    .food.b{background:linear-gradient(145deg,#81e8ff,#605bff)}
+    .food.c{background:linear-gradient(145deg,#ff8db5,#ffbb6c)}
+    .mini-card strong{font-size:11px;display:block}
+    .mini-card small{font-size:9px;color:#c6d0ec}
+    .price{font-size:11px;color:#80f6c4;font-weight:800;margin-top:3px}
+
+    /* ── FLOATS ── */
+    .float{position:absolute;border-radius:17px;padding:13px 15px;z-index:5;font-size:12px;transition:transform .3s}
+    .float:hover{transform:scale(1.06)}
+    .float.order{top:62px;left:0;animation:floatOrder 5s ease-in-out infinite}
+    @keyframes floatOrder{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+    .float.order b{display:block;font-size:16px}
+    .float.order small,.float.ai small{display:block;color:#b7c2df}
+    .float.kitchen{right:-8px;bottom:60px;animation:floatKitchen 6s ease-in-out infinite 1s}
+    @keyframes floatKitchen{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+    .float.kitchen .dot{display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:6px;animation:dotBlink 1.5s ease-in-out infinite}
+    @keyframes dotBlink{0%,100%{opacity:1}50%{opacity:.3}}
+    .float.ai{bottom:5px;left:8px;display:flex;gap:9px;align-items:center;animation:floatAI 7s ease-in-out infinite .5s}
+    @keyframes floatAI{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    .ai-avatar{width:30px;height:30px;border-radius:10px;background:linear-gradient(135deg,#a98bff,#53e6ff);display:grid;place-items:center;font-size:16px;animation:aiPulse 2s ease-in-out infinite}
+    @keyframes aiPulse{0%,100%{box-shadow:0 0 0 0 rgba(169,139,255,.4)}50%{box-shadow:0 0 0 8px rgba(169,139,255,0)}}
+
+    /* ── LOGOS ── */
+    .logos{padding:20px 0 75px;color:#8691b5;text-align:center;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+    .logo-row{margin-top:17px;display:flex;justify-content:space-around;gap:20px;flex-wrap:wrap;color:#7985a8;font:700 18px Unbounded,sans-serif;letter-spacing:-1px}
+    .logo-row span{transition:color .3s,text-shadow .3s;cursor:default}
+    .logo-row span:hover{color:var(--cyan);text-shadow:0 0 20px rgba(77,229,255,.4)}
+
+    /* ── SECTIONS ── */
+    .section{padding:96px 0;position:relative}
+    .section-tag{color:var(--cyan);font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:800;overflow:hidden}
+    .section-tag .tag-inner{display:inline-block;animation:tagSlide .8s ease-out both}
+    @keyframes tagSlide{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+    .title{max-width:800px;font:800 clamp(30px,4vw,51px)/1.12 Unbounded,sans-serif;letter-spacing:-2.4px;margin:13px 0 16px}
+    .lead{color:var(--muted);max-width:650px;font-size:17px}
+
+    /* ── FLOW STEPS ── */
+    .flow{margin-top:42px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+    .step{border-radius:22px;padding:24px;min-height:218px;position:relative;overflow:hidden;transition:transform .4s cubic-bezier(.25,.46,.45,.94),box-shadow .4s}
+    .step::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(134,104,255,.1),transparent 60%);opacity:0;transition:opacity .4s}
+    .step:hover{transform:translateY(-8px);box-shadow:0 20px 50px rgba(0,0,0,.3)}
+    .step:hover::before{opacity:1}
+    .num{color:#6ddff7;font:700 13px Unbounded,sans-serif}
+    .step h3{font-size:18px;margin:23px 0 8px}
+    .step p{font-size:13px;color:var(--muted);margin:0}
+    .step-icon{font-size:32px;position:absolute;right:20px;bottom:16px;opacity:.85;transition:transform .4s,opacity .4s}
+    .step:hover .step-icon{transform:scale(1.3) rotate(-8deg);opacity:1}
+
+    /* ── FEATURE GRID ── */
+    .feature-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;margin-top:42px}
+    .feature{padding:31px;border-radius:25px;position:relative;overflow:hidden;transition:transform .4s,box-shadow .4s}
+    .feature:hover{transform:translateY(-6px);box-shadow:0 20px 50px rgba(0,0,0,.25)}
+    .feature.big{min-height:460px;background:linear-gradient(145deg,rgba(38,31,105,.84),rgba(10,16,39,.91))}
+    .feature h3{font:700 24px/1.2 Unbounded,sans-serif;letter-spacing:-1px;margin:0 0 11px}
+    .feature p{color:var(--muted);max-width:420px;margin:0}
+    .mini-features{display:grid;gap:18px}
+    .feature.small{min-height:221px}
+    .feature small{color:var(--cyan);font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+
+    /* ── DASHBOARD ── */
+    .dash{position:absolute;left:31px;right:31px;bottom:30px;border-radius:20px;padding:16px;background:rgba(7,10,29,.66);border:1px solid rgba(255,255,255,.1)}
+    .dash-row{display:flex;gap:8px}
+    .kpi{flex:1;background:rgba(255,255,255,.06);border-radius:12px;padding:11px;font-size:10px;color:#b7c1dc;transition:background .3s,transform .3s}
+    .kpi:hover{background:rgba(255,255,255,.1);transform:translateY(-2px)}
+    .kpi b{display:block;color:#fff;font-size:19px;margin-top:4px}
+    .chart{height:62px;margin-top:13px;display:flex;gap:5px;align-items:end}
+    .chart span{flex:1;border-radius:6px 6px 2px 2px;background:linear-gradient(#55e7ff,#775dff);transform-origin:bottom;transition:height .1s}
+    .chart.animated span{animation:chartGrow .8s cubic-bezier(.25,.46,.45,.94) both}
+    @keyframes chartGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+    .chart span:nth-child(2){animation-delay:.1s}
+    .chart span:nth-child(3){animation-delay:.2s}
+    .chart span:nth-child(4){animation-delay:.3s}
+    .chart span:nth-child(5){animation-delay:.4s}
+    .chart span:nth-child(6){animation-delay:.5s}
+    .chart span:nth-child(7){animation-delay:.6s}
+
+    .teamchips{display:flex;gap:7px;margin-top:25px;flex-wrap:wrap}
+    .chip{padding:7px 9px;border-radius:9px;background:rgba(255,255,255,.08);font-size:11px;transition:background .3s,transform .3s,box-shadow .3s;cursor:default}
+    .chip:hover{background:rgba(134,104,255,.25);transform:translateY(-3px);box-shadow:0 8px 20px rgba(134,104,255,.2)}
+
+    /* ── AI ORBIT ── */
+    .ai-orbit{width:145px;height:145px;border-radius:50%;border:1px dashed rgba(112,222,255,.5);position:absolute;right:30px;bottom:20px;display:grid;place-items:center;animation:spin 16s linear infinite}
+    .ai-orbit::before{content:'';position:absolute;width:8px;height:8px;border-radius:50%;background:var(--cyan);top:-4px;box-shadow:0 0 12px var(--cyan);animation:orbitDot 4s linear infinite}
+    @keyframes orbitDot{0%{transform:rotate(0deg) translateX(72px)}100%{transform:rotate(360deg) translateX(72px)}}
+    .ai-core{width:75px;height:75px;border-radius:26px;background:linear-gradient(135deg,#9c82ff,#4ce4ff);box-shadow:0 0 38px rgba(86,220,255,.36);display:grid;place-items:center;font-size:36px;animation:spin 16s linear infinite reverse,aiCorePulse 3s ease-in-out infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes aiCorePulse{0%,100%{box-shadow:0 0 38px rgba(86,220,255,.36)}50%{box-shadow:0 0 60px rgba(86,220,255,.6)}}
+
+    /* ── PLANS ── */
+    .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:17px;margin-top:40px;align-items:stretch}
+    .plan{border-radius:23px;padding:27px;position:relative;transition:transform .4s cubic-bezier(.25,.46,.45,.94),box-shadow .4s;cursor:default}
+    .plan:hover{transform:translateY(-10px);box-shadow:0 25px 60px rgba(0,0,0,.3)}
+    .plan.featured{background:linear-gradient(145deg,rgba(111,82,255,.95),rgba(58,44,151,.86));border:1px solid rgba(193,180,255,.6);transform:translateY(-12px);box-shadow:0 25px 65px rgba(77,50,190,.35)}
+    .plan.featured:hover{transform:translateY(-22px);box-shadow:0 35px 80px rgba(77,50,190,.5)}
+    .plan.featured::before{content:'';position:absolute;inset:-1px;border-radius:23px;background:linear-gradient(135deg,var(--cyan),var(--violet),#f472b6,var(--cyan));background-size:300% 300%;z-index:-1;animation:borderGlow 4s ease-in-out infinite;opacity:.5}
+    @keyframes borderGlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+    .badge{position:absolute;right:18px;top:17px;border-radius:100px;background:#dffeff;color:#142242;padding:5px 9px;font-size:10px;font-weight:800;animation:badgeBounce 2s ease-in-out infinite}
+    @keyframes badgeBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+    .plan h3{font:700 20px Unbounded,sans-serif;margin:0}
+    .plan .desc{color:#c3cdea;font-size:13px;height:48px;margin:10px 0}
+    .cost{font:800 37px Unbounded,sans-serif;letter-spacing:-2px;margin:18px 0 4px}
+    .cost span{font:500 13px Manrope,sans-serif;letter-spacing:0;color:#cad4ef}
+    .plan ul{padding:0;margin:18px 0 25px;list-style:none;font-size:13px;color:#dbe3fb}
+    .plan li{margin:10px 0;opacity:0;transform:translateX(-10px);animation:liReveal .4s ease-out forwards}
+    @keyframes liReveal{to{opacity:1;transform:translateX(0)}}
+    .plan.visible li:nth-child(1){animation-delay:.1s}
+    .plan.visible li:nth-child(2){animation-delay:.2s}
+    .plan.visible li:nth-child(3){animation-delay:.3s}
+    .plan.visible li:nth-child(4){animation-delay:.4s}
+    .plan.visible li:nth-child(5){animation-delay:.5s}
+    .plan li:before{content:'✓';color:#72f5be;margin-right:8px;font-weight:900}
+    .plan .btn{width:100%}
+    .compare-note{font-size:12px;color:#9eaacd;margin-top:16px}
+
+    /* ── DEMO ── */
+    .demo{border-radius:30px;padding:56px;display:grid;grid-template-columns:1fr auto;gap:30px;align-items:center;background:radial-gradient(circle at 88% 20%,rgba(71,229,255,.25),transparent 30%),linear-gradient(135deg,#251a70,#101a4b 62%,#102a4a);transition:transform .4s}
+    .demo:hover{transform:scale(1.01)}
+    .demo h2{font:800 clamp(28px,4vw,46px)/1.15 Unbounded,sans-serif;letter-spacing:-2px;margin:0 0 15px}
+    .demo p{max-width:610px;color:#d0daf6;margin:0}
+    .demo .actions{margin-top:25px}
+    .screen{width:200px;padding:12px;border-radius:20px;transform:rotate(7deg);transition:transform .5s}
+    .screen:hover{transform:rotate(0deg) scale(1.05)}
+    .screen .line{height:9px;background:rgba(255,255,255,.14);border-radius:8px;margin:9px 0;transform-origin:left;animation:lineReveal .6s ease-out both}
+    .screen.visible .line:nth-child(1){animation-delay:.1s}.screen.visible .line:nth-child(2){animation-delay:.2s}.screen.visible .line:nth-child(3){animation-delay:.3s}.screen.visible .line:nth-child(4){animation-delay:.4s}.screen.visible .line:nth-child(5){animation-delay:.5s}.screen.visible .line:nth-child(6){animation-delay:.6s}.screen.visible .line:nth-child(7){animation-delay:.7s}
+    @keyframes lineReveal{from{transform:scaleX(0);opacity:0}to{transform:scaleX(1);opacity:1}}
+    .screen .line.one{width:75%;background:#65e9ff}.screen .line.two{width:53%;background:#957bff}.screen .line.three{width:88%;background:#66f4ba}
+
+    /* ── FAQ ── */
+    .faq{margin-top:38px;display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .faq details{border:1px solid var(--line);background:rgba(255,255,255,.035);border-radius:15px;padding:17px 18px;transition:border-color .3s,background .3s,transform .3s}
+    .faq details:hover{border-color:rgba(134,104,255,.4);background:rgba(255,255,255,.06);transform:translateY(-2px)}
+    .faq summary{font-weight:800;cursor:pointer;list-style:none;transition:color .3s}
+    .faq summary:hover{color:var(--cyan)}
+    .faq summary::-webkit-details-marker{display:none}
+    .faq summary:after{content:'+';float:right;color:var(--cyan);font-size:20px;line-height:16px;transition:transform .3s}
+    .faq details[open] summary:after{content:'–';transform:rotate(180deg)}
+    .faq p{margin:11px 0 0;color:var(--muted);font-size:14px;animation:faqFade .4s ease-out}
+    @keyframes faqFade{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ── FOOTER ── */
+    .footer{padding:32px 0 43px;color:#8590b4;font-size:13px;display:flex;justify-content:space-between;gap:20px;border-top:1px solid var(--line);margin-top:90px}
+
+    /* ── SCROLL REVEAL ── */
+    .reveal{opacity:0;transform:translateY(30px);transition:opacity .7s cubic-bezier(.25,.46,.45,.94),transform .7s cubic-bezier(.25,.46,.45,.94)}
+    .reveal.show{opacity:1;transform:none}
+    .reveal.from-left{transform:translateX(-40px)}
+    .reveal.from-left.show{transform:none}
+    .reveal.from-right{transform:translateX(40px)}
+    .reveal.from-right.show{transform:none}
+    .reveal.scale{transform:scale(.9)}
+    .reveal.scale.show{transform:scale(1)}
+
+    /* ── TYPING CURSOR ── */
+    .typing-cursor{display:inline-block;width:3px;height:1em;background:var(--cyan);margin-left:4px;animation:blink .8s step-end infinite;vertical-align:text-bottom}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+    /* ── MAGNETIC HOVER (applied via JS) ── */
+    .magnetic{transition:transform .2s ease-out}
+
+    /* ── GLOW BORDER ON SECTIONS ── */
+    .section::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:200px;height:1px;background:linear-gradient(90deg,transparent,var(--violet),transparent);opacity:0;transition:opacity .6s}
+    .section.visible::before{opacity:1}
+
+    /* ── COUNTER ANIMATION ── */
+    .counter{display:inline-block}
+
+    @media(max-width:880px){
+      .navlinks{display:none}
+      .hero{padding-top:36px}
+      .hero-grid,.feature-grid,.demo{grid-template-columns:1fr}
+      .product{min-height:430px;margin-top:10px}
+      .flow{grid-template-columns:1fr 1fr}
+      .plans{grid-template-columns:1fr}
+      .plan.featured{transform:none}
+      .demo{padding:36px}
+      .screen{display:none}
+    }
+    @media(max-width:540px){
+      .container{width:min(100% - 28px,1160px)}
+      .nav{height:70px}
+      .brand{font-size:16px}
+      .navbtn{padding:10px 12px;font-size:12px}
+      .hero h1{letter-spacing:-2.2px}
+      .hero p{font-size:16px}
+      .flow,.faq{grid-template-columns:1fr}
+      .section{padding:68px 0}
+      .float.order{left:-3px}
+      .float.kitchen{right:-6px}
+      .phone{width:248px}
+      .trust{align-items:flex-start}
+      .logo-row{font-size:14px}
+      .demo{border-radius:22px;padding:27px}
+      .footer{flex-direction:column;margin-top:65px}
+    }
   </style>
 </head>
 <body>
-<div class="noise"></div><div class="orb one"></div><div class="orb two"></div><div class="orb three"></div>
-<header class="container nav">
+
+<!-- LOADER -->
+<div class="loader-wrap" id="loader">
+  <div style="text-align:center">
+    <div class="loader-ring"></div>
+    <div class="loader-text">Загрузка ОС QR-Menu...</div>
+  </div>
+</div>
+
+<div class="noise"></div>
+<div class="orb one"></div>
+<div class="orb two"></div>
+<div class="orb three"></div>
+
+<!-- PARTICLES -->
+<div class="particles" id="particles"></div>
+
+<header class="container nav" id="nav">
   <a class="brand" href="#top"><i></i>ОС QR‑MENU</a>
   <nav class="navlinks"><a href="#how">Как работает</a><a href="#features">Возможности</a><a href="#plans">Тарифы</a><a href="#demo">Демо</a></nav>
-  <a class="navbtn" href="register.html">Подключить заведение →</a>
+  <a class="navbtn magnetic" href="register.html"><span class="shimmer"></span>Подключить заведение →</a>
 </header>
+
 <main id="top">
 <section class="hero container">
   <div class="hero-grid">
-    <div class="reveal show">
+    <div class="reveal">
       <div class="eyebrow"><span class="pulse"></span> новая операционная система ресторана</div>
-      <h1>Не просто QR‑меню.<br><span class="gradient">Ваш ресторан — в одном экране.</span></h1>
+      <h1>Не просто QR‑меню.<br><span class="gradient">Ваш ресторан — в одном экране.</span><span class="typing-cursor"></span></h1>
       <p>Гость выбирает и заказывает. Кухня готовит. Официант управляет залом. Курьер доставляет. Вы видите всю картину — в реальном времени.</p>
-      <div class="actions"><a class="btn primary" href="#demo">Смотреть живое демо <span>↗</span></a><a class="btn dark" href="#features">Что внутри <span>↓</span></a></div>
+      <div class="actions">
+        <a class="btn primary magnetic" href="#demo"><span class="shimmer"></span>Смотреть живое демо <span>↗</span></a>
+        <a class="btn dark magnetic" href="#features">Что внутри <span>↓</span></a>
+      </div>
       <div class="trust"><div class="avatars"><span></span><span></span><span></span></div><div><b>Один цифровой поток</b><br>для гостя, команды и управляющего</div></div>
     </div>
-    <div class="product reveal show">
-      <div class="float glass order"><small>Новый заказ · Стол 7</small><b>+ 2 490 ₽</b></div>
+    <div class="product reveal from-right">
+      <div class="phone-glow"></div>
+      <div class="float glass order"><small>Новый заказ · Стол 7</small><b>+ <span class="counter" data-target="2490">0</span> ₽</b></div>
       <div class="phone glass"><div class="phone-inner"><div class="notch"></div><div class="mini-head"><span>← Меню</span><span>🛒 2</span></div><div class="venue">Вкус &amp; Точка</div><div style="font-size:10px;color:#b8c4e8">Популярное сегодня</div><div class="mini-card"><div class="food"></div><div><strong>Бургер «Шеф»</strong><small>мраморная говядина, соус</small><div class="price">690 ₽ · +</div></div></div><div class="mini-card"><div class="food b"></div><div><strong>Паста с креветками</strong><small>сливочный соус, пармезан</small><div class="price">790 ₽ · +</div></div></div><div class="mini-card"><div class="food c"></div><div><strong>Лимонад манго</strong><small>свежий, 400 мл</small><div class="price">290 ₽ · +</div></div></div></div></div>
       <div class="float glass kitchen"><span class="dot"></span><b>Кухня</b><br><small style="color:#b7c2df">Заказ №428 · в работе</small></div>
       <div class="float glass ai"><div class="ai-avatar">✦</div><div><b>Qrchick</b><small>Подскажет гостю идеальное блюдо</small></div></div>
     </div>
   </div>
 </section>
-<section class="container logos"><div>Создано для тех, кто хочет управлять заведением, а не тушить пожары</div><div class="logo-row"><span>КАФЕ</span><span>РЕСТОРАНЫ</span><span>КОФЕЙНИ</span><span>ДОСТАВКА</span><span>ФУДКОРТЫ</span></div></section>
-<section id="how" class="section container"><div class="section-tag">Сценарий, который понятен всем</div><h2 class="title">От QR‑кода на столе до готового заказа — без лишних звонков и бумажек.</h2><p class="lead">Система объединяет все роли в заведении. Каждый видит только то, что нужно ему, а управляющий сохраняет полный контроль.</p><div class="flow"><article class="step glass reveal"><div class="num">01 / ГОСТЬ</div><h3>Сканирует QR</h3><p>Меню открывается мгновенно в браузере. Установка приложения не нужна.</p><div class="step-icon">⌁</div></article><article class="step glass reveal"><div class="num">02 / ЗАКАЗ</div><h3>Выбирает и отправляет</h3><p>Фото, категории, модификаторы, комментарии и удобная корзина.</p><div class="step-icon">🛒</div></article><article class="step glass reveal"><div class="num">03 / КОМАНДА</div><h3>Работает синхронно</h3><p>Официант, кухня и курьер получают нужную задачу в момент заказа.</p><div class="step-icon">⚡</div></article><article class="step glass reveal"><div class="num">04 / ВЛАДЕЛЕЦ</div><h3>Видит результат</h3><p>Продажи, средний чек, загрузка, сотрудники и точки — в аналитике.</p><div class="step-icon">◈</div></article></div></section>
-<section id="features" class="section container"><div class="section-tag">Всё уже внутри</div><h2 class="title">Одна платформа вместо разрозненных сервисов.</h2><div class="feature-grid"><article class="feature big glass reveal"><small>Контроль в цифрах</small><h3>Управляйте по данным,<br>а не по ощущениям</h3><p>Следите за заказами, выручкой, средним чеком, загрузкой кухни и работой команды — по одной точке или по всей сети.</p><div class="dash"><div class="dash-row"><div class="kpi">Выручка<b>248 400 ₽</b></div><div class="kpi">Заказы<b>386</b></div><div class="kpi">Средний чек<b>644 ₽</b></div></div><div class="chart"><span style="height:38%"></span><span style="height:63%"></span><span style="height:49%"></span><span style="height:84%"></span><span style="height:61%"></span><span style="height:96%"></span><span style="height:74%"></span></div></div></article><div class="mini-features"><article class="feature small glass reveal"><small>Роли и процессы</small><h3>Зал, кухня и доставка — без хаоса</h3><p>Отдельные рабочие пространства для официанта, повара, курьера и менеджера.</p><div class="teamchips"><span class="chip">🍽 Официант</span><span class="chip">👨‍🍳 Кухня</span><span class="chip">🛵 Курьер</span><span class="chip">◈ Менеджер</span></div></article><article class="feature small glass reveal"><small>Qrchick AI</small><h3>Ваш цифровой помощник</h3><p>Помогает гостям выбрать блюдо, отвечает по меню и усиливает сервис без лишней нагрузки на персонал.</p><div class="ai-orbit"><div class="ai-core">✦</div></div></article></div></div></section>
-<section id="plans" class="section container"><div class="section-tag">Простое подключение</div><h2 class="title">Выберите масштаб сегодня.<br>Растите без смены платформы.</h2><p class="lead">Тарифы и лимиты в системе настраиваются администратором: стоимость, количество заведений, сотрудников и позиций меню. Ниже — понятная витрина для клиента.</p><div class="plans"><article class="plan glass reveal"><h3>Старт</h3><p class="desc">Для кофейни или небольшого кафе, которое хочет заменить бумажное меню.</p><div class="cost">Индивидуально <span>/ месяц</span></div><ul><li>QR‑меню для гостей</li><li>Управление блюдами и ценами</li><li>Базовая аналитика</li><li>Подключение и настройка</li></ul><a class="btn dark" href="register.html">Подключить</a></article><article class="plan featured reveal"><span class="badge">ПОПУЛЯРНЫЙ</span><h3>Бизнес</h3><p class="desc">Для заведений, где важно ускорить работу команды и контролировать процессы.</p><div class="cost">Индивидуально <span>/ месяц</span></div><ul><li>Всё из тарифа «Старт»</li><li>Кабинеты официанта и кухни</li><li>Работа с доставкой и курьерами</li><li>Расширенная аналитика</li><li>AI‑ассистент Qrchick</li></ul><a class="btn primary" href="register.html">Запустить демо →</a></article><article class="plan glass reveal"><h3>Сеть</h3><p class="desc">Для нескольких точек, франшиз и ресторанных групп.</p><div class="cost">Индивидуально <span>/ месяц</span></div><ul><li>Всё из тарифа «Бизнес»</li><li>Несколько заведений</li><li>Глобальная аналитика</li><li>Роли и права менеджеров</li><li>Приоритетная поддержка</li></ul><a class="btn dark" href="register.html">Обсудить условия</a></article></div><p class="compare-note">Точная цена зависит от настроек вашего тарифа: лимитов по точкам, сотрудникам и количеству позиций в меню. Оставьте заявку — подберём конфигурацию под формат заведения.</p></section>
-<section id="demo" class="section container"><div class="demo reveal"><div><div class="section-tag" style="color:#88efff">Без регистрации и обязательств</div><h2>Не верьте словам.<br>Откройте систему и попробуйте сами.</h2><p>Посмотрите меню глазами гостя, кабинет управляющего и рабочие экраны команды. Это не презентация — это реальные сценарии продукта.</p><div class="actions"><a class="btn primary" href="menu.html">Открыть меню гостя ↗</a><a class="btn dark" href="manager-demo.html">Демо менеджера</a><a class="btn dark" href="demo-staff.html">Демо команды</a></div></div><div class="screen glass"><div style="font:700 13px Unbounded,sans-serif">LIVE / QR‑MENU</div><div class="line one"></div><div class="line"></div><div class="line two"></div><div class="line"></div><div class="line three"></div><div class="line"></div></div></div></section>
-<section class="section container"><div class="section-tag">Ответы до старта</div><h2 class="title">Никакой сложной установки.<br>Только понятный запуск.</h2><div class="faq"><details><summary>Нужно ли гостю устанавливать приложение?</summary><p>Нет. Гость сканирует QR‑код камерой телефона и сразу открывает меню в браузере.</p></details><details><summary>Можно ли использовать систему только как QR‑меню?</summary><p>Да. Начните с цифрового меню и панели управления, а роли персонала и расширенные модули подключайте по мере необходимости.</p></details><details><summary>Есть ли отдельные интерфейсы для сотрудников?</summary><p>Да. В проекте предусмотрены рабочие пространства для официанта, кухни, курьера, менеджера и администратора.</p></details><details><summary>Подходит ли решение для нескольких точек?</summary><p>Да. Управляющий может работать с несколькими заведениями, разграничивать права и смотреть сводную аналитику.</p></details></div></section>
+
+<section class="container logos">
+  <div>Создано для тех, кто хочет управлять заведением, а не тушить пожары</div>
+  <div class="logo-row"><span>КАФЕ</span><span>РЕСТОРАНЫ</span><span>КОФЕЙНИ</span><span>ДОСТАВКА</span><span>ФУДКОРТЫ</span></div>
+</section>
+
+<section id="how" class="section container">
+  <div class="section-tag"><span class="tag-inner">Сценарий, который понятен всем</span></div>
+  <h2 class="title">От QR‑кода на столе до готового заказа — без лишних звонков и бумажек.</h2>
+  <p class="lead">Система объединяет все роли в заведении. Каждый видит только то, что нужно ему, а управляющий сохраняет полный контроль.</p>
+  <div class="flow">
+    <article class="step glass reveal"><div class="num">01 / ГОСТЬ</div><h3>Сканирует QR</h3><p>Меню открывается мгновенно в браузере. Установка приложения не нужна.</p><div class="step-icon">⌁</div></article>
+    <article class="step glass reveal" style="transition-delay:.1s"><div class="num">02 / ЗАКАЗ</div><h3>Выбирает и отправляет</h3><p>Фото, категории, модификаторы, комментарии и удобная корзина.</p><div class="step-icon">🛒</div></article>
+    <article class="step glass reveal" style="transition-delay:.2s"><div class="num">03 / КОМАНДА</div><h3>Работает синхронно</h3><p>Официант, кухня и курьер получают нужную задачу в момент заказа.</p><div class="step-icon">⚡</div></article>
+    <article class="step glass reveal" style="transition-delay:.3s"><div class="num">04 / ВЛАДЕЛЕЦ</div><h3>Видит результат</h3><p>Продажи, средний чек, загрузка, сотрудники и точки — в аналитике.</p><div class="step-icon">◈</div></article>
+  </div>
+</section>
+
+<section id="features" class="section container">
+  <div class="section-tag"><span class="tag-inner">Всё уже внутри</span></div>
+  <h2 class="title">Одна платформа вместо разрозненных сервисов.</h2>
+  <div class="feature-grid">
+    <article class="feature big glass reveal from-left">
+      <small>Контроль в цифрах</small>
+      <h3>Управляйте по данным,<br>а не по ощущениям</h3>
+      <p>Следите за заказами, выручкой, средним чеком, загрузкой кухни и работой команды — по одной точке или по всей сети.</p>
+      <div class="dash">
+        <div class="dash-row">
+          <div class="kpi">Выручка<b><span class="counter" data-target="248400">0</span> ₽</b></div>
+          <div class="kpi">Заказы<b><span class="counter" data-target="386">0</span></b></div>
+          <div class="kpi">Средний чек<b><span class="counter" data-target="644">0</span> ₽</b></div>
+        </div>
+        <div class="chart" id="chart"><span style="height:38%"></span><span style="height:63%"></span><span style="height:49%"></span><span style="height:84%"></span><span style="height:61%"></span><span style="height:96%"></span><span style="height:74%"></span></div>
+      </div>
+    </article>
+    <div class="mini-features">
+      <article class="feature small glass reveal from-right">
+        <small>Роли и процессы</small>
+        <h3>Зал, кухня и доставка — без хаоса</h3>
+        <p>Отдельные рабочие пространства для официанта, повара, курьера и менеджера.</p>
+        <div class="teamchips"><span class="chip">🍽 Официант</span><span class="chip">👨‍🍳 Кухня</span><span class="chip">🛵 Курьер</span><span class="chip">◈ Менеджер</span></div>
+      </article>
+      <article class="feature small glass reveal from-right" style="transition-delay:.15s">
+        <small>Qrchick AI</small>
+        <h3>Ваш цифровой помощник</h3>
+        <p>Помогает гостям выбрать блюдо, отвечает по меню и усиливает сервис без лишней нагрузки на персонал.</p>
+        <div class="ai-orbit"><div class="ai-core">✦</div></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section id="plans" class="section container">
+  <div class="section-tag"><span class="tag-inner">Простое подключение</span></div>
+  <h2 class="title">Выберите масштаб сегодня.<br>Растите без смены платформы.</h2>
+  <p class="lead">Тарифы и лимиты в системе настраиваются администратором: стоимость, количество заведений, сотрудников и позиций меню. Ниже — понятная витрина для клиента.</p>
+  <div class="plans">
+    <article class="plan glass reveal">
+      <h3>Старт</h3>
+      <p class="desc">Для кофейни или небольшого кафе, которое хочет заменить бумажное меню.</p>
+      <div class="cost">Индивидуально <span>/ месяц</span></div>
+      <ul><li>QR‑меню для гостей</li><li>Управление блюдами и ценами</li><li>Базовая аналитика</li><li>Подключение и настройка</li></ul>
+      <a class="btn dark magnetic" href="register.html">Подключить</a>
+    </article>
+    <article class="plan featured reveal" style="transition-delay:.12s">
+      <span class="badge">ПОПУЛЯРНЫЙ</span>
+      <h3>Бизнес</h3>
+      <p class="desc">Для заведений, где важно ускорить работу команды и контролировать процессы.</p>
+      <div class="cost">Индивидуально <span>/ месяц</span></div>
+      <ul><li>Всё из тарифа «Старт»</li><li>Кабинеты официанта и кухни</li><li>Работа с доставкой и курьерами</li><li>Расширенная аналитика</li><li>AI‑ассистент Qrchick</li></ul>
+      <a class="btn primary magnetic" href="register.html"><span class="shimmer"></span>Запустить демо →</a>
+    </article>
+    <article class="plan glass reveal" style="transition-delay:.24s">
+      <h3>Сеть</h3>
+      <p class="desc">Для нескольких точек, франшиз и ресторанных групп.</p>
+      <div class="cost">Индивидуально <span>/ месяц</span></div>
+      <ul><li>Всё из тарифа «Бизнес»</li><li>Несколько заведений</li><li>Глобальная аналитика</li><li>Роли и права менеджеров</li><li>Приоритетная поддержка</li></ul>
+      <a class="btn dark magnetic" href="register.html">Обсудить условия</a>
+    </article>
+  </div>
+  <p class="compare-note">Точная цена зависит от настроек вашего тарифа: лимитов по точкам, сотрудникам и количеству позиций в меню. Оставьте заявку — подберём конфигурацию под формат заведения.</p>
+</section>
+
+<section id="demo" class="section container">
+  <div class="demo reveal scale">
+    <div>
+      <div class="section-tag" style="color:#88efff"><span class="tag-inner">Без регистрации и обязательств</span></div>
+      <h2>Не верьте словам.<br>Откройте систему и попробуйте сами.</h2>
+      <p>Посмотрите меню глазами гостя, кабинет управляющего и рабочие экраны команды. Это не презентация — это реальные сценарии продукта.</p>
+      <div class="actions">
+        <a class="btn primary magnetic" href="menu.html"><span class="shimmer"></span>Открыть меню гостя ↗</a>
+        <a class="btn dark magnetic" href="manager-demo.html">Демо менеджера</a>
+        <a class="btn dark magnetic" href="demo-staff.html">Демо команды</a>
+      </div>
+    </div>
+    <div class="screen glass"><div style="font:700 13px Unbounded,sans-serif">LIVE / QR‑MENU</div><div class="line one"></div><div class="line"></div><div class="line two"></div><div class="line"></div><div class="line three"></div><div class="line"></div></div>
+  </div>
+</section>
+
+<section class="section container">
+  <div class="section-tag"><span class="tag-inner">Ответы до старта</span></div>
+  <h2 class="title">Никакой сложной установки.<br>Только понятный запуск.</h2>
+  <div class="faq">
+    <details class="reveal"><summary>Нужно ли гостю устанавливать приложение?</summary><p>Нет. Гость сканирует QR‑код камерой телефона и сразу открывает меню в браузере.</p></details>
+    <details class="reveal" style="transition-delay:.1s"><summary>Можно ли использовать систему только как QR‑меню?</summary><p>Да. Начните с цифрового меню и панели управления, а роли персонала и расширенные модули подключайте по мере необходимости.</p></details>
+    <details class="reveal" style="transition-delay:.2s"><summary>Есть ли отдельные интерфейсы для сотрудников?</summary><p>Да. В проекте предусмотрены рабочие пространства для официанта, кухни, курьера, менеджера и администратора.</p></details>
+    <details class="reveal" style="transition-delay:.3s"><summary>Подходит ли решение для нескольких точек?</summary><p>Да. Управляющий может работать с несколькими заведениями, разграничивать права и смотреть сводную аналитику.</p></details>
+  </div>
+</section>
 </main>
+
 <footer class="container footer"><a class="brand" href="#top"><i></i>ОС QR‑MENU</a><span>Цифровая система для современного сервиса · <a href="login.html">Войти в кабинет</a></span></footer>
+
 <script>
-  const obs=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.12});document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
+(function(){
+  /* ── LOADER ── */
+  window.addEventListener('load', function(){
+    setTimeout(function(){ document.getElementById('loader').classList.add('hide') }, 600);
+  });
+
+  /* ── PARTICLES ── */
+  var pc = document.getElementById('particles');
+  for(var i=0;i<25;i++){
+    var p = document.createElement('div');
+    p.className='particle';
+    p.style.left = Math.random()*100+'%';
+    p.style.animationDuration = (8+Math.random()*12)+'s';
+    p.style.animationDelay = (Math.random()*10)+'s';
+    p.style.width = p.style.height = (2+Math.random()*3)+'px';
+    p.style.opacity = .2+Math.random()*.4;
+    var colors=['rgba(134,104,255,.5)','rgba(77,229,255,.5)','rgba(92,240,177,.4)'];
+    p.style.background=colors[Math.floor(Math.random()*3)];
+    pc.appendChild(p);
+  }
+
+  /* ── NAV SCROLL ── */
+  var nav=document.getElementById('nav');
+  window.addEventListener('scroll',function(){
+    nav.classList.toggle('scrolled',window.scrollY>50);
+  });
+
+  /* ── INTERSECTION OBSERVER (reveal) ── */
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){
+        e.target.classList.add('show');
+        e.target.classList.add('visible');
+      }
+    });
+  },{threshold:.12});
+  document.querySelectorAll('.reveal, .plan, .screen, .section').forEach(function(el){obs.observe(el)});
+
+  /* ── CHART ANIMATION ── */
+  var chartObs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting) e.target.classList.add('animated');
+    });
+  },{threshold:.3});
+  var chartEl=document.getElementById('chart');
+  if(chartEl) chartObs.observe(chartEl);
+
+  /* ── COUNTERS ── */
+  function animateCounter(el){
+    var target=parseInt(el.getAttribute('data-target'));
+    var duration=1800;
+    var start=performance.now();
+    function update(now){
+      var progress=Math.min((now-start)/duration,1);
+      var eased=1-Math.pow(1-progress,3);
+      var current=Math.floor(eased*target);
+      el.textContent=current.toLocaleString('ru-RU');
+      if(progress<1) requestAnimationFrame(update);
+      else el.textContent=target.toLocaleString('ru-RU');
+    }
+    requestAnimationFrame(update);
+  }
+  var counterObs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting&&!e.target.dataset.counted){
+        e.target.dataset.counted='1';
+        animateCounter(e.target);
+      }
+    });
+  },{threshold:.5});
+  document.querySelectorAll('.counter').forEach(function(el){counterObs.observe(el)});
+
+  /* ── RIPPLE ON BUTTONS ── */
+  document.querySelectorAll('.btn,.navbtn').forEach(function(btn){
+    btn.addEventListener('click=function',function(){}); // placeholder
+    btn.addEventListener('click',function(e){
+      var r=document.createElement('span');
+      r.className='btn-ripple';
+      var rect=this.getBoundingClientRect();
+      r.style.left=(e.clientX-rect.left)+'px';
+      r.style.top=(e.clientY-rect.top)+'px';
+      this.appendChild(r);
+      setTimeout(function(){r.remove()},600);
+    });
+  });
+
+  /* ── MAGNETIC HOVER ── */
+  document.querySelectorAll('.magnetic').forEach(function(el){
+    el.addEventListener('mousemove',function(e){
+      var rect=this.getBoundingClientRect();
+      var x=e.clientX-rect.left-rect.width/2;
+      var y=e.clientY-rect.top-rect.height/2;
+      this.style.transform='translate('+(x*.15)+'px,'+(y*.15)+'px)';
+    });
+    el.addEventListener('mouseleave',function(){
+      this.style.transform='';
+    });
+  });
+
+  /* ── PARALLAX ORBS ON MOUSE ── */
+  var orbs=document.querySelectorAll('.orb');
+  document.addEventListener('mousemove',function(e){
+    var mx=(e.clientX/window.innerWidth-.5)*2;
+    var my=(e.clientY/window.innerHeight-.5)*2;
+    orbs.forEach(function(o,i){
+      var speed=(i+1)*12;
+      o.style.transform='translate('+(mx*speed)+'px,'+(my*speed)+'px)';
+    });
+  });
+
+  /* ── SMOOTH SCROLL FOR NAV LINKS ── */
+  document.querySelectorAll('a[href^="#"]').forEach(function(a){
+    a.addEventListener('click',function(e){
+      var target=document.querySelector(this.getAttribute('href'));
+      if(target){
+        e.preventDefault();
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+  });
+
+})();
 </script>
 </body>
 </html>
