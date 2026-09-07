@@ -137,8 +137,7 @@
   };
 
   /* Canonical client-side AI entitlement bridge.
-     The manager subscription's plan_id is the source of truth. This bridge
-     deliberately ignores venue.plan and any stale currentPlan value. */
+     The manager subscription's plan_id is the source of truth. */
   function installAIEntitlementBridge(vm) {
     if (!vm || vm.__qrManagerAIEntitlementBridge) return;
     vm.__qrManagerAIEntitlementBridge = true;
@@ -146,6 +145,10 @@
       feature = String(feature || '').trim();
       if (!feature) return false;
       if (this.profile && this.profile.role === 'admin') return true;
+      /* Subscription is loaded asynchronously during manager startup. An
+         unresolved entitlement is not a denial; backend authorization remains
+         authoritative once the request is sent. */
+      if (this.aiEntitlementReady !== true) return true;
       var sub = this.managerSubscription;
       if (!sub || ['active', 'trialing'].indexOf(sub.status) === -1 || !sub.current_period_end || new Date(sub.current_period_end) < new Date()) return false;
       if (sub.status === 'trialing') return true;
