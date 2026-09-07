@@ -46,6 +46,17 @@
     return ['g','kg','ml','l','pcs'].indexOf(u) >= 0 ? u : null;
   }
 
+  function isUuid(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
+  }
+
+  function getVenueId() {
+    var v = window.__managerCurrentVenue || window.__managerSelectedVenue || null;
+    var id = v && v.id;
+    if (!isUuid(id)) id = localStorage.getItem('manager_venue_id') || localStorage.getItem('selectedVenueId') || '';
+    return isUuid(id) ? String(id) : null;
+  }
+
   function rpc(name, args) {
     if (!window.db) return Promise.reject(new Error('window.db отсутствует'));
     return window.db.rpc(name, args).then(function (r) {
@@ -80,9 +91,9 @@
   }
 
   function loadData() {
-    state.venueId = localStorage.getItem('manager_venue_id') || localStorage.getItem('selectedVenueId');
+    state.venueId = getVenueId();
     if (!state.venueId) {
-      message('Не найдено выбранное заведение. Выберите заведение в кабинете.', true);
+      message('Выберите реальное заведение в кабинете управляющего. Демо-идентификатор не используется.', true);
       return Promise.resolve();
     }
 
@@ -283,6 +294,10 @@
       window.addEventListener('manager-venue-selected', function (e) {
         if (!e.detail || !e.detail.id) return;
         state.venueId = e.detail.id;
+        if (!isUuid(state.venueId)) {
+          message('Выбрано некорректное заведение. Выберите заведение из базы.', true);
+          return;
+        }
         localStorage.setItem('manager_venue_id', String(state.venueId));
         loadData();
       });
