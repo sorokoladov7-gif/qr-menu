@@ -1,21 +1,319 @@
 <!DOCTYPE html>
 <html lang="ru">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OS QR-Меню — Демо сотрудника</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1120}iframe{width:100%;height:100%;border:0;display:block}</style></head>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OS QR-Меню — Демо сотрудника</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b1120;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#fff}
+iframe{width:100%;height:100%;border:0;display:block;opacity:0;transition:opacity .6s cubic-bezier(.22,1,.36,1)}
+iframe.visible{opacity:1}
+
+/* ═══════════════════════════════
+   WOW LOADING OVERLAY
+   ═══════════════════════════════ */
+.loading-overlay{position:fixed;inset:0;z-index:99999;background:#060a14;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .8s cubic-bezier(.22,1,.36,1),transform .8s cubic-bezier(.22,1,.36,1)}
+.loading-overlay.hide{opacity:0;transform:scale(1.05);pointer-events:none}
+
+/* ── ANIMATED BG ── */
+.loading-overlay canvas{position:absolute;inset:0;z-index:0}
+
+/* ── ORBS ── */
+.lb-orbs{position:absolute;inset:0;pointer-events:none;z-index:1}
+.lb-orb{position:absolute;border-radius:50%;filter:blur(80px)}
+.lb-orb.a{width:400px;height:400px;background:rgba(99,102,241,.15);top:-10%;left:-10%;animation:lbOrbA 14s ease-in-out infinite}
+.lb-orb.b{width:320px;height:320px;background:rgba(16,185,129,.1);bottom:-8%;right:-8%;animation:lbOrbB 16s ease-in-out infinite 2s}
+.lb-orb.c{width:250px;height:250px;background:rgba(6,182,212,.08);top:50%;left:60%;animation:lbOrbC 18s ease-in-out infinite 4s}
+@keyframes lbOrbA{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,40px)}}
+@keyframes lbOrbB{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-30px)}}
+@keyframes lbOrbC{0%,100%{transform:translate(0,0)}50%{transform:translate(-30px,50px)}}
+
+/* ── GRID ── */
+.lb-grid{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background-image:linear-gradient(rgba(255,255,255,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.02) 1px,transparent 1px);
+  background-size:50px 50px;animation:lbGrid 20s linear infinite}
+@keyframes lbGrid{0%{transform:translate(0,0)}100%{transform:translate(50px,50px)}}
+
+/* ── NOISE ── */
+.loading-overlay::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;opacity:.025;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+
+/* ── CONTENT ── */
+.lb-content{position:relative;z-index:10;text-align:center}
+
+/* ── LOGO ── */
+.lb-logo{position:relative;width:100px;height:100px;margin:0 auto 28px}
+.lb-logo-ring{position:absolute;inset:0;border:2px solid transparent;border-top-color:#6366f1;border-right-color:#06b6d4;border-radius:50%;animation:lbRingSpin 1.5s linear infinite}
+.lb-logo-ring.r2{inset:8px;border-top-color:#10b981;border-right-color:#818cf8;animation-duration:2s;animation-direction:reverse}
+.lb-logo-ring.r3{inset:16px;border-top-color:#f59e0b;border-right-color:#f472b6;animation-duration:2.5s}
+@keyframes lbRingSpin{to{transform:rotate(360deg)}}
+.lb-logo-core{position:absolute;inset:24px;border-radius:50%;
+  background:linear-gradient(135deg,#6366f1,#06b6d4);
+  display:grid;place-items:center;font-size:28px;font-weight:800;
+  box-shadow:0 0 40px rgba(99,102,241,.3);
+  animation:lbCorePulse 2s ease-in-out infinite}
+@keyframes lbCorePulse{0%,100%{box-shadow:0 0 40px rgba(99,102,241,.3);transform:scale(1)}50%{box-shadow:0 0 60px rgba(99,102,241,.5);transform:scale(1.05)}}
+
+/* ── ROLE ICON ── */
+.lb-role-icon{font-size:40px;margin-bottom:16px;
+  animation:lbRoleBounce .6s cubic-bezier(.34,1.56,.64,1) .3s both,lbRoleFloat 3s ease-in-out infinite .9s}
+@keyframes lbRoleBounce{from{opacity:0;transform:scale(0) rotate(-20deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes lbRoleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+
+/* ── TITLE ── */
+.lb-title{font-size:26px;font-weight:800;letter-spacing:-1px;margin-bottom:8px;
+  background:linear-gradient(135deg,#fff,#c7d2fe,#67e8f9);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  animation:lbTitleIn .6s ease-out .4s both}
+@keyframes lbTitleIn{from{opacity:0;transform:translateY(16px);filter:blur(6px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+
+.lb-subtitle{color:#94a3b8;font-size:14px;font-weight:500;
+  animation:lbSubIn .5s ease-out .6s both}
+@keyframes lbSubIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── PROGRESS ── */
+.lb-progress{width:200px;height:3px;background:rgba(255,255,255,.06);border-radius:3px;margin:24px auto 0;overflow:hidden}
+.lb-progress-bar{height:100%;width:0%;border-radius:3px;
+  background:linear-gradient(90deg,#6366f1,#06b6d4,#10b981);
+  background-size:200% 100%;
+  animation:lbProgress 2.5s ease-in-out forwards,lbProgressShimmer 1s linear infinite}
+@keyframes lbProgress{0%{width:0%}30%{width:40%}60%{width:70%}80%{width:85%}100%{width:100%}}
+@keyframes lbProgressShimmer{0%{background-position:0% 0}100%{background-position:200% 0}}
+
+.lb-progress-label{margin-top:12px;font-size:12px;color:#64748b;font-weight:600;
+  animation:lbLabelPulse 1.5s ease-in-out infinite}
+@keyframes lbLabelPulse{0%,100%{opacity:.4}50%{opacity:1}}
+
+/* ── STATUS DOTS ── */
+.lb-status{display:flex;gap:6px;justify-content:center;margin-top:16px}
+.lb-status-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.1);
+  animation:lbDotPulse 1.2s ease-in-out infinite}
+.lb-status-dot:nth-child(1){animation-delay:0s}
+.lb-status-dot:nth-child(2){animation-delay:.2s}
+.lb-status-dot:nth-child(3){animation-delay:.4s}
+.lb-status-dot.active{background:#6366f1;box-shadow:0 0 12px rgba(99,102,241,.5)}
+@keyframes lbDotPulse{0%,100%{transform:scale(1);opacity:.3}50%{transform:scale(1.3);opacity:1}}
+
+/* ── SCAN LINE ── */
+.lb-scan{position:absolute;inset:0;z-index:3;pointer-events:none;overflow:hidden}
+.lb-scan-line{position:absolute;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(99,102,241,.4),rgba(6,182,212,.4),transparent);
+  animation:lbScan 2s ease-in-out infinite}
+@keyframes lbScan{0%{top:0%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+
+/* ── PARTICLES ── */
+.lb-particles{position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden}
+.lb-particle{position:absolute;border-radius:50%;animation:lbParticle linear infinite}
+@keyframes lbParticle{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:.6}90%{opacity:.6}100%{transform:translateY(-10vh) rotate(720deg);opacity:0}}
+
+/* ── FOOTER GLOW ── */
+.lb-footer-glow{position:absolute;bottom:0;left:0;right:0;height:1px;z-index:4;
+  background:linear-gradient(90deg,transparent,#6366f1,#06b6d4,#10b981,transparent);
+  opacity:.4;animation:lbFooterGlow 3s ease-in-out infinite}
+@keyframes lbFooterGlow{0%,100%{opacity:.2}50%{opacity:.6}}
+
+/* ── ERROR STATE ── */
+.lb-error{text-align:center;padding:40px;position:relative;z-index:10}
+.lb-error h2{color:#f87171;font-size:20px;margin-bottom:8px}
+.lb-error p{color:#94a3b8;font-size:14px}
+.lb-error .btn{margin-top:16px;padding:10px 20px;border-radius:12px;border:0;font-weight:700;cursor:pointer;
+  background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;
+  transition:transform .25s,box-shadow .25s}
+.lb-error .btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.35)}
+
+/* ── RIPPLE ── */
+.ani-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.25);transform:scale(0);
+  animation:ripple .6s ease-out forwards;pointer-events:none;z-index:99}
+@keyframes ripple{to{transform:scale(4);opacity:0}}
+
+/* ── BADGE ── */
+.lb-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;
+  background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);
+  font-size:11px;font-weight:700;color:#c7d2fe;margin-bottom:16px;
+  animation:lbBadgeIn .5s cubic-bezier(.34,1.56,.64,1) .2s both}
+@keyframes lbBadgeIn{from{opacity:0;transform:scale(.8) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.lb-badge .dot{width:6px;height:6px;border-radius:50%;background:#34d399;
+  box-shadow:0 0 8px rgba(52,211,153,.5);animation:dotBlink 1.5s ease-in-out infinite}
+@keyframes dotBlink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── TYPEWRITER ── */
+.lb-typewriter{overflow:hidden;white-space:nowrap;border-right:2px solid #6366f1;
+  animation:lbTyping 1.5s steps(30,end) .5s both,lbBlink .6s step-end infinite alternate}
+@keyframes lbTyping{from{max-width:0}to{max-width:100%}}
+@keyframes lbBlink{50%{border-color:transparent}}
+
+/* ── CORNER ACCENTS ── */
+.lb-corner{position:absolute;width:40px;height:40px;z-index:5}
+.lb-corner::before,.lb-corner::after{content:'';position:absolute;background:rgba(99,102,241,.3)}
+.lb-corner.tl{top:20px;left:20px}
+.lb-corner.tl::before{top:0;left:0;width:20px;height:2px}
+.lb-corner.tl::after{top:0;left:0;width:2px;height:20px}
+.lb-corner.tr{top:20px;right:20px}
+.lb-corner.tr::before{top:0;right:0;width:20px;height:2px}
+.lb-corner.tr::after{top:0;right:0;width:2px;height:20px}
+.lb-corner.bl{bottom:20px;left:20px}
+.lb-corner.bl::before{bottom:0;left:0;width:20px;height:2px}
+.lb-corner.bl::after{bottom:0;left:0;width:2px;height:20px}
+.lb-corner.br{bottom:20px;right:20px}
+.lb-corner.br::before{bottom:0;right:0;width:20px;height:2px}
+.lb-corner.br::after{bottom:0;right:0;width:2px;height:20px}
+.lb-corner{opacity:0;animation:lbCornerIn .4s ease-out .8s forwards}
+@keyframes lbCornerIn{from{opacity:0}to{opacity:1}}
+</style>
+</head>
 <body>
+
+<!-- ═══ LOADING OVERLAY ═══ -->
+<div class="loading-overlay" id="loadingOverlay">
+  <!-- BG layers -->
+  <canvas id="starfield"></canvas>
+  <div class="lb-orbs"><div class="lb-orb a"></div><div class="lb-orb b"></div><div class="lb-orb c"></div></div>
+  <div class="lb-grid"></div>
+  <div class="lb-scan"><div class="lb-scan-line"></div></div>
+  <div class="lb-particles" id="lbParticles"></div>
+  <div class="lb-footer-glow"></div>
+
+  <!-- Corner accents -->
+  <div class="lb-corner tl"></div>
+  <div class="lb-corner tr"></div>
+  <div class="lb-corner bl"></div>
+  <div class="lb-corner br"></div>
+
+  <!-- Content -->
+  <div class="lb-content">
+    <div class="lb-logo">
+      <div class="lb-logo-ring"></div>
+      <div class="lb-logo-ring r2"></div>
+      <div class="lb-logo-ring r3"></div>
+      <div class="lb-logo-core" id="logoCore">QR</div>
+    </div>
+
+    <div class="lb-badge"><span class="dot"></span>Демо-режим</div>
+
+    <div class="lb-role-icon" id="roleIcon">👨‍🍳</div>
+    <div class="lb-title lb-typewriter" id="roleTitle">Загрузка...</div>
+    <div class="lb-subtitle" id="roleSubtitle">Подготавливаем рабочее пространство</div>
+
+    <div class="lb-progress"><div class="lb-progress-bar" id="progressBar"></div></div>
+    <div class="lb-progress-label" id="progressLabel">Инициализация...</div>
+
+    <div class="lb-status">
+      <div class="lb-status-dot active" id="sd1"></div>
+      <div class="lb-status-dot" id="sd2"></div>
+      <div class="lb-status-dot" id="sd3"></div>
+      <div class="lb-status-dot" id="sd4"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ IFRAME ═══ -->
 <iframe id="demoFrame"></iframe>
+
 <script>
 (function(){
-  var p=new URLSearchParams(location.search),role=(p.get('role')||'').toLowerCase();
+  /* ── Parse role ── */
+  var p=new URLSearchParams(location.search);
+  var role=(p.get('role')||'').toLowerCase();
   var pages={cook:'cook.html',courier:'courier.html',waiter:'waiter.html'};
-  if(!pages[role]){location.href='index.html';return;}
+  var roleInfo={
+    cook:{icon:'👨‍🍳',title:'Рабочее место повара',subtitle:'Заказы, готовка, выдача',color:'#f59e0b'},
+    courier:{icon:'🚗',title:'Рабочее место курьера',subtitle:'Доставки, маршруты, навигация',color:'#a78bfa'},
+    waiter:{icon:'🤵',title:'Рабочее место официанта',subtitle:'Столы, заказы, обслуживание',color:'#67e8f9'}
+  };
+
+  if(!pages[role]){
+    /* ── Error state ── */
+    var overlay=document.getElementById('loadingOverlay');
+    overlay.innerHTML='<div class="lb-orbs"><div class="lb-orb a"></div><div class="lb-orb b"></div></div><div class="lb-grid"></div><div class="lb-error"><div style="font-size:48px;margin-bottom:16px;animation:lbRoleBounce .6s cubic-bezier(.34,1.56,.64,1) both">😕</div><h2 style="animation:lbTitleIn .5s ease-out .2s both">Роль не указана</h2><p style="animation:lbSubIn .5s ease-out .3s both">Добавьте параметр ?role=cook, courier или waiter</p><button class="btn" onclick="location.href=\'index.html\'" style="animation:lbSubIn .5s ease-out .4s both">На главную</button></div>';
+    return;
+  }
+
+  /* ── Update UI with role info ── */
+  var info=roleInfo[role];
+  document.getElementById('roleIcon').textContent=info.icon;
+  document.getElementById('roleTitle').textContent=info.title;
+  document.getElementById('roleSubtitle').textContent=info.subtitle;
+  document.getElementById('logoCore').style.background='linear-gradient(135deg,'+info.color+',#6366f1)';
+
+  /* ── Starfield ── */
+  var c=document.getElementById('starfield'),ctx=c.getContext('2d'),stars=[];
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  for(var i=0;i<80;i++)stars.push({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+.3,s:Math.random()*.4+.1,d:Math.random()*Math.PI*2});
+  var animating=true;
+  function drawStars(){
+    if(!animating)return;
+    ctx.clearRect(0,0,c.width,c.height);
+    var t=Date.now()*.001;
+    stars.forEach(function(s){
+      var a=.15+Math.sin(t*s.s+s.d)*.25;
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,'+a+')';ctx.fill();
+    });
+    requestAnimationFrame(drawStars);
+  }
+  drawStars();
+
+  /* ── Particles ── */
+  var pc=document.getElementById('lbParticles');
+  for(var i=0;i<12;i++){
+    var el=document.createElement('div');el.className='lb-particle';
+    el.style.left=Math.random()*100+'%';
+    el.style.animationDuration=(8+Math.random()*12)+'s';
+    el.style.animationDelay=(Math.random()*8)+'s';
+    var sz=2+Math.random()*2.5;el.style.width=el.style.height=sz+'px';
+    var colors=['rgba(99,102,241,.4)','rgba(6,182,212,.35)','rgba(16,185,129,.3)'];
+    el.style.background=colors[Math.floor(Math.random()*3)];
+    pc.appendChild(el);
+  }
+
+  /* ── Progress simulation ── */
+  var labels=['Инициализация...','Загрузка интерфейса...','Подключение к системе...','Подготовка демо-данных...','Готово!'];
+  var dots=[document.getElementById('sd1'),document.getElementById('sd2'),document.getElementById('sd3'),document.getElementById('sd4')];
+  var labelEl=document.getElementById('progressLabel');
+  var step=0;
+
+  function advanceStep(){
+    if(step>=dots.length)return;
+    dots[step].classList.add('active');
+    labelEl.textContent=labels[step]||'';
+    step++;
+    if(step<dots.length)setTimeout(advanceStep,600);
+    else{labelEl.textContent=labels[labels.length-1];setTimeout(hideOverlay,400);}
+  }
+  setTimeout(advanceStep,300);
+
+  /* ── Hide overlay ── */
+  function hideOverlay(){
+    var ov=document.getElementById('loadingOverlay');
+    ov.classList.add('hide');
+    var f=document.getElementById('demoFrame');
+    f.classList.add('visible');
+    animating=false;
+    setTimeout(function(){ov.remove()},900);
+  }
+
+  /* ── Load iframe ── */
   var f=document.getElementById('demoFrame');
   f.src=pages[role]+'?demo=1&role='+encodeURIComponent(role);
   f.addEventListener('load',function(){
     try{
       var d=f.contentDocument||f.contentWindow.document;
-      function add(src){return new Promise(function(resolve,reject){var s=d.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;d.head.appendChild(s);});}
+      function add(src){return new Promise(function(resolve,reject){var s=d.createElement('script');s.src=src;s.onload=resolve;s.onerror=reject;d.head.appendChild(s);})}
       add('/js/demo-data.js').then(function(){return add('/js/demo-staff-v2.js');}).catch(function(e){console.error('Demo staff bootstrap failed',e);});
     }catch(e){console.error('Demo staff frame error',e);}
+  });
+
+  /* ── Ripple ── */
+  document.addEventListener('click',function(e){
+    var btn=e.target.closest('.btn');if(!btn)return;
+    var r=document.createElement('span');r.className='ani-ripple';
+    var rect=btn.getBoundingClientRect();var sz=Math.max(rect.width,rect.height);
+    r.style.width=r.style.height=sz+'px';
+    r.style.left=(e.clientX-rect.left-sz/2)+'px';r.style.top=(e.clientY-rect.top-sz/2)+'px';
+    btn.appendChild(r);setTimeout(function(){r.remove()},600);
   });
 })();
 </script>
