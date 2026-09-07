@@ -185,6 +185,26 @@
     window.addEventListener('focus', vm.__qrManagerPlanSyncFocus);
   }
 
+  function queuePlanEntitlementSync() {
+    if (window.__qrManagerPlanSyncPending) return;
+    window.__qrManagerPlanSyncPending = true;
+    var attempts = 0;
+    var timer = setInterval(function() {
+      var current = window.__managerVue;
+      if (current && current.profile) {
+        clearInterval(timer);
+        window.__qrManagerPlanSyncPending = false;
+        startPlanEntitlementSync(current);
+        return;
+      }
+      attempts++;
+      if (attempts >= 120) {
+        clearInterval(timer);
+        window.__qrManagerPlanSyncPending = false;
+      }
+    }, 250);
+  }
+
   function stopPlanEntitlementSync(vm) {
     if (!vm) return;
     if (vm.__qrManagerPlanSyncTimer) clearInterval(vm.__qrManagerPlanSyncTimer);
@@ -194,14 +214,18 @@
   }
 
   window.addEventListener('qr-manager-vue-ready', function() {
-    var vm = window.__managerVue;
-    if (vm) startPlanEntitlementSync(vm);
+    queuePlanEntitlementSync();
   });
 
   window.addEventListener('qr-manager-subscription-ready', function() {
-    var vm = window.__managerVue;
-    if (vm) startPlanEntitlementSync(vm);
+    queuePlanEntitlementSync();
   });
+
+  if (window.__managerVue && window.__managerVue.profile) {
+    startPlanEntitlementSync(window.__managerVue);
+  } else {
+    queuePlanEntitlementSync();
+  }
 
   window.addEventListener('pagehide', function() {
     stopPlanEntitlementSync(window.__managerVue);
