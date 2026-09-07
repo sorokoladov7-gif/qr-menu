@@ -21,19 +21,45 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const rateState = new Map();
 
-const AI_FEATURES = { menu_import: 'ИИ-импорт меню: распознавание и структурирование меню.' };
+function clean(value,max=600){return String(value==null?'':value).replace(/\s+/g,' ').trim().slice(0,max);}
+function parseBearer(req){const header=String(req.headers?.authorization||req.headers?.Authorization||'');const match=header.match(/^Bearer\s+(.+)$/i);return match?match[1].trim():'';}
 
 const SCHEMA = {
-  type: 'object',
+  type: 'OBJECT',
   properties: {
-    venue_name: { type: 'string' }, currency: { type: 'string' },
-    categories: { type: 'array', items: { type: 'object', properties: {
-      name: { type: 'string' }, items: { type: 'array', items: { type: 'object', properties: {
-        name: { type: 'string' }, description: { type: 'string' }, price: { type: ['number', 'null'] }, unit: { type: 'string' }, weight: { type: ['number', 'null'] }, image_url: { type: ['string', 'null'] }, allergens: { type: 'array', items: { type: 'string' } }, tags: { type: 'array', items: { type: 'string' } }, available: { type: 'boolean' }
-      }, required: ['name','description','price','unit','weight','image_url','allergens','tags','available'] } } }
-    }, required: ['name','items'] } },
-    warnings: { type: 'array', items: { type: 'string' } }
-  }, required: ['venue_name','currency','categories','warnings']
+    venue_name: { type: 'STRING' },
+    currency: { type: 'STRING' },
+    categories: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          name: { type: 'STRING' },
+          items: {
+            type: 'ARRAY',
+            items: {
+              type: 'OBJECT',
+              properties: {
+                name: { type: 'STRING' },
+                description: { type: 'STRING' },
+                price: { type: 'NUMBER' },
+                unit: { type: 'STRING' },
+                weight: { type: 'NUMBER' },
+                image_url: { type: 'STRING' },
+                allergens: { type: 'ARRAY', items: { type: 'STRING' } },
+                tags: { type: 'ARRAY', items: { type: 'STRING' } },
+                available: { type: 'BOOLEAN' }
+              },
+              required: ['name','description','price','unit','weight','image_url','allergens','tags','available']
+            }
+          }
+        },
+        required: ['name','items']
+      }
+    },
+    warnings: { type: 'ARRAY', items: { type: 'STRING' } }
+  },
+  required: ['venue_name','currency','categories','warnings']
 };
 
 async function parseRequestBody(req) {
@@ -52,10 +78,8 @@ async function entitlementForManager(managerId,feature){
   const sr=await fetch(SUPABASE_URL+'/rest/v1/subscriptions?manager_id=eq.'+encodeURIComponent(managerId)+'&venue_id=is.null&status=in.(trialing,active)&current_period_end=gte.'+encodeURIComponent(now)+'&select=id,plan_id,status,current_period_end&order=created_at.desc&limit=1',{headers}); const subs=await sr.json().catch(()=>null); if(!sr.ok)throw Object.assign(new Error('SUBSCRIPTION_LOOKUP_FAILED'),{status:500}); const sub=subs?.[0]; if(!sub)throw Object.assign(new Error('AI_SUBSCRIPTION_REQUIRED'),{status:403});
   const pr=await fetch(SUPABASE_URL+'/rest/v1/plans?id=eq.'+encodeURIComponent(sub.plan_id)+'&is_active=eq.true&select=id,name,ai_enabled,ai_features&limit=1',{headers}); const plans=await pr.json().catch(()=>null); if(!pr.ok)throw Object.assign(new Error('PLAN_LOOKUP_FAILED'),{status:500}); const plan=plans?.[0]; const features=plan?.ai_features&&typeof plan.ai_features==='object'?plan.ai_features:{}; if(sub.status==='trialing')return{plan:plan||null,features,subscription:sub}; if(!plan||plan.ai_enabled!==true)throw Object.assign(new Error('AI_NOT_INCLUDED_IN_PLAN'),{status:403}); if(features[feature]!==true)throw Object.assign(new Error('AI_FEATURE_NOT_INCLUDED:'+feature),{status:403}); return{plan,features,subscription:sub};
 }
-function clean(value,max=600){return String(value==null?'':value).replace(/\s+/g,' ').trim().slice(0,max);}
 function clientIp(req){const forwarded=String(req.headers?.['x-forwarded-for']||'').split(',')[0].trim();return forwarded||String(req.headers?.['x-real-ip']||'unknown').trim()||'unknown';}
 function checkRateLimit(req,userId){const key=userId+':'+clientIp(req);const now=Date.now();const current=rateState.get(key)||{started:now,count:0};if(now-current.started>=RATE_WINDOW_MS){current.started=now;current.count=0;}current.count++;rateState.set(key,current);for(const[k,v]of rateState)if(now-v.started>RATE_WINDOW_MS*2)rateState.delete(k);if(current.count>RATE_LIMIT)throw Object.assign(new Error('RATE_LIMITED'),{status:429});}
-function parseBearer(req){const header=String(req.headers?.authorization||req.headers?.Authorization||'');const match=header.match(/^Bearer\s+(.+)$/i);return match?match[1].trim():'';}
 async function requireManagerOrAdmin(req){const token=parseBearer(req);if(!token)throw Object.assign(new Error('AUTH_REQUIRED'),{status:401});const ar=await fetch(SUPABASE_URL+'/auth/v1/user',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token}});const user=await ar.json().catch(()=>null);if(!ar.ok||!user?.id)throw Object.assign(new Error('AUTH_INVALID'),{status:401});const pr=await fetch(SUPABASE_URL+'/rest/v1/profiles?id=eq.'+encodeURIComponent(user.id)+'&select=role&limit=1',{headers:{apikey:SUPABASE_ANON_KEY,authorization:'Bearer '+token,accept:'application/json'}});const profiles=await pr.json().catch(()=>[]);const role=String(profiles?.[0]?.role||'').toLowerCase();if(!pr.ok||!['manager','admin'].includes(role))throw Object.assign(new Error('ROLE_FORBIDDEN'),{status:403});return{id:user.id,role};}
 function isPrivateIp(ip){const version=net.isIP(ip);if(version===4){const[a,b]=ip.split('.').map(Number);return a===0||a===10||a===127||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&b===168)||(a===100&&b>=64&&b<=127)||(a===192&&b===0)||(a===198&&b===18)||(a>=224);}if(version===6){const n=ip.toLowerCase();if(n==='::1'||n==='::'||n.startsWith('fc')||n.startsWith('fd')||n.startsWith('fe8')||n.startsWith('fe9')||n.startsWith('fea')||n.startsWith('feb'))return true;if(n.startsWith('::ffff:'))return isPrivateIp(n.slice(7));}return false;}
 async function assertSafeUrl(raw){let url;try{url=new URL(String(raw||'').trim());}catch(_){throw Object.assign(new Error('INVALID_URL'),{status:400});}if(!/^https?:$/i.test(url.protocol)||url.username||url.password)throw Object.assign(new Error('INVALID_URL'),{status:400});if(url.hostname==='localhost'||url.hostname.endsWith('.localhost')||url.hostname.endsWith('.local')||(net.isIP(url.hostname)&&isPrivateIp(url.hostname)))throw Object.assign(new Error('URL_BLOCKED'),{status:400});try{const addresses=await dns.lookup(url.hostname,{all:true});if(!addresses.length||addresses.some(x=>isPrivateIp(x.address)))throw Object.assign(new Error('URL_BLOCKED'),{status:400});}catch(error){if(error?.status)throw error;throw Object.assign(new Error('URL_UNREACHABLE'),{status:400});}url.hash='';return url.href;}
