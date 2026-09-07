@@ -58,7 +58,17 @@
   }
   function context(feature){
     var v=vm()||{},venue=v.venue||{},products=Array.isArray(v.products)?v.products:[],orders=Array.isArray(v.orders)?v.orders:[],a=v.analytics||{};
-    return JSON.stringify({feature:feature,current_tab:v.tab||null,venue:{id:venue.id||null,name:venue.name||null,address:venue.address||null,slug:venue.slug||null},menu:{count:products.length,items:products.slice(0,180)},orders:{count:orders.length,items:orders.slice(0,100)},analytics:{revenue:a.revenue||0,orders:a.orders||0,clients:a.clients||0,avgCheck:a.avgCheck||0,topItems:(a.topItems||[]).slice(0,30)},staff:{cooks:(v.cooks||[]).slice(0,80),couriers:(v.couriers||[]).slice(0,80),waiters:(v.waiters||[]).slice(0,80)},settings:{form:v.vform||{},delivery_primary:v.deliveryPrimaryName||null},plan:{name:v.currentPlan&&v.currentPlan.name||null},permissions:v.perms||{}}).slice(0,18000);
+    var base={feature:feature,current_tab:v.tab||null,venue:{id:venue.id||null,name:venue.name||null,address:venue.address||null,slug:venue.slug||null},menu:{count:products.length,items:products.slice(0,180)},orders:orders.slice(0,100),analytics:{revenue:a.revenue||0,orders:a.orders||0,clients:a.clients||0,avgCheck:a.avgCheck||0,topItems:(a.topItems||[]).slice(0,30)},staff:{cooks:(v.cooks||[]).slice(0,80),couriers:(v.couriers||[]).slice(0,80),waiters:(v.waiters||[]).slice(0,80)},settings:{form:v.vform||{},delivery_primary:v.deliveryPrimaryName||null},plan:{name:v.currentPlan&&v.currentPlan.name||null},permissions:v.perms||{}};
+    function finish(tables){
+      base.hall={count:Array.isArray(tables)?tables.length:0,tables:(Array.isArray(tables)?tables:[]).slice(0,120)};
+      return JSON.stringify(base).slice(0,18000);
+    }
+    if(!venue.id||!window.db||typeof db.rpc!=='function')return Promise.resolve(finish([]));
+    return db.rpc('manager_table_board',{p_venue_id:venue.id}).then(function(r){
+      if(r&&r.error)return finish([]);
+      var rows=Array.isArray(r&&r.data)?r.data:(r&&r.data&&Array.isArray(r.data.tables)?r.data.tables:[]);
+      return finish(rows);
+    }).catch(function(){return finish([]);});
   }
   function format(text){return esc(text||'').replace(/```([\s\S]*?)```/g,function(_,x){return '<pre class="qrchick-code">'+esc(x.trim())+'</pre>';}).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');}
 
@@ -66,7 +76,7 @@
     var v=vm();if(!v)return;
     ['loadProducts','loadOrders','loadCooks','loadCouriers','loadWaiters','loadStaffAnalytics','loadDeliverySettings'].forEach(function(n){if(typeof v[n]==='function')Promise.resolve().then(function(){return v[n]();}).catch(function(){});});
   }
-  function preview(a){var p=a&&a.payload||{};if(a.type==='create_product')return 'Новая позиция: <b>'+esc(p.name||'')+'</b> · '+esc(p.price==null?'—':p.price)+' ₽';if(a.type==='update_product_price')return 'Новая цена: <b>'+esc(p.price==null?'—':p.price)+' ₽</b>';if(a.type==='create_staff')return 'Сотрудник: <b>'+esc(p.name||'')+'</b> · '+esc(p.type||'');if(a.type==='update_order')return 'Статус заказа: <b>'+esc(p.status||'')+'</b>';return '';}
+  function preview(a){var p=a&&a.payload||{};if(a.type==='create_product')return 'Новая позиция: <b>'+esc(p.name||'')+'</b> · '+esc(p.price==null?'—':p.price)+' ₽';if(a.type==='update_product_price')return 'Новая цена: <b>'+esc(p.price==null?'—':p.price)+' ₽</b>';if(a.type==='create_staff')return 'Сотрудник: <b>'+esc(p.name||'')+'</b> · '+esc(p.type||'');if(a.type==='update_order')return 'Статус заказа: <b>'+esc(p.status||'')+'</b>';if(a.type==='move_table')return 'Перемещение стола: <b>№'+esc(p.table_id||'')+'</b>';return '';}
   function add(role,text,meta){state.history.push({id:'m_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),role:role,text:String(text||''),meta:meta||null});}
 
   function applyAction(btn){
@@ -96,7 +106,7 @@
       return;
     }
     add('user',message);add('assistant','Qrchick обрабатывает запрос…');render();state.busy=true;
-    post('/api/manager-ai',{feature:feature,message:message.slice(0,8000),context:context(feature)}).then(function(d){var m=state.history[state.history.length-1];if(m&&m.role==='assistant'){m.text=String(d.answer||d.summary||'Готово.');m.meta={feature:feature,actions:(Array.isArray(d.actions)?d.actions:[]).map(function(a){var x=JSON.parse(JSON.stringify(a));x._feature=feature;return x;})};}render();}).catch(function(e){var m=state.history[state.history.length-1];if(m&&m.role==='assistant')m.text='Ошибка: '+(e.message||e);render();}).finally(function(){state.busy=false;});
+    context(feature).then(function(ctx){return post('/api/manager-ai',{feature:feature,message:message.slice(0,8000),context:ctx});}).then(function(d){var m=state.history[state.history.length-1];if(m&&m.role==='assistant'){m.text=String(d.answer||d.summary||'Готово.');m.meta={feature:feature,actions:(Array.isArray(d.actions)?d.actions:[]).map(function(a){var x=JSON.parse(JSON.stringify(a));x._feature=feature;return x;})};}render();}).catch(function(e){var m=state.history[state.history.length-1];if(m&&m.role==='assistant')m.text='Ошибка: '+(e.message||e);render();}).finally(function(){state.busy=false;});
   }
   function renderFeatures(){
     var b=document.getElementById('qrchick-manager-features'),q=document.getElementById('qrchick-manager-quick');
