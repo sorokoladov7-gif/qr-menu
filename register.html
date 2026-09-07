@@ -14,71 +14,376 @@
   <link rel="stylesheet" href="css/style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <style>
-    [v-cloak]{display:none}
-    .btn-client{display:flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;border-radius:12px;text-decoration:none;color:#fff;font-weight:800;font-size:13px;background:linear-gradient(135deg,#10b981,#06b6d4);border:1px solid rgba(255,255,255,.2);box-shadow:0 6px 20px rgba(16,185,129,.28),inset 0 1px 0 rgba(255,255,255,.18);transition:.2s ease;white-space:nowrap}
-    .btn-client:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(16,185,129,.4),inset 0 1px 0 rgba(255,255,255,.22)}
-    .btn-client:active{transform:translateY(0)}
-  </style>
+
+<style>
+[v-cloak]{display:none}
+
+/* ═══════════════════════════════
+   WOW ANIMATION LAYER — REGISTER
+   ═══════════════════════════════ */
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:#060a14;color:#fff;min-height:100vh;overflow-x:hidden}
+
+/* ── LOADER ── */
+.page-loader{position:fixed;inset:0;z-index:99999;background:#060a14;display:grid;place-items:center;transition:opacity .8s ease,visibility .8s ease}
+.page-loader.hide{opacity:0;visibility:hidden;pointer-events:none}
+.page-loader .loader-logo{font-size:48px;font-weight:800;background:linear-gradient(135deg,#10b981,#06b6d4,#6366f1);-webkit-background-clip:text;background-clip:text;color:transparent;animation:loaderLogoPulse 2s ease-in-out infinite}
+@keyframes loaderLogoPulse{0%,100%{opacity:.4;transform:scale(.95)}50%{opacity:1;transform:scale(1.05)}}
+.page-loader .loader-bar{width:180px;height:3px;background:rgba(255,255,255,.06);border-radius:3px;margin:20px auto 0;overflow:hidden}
+.page-loader .loader-bar::after{content:'';display:block;width:40%;height:100%;background:linear-gradient(90deg,#10b981,#06b6d4,#6366f1);border-radius:3px;animation:loaderSlide 1.2s ease-in-out infinite}
+@keyframes loaderSlide{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}
+
+/* ── ANIMATED BACKGROUND ── */
+.bg-canvas{position:fixed;inset:0;z-index:0;overflow:hidden}
+.bg-canvas canvas{width:100%;height:100%}
+
+/* ── FLOATING ORBS ── */
+.orb-container{position:fixed;inset:0;pointer-events:none;z-index:1}
+.floating-orb{position:absolute;border-radius:50%;filter:blur(80px);opacity:0}
+.floating-orb.orb-1{width:500px;height:500px;background:rgba(16,185,129,.12);top:-15%;left:-10%;animation:orbDrift1 20s ease-in-out infinite}
+.floating-orb.orb-2{width:400px;height:400px;background:rgba(99,102,241,.1);top:30%;right:-10%;animation:orbDrift2 24s ease-in-out infinite 2s}
+.floating-orb.orb-3{width:350px;height:350px;background:rgba(6,182,212,.08);bottom:-10%;left:30%;animation:orbDrift3 22s ease-in-out infinite 4s}
+.floating-orb.orb-4{width:250px;height:250px;background:rgba(139,92,246,.08);top:60%;left:10%;animation:orbDrift4 18s ease-in-out infinite 1s}
+@keyframes orbDrift1{0%,100%{transform:translate(0,0) scale(1);opacity:.12}50%{transform:translate(80px,60px) scale(1.15);opacity:.18}}
+@keyframes orbDrift2{0%,100%{transform:translate(0,0) scale(1);opacity:.1}50%{transform:translate(-70px,50px) scale(1.1);opacity:.15}}
+@keyframes orbDrift3{0%,100%{transform:translate(0,0) scale(1);opacity:.08}50%{transform:translate(50px,-40px) scale(1.2);opacity:.14}}
+@keyframes orbDrift4{0%,100%{transform:translate(0,0) scale(1);opacity:.08}50%{transform:translate(-40px,-60px) scale(1.1);opacity:.12}}
+
+/* ── GRID PATTERN ── */
+.grid-pattern{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
+  background-size:60px 60px;
+  animation:gridShift 30s linear infinite}
+@keyframes gridShift{0%{transform:translate(0,0)}100%{transform:translate(60px,60px)}}
+
+/* ── NOISE ── */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:2;opacity:.02;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E")}
+
+/* ── PARTICLES ── */
+.particles{position:fixed;inset:0;pointer-events:none;z-index:2;overflow:hidden}
+.particle{position:absolute;border-radius:50%;animation:particleFloat linear infinite;opacity:0}
+@keyframes particleFloat{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-10vh) rotate(720deg);opacity:0}}
+
+/* ── MAIN CONTENT ── */
+.main-layer{position:relative;z-index:10}
+
+/* ── TOPBAR ── */
+.topbar{padding:16px 24px;display:flex;justify-content:space-between;align-items:center;
+  animation:slideDown .6s cubic-bezier(.22,1,.36,1) both}
+@keyframes slideDown{from{transform:translateY(-40px);opacity:0;filter:blur(4px)}to{transform:translateY(0);opacity:1;filter:blur(0)}}
+.topbar .brand{display:flex;align-items:center;gap:10px}
+.topbar .logo{width:38px;height:38px;border-radius:12px;
+  background:linear-gradient(135deg,#10b981,#06b6d4);
+  display:grid;place-items:center;font-weight:800;font-size:14px;
+  box-shadow:0 4px 20px rgba(16,185,129,.3);
+  animation:logoSpin 12s linear infinite}
+@keyframes logoSpin{0%{filter:hue-rotate(0deg)}100%{filter:hue-rotate(360deg)}}
+.topbar span{font-weight:800;font-size:18px}
+
+/* ── BUTTONS ── */
+.btn{border:0;padding:10px 16px;border-radius:12px;cursor:pointer;font-weight:700;font-size:13px;
+  transition:all .25s cubic-bezier(.22,1,.36,1);position:relative;overflow:hidden}
+.btn:active:not(:disabled){transform:scale(.95)}
+.btn-ghost{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.1)}
+.btn-ghost:hover{background:rgba(255,255,255,.1);transform:translateY(-1px)}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;
+  box-shadow:0 4px 20px rgba(99,102,241,.3)}
+.btn-primary:hover{box-shadow:0 8px 30px rgba(99,102,241,.45);transform:translateY(-2px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* ── RIPPLE ── */
+.ani-ripple{position:absolute;border-radius:50%;background:rgba(255,255,255,.25);
+  transform:scale(0);animation:ripple .7s ease-out forwards;pointer-events:none}
+@keyframes ripple{to{transform:scale(5);opacity:0}}
+
+/* ── CARD ── */
+.glass.card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);
+  border-radius:20px;padding:28px;
+  backdrop-filter:blur(20px);
+  opacity:0;transform:translateY(40px) scale(.96);
+  animation:cardReveal .8s cubic-bezier(.22,1,.36,1) .3s forwards;
+  transition:transform .3s,box-shadow .3s,border-color .3s}
+.glass.card:hover{transform:translateY(-2px);box-shadow:0 20px 60px rgba(0,0,0,.2);border-color:rgba(99,102,241,.2)}
+@keyframes cardReveal{to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── GLOW BORDER ── */
+.glass.card::before{content:'';position:absolute;inset:-1px;border-radius:20px;z-index:-1;
+  background:linear-gradient(135deg,rgba(16,185,129,.15),rgba(99,102,241,.15),rgba(6,182,212,.15));
+  background-size:300% 300%;
+  animation:borderGlow 6s ease-in-out infinite;opacity:0;transition:opacity .4s}
+.glass.card:hover::before{opacity:1}
+@keyframes borderGlow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:6px;margin-bottom:16px}
+.tabs a,.tabs button{flex:1;text-align:center;border:1px solid rgba(255,255,255,.08);
+  border-radius:10px;padding:10px;font-weight:700;font-size:13px;
+  background:rgba(255,255,255,.04);color:#94a3b8;cursor:pointer;
+  transition:all .25s;position:relative;overflow:hidden}
+.tabs a:hover,.tabs button:not(.on):hover{background:rgba(255,255,255,.08);color:#fff}
+.tabs .on{background:linear-gradient(135deg,#6366f1,#818cf8);color:#fff;border-color:transparent;
+  box-shadow:0 4px 16px rgba(99,102,241,.3);
+  animation:tabBounce .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes tabBounce{0%{transform:scale(.9)}100%{transform:scale(1)}}
+
+/* ── CLIENT BUTTON ── */
+.btn-client{display:flex;align-items:center;justify-content:center;min-height:42px;padding:0 18px;
+  border-radius:12px;text-decoration:none;color:#fff;font-weight:800;font-size:13px;
+  background:linear-gradient(135deg,#10b981,#06b6d4);
+  border:1px solid rgba(255,255,255,.2);
+  box-shadow:0 6px 20px rgba(16,185,129,.28),inset 0 1px 0 rgba(255,255,255,.18);
+  transition:all .25s cubic-bezier(.22,1,.36,1);white-space:nowrap;position:relative;overflow:hidden}
+.btn-client:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(16,185,129,.45),inset 0 1px 0 rgba(255,255,255,.22)}
+.btn-client:active{transform:translateY(0) scale(.97)}
+
+/* ── DEMO SECTION ── */
+.demo-section{margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.08);
+  text-align:center;opacity:0;animation:fadeUp .6s ease-out .6s forwards}
+.demo-section .demo-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+.demo-section .btn{opacity:0;animation:demoBtnIn .4s ease-out forwards}
+.demo-section .btn:nth-child(1){animation-delay:.7s}
+.demo-section .btn:nth-child(2){animation-delay:.8s}
+.demo-section .btn:nth-child(3){animation-delay:.9s}
+.demo-section .btn:nth-child(4){animation-delay:1s}
+@keyframes demoBtnIn{from{opacity:0;transform:translateY(10px) scale(.9)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ── FIELDS ── */
+.field{margin-bottom:14px;opacity:0;animation:fieldIn .5s ease-out forwards}
+.field:nth-child(1){animation-delay:.4s}
+.field:nth-child(2){animation-delay:.5s}
+.field:nth-child(3){animation-delay:.6s}
+@keyframes fieldIn{from{opacity:0;transform:translateX(-16px)}to{opacity:1;transform:translateX(0)}}
+.field label{display:block;font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;
+  transition:color .25s}
+.field input{width:100%;padding:12px 14px;border-radius:12px;
+  border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);
+  color:#fff;font-size:15px;font-family:inherit;
+  transition:all .3s cubic-bezier(.22,1,.36,1)}
+.field input:focus{outline:none;border-color:#6366f1;
+  box-shadow:0 0 0 3px rgba(99,102,241,.2),0 4px 16px rgba(99,102,241,.1);
+  transform:translateY(-1px)}
+.field input:focus + label,.field:focus-within label{color:#818cf8}
+
+/* ── SUBMIT BUTTON ── */
+.submit-btn{width:100%;margin-top:8px;opacity:0;animation:submitIn .5s ease-out .7s forwards;
+  font-size:15px;padding:14px;position:relative}
+@keyframes submitIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.submit-btn .shimmer{position:absolute;inset:0;
+  background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.15) 50%,transparent 70%);
+  transform:translateX(-100%);animation:shimmer 3s ease-in-out infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* ── MESSAGES ── */
+.msg{padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;
+  animation:msgIn .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes msgIn{from{opacity:0;transform:translateY(-8px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.msg.error{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.2)}
+.msg.ok{background:rgba(16,185,129,.12);color:#6ee7b7;border:1px solid rgba(16,185,129,.2);
+  animation:msgIn .4s cubic-bezier(.34,1.56,.64,1),successPulse 1.5s ease-in-out .4s}
+@keyframes successPulse{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,0)}50%{box-shadow:0 0 0 6px rgba(16,185,129,.15)}}
+
+/* ── HINT TEXT ── */
+.muted{color:#94a3b8;font-size:13px}
+
+/* ── FOOTER GLOW ── */
+.footer-glow{position:fixed;bottom:0;left:0;right:0;height:1px;z-index:1;
+  background:linear-gradient(90deg,transparent,#10b981,#06b6d4,#6366f1,transparent);
+  opacity:.4;animation:footerGlow 4s ease-in-out infinite}
+@keyframes footerGlow{0%,100%{opacity:.2}50%{opacity:.6}}
+
+/* ── STARS ── */
+.star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;
+  animation:twinkle ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.1}50%{opacity:.8}}
+
+/* ── SUCCESS OVERLAY ── */
+.success-overlay{position:fixed;inset:0;z-index:9999;
+  background:rgba(6,10,20,.9);backdrop-filter:blur(20px);
+  display:grid;place-items:center;
+  animation:successOverlayIn .5s ease}
+@keyframes successOverlayIn{from{opacity:0}to{opacity:1}}
+.success-check{width:80px;height:80px;border-radius:50%;
+  background:linear-gradient(135deg,#10b981,#06b6d4);
+  display:grid;place-items:center;font-size:36px;
+  animation:checkBounce .6s cubic-bezier(.34,1.56,.64,1) .2s both}
+@keyframes checkBounce{from{transform:scale(0) rotate(-180deg);opacity:0}to{transform:scale(1) rotate(0);opacity:1}}
+.success-text{margin-top:20px;font-size:20px;font-weight:700;
+  animation:fadeUp .5s ease-out .5s both}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:480px){
+  .glass.card{padding:20px;border-radius:16px}
+  .tabs{flex-direction:column}
+  .demo-section .demo-buttons{flex-direction:column}
+}
+</style>
 </head>
 <body>
-  <div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
-  <div id="app" v-cloak>
-    <div class="topbar">
-      <div class="brand">
-        <div class="logo">QR</div>
-        <span>OS QR-Menu</span>
-      </div>
-      <div class="row">
-        <a href="login.html" class="btn btn-ghost btn-sm">Вход</a>
-      </div>
+
+<!-- LOADER -->
+<div class="page-loader" id="pageLoader">
+  <div style="text-align:center">
+    <div class="loader-logo">QR</div>
+    <div class="loader-bar"></div>
+  </div>
+</div>
+
+<!-- BG -->
+<div class="bg-canvas"><canvas id="starfield"></canvas></div>
+<div class="orb-container">
+  <div class="floating-orb orb-1"></div>
+  <div class="floating-orb orb-2"></div>
+  <div class="floating-orb orb-3"></div>
+  <div class="floating-orb orb-4"></div>
+</div>
+<div class="grid-pattern"></div>
+<div class="particles" id="particles"></div>
+<div class="footer-glow"></div>
+
+<!-- CONTENT -->
+<div class="main-layer">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">QR</div>
+      <span>OS QR-Menu</span>
     </div>
-    <div class="wrap">
-      <div class="glass card" style="max-width:420px;margin:30px auto">
-        <div class="tabs" style="margin-bottom:16px">
-          <a href="login.html" class="btn btn-ghost btn-sm" style="flex:1;text-align:center;">Вход</a>
-          <button class="on" style="pointer-events:none;opacity:1;">Регистрация</button>
-          <a href="menu.html" class="btn-client">📱 Я клиент</a>
-        </div>
-        <div style="margin-top:20px;padding-top:20px;border-top:1px solid rgba(255,255,255,.1);text-align:center">
-          <div style="color:#94a3b8;font-size:13px;margin-bottom:12px">🎮 Посмотреть без регистрации:</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
-            <button onclick="startDemo('cook')" class="btn btn-ghost">👨‍🍳 Демо кухни</button>
-            <button onclick="startDemo('courier')" class="btn btn-ghost">🚗 Демо курьера</button>
-            <button onclick="startDemo('waiter')" class="btn btn-ghost">🤵 Демо официанта</button>
-            <button onclick="startDemo('manager-demo.html')" class="btn btn-primary">🏢 Демо кабинета</button>
-          </div>
-        </div>
-        <script>function startDemo(target){if(target==='manager-demo.html'){location.href=target;return}location.href='demo-staff.html?role='+encodeURIComponent(target);}</script>
-        <div class="field"><label>Ваше имя</label><input v-model.trim="rform.name"></div>
-        <div class="field"><label>Email</label><input v-model.trim="rform.email" type="email" autocomplete="email"></div>
-        <div class="field"><label>Пароль (мин. 6)</label><input v-model="rform.password" type="password" autocomplete="new-password"></div>
-        <button class="btn btn-primary" style="width:100%" v-on:click="register" v-bind:disabled="busy">{{ busy?'Создаём...':'Создать аккаунт управляющего' }}</button>
-        <div v-if="msg" class="msg" v-bind:class="msgType" style="margin-top:12px">{{ msg }}</div>
-        <p class="muted" style="font-size:12px;margin-top:14px">Регистрируются управляющие. Повара, курьеры и официанты входят по PIN — их добавляет управляющий или админ.</p>
-      </div>
+    <div>
+      <a href="login.html" class="btn btn-ghost" style="font-size:12px">Вход</a>
     </div>
   </div>
-  <script src="/js/config.js"></script>
-  <script src="/js/demo-data.js"></script>
-  <script src="/js/demo-mode.js"></script>
-  <script src="/js/app.js"></script>
-  <script>
-    Vue.createApp({
-      data:function(){return{
-        tab:'reg',
-        busy:false,
-        msg:'',
-        msgType:'',
-        lform:{email:'',password:''},
-        rform:{name:'',email:'',password:''}
-      }},
-      methods:{
-        register:function(){var self=this;self.msg='';if(!self.rform.email||!self.rform.password||!self.rform.name){self.msg='Заполните все поля';self.msgType='error';return}if(self.rform.password.length<6){self.msg='Пароль минимум 6 символов';self.msgType='error';return}self.busy=true;db.auth.signUp({email:self.rform.email,password:self.rform.password,options:{data:{display_name:self.rform.name,role:'manager'}}}).then(function(r){if(r.error){var m=String(r.error.message).toLowerCase();self.msg=m.indexOf('already registered')!==-1?'Этот email уже зарегистрирован. Войдите.':'Ошибка: '+r.error.message;self.msgType='error';self.busy=false;return}self.busy=false;if(r.data.session){self.routeByRole(r.data.user.id)}else{self.msg='✓ Аккаунт создан! Подтвердите email и войдите.';self.msgType='ok';location.href='login.html'}}).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})},
-        routeByRole:function(userId){var self=this;db.from('profiles').select('*').eq('id',userId).maybeSingle().then(function(r){if(!r.data){self.msg='⚠️ Аккаунт создан, но профиль не найден. Выполните SQL и нажмите «Войти».';self.msgType='error';self.busy=false;return}location.href=(r.data.role==='admin')?'admin.html':'manager.html'})
-      }},
-      mounted:function(){var self=this;db.auth.getSession().then(function(r){if(r.data&&r.data.session){self.routeByRole(r.data.session.user.id)}})}
-    }).mount('#app');
-  </script>
+
+  <div style="max-width:420px;margin:30px auto;padding:0 16px" id="app" v-cloak>
+    <div class="glass card" style="position:relative">
+      <div class="tabs">
+        <a href="login.html" class="btn btn-ghost" style="flex:1;text-align:center">Вход</a>
+        <button class="on" style="pointer-events:none;opacity:1">Регистрация</button>
+        <a href="menu.html" class="btn-client">📱 Я клиент</a>
+      </div>
+
+      <div class="demo-section">
+        <div style="color:#94a3b8;font-size:13px">🎮 Посмотреть без регистрации:</div>
+        <div class="demo-buttons">
+          <button onclick="startDemo('cook')" class="btn btn-ghost">👨‍🍳 Демо кухни</button>
+          <button onclick="startDemo('courier')" class="btn btn-ghost">🚗 Демо курьера</button>
+          <button onclick="startDemo('waiter')" class="btn btn-ghost">🤵 Демо официанта</button>
+          <button onclick="startDemo('manager-demo.html')" class="btn btn-primary">🏢 Демо кабинета</button>
+        </div>
+      </div>
+
+      <div class="field"><label>Ваше имя</label><input v-model.trim="rform.name" placeholder="Иван Иванов"></div>
+      <div class="field"><label>Email</label><input v-model.trim="rform.email" type="email" autocomplete="email" placeholder="ivan@example.com"></div>
+      <div class="field"><label>Пароль (мин. 6)</label><input v-model="rform.password" type="password" autocomplete="new-password" placeholder="••••••••"></div>
+
+      <button class="btn btn-primary submit-btn" v-on:click="register" v-bind:disabled="busy">
+        <span class="shimmer"></span>
+        {{ busy?'Создаём...':'Создать аккаунт управляющего' }}
+      </button>
+
+      <div v-if="msg" class="msg" v-bind:class="msgType" style="margin-top:12px">{{ msg }}</div>
+
+      <p class="muted" style="font-size:12px;margin-top:14px;opacity:0;animation:fadeUp .5s ease-out .9s forwards">
+        Регистрируются управляющие. Повара, курьеры и официанты входят по PIN — их добавляет управляющий или админ.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script src="/js/config.js"></script>
+<script src="/js/demo-data.js"></script>
+<script src="/js/demo-mode.js"></script>
+<script src="/js/app.js"></script>
+<script>
+/* ── Starfield canvas ── */
+(function(){
+  var c=document.getElementById('starfield'),ctx=c.getContext('2d'),stars=[];
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight}
+  resize();window.addEventListener('resize',resize);
+  for(var i=0;i<120;i++)stars.push({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.5+.3,s:Math.random()*.5+.1,d:Math.random()*Math.PI*2});
+  function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    var t=Date.now()*.001;
+    stars.forEach(function(s){
+      var a=.2+Math.sin(t*s.s+s.d)*.3;
+      ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,'+a+')';ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+/* ── Particles ── */
+(function(){
+  var pc=document.getElementById('particles');
+  for(var i=0;i<20;i++){
+    var p=document.createElement('div');p.className='particle';
+    p.style.left=Math.random()*100+'%';
+    p.style.animationDuration=(10+Math.random()*15)+'s';
+    p.style.animationDelay=(Math.random()*10)+'s';
+    var s=2+Math.random()*3;p.style.width=p.style.height=s+'px';
+    var colors=['rgba(16,185,129,.4)','rgba(6,182,212,.4)','rgba(99,102,241,.3)'];
+    p.style.background=colors[Math.floor(Math.random()*3)];
+    pc.appendChild(p);
+  }
+})();
+
+/* ── Loader ── */
+window.addEventListener('load',function(){setTimeout(function(){var l=document.getElementById('pageLoader');if(l)l.classList.add('hide')},600)});
+
+/* ── Ripple ── */
+document.addEventListener('click',function(e){
+  var btn=e.target.closest('.btn');if(!btn)return;
+  var r=document.createElement('span');r.className='ani-ripple';
+  var rect=btn.getBoundingClientRect();var sz=Math.max(rect.width,rect.height);
+  r.style.width=r.style.height=sz+'px';
+  r.style.left=(e.clientX-rect.left-sz/2)+'px';r.style.top=(e.clientY-rect.top-sz/2)+'px';
+  btn.appendChild(r);setTimeout(function(){r.remove()},700);
+});
+
+/* ── Demo ── */
+function startDemo(target){if(target==='manager-demo.html'){location.href=target;return}location.href='demo-staff.html?role='+encodeURIComponent(target);}
+
+/* ── Vue App ── */
+Vue.createApp({
+  data:function(){return{tab:'reg',busy:false,msg:'',msgType:'',rform:{name:'',email:'',password:''}}},
+  methods:{
+    register:function(){var self=this;self.msg='';
+      if(!self.rform.email||!self.rform.password||!self.rform.name){self.msg='Заполните все поля';self.msgType='error';return}
+      if(self.rform.password.length<6){self.msg='Пароль минимум 6 символов';self.msgType='error';return}
+      self.busy=true;
+      db.auth.signUp({email:self.rform.email,password:self.rform.password,options:{data:{display_name:self.rform.name,role:'manager'}}})
+      .then(function(r){
+        if(r.error){var m=String(r.error.message).toLowerCase();
+          self.msg=m.indexOf('already registered')!==-1?'Этот email уже зарегистрирован. Войдите.':'Ошибка: '+r.error.message;
+          self.msgType='error';self.busy=false;return}
+        self.busy=false;
+        if(r.data.session){self.routeByRole(r.data.user.id)}
+        else{
+          /* SUCCESS WOW */
+          self.showSuccess();
+          setTimeout(function(){location.href='login.html'},3000)
+        }
+      }).catch(function(e){self.msg='Ошибка: '+e.message;self.msgType='error';self.busy=false})
+    },
+    showSuccess:function(){
+      var ov=document.createElement('div');ov.className='success-overlay';
+      ov.innerHTML='<div style="text-align:center"><div class="success-check">✓</div><div class="success-text">Аккаунт создан!</div><div style="margin-top:8px;color:#94a3b8;font-size:14px;animation:fadeUp .5s ease-out .7s both">Перенаправляем на вход...</div></div>';
+      document.body.appendChild(ov);
+    },
+    routeByRole:function(userId){var self=this;
+      db.from('profiles').select('*').eq('id',userId).maybeSingle()
+      .then(function(r){if(!r.data){self.msg='⚠️ Аккаунт создан, но профиль не найден.';self.msgType='error';self.busy=false;return}
+        location.href=(r.data.role==='admin')?'admin.html':'manager.html'})
+    }
+  },
+  mounted:function(){var self=this;
+    db.auth.getSession().then(function(r){if(r.data&&r.data.session){self.routeByRole(r.data.session.user.id)}})}
+}).mount('#app');
+</script>
 </body>
 </html>
