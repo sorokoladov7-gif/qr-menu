@@ -1,41 +1,40 @@
 'use strict';
 
-const handlers = {
-  '/api/integrations/iiko': '../lib/integrations/iiko',
-  '/api/integrations/pos': '../lib/integrations/pos',
-  '/api/integrations/saby-presto': '../lib/integrations/saby-presto',
-  '/api/integrations/poster': '../lib/integrations/poster',
-  '/api/integrations/syrve': '../lib/integrations/syrve',
-  '/api/integrations/evotor': '../lib/integrations/evotor',
-  '/api/integrations/frontpad': '../lib/integrations/frontpad',
-  '/api/integrations/manage': '../lib/integrations/manage',
-  '/api/integrations/test': '../lib/integrations/test'
+const crypto=require('crypto');
+const handlers={
+  '/api/integrations/iiko':'../lib/integrations/iiko',
+  '/api/integrations/pos':'../lib/integrations/pos',
+  '/api/integrations/saby-presto':'../lib/integrations/saby-presto',
+  '/api/integrations/poster':'../lib/integrations/poster',
+  '/api/integrations/syrve':'../lib/integrations/syrve',
+  '/api/integrations/evotor':'../lib/integrations/evotor',
+  '/api/integrations/frontpad':'../lib/integrations/frontpad',
+  '/api/integrations/manage':'../lib/integrations/manage',
+  '/api/integrations/test':'../lib/integrations/test'
 };
-
-function send(res,status,body){
-  res.status(status)
-    .setHeader('Content-Type','application/json; charset=utf-8')
-    .end(JSON.stringify(body));
-}
-
-module.exports = async function handler(req, res) {
-  const pathname = String((req.url || '').split('?')[0] || '').replace(/\/$/, '') || '/';
-  const modulePath = handlers[pathname];
-  if (!modulePath) return send(res,404,{ok:false,error:'integration_route_not_found',path:pathname});
-
+const LOCKED=new Set(['/api/integrations/iiko','/api/integrations/pos','/api/integrations/saby-presto','/api/integrations/poster','/api/integrations/syrve','/api/integrations/evotor','/api/integrations/frontpad']);
+const SUPABASE_URL='https://ulxfsozdryqrnlxzlblt.supabase.co';
+function send(res,status,body){res.status(status).setHeader('Content-Type','application/json; charset=utf-8').end(JSON.stringify(body));}
+function serviceHeaders(){const key=process.env.SUPABASE_SERVICE_ROLE_KEY||process.env.SUPABASE_SERVICE_KEY;if(!key)throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured');return {apikey:key,Authorization:`Bearer ${key}`,'Content-Type':'application/json'};}
+async function rpc(path,body){const r=await fetch(`${SUPABASE_URL}/rest/v1/rpc/${path}`,{method:'POST',headers:serviceHeaders(),body:JSON.stringify(body)});const text=await r.text();let data=null;try{data=text?JSON.parse(text):null}catch(_){data=null;}if(!r.ok)throw new Error((data&&(data.message||data.error))||`Supabase RPC ${r.status}`);return data;}
+module.exports=async function handler(req,res){
+  const pathname=String((req.url||'').split('?')[0]||'').replace(/\/$/,'')||'/';
+  const modulePath=handlers[pathname];
+  if(!modulePath)return send(res,404,{ok:false,error:'integration_route_not_found',path:pathname});
   let target;
-  try {
-    // Load only the requested adapter. A broken optional adapter must not crash
-    // unrelated routes such as /api/integrations/manage.
-    target = require(modulePath);
-  } catch (e) {
-    return send(res,500,{
-      ok:false,
-      error:'integration_module_load_failed',
-      route:pathname,
-      message:e&&e.message?e.message:'Failed to load integration module'
-    });
+  try{target=require(modulePath);}catch(e){return send(res,500,{ok:false,error:'integration_module_load_failed',route:pathname,message:e&&e.message?e.message:'Failed to load integration module'});}
+  const body=req&&req.body&&typeof req.body==='object'?req.body:{};
+  const action=String(body.action||'');
+  if(!LOCKED.has(pathname)||action!=='import_menu')return target(req,res);
+  const venue=String(body.venue_id||'').trim(),provider=String(body.provider||'').trim();
+  if(!venue||!provider)return target(req,res);
+  const lockToken=crypto.randomUUID();
+  let locked=false;
+  try{
+    locked=Boolean(await rpc('claim_integration_sync_lock',{p_venue_id:venue,p_provider:provider,p_lock_token:lockToken,p_ttl_seconds:900}));
+    if(!locked)return send(res,409,{ok:false,error:'integration_sync_in_progress',provider,venue_id:venue});
+    return await target(req,res);
+  }finally{
+    if(locked){try{await rpc('release_integration_sync_lock',{p_venue_id:venue,p_provider:provider,p_lock_token:lockToken});}catch(_){}}
   }
-
-  return target(req,res);
 };
