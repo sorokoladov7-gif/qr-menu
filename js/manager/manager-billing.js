@@ -136,9 +136,33 @@
     }
   };
 
+  /* Canonical client-side AI entitlement bridge.
+     The manager subscription's plan_id is the source of truth. This bridge
+     deliberately ignores venue.plan and any stale currentPlan value. */
+  function installAIEntitlementBridge(vm) {
+    if (!vm || vm.__qrManagerAIEntitlementBridge) return;
+    vm.__qrManagerAIEntitlementBridge = true;
+    vm.hasAIFeature = function(feature) {
+      feature = String(feature || '').trim();
+      if (!feature) return false;
+      if (this.profile && this.profile.role === 'admin') return true;
+      var sub = this.managerSubscription;
+      if (!sub || ['active', 'trialing'].indexOf(sub.status) === -1 || !sub.current_period_end || new Date(sub.current_period_end) < new Date()) return false;
+      if (sub.status === 'trialing') return true;
+      var plans = Array.isArray(this.plans) ? this.plans : [];
+      var plan = plans.find(function(p) { return p && p.id === sub.plan_id; }) || null;
+      if (!plan) return false;
+      if (plan.ai_enabled !== true) return false;
+      var features = plan.ai_features && typeof plan.ai_features === 'object' ? plan.ai_features : {};
+      if (features[feature] === true) return true;
+      return feature === 'assistant' && Object.keys(features).length === 0;
+    };
+  }
+
   function startPlanEntitlementSync(vm) {
     if (!vm || vm.__qrManagerPlanSync || !vm.profile || vm.profile.role === 'admin') return;
     vm.__qrManagerPlanSync = true;
+    installAIEntitlementBridge(vm);
 
     var refresh = function() {
       if (!window.__managerVue || window.__managerVue !== vm) return;
