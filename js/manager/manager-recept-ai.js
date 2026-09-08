@@ -68,8 +68,10 @@
     busy=true;
     var btn=$('qrReceptAiRun');if(btn)btn.disabled=true;
     status(auto?'Qrchick автоматически анализирует выбранное блюдо…':'Qrchick анализирует блюдо и подбирает ингредиенты…',false);
+    var menuItems=(s.products||[]).map(function(x){return{id:x.id,name:x.name,description:x.description||'',category:x.category||'',price:x.price||null};});
+    var ingredientItems=(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null,purchase_price:i.purchase_price||null};});
     getSessionToken().then(function(token){
-      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Автоматически подбери рецептуру для выбранного блюда. Сформируй action save_recipe с реальными ingredient_id из переданного списка; используй product_id выбранного блюда. Не выполняй сохранение сам.',context:JSON.stringify({product:p,venue_id:s.venueId,ingredients:(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null,purchase_price:i.purchase_price||null};}),global_ingredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{id:i.id||null,name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};}),current_rows:s.rows||[]})})});
+      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Автоматически подбери рецептуру для выбранного блюда. Сформируй action save_recipe с реальными ingredient_id из переданного списка; используй product_id выбранного блюда. Не выполняй сохранение сам.',context:JSON.stringify({menu:{items:menuItems},ingredients:{items:ingredientItems},venue_id:s.venueId,product:p,global_ingredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{id:i.id||null,name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};}),current_rows:s.rows||[]})})});
     }).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'Qrchick API error');return d;});})
       .then(function(d){
         var action=(d.actions||[]).find(function(a){return a&&a.type==='save_recipe';});
