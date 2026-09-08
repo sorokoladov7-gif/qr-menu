@@ -6,7 +6,7 @@
 
   var lastProductId = null, busy = false;
   function $(id) { return document.getElementById(id); }
-  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>\"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]; }); }
   function norm(v) { return String(v || '').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim(); }
   function unitLabel(u) { return {g:'г',kg:'кг',ml:'мл',l:'л',pcs:'шт'}[u] || u || ''; }
   function st() { return window.__QR_MANAGER_RECIPES_STATE__ || {}; }
@@ -28,9 +28,9 @@
     var host=$('recipe'); if(!host||!host.parentElement)return;
     var panel=document.createElement('div'); panel.id='qrReceptAiPanel'; panel.className='glass card';
     panel.style.cssText='margin-top:12px;padding:14px;border:1px solid rgba(99,102,241,.22);background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(52,211,153,.04))';
-    panel.innerHTML='<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><b>🐥 QRChick · Рецептура</b><div id="qrReceptAiStatus" class="muted" style="margin-top:3px">Готов к анализу выбранного блюда.</div></div><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiRun">✨ Проанализировать</button></div><div id="qrReceptAiBody" style="margin-top:10px"></div>';
+    panel.innerHTML='<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><b>🐥 QRChick · Рецептура</b><div id="qrReceptAiStatus" class="muted" style="margin-top:3px">Готов к автоматическому анализу.</div></div><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiRun">↻ Повторить анализ</button></div><div id="qrReceptAiBody" style="margin-top:10px"></div>';
     host.parentElement.appendChild(panel);
-    $('qrReceptAiRun').onclick=runAnalysis;
+    $('qrReceptAiRun').onclick=function(){runAnalysis(false);};
   }
   function status(text,error){var e=$('qrReceptAiStatus');if(!e)return;e.textContent=text;e.style.color=error?'#fca5a5':'';}
   function renderResult(result){
@@ -47,7 +47,7 @@
     var save=document.getElementById('save');
     if(save){save.hidden=false;}
     renderIntoRecipe();
-    status(missing.length?'Состав применён. Не найдены: '+missing.join(', '):'Состав применён. Нажмите «Сохранить», чтобы записать его.',false);
+    status(missing.length?'Состав подготовлен. Не найдены: '+missing.join(', '):'Состав подготовлен. Проверьте его и сохраните.',false);
   }
   function renderIntoRecipe(){
     var s=st(), box=$('recipe');if(!box||!s.selected)return;
@@ -61,17 +61,28 @@
     if(!window.db||!window.db.auth||!window.db.auth.getSession)return Promise.reject(new Error('Сессия Supabase недоступна'));
     return window.db.auth.getSession().then(function(r){var session=r&&r.data&&r.data.session;if(!session||!session.access_token)throw new Error('Сессия управляющего не найдена');return session.access_token;});
   }
-  function runAnalysis(){
-    var s=st(),p=product();if(!p||!s.venueId){status('Сначала выберите блюдо и заведение.',true);return;}if(busy)return;busy=true;
-    var btn=$('qrReceptAiRun');if(btn)btn.disabled=true;status('QRChick анализирует блюдо и подбирает ингредиенты…',false);
+  function runAnalysis(auto){
+    var s=st(),p=product();
+    if(!p||!s.venueId){status('Сначала выберите блюдо и заведение.',true);return;}
+    if(busy)return;
+    busy=true;
+    var btn=$('qrReceptAiRun');if(btn)btn.disabled=true;
+    status(auto?'QRChick автоматически анализирует выбранное блюдо…':'QRChick анализирует блюдо и подбирает ингредиенты…',false);
     getSessionToken().then(function(token){
-      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Автоматически подбери рецептуру для выбранного блюда. Верни состав ингредиентов в action save_recipe для последующего применения.',context:JSON.stringify({product:p,ingredients:(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null};}),global_ingredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};})})})});
+      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Автоматически подбери рецептуру для выбранного блюда. Сформируй action save_recipe с реальными ingredient_id из переданного списка; используй product_id выбранного блюда. Не выполняй сохранение сам.',context:JSON.stringify({product:p,venue_id:s.venueId,ingredients:(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null,purchase_price:i.purchase_price||null};}),global_ingredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{id:i.id||null,name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};}),current_rows:s.rows||[]})})});
     }).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'QRChick API error');return d;});})
-      .then(function(d){var action=(d.actions||[]).find(function(a){return a&&a.type==='save_recipe';}), rows=action&&action.payload&&(action.payload.rows||action.payload.ingredients);if(!Array.isArray(rows)){throw new Error('QRChick не вернул состав рецептуры');}renderResult({ingredients:rows.map(function(x){return{name:x.name||x.ingredient_name||'',quantity:Number(x.quantity)||0,unit:x.unit||'g',note:x.note||'QRChick'};})});status('Анализ завершён. Проверьте состав и нажмите «Применить».',false);})
+      .then(function(d){
+        var action=(d.actions||[]).find(function(a){return a&&a.type==='save_recipe';});
+        var rows=action&&action.payload&&(action.payload.rows||action.payload.ingredients);
+        if(!Array.isArray(rows))throw new Error('QRChick не вернул состав рецептуры');
+        rows=rows.map(function(x){var id=x.ingredient_id||x.id||'';var byId=(s.ingredients||[]).find(function(i){return String(i.id)===String(id);});return{name:x.name||x.ingredient_name||(byId&&byId.name)||'',quantity:Number(x.quantity)||0,unit:x.unit||(byId&&byId.unit)||'g',note:x.note||'QRChick',ingredient_id:byId?byId.id:id};});
+        renderResult({ingredients:rows});
+        status('QRChick сформировал рецептуру. Проверьте состав и нажмите «Применить».',false);
+      })
       .catch(function(e){console.error('[QRChick Recipes]',e);status('QRChick недоступен: '+(e.message||e),true);})
       .finally(function(){busy=false;if(btn)btn.disabled=false;});
   }
-  function watch(){var s=st();if(!s.selected||s.selected===lastProductId)return;lastProductId=s.selected;ensurePanel();var b=$('qrReceptAiBody');if(b)b.innerHTML='<div class="muted">Выбрано блюдо: <b>'+esc((product()||{}).name||'')+'</b>. QRChick готов.</div>';status('Готов к анализу выбранного блюда.',false);}
+  function watch(){var s=st();if(!s.selected||s.selected===lastProductId)return;lastProductId=s.selected;ensurePanel();var b=$('qrReceptAiBody');if(b)b.innerHTML='<div class="muted">Выбрано блюдо: <b>'+esc((product()||{}).name||'')+'</b>. Запускаю QRChick автоматически…</div>';runAnalysis(true);}
   function init(){ensurePanel();setInterval(function(){ensurePanel();watch();},500);window.addEventListener('manager-venue-selected',function(){lastProductId=null;});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
