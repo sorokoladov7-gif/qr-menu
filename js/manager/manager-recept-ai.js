@@ -45,10 +45,7 @@
     if(!mapped.length){status('Не удалось сопоставить ингредиенты с базой.',true);return;}
     s.rows=mapped;
     var save=document.getElementById('save');
-    var recipe=document.getElementById('recipe');
-    if(recipe){var ev=new CustomEvent('qrchick:recipe-applied');recipe.dispatchEvent(ev);}
     if(save){save.hidden=false;}
-    /* manager-recipes.js закрыт своей IIFE, поэтому синхронизируем UI напрямую. */
     renderIntoRecipe();
     status(missing.length?'Состав применён. Не найдены: '+missing.join(', '):'Состав применён. Нажмите «Сохранить», чтобы записать его.',false);
   }
@@ -60,12 +57,17 @@
     Array.prototype.forEach.call(box.querySelectorAll('[data-qrai-rn]'),function(e){e.oninput=function(){s.rows[+e.dataset.qraiRn].note=e.value;};});
     Array.prototype.forEach.call(box.querySelectorAll('[data-qrai-rd]'),function(e){e.onclick=function(){s.rows.splice(+e.dataset.qraiRd,1);renderIntoRecipe();};});
   }
+  function getSessionToken(){
+    if(!window.db||!window.db.auth||!window.db.auth.getSession)return Promise.reject(new Error('Сессия Supabase недоступна'));
+    return window.db.auth.getSession().then(function(r){var session=r&&r.data&&r.data.session;if(!session||!session.access_token)throw new Error('Сессия управляющего не найдена');return session.access_token;});
+  }
   function runAnalysis(){
     var s=st(),p=product();if(!p||!s.venueId){status('Сначала выберите блюдо и заведение.',true);return;}if(busy)return;busy=true;
     var btn=$('qrReceptAiRun');if(btn)btn.disabled=true;status('QRChick анализирует блюдо и подбирает ингредиенты…',false);
-    fetch('/api/qrchick',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'recipe_suggest',product:{id:p.id,name:p.name,description:p.description||'',category:p.category||'',price:p.price||null},ingredients:(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null};}),globalIngredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};})})})
-      .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'QRChick API error');return d;});})
-      .then(function(d){renderResult(d);status('Анализ завершён. Проверьте состав и нажмите «Применить».',false);})
+    getSessionToken().then(function(token){
+      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Автоматически подбери рецептуру для выбранного блюда. Верни состав ингредиентов в action save_recipe для последующего применения.',context:JSON.stringify({product:p,ingredients:(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null};}),global_ingredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};})})})});
+    }).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'QRChick API error');return d;});})
+      .then(function(d){var action=(d.actions||[]).find(function(a){return a&&a.type==='save_recipe';}), rows=action&&action.payload&&(action.payload.rows||action.payload.ingredients);if(!Array.isArray(rows)){throw new Error('QRChick не вернул состав рецептуры');}renderResult({ingredients:rows.map(function(x){return{name:x.name||x.ingredient_name||'',quantity:Number(x.quantity)||0,unit:x.unit||'g',note:x.note||'QRChick'};})});status('Анализ завершён. Проверьте состав и нажмите «Применить».',false);})
       .catch(function(e){console.error('[QRChick Recipes]',e);status('QRChick недоступен: '+(e.message||e),true);})
       .finally(function(){busy=false;if(btn)btn.disabled=false;});
   }
