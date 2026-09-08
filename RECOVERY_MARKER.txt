@@ -1,1 +1,0 @@
-Recovery marker — do not remove until production deployment from stable commit 12cb536e is verified.
