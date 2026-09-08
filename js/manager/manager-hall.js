@@ -14,12 +14,7 @@
     document.head.appendChild(s);
   }
 
-  function ensurePaymentSettings(){
-    load('/js/manager-payment-settings.js?v=fix-20260908','data-qr-manager-payment-settings-loader-v1');
-  }
-
   load('/js/manager-hall.js?v=fix-20260907','data-manager-hall-single-v11');
-  ensurePaymentSettings();
 
   function getVue(){
     return window.__managerVue ||
@@ -94,11 +89,9 @@
       if(!b) return;
       var text=(b.textContent||'').replace(/\s+/g,' ').trim();
       if(text.indexOf('Зал / Столы')!==-1) setTimeout(mountHall,80);
-      if(text.indexOf('СБП')!==-1) ensurePaymentSettings();
     },true);
 
     window.addEventListener('qr-manager-vue-ready',function(){
-      ensurePaymentSettings();
       setTimeout(mountHall,100);
     });
   }
