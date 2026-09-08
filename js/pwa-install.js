@@ -94,7 +94,33 @@
       if (!db || typeof db.rpc !== 'function') return false;
       if (db.__qrCanonicalOrderRpcPatch) return true;
       const rpc = db.rpc.bind(db);
+      const orderKey = (params) => {
+        if (!params || !/\/menu\.html$/i.test(location.pathname)) return params;
+        const stable = {
+          venue: params.p_venue_id || '', type: params.p_order_type || '', phone: params.p_customer_phone || '',
+          address: params.p_delivery_address || '', payment: params.p_payment_method || '', table: params.p_table_token || '',
+          items: params.p_items || [], addons: params.p_addons || [], total: params.p_total_price || 0, fee: params.p_delivery_fee || 0
+        };
+        let fingerprint;
+        try { fingerprint = JSON.stringify(stable); } catch (e) { fingerprint = String(Date.now()); }
+        let saved = null;
+        try { saved = JSON.parse(sessionStorage.getItem('qr_public_order_idempotency') || 'null'); } catch (e) {}
+        const now = Date.now();
+        if (!saved || saved.fingerprint !== fingerprint || (saved.expires_at && saved.expires_at < now)) {
+          saved = { key: (crypto.randomUUID ? crypto.randomUUID() : ('qr-' + now + '-' + Math.random().toString(36).slice(2))), fingerprint, expires_at: now + 10 * 60 * 1000 };
+          sessionStorage.setItem('qr_public_order_idempotency', JSON.stringify(saved));
+        }
+        return Object.assign({}, params, { p_operation_key: saved.key });
+      };
       db.rpc = async function(name, params, options) {
+        if (name === 'create_public_order' && params) {
+          const prepared = orderKey(params);
+          const result = await rpc(name, prepared, options);
+          if (result && !result.error && prepared.p_payment_method !== 'sbp') {
+            try { sessionStorage.removeItem('qr_public_order_idempotency'); } catch (e) {}
+          }
+          return result;
+        }
         if (name === 'create_public_order_v2' && params) {
           return rpc('create_public_order_canonical', {
             p_venue_id: params.p_venue_id,
