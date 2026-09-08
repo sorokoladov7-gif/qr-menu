@@ -4,7 +4,7 @@
   if (window.__QR_RECEPT_AI__) return;
   window.__QR_RECEPT_AI__ = true;
 
-  var lastProductId = null, busy = false;
+  var lastProductId = null, busy = false, searchBusy = false, lastWebResults = [];
   function $(id) { return document.getElementById(id); }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>\"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]; }); }
   function norm(v) { return String(v || '').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim(); }
@@ -28,7 +28,7 @@
     var host=$('recipe'); if(!host||!host.parentElement)return;
     var panel=document.createElement('div'); panel.id='qrReceptAiPanel'; panel.className='glass card';
     panel.style.cssText='margin-top:12px;padding:14px;border:1px solid rgba(99,102,241,.22);background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(52,211,153,.04))';
-    panel.innerHTML='<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div style="display:flex;gap:10px;align-items:center"><img src="/assets/img/qrchick-avatar.svg" alt="Qrchick" width="42" height="42" style="width:42px;height:42px;flex:0 0 42px;border-radius:50%;display:block;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,.18)"><div><b>Qrchick · Рецептура</b><div id="qrReceptAiStatus" class="muted" style="margin-top:3px">Готов к автоматическому анализу.</div></div></div><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiRun">↻ Повторить анализ</button></div><div id="qrReceptAiBody" style="margin-top:10px"></div>';
+    panel.innerHTML='<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div style="display:flex;gap:10px;align-items:center"><img src="/assets/img/qrchick-avatar.svg" alt="Qrchick" width="42" height="42" style="width:42px;height:42px;flex:0 0 42px;border-radius:50%;display:block;object-fit:cover;box-shadow:0 6px 18px rgba(0,0,0,.18)"><div><b>Qrchick · Рецептура</b><div id="qrReceptAiStatus" class="muted" style="margin-top:3px">Готов к автоматическому анализу.</div></div></div><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiRun">↻ Повторить анализ</button></div><div id="qrReceptAiBody" style="margin-top:10px"></div><div id="qrReceptAiWeb" style="margin-top:10px"></div>';
     host.parentElement.appendChild(panel);
     $('qrReceptAiRun').onclick=function(){runAnalysis(false);};
   }
@@ -38,6 +38,12 @@
     if(!rows.length){body.innerHTML='<div class="muted">Qrchick не смог сформировать состав. Проверьте название блюда и ингредиенты.</div>';return;}
     body.innerHTML='<div style="display:grid;gap:7px">'+rows.map(function(r){var m=matchIngredient(r.name);var name=m?m.name:r.name;var unit=m?unitLabel(m.unit):unitLabel(r.unit||'g');return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px"><span style="flex:1"><b>'+esc(name)+'</b>'+(!m?' <span style="color:#fbbf24">· нет в базе</span>':'')+'</span><span>'+esc(r.quantity)+' '+esc(unit)+'</span><span class="muted" style="font-size:11px">'+esc(r.note||'')+'</span></div>';}).join('')+'</div><div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap"><span class="muted" style="font-size:11px">Проверьте состав перед сохранением.</span><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiApply">Применить к рецептуре</button></div>';
     $('qrReceptAiApply').onclick=function(){applyResult(rows);};
+  }
+  function renderWebResults(results, query){
+    lastWebResults=Array.isArray(results)?results:[];
+    var box=$('qrReceptAiWeb'); if(!box)return;
+    if(!lastWebResults.length){box.innerHTML='<div class="muted">Веб-поиск не вернул результатов. Анализ продолжен по данным Qrchick.</div>';return;}
+    box.innerHTML='<div style="border-top:1px solid rgba(255,255,255,.08);padding-top:10px"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap"><b>🌐 Найдено в интернете</b><span class="muted" style="font-size:11px">'+lastWebResults.length+' источников · «'+esc(query||'')+'»</span></div><div style="display:grid;gap:6px;margin-top:8px">'+lastWebResults.slice(0,8).map(function(r){return '<a href="'+esc(r.url||'#')+'" target="_blank" rel="noopener noreferrer" style="display:block;padding:8px 10px;border:1px solid rgba(255,255,255,.07);border-radius:9px;color:inherit;text-decoration:none"><div style="font-weight:700">'+esc(r.title||r.url||'Источник')+'</div><div class="muted" style="font-size:11px;margin-top:3px">'+esc(r.snippet||'')+' · '+esc(r.source||'web')+'</div></a>';}).join('')+'</div></div>';
   }
   function applyResult(rows){
     var s=st(), mapped=[], missing=[]; if(!s.selected)return;
@@ -61,17 +67,32 @@
     if(!window.db||!window.db.auth||!window.db.auth.getSession)return Promise.reject(new Error('Сессия Supabase недоступна'));
     return window.db.auth.getSession().then(function(r){var session=r&&r.data&&r.data.session;if(!session||!session.access_token)throw new Error('Сессия управляющего не найдена');return session.access_token;});
   }
+  function searchWeb(query){
+    var s=st();
+    if(!s.venueId||!query)return Promise.resolve([]);
+    if(searchBusy)return Promise.resolve(lastWebResults);
+    searchBusy=true;
+    return getSessionToken().then(function(token){
+      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',mode:'web_search',query:String(query).trim(),message:String(query).trim()})});
+    }).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'Web search error');return d;});})
+      .then(function(d){renderWebResults(d.results||[],query);return d.results||[];})
+      .catch(function(e){console.warn('[Qrchick Recipes] web search:',e);renderWebResults([],query);return[];})
+      .finally(function(){searchBusy=false;});
+  }
+  window.__QR_RECIPE_WEB_SEARCH__=searchWeb;
   function runAnalysis(auto){
     var s=st(),p=product();
     if(!p||!s.venueId){status('Сначала выберите блюдо и заведение.',true);return;}
     if(busy)return;
     busy=true;
     var btn=$('qrReceptAiRun');if(btn)btn.disabled=true;
-    status(auto?'Qrchick автоматически анализирует выбранное блюдо…':'Qrchick анализирует блюдо и подбирает ингредиенты…',false);
-    var menuItems=(s.products||[]).map(function(x){return{id:x.id,name:x.name,description:x.description||'',category:x.category||'',price:x.price||null};});
-    var ingredientItems=(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null,purchase_price:i.purchase_price||null};});
-    getSessionToken().then(function(token){
-      return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Автоматически подбери рецептуру для выбранного блюда. Сформируй action save_recipe с реальными ingredient_id из переданного списка; используй product_id выбранного блюда. Не выполняй сохранение сам.',context:JSON.stringify({menu:{items:menuItems},ingredients:{items:ingredientItems},venue_id:s.venueId,product:p,global_ingredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{id:i.id||null,name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};}),current_rows:s.rows||[]})})});
+    status(auto?'Qrchick ищет рецептуры в интернете и анализирует блюдо…':'Qrchick ищет рецептуры и подбирает ингредиенты…',false);
+    searchWeb(p.name).then(function(webResults){
+      var menuItems=(s.products||[]).map(function(x){return{id:x.id,name:x.name,description:x.description||'',category:x.category||'',price:x.price||null};});
+      var ingredientItems=(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null,purchase_price:i.purchase_price||null};});
+      return getSessionToken().then(function(token){
+        return fetch('/api/manager-ai',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({feature:'recipes',message:'Подбери рецептуру для выбранного блюда, используя WEB_SEARCH как внешний источник. Сформируй action save_recipe с реальными ingredient_id из списка ингредиентов заведения; используй product_id выбранного блюда. Не выполняй сохранение сам. Учитывай только правдоподобные кулинарные источники и сопоставляй найденный состав с ингредиентами заведения.',context:JSON.stringify({menu:{items:menuItems},ingredients:{items:ingredientItems},venue_id:s.venueId,product:p,web_search:webResults,current_rows:s.rows||[]})})});
+      });
     }).then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'Qrchick API error');return d;});})
       .then(function(d){
         var action=(d.actions||[]).find(function(a){return a&&a.type==='save_recipe';});
@@ -79,12 +100,12 @@
         if(!Array.isArray(rows))throw new Error('Qrchick не вернул состав рецептуры');
         rows=rows.map(function(x){var id=x.ingredient_id||x.id||'';var byId=(s.ingredients||[]).find(function(i){return String(i.id)===String(id);});return{name:x.name||x.ingredient_name||(byId&&byId.name)||'',quantity:Number(x.quantity)||0,unit:x.unit||(byId&&byId.unit)||'g',note:x.note||'Qrchick',ingredient_id:byId?byId.id:id};});
         renderResult({ingredients:rows});
-        status('Qrchick сформировал рецептуру. Проверьте состав и нажмите «Применить».',false);
+        status('Qrchick нашёл внешние рецептуры и сформировал предложение. Проверьте состав и нажмите «Применить».',false);
       })
       .catch(function(e){console.error('[Qrchick Recipes]',e);status('Qrchick недоступен: '+(e.message||e),true);})
       .finally(function(){busy=false;if(btn)btn.disabled=false;});
   }
-  function watch(){var s=st();if(!s.selected||s.selected===lastProductId)return;lastProductId=s.selected;ensurePanel();var b=$('qrReceptAiBody');if(b)b.innerHTML='<div class="muted">Выбрано блюдо: <b>'+esc((product()||{}).name||'')+'</b>. Запускаю Qrchick автоматически…</div>';runAnalysis(true);}
-  function init(){ensurePanel();setInterval(function(){ensurePanel();watch();},500);window.addEventListener('manager-venue-selected',function(){lastProductId=null;});}
+  function watch(){var s=st();if(!s.selected||s.selected===lastProductId)return;lastProductId=s.selected;ensurePanel();var b=$('qrReceptAiBody');if(b)b.innerHTML='<div class="muted">Выбрано блюдо: <b>'+esc((product()||{}).name||'')+'</b>. Ищу рецептуры в интернете…</div>';runAnalysis(true);}
+  function init(){ensurePanel();setInterval(function(){ensurePanel();watch();},500);window.addEventListener('manager-venue-selected',function(){lastProductId=null;lastWebResults=[];});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
 })();
