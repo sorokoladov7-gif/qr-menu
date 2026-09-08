@@ -23,8 +23,8 @@
   function $(id) { return document.getElementById(id); }
 
   function esc(value) {
-    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
-      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+    return String(value == null ? '' : value).replace(/[&<>\"']/g, function (c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c];
     });
   }
 
@@ -304,9 +304,19 @@
     }
   }
 
+  function loadQRChick() {
+    if (window.__QR_RECEPT_AI_LOADED__) return;
+    window.__QR_RECEPT_AI_LOADED__ = true;
+    var script = document.createElement('script');
+    script.src = '/js/manager/manager-recept-ai.js?v=1';
+    script.async = true;
+    document.head.appendChild(script);
+  }
+
   function init() {
     compactLayout();
     if (!window.db) { console.error('[Recipes] window.db отсутствует'); return; }
+    loadQRChick();
     loadData();
   }
 
