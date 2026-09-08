@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -6,7 +7,7 @@
 <link rel="manifest" href="/manifest-waiter.webmanifest">
 <link rel="icon" type="image/svg+xml" href="/icons/waiter-favicon.svg">
 <title>Официант — OS QR-Меню</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@Supabase/supabase-js@2"></script>
 <script src="js/config.js"></script>
 <script src="js/pwa-install.js"></script>
 <style>
@@ -43,7 +44,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opa
 .tabs{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;margin:0 0 16px;padding-bottom:2px}
 .tabs::-webkit-scrollbar{display:none}
 .tab{border:1px solid #ffffff12;border-radius:11px;padding:10px 14px;background:#111827;color:#cbd5e1;cursor:pointer;white-space:nowrap;font-weight:700;transition:all .25s ease;position:relative;overflow:hidden}
-.tab:hover{background:#1e293b;transform:translateY(-1px)}
+.tab:hover
 .tab:active{transform:scale(.96)}
 .tab.on{background:#6366f1;color:#fff;border-color:#818cf8}
 
@@ -69,7 +70,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opa
 @keyframes cardIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 .card:hover{border-color:#6366f1;box-shadow:0 4px 16px rgba(99,102,241,.12);transform:translateY(-2px)}
 .btn{border:0;border-radius:10px;padding:9px 12px;font-weight:700;color:#fff;background:#ffffff12;cursor:pointer;transition:transform .2s,box-shadow .25s,background .2s;position:relative;overflow:hidden}
-.btn:hover{opacity:.85}
+.btn:hover
 .btn:active{transform:scale(.95)}
 .primary{background:#6366f1}
 .primary:hover{box-shadow:0 6px 20px rgba(99,102,241,.35)}
@@ -97,13 +98,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opa
 .history-card .head{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px}
 .history-card .items{font-size:12px;color:#cbd5e1;margin:6px 0;line-height:1.6}
 .history-card .item-line{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #ffffff08}
-.history-card .item-line:last-child{border-bottom:0}
+.history-card .item-line:last-child
 .history-card .meta{font-size:11px;color:#94a3b8;display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
 .history-card .meta span{display:inline-flex;align-items:center;gap:4px}
 .order-item-line{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #ffffff06}
-.order-item-line:last-child{border-bottom:0}
+.order-item-line:last-child
 .refresh-btn{background:#2d3748;color:#fff;border:1px solid #4a5568;transition:transform .2s,background .2s}
-.refresh-btn:hover{background:#374151}
+.refresh-btn:hover
 
 /* ── MODAL ── */
 .modal{position:fixed;inset:0;background:#000b;z-index:100;display:flex;align-items:flex-end;justify-content:center;animation:modalBgIn .3s ease}
@@ -114,7 +115,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opa
 .product{padding:10px;border:1px solid #ffffff12;border-radius:12px;transition:transform .25s,border-color .25s,box-shadow .25s}
 .product:hover{border-color:#6366f1;transform:translateY(-2px);box-shadow:0 4px 12px rgba(99,102,241,.1)}
 .detail-modal .sheet{max-width:600px}
-.detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}.detail-row:last-child{border-bottom:0}
+.detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}.detail-row:last-child
 .detail-total{margin-top:10px;font-weight:700;font-size:16px;color:#a5b4fc}
 .detail-meta{font-size:13px;color:#94a3b8;margin-top:8px;line-height:1.6}.detail-meta strong{color:#e2e8f0}
 
@@ -142,14 +143,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opa
 .status-dot.ready{background:#34d399}
 @keyframes dotBlink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.7)}}
 
-@media(max-width:720px){.wrap{padding:12px}.top{padding:10px 12px}.tabs{margin-bottom:12px}.tab{padding:9px 12px}.grid{grid-template-columns:1fr}.top .muted{display:none}}
-</style>
+@media(max-width:720px){.wrap{padding:12px}.top{padding:10px 12px}.tabs{margin-bottom:12px}.tab{padding:9px 12px}.grid{grid-template-columns:1fr}.top .muted{display:none}} </style>
+
 </head>
 <body>
 <!-- LOADER -->
 <div class="app-loader" id="appLoader"><div style="text-align:center"><div class="spinner"></div><p>Загрузка официанта...</p></div></div>
 
 <!-- BG ORBS -->
+
 <div class="bg-orbs"><div class="orb orb-1"></div><div class="orb orb-2"></div></div>
 
 <div id="app" style="position:relative;z-index:2"></div>
@@ -167,10 +169,10 @@ function unlockAudio(){try{audioCtx=audioCtx||new (window.AudioContext||window.w
 document.addEventListener('pointerdown',unlockAudio,{passive:true});
 function playCallSound(){try{if(!audioUnlocked)return;audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();const now=audioCtx.currentTime;[0,0.14,0.28].forEach((offset,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain();o.type='sine';o.frequency.value=i===1?1046:880;g.gain.setValueAtTime(0,now+offset);g.gain.linearRampToValueAtTime(.12,now+offset+.02);g.gain.exponentialRampToValueAtTime(.001,now+offset+.11);o.connect(g);g.connect(audioCtx.destination);o.start(now+offset);o.stop(now+offset+.12)});}catch(e){}}
 async function login(){state.busy=true;renderLogin();const r=await db.rpc('staff_login',{p_type:'waiter',p_slug:document.getElementById('slug').value.trim(),p_pin:document.getElementById('pin').value.trim()});state.busy=false;if(r.error||!r.data||r.data.error){renderLogin(r.error?.message||r.data?.error||'Неверные данные');return}save(r.data);state.tab='overview';await load();startCallsPolling();}
-async function load(){if(!state.token)return;const [o,h,t,p,c]=await Promise.all([db.rpc('staff_orders_json',{p_token:state.token}),db.rpc('staff_history_json',{p_token:state.token}),db.rpc('staff_table_board',{p_token:state.token}),db.from('products').select('id,name,price,category,is_available').eq('venue_id',state.session.venueId).eq('is_available',true).neq('category','addon'),db.rpc('get_waiter_calls',{p_venue_id:state.session.venueId})]);if(o.error){logout();return}state.orders=Array.isArray(o.data)?o.data:[];state.history=Array.isArray(h.data)?h.data:[];state.tables=Array.isArray(t.data?.tables)?t.data.tables:[];state.products=p.data||[];syncCalls(Array.isArray(c.data)?c.data:[],true);render();startCallsPolling();}
+async function load(){if(!state.token)return;const [o,h,t,p,c]=await Promise.all([db.rpc('staff_orders_json',{p_token:state.token}),db.rpc('staff_history_json',{p_token:state.token}),db.rpc('staff_table_board',{p_token:state.token}),db.from('products').select('id,name,price,category,is_available').eq('venue_id',state.session.venueId).eq('is_available',true).neq('category','addon'),db.rpc('get_waiter_calls',{p_venue_id:state.session.venueId,p_token:state.token})]);if(o.error){logout();return}state.orders=Array.isArray(o.data)?o.data:[];state.history=Array.isArray(h.data)?h.data:[];state.tables=Array.isArray(t.data?.tables)?t.data.tables:[];state.products=p.data||[];syncCalls(Array.isArray(c.data)?c.data:[],true);render();startCallsPolling();}
 function renderCallsOnly(newCall=false){const badge=document.getElementById('call-badge');if(badge)badge.textContent=String(state.calls.length);const callsList=document.getElementById('calls-list');if(callsList){callsList.innerHTML='';if(state.calls.length){state.calls.forEach((c,i)=>{const card=callCard(c,newCall);card.style.animationDelay=(i*0.08)+'s';callsList.appendChild(card)});}else callsList.innerHTML='<div class="empty">Нет вызовов</div>';}}
 function syncCalls(nextCalls,initial=false){const next=Array.isArray(nextCalls)?nextCalls:[];const nextIds=new Set(next.map(c=>String(c.id)));let added=[];if(state.callsInitialized){for(const c of next){if(!state.prevCallIds.has(String(c.id)))added.push(c);}}state.calls=next;state.prevCallIds=nextIds;state.callsInitialized=true;if(!initial&&added.length){playCallSound();document.title='('+state.calls.length+') Новый вызов — Официант';setTimeout(()=>{document.title='Официант — OS QR-Меню'},5000);renderCallsOnly(true);if(state.tab!=='calls'){const tab=document.querySelector('[data-tab="calls"]');if(tab){tab.classList.add('call-new');setTimeout(()=>tab.classList.remove('call-new'),3000);}}}else renderCallsOnly(false);}
-async function refreshCalls(){if(!state.token||callsPollBusy)return;callsPollBusy=true;try{const r=await db.rpc('get_waiter_calls',{p_venue_id:state.session.venueId});if(!r.error)syncCalls(Array.isArray(r.data)?r.data:[],false);}finally{callsPollBusy=false;}}
+async function refreshCalls(){if(!state.token||callsPollBusy)return;callsPollBusy=true;try{const r=await db.rpc('get_waiter_calls',{p_venue_id:state.session.venueId,p_token:state.token});if(!r.error)syncCalls(Array.isArray(r.data)?r.data:[],false);}finally{callsPollBusy=false;}}
 function startCallsPolling(){stopCallsPolling();if(!state.token)return;callsPollTimer=setInterval(refreshCalls,3000);}
 function stopCallsPolling(){if(callsPollTimer){clearInterval(callsPollTimer);callsPollTimer=null;}}
 function status(s){return({new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'У курьера',arrived:'Прибыл',done:'Выдан',cancelled:'Отменён'})[s]||s;}
@@ -184,7 +186,7 @@ function tableCard(t){const busy=t.occupancy_status==='occupied',res=t.occupancy
 function orderCard(o){const d=document.createElement('div');d.className='card';const itemsHtml=(Array.isArray(o.items)?o.items.map(i=>'<div class="order-item-line"><span>'+esc(i.qty||1)+'× '+esc(i.name||i.product_name||'Товар')+'</span><span>'+money((i.price||0)*(i.qty||1))+' ₽</span></div>'):'');const dotClass=o.status==='cooking'?'cooking':o.status==='ready'?'ready':'';const dotHtml=dotClass?'<span class="status-dot '+dotClass+'"></span>':'';d.innerHTML='<div style="display:flex;justify-content:space-between"><b>№'+esc(o.order_number)+'</b><span class="badge">'+dotHtml+status(o.status)+'</span></div><div style="margin-top:8px">'+itemsHtml+'</div><b>'+money(o.total_price)+' ₽</b><div class="actions">'+(o.status==='new'?'<button class="btn primary" data-s="cooking">В работу</button>':'')+(o.status==='cooking'?'<button class="btn green" data-s="ready">Готово</button>':'')+(o.status==='ready'&&o.order_type==='delivery'?'<button class="btn primary" data-s="delivery">Курьеру</button>':'')+((o.status==='ready'||o.status==='arrived')?'<button class="btn green" data-s="done">Выдан</button>':'')+'</div>';d.querySelectorAll('[data-s]').forEach(b=>b.onclick=e=>{e.stopPropagation();orderStatus(o.id,b.dataset.s)});d.onclick=()=>openOrderDetail(o);return d;}
 function historyCard(o){const d=document.createElement('div');d.className='history-card';const itemsHtml=(Array.isArray(o.items)?o.items.map(i=>'<div class="item-line"><span>'+esc(i.qty||1)+'× '+esc(i.name||i.product_name||'Товар')+'</span><span>'+money((i.price||0)*(i.qty||1))+' ₽</span></div>').join(''):'');const payment=o.payment_method==='cash'?'💵 Наличные':'💳 Карта';const tableInfo=o.table_name||(o.table_number?'🪑 Стол '+o.table_number:'');d.innerHTML='<div class="head"><b>№'+esc(o.order_number)+'</b><span style="color:#34d399;font-size:12px">✅ Выдан</span></div><div class="items">'+itemsHtml+'</div><div style="font-weight:700;font-size:15px;margin:4px 0">Итого: '+money(o.total_price)+' ₽</div><div class="meta"><span>🕐 '+new Date(o.created_at).toLocaleString()+'</span>'+ (o.ready_at?'<span>⏱ '+new Date(o.ready_at).toLocaleString()+'</span>':'') +(tableInfo?'<span>'+tableInfo+'</span>':'') +'<span>'+payment+'</span></div>';d.onclick=()=>openOrderDetail(o);return d;}
 function callCard(c,newCall=false){const d=document.createElement('div');d.className='call-card'+(newCall?' call-new':'');const time=new Date(c.created_at).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});d.innerHTML='<div class="call-info"><span class="call-table">🛎️ Стол '+esc(c.table_number)+'</span><span class="call-time">⏱ '+time+'</span></div><div class="call-actions"><button class="btn green" data-id="'+esc(c.id)+'">✅ Принять</button></div>';d.querySelector('[data-id]').onclick=e=>{e.stopPropagation();resolveWaiterCall(c.id)};return d;}
-async function resolveWaiterCall(id){const r=await db.rpc('resolve_waiter_call',{p_venue_id:state.session.venueId,p_call_id:id});if(r.error)alert('Ошибка: '+r.error.message);else await refreshCalls();}
+async function resolveWaiterCall(id){const r=await db.rpc('resolve_waiter_call',{p_venue_id:state.session.venueId,p_call_id:id,p_token:state.token});if(r.error)alert('Ошибка: '+r.error.message);else await refreshCalls();}
 function render(){if(!state.token){renderLogin();return}const active=state.orders.filter(o=>!['done','cancelled'].includes(o.status));const occupied=state.tables.filter(t=>t.occupancy_status==='occupied').length;app.innerHTML='<div class="top"><div><div class="brand">🤵 '+esc(state.session?.venueName||'Официант')+'</div><div class="muted">'+esc(state.session?.staffName||'')+'</div></div><button class="btn" id="logout">Выйти</button></div><div class="wrap"><nav class="tabs"><button class="tab '+(state.tab==='overview'?'on':'')+'" data-tab="overview">Обзор</button><button class="tab '+(state.tab==='tables'?'on':'')+'" data-tab="tables">🪑 Столы</button><button class="tab '+(state.tab==='orders'?'on':'')+'" data-tab="orders">📋 Заказы</button><button class="tab '+(state.tab==='history'?'on':'')+'" data-tab="history">🕘 История</button><button class="tab '+(state.tab==='calls'?'on':'')+'" data-tab="calls">🛎️ Вызовы<span class="call-badge" id="call-badge">'+state.calls.length+'</span></button></nav><section class="panel '+(state.tab==='overview'?'on':'')+'"><div class="stats"><div class="stat"><b>'+state.tables.length+'</b><span class="muted">Столов</span></div><div class="stat"><b>'+occupied+'</b><span class="muted">Занято</span></div><div class="stat"><b>'+active.length+'</b><span class="muted">В работе</span></div><div class="stat"><b>'+money(active.reduce((s,o)=>s+Number(o.total_price||0),0))+' ₽</b><span class="muted">Оборот активных</span></div></div><div class="grid"><div class="card"><div class="section-head"><h3>🪑 Быстрый доступ к залу</h3></div><div class="muted">Управление посадкой, резервом и заказами по столам.</div><div class="actions"><button class="btn primary" data-goto="tables">Открыть столы</button></div></div><div class="card"><div class="section-head"><h3>📋 Текущие заказы</h3></div><div class="muted">Новые и активные заказы персонала.</div><div class="actions"><button class="btn primary" data-goto="orders">Открыть заказы</button></div></div></div></section><section class="panel '+(state.tab==='tables'?'on':'')+'"><div class="section-head"><div><h2 style="margin:0">🪑 Столы</h2><div class="muted">Посадка, резерв, освобождение и добавление заказа в текущую сессию.</div></div></div><div class="grid" id="tables"></div></section><section class="panel '+(state.tab==='orders'?'on':'')+'"><div class="section-head"><div><h2 style="margin:0">📋 Заказы</h2><div class="muted">Все активные заказы заведения.</div></div><button class="btn refresh-btn" id="refresh-orders">🔄 Обновить</button></div><div class="grid" id="orders"></div></section><section class="panel '+(state.tab==='history'?'on':'')+'"><div class="section-head"><div><h2 style="margin:0">🕘 История заказов</h2><div class="muted">Выполненные заказы</div></div></div><div class="grid" id="history-orders"></div></section><section class="panel '+(state.tab==='calls'?'on':'')+'"><div class="section-head"><div><h2 style="margin:0">🛎️ Вызовы официанта</h2><div class="muted">Активные вызовы от гостей за столами</div></div><button class="btn refresh-btn" id="refresh-calls">🔄 Обновить</button></div><div id="calls-list"></div></section></div>';
 document.getElementById('logout').onclick=logout;document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>setTab(b.dataset.tab));document.querySelectorAll('[data-goto]').forEach(b=>b.onclick=()=>setTab(b.dataset.goto));const refreshOrdersBtn=document.getElementById('refresh-orders');if(refreshOrdersBtn)refreshOrdersBtn.onclick=()=>load();const refreshCallsBtn=document.getElementById('refresh-calls');if(refreshCallsBtn)refreshCallsBtn.onclick=()=>refreshCalls();const tg=document.getElementById('tables');state.tables.forEach((t,i)=>{const c=tableCard(t);c.style.animationDelay=(i*0.06)+'s';tg.appendChild(c)});if(!tg.children.length)tg.innerHTML='<div class="empty">Столы не настроены</div>';const og=document.getElementById('orders');state.orders.filter(o=>!['done','cancelled'].includes(o.status)).forEach((o,i)=>{const c=orderCard(o);c.style.animationDelay=(i*0.06)+'s';og.appendChild(c)});if(!og.children.length)og.innerHTML='<div class="empty">Нет активных заказов</div>';const hg=document.getElementById('history-orders');state.history.slice().sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).forEach((o,i)=>{const c=historyCard(o);c.style.animationDelay=(i*0.06)+'s';hg.appendChild(c)});if(!hg.children.length)hg.innerHTML='<div class="empty">История заказов пуста</div>';renderCallsOnly(false);}
 try{state.session=JSON.parse(sessionStorage.getItem('waiter_session')||'null')}catch(e){}
@@ -197,17 +199,18 @@ if(state.token){load();startCallsPolling();}
 
 /* ── RIPPLE EFFECT ── */
 document.addEventListener('click',function(e){
-  const btn=e.target.closest('.btn');
-  if(!btn)return;
-  const r=document.createElement('span');r.className='btn-ripple';
-  const rect=btn.getBoundingClientRect();
-  r.style.left=(e.clientX-rect.left)+'px';r.style.top=(e.clientY-rect.top)+'px';
-  r.style.width=r.style.height=Math.max(rect.width,rect.height)+'px';
-  btn.appendChild(r);setTimeout(function(){r.remove()},600);
-});
-</script>
+const btn=e.target.closest('.btn');
+if(!btn)return;
+const r=document.createElement('span');r.className='btn-ripple';
+const rect=btn.getBoundingClientRect();
+r.style.left=(e.clientX-rect.left)+'px';r.style.top=(e.clientY-rect.top)+'px';
+r.style.width=r.style.height=Math.max(rect.width,rect.height)+'px';
+btn.appendChild(r);setTimeout(function(){r.remove()},600);
+}); </script>
+
 <script data-qr-waiter-direct-login>
 (()=>{const SUPA_URL='https://ulxfsozdryqrnlxzlblt.supabase.co';const SUPA_KEY='sb_publishable_9hmWZwV5WnfQHDK1ir36Pg_JIdHdwPq';const client=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:false}});function install(){const btn=document.getElementById('go'),slug=document.getElementById('slug'),pin=document.getElementById('pin');if(!btn||!slug||!pin){setTimeout(install,150);return}if(btn.dataset.qrWaiterDirectLogin==='1')return;btn.dataset.qrWaiterDirectLogin='1';btn.onclick=async e=>{e&&e.preventDefault();btn.disabled=true;btn.textContent='Проверяем...';const err=document.querySelector('#app .err, #app [style*="f87171"]');const s=String(slug.value||'').trim().toLowerCase();const p=String(pin.value||'').replace(/\s+/g,'').trim();try{if(!s)throw new Error('Введите код заведения');if(!/^\d{4}$/.test(p))throw new Error('PIN должен состоять из 4 цифр');const r=await client.rpc('staff_login',{p_type:'waiter',p_slug:s,p_pin:p});if(r.error||!r.data||r.data.error){let m=(r.error&&r.error.message)||(r.data&&r.data.error)||'Не удалось войти';m=String(m);if(m.includes('wrong_pin'))m='Неверный PIN';else if(m.includes('venue_not_found'))m='Заведение не найдено или неактивно';else if(m.includes('slug_or_pin_required'))m='Не передан код заведения или PIN';throw new Error(m)}sessionStorage.setItem('waiter_token',r.data.token);sessionStorage.setItem('staff_token',r.data.token);sessionStorage.setItem('waiter_session',JSON.stringify({token:r.data.token,venueId:r.data.venueId,venueName:r.data.venueName,staffName:r.data.staffName}));sessionStorage.setItem('waiter_tab','overview');location.reload()}catch(x){if(err)err.textContent=x.message||'Ошибка входа';else alert(x.message||'Ошибка входа');btn.disabled=false;btn.textContent='Войти'}}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install()})();
 </script>
+
 </body>
 </html>
