@@ -1,1 +1,1 @@
-/* QR Menu — Manager Hall. Single source of truth (Enhanced 2D). */
+x
