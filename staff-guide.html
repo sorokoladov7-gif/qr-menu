@@ -5,28 +5,166 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b1020">
 <meta name="description" content="Инструкция управляющего OS QR-Меню: меню, заказы, зал, персонал, рецептуры, доставка, аналитика и тарифы.">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
 <title>Инструкция управляющего — OS QR-Меню</title>
 <style>
 :root{--bg:#080c16;--bg2:#0d1322;--card:rgba(18,25,42,.82);--card2:rgba(255,255,255,.045);--line:rgba(255,255,255,.09);--text:#f7f8fb;--muted:#9ba6bb;--accent:#7dd3fc;--accent2:#a78bfa;--good:#6ee7b7;--warn:#fbbf24;--danger:#fb7185;--shadow:0 20px 60px rgba(0,0,0,.28);--radius:18px}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at top right,rgba(99,102,241,.16),transparent 30%),radial-gradient(circle at top left,rgba(56,189,248,.1),transparent 26%),linear-gradient(180deg,var(--bg),var(--bg2));line-height:1.55}a{color:inherit}.wrap{width:min(1180px,calc(100% - 32px));margin:0 auto}.hero{padding:52px 0 34px}.brand{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px;letter-spacing:.08em;text-transform:uppercase}.brand-mark{width:40px;height:40px;display:grid;place-items:center;border:1px solid var(--line);border-radius:12px;background:linear-gradient(135deg,rgba(125,211,252,.16),rgba(167,139,250,.16));font-size:20px}.hero h1{font-size:clamp(34px,5vw,58px);line-height:1.02;margin:20px 0 14px;max-width:850px}.hero p{max-width:760px;color:var(--muted);font-size:18px;margin:0}.meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}.pill{padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card2);color:#dbe5f4;font-size:13px}.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:22px;align-items:start}.toc{position:sticky;top:18px;padding:16px;border:1px solid var(--line);border-radius:16px;background:rgba(8,12,22,.76);backdrop-filter:blur(12px)}.toc h3{font-size:12px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 10px}.toc a{display:block;text-decoration:none;padding:8px 9px;border-radius:10px;color:#cbd5e1;font-size:14px}.toc a:hover{background:rgba(255,255,255,.05);color:#fff}.content{display:grid;gap:14px}.card{border:1px solid var(--line);border-radius:var(--radius);background:var(--card);box-shadow:var(--shadow);padding:24px}.card h2{font-size:25px;margin:0 0 8px}.card h3{font-size:18px;margin:22px 0 8px}.lead{color:var(--muted);margin:0 0 16px}.steps{display:grid;gap:10px;margin-top:14px}.step{display:grid;grid-template-columns:42px 1fr;gap:14px;align-items:start;padding:14px 0;border-top:1px solid var(--line)}.step:first-child{border-top:0;padding-top:0}.num{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-weight:800;background:linear-gradient(135deg,rgba(125,211,252,.16),rgba(167,139,250,.18));border:1px solid var(--line);color:#eaf7ff}.step b{display:block;margin-bottom:2px}.muted{color:var(--muted)}.note{padding:14px 16px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.035);margin:14px 0}.note.good{border-color:rgba(110,231,183,.25);background:rgba(110,231,183,.07)}.note.warn{border-color:rgba(251,191,36,.28);background:rgba(251,191,36,.07)}.note.danger{border-color:rgba(251,113,133,.25);background:rgba(251,113,133,.07)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.mini{padding:15px;border:1px solid var(--line);border-radius:14px;background:rgba(255,255,255,.03)}.mini b{display:block;margin-bottom:4px}.mini span{color:var(--muted);font-size:14px}.check{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;padding:8px 0}.check::before{content:'✓';display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:rgba(110,231,183,.1);color:var(--good);font-weight:900}.status{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:999px;font-size:12px;border:1px solid var(--line);margin:2px 4px 2px 0}.status.new{color:#bfdbfe}.status.cooking{color:#fde68a}.status.delivery{color:#fdba74}.status.ready{color:#86efac}.status.done{color:#c4b5fd}.footer{padding:34px 0 60px;color:var(--muted);font-size:13px;text-align:center}@media(max-width:900px){.layout{grid-template-columns:1fr}.toc{position:relative;top:auto}.grid{grid-template-columns:1fr}.hero{padding-top:30px}}@media(max-width:560px){.wrap{width:min(100% - 20px,1180px)}.card{padding:18px}.hero h1{font-size:36px}.hero p{font-size:16px}.step{grid-template-columns:36px 1fr}.num{width:36px;height:36px;border-radius:10px}}
 </style>
 </head>
 <body>
-<header class="hero"><div class="wrap"><div class="brand"><div class="brand-mark">📖</div><span>OS QR-Меню · Кабинет управляющего</span></div><h1>Инструкция: как правильно работать с системой</h1><p>Рабочая последовательность для управляющего: сначала настройте заведение и меню, затем зал и сотрудников, после запуска контролируйте заказы и показатели.</p><div class="meta"><span class="pill">Меню</span><span class="pill">Заказы</span><span class="pill">Зал и столы</span><span class="pill">Персонал</span><span class="pill">Рецептуры</span><span class="pill">Аналитика</span><span class="pill">ИИ</span></div></div></header>
-<main class="wrap layout"><nav class="toc" aria-label="Содержание"><h3>Разделы</h3><a href="#start">1. Первый запуск</a><a href="#menu">2. Меню</a><a href="#orders">3. Заказы</a><a href="#hall">4. Зал и столы</a><a href="#staff">5. Персонал</a><a href="#recipes">6. Рецептуры</a><a href="#delivery">7. Доставка</a><a href="#analytics">8. Аналитика</a><a href="#billing">9. Тариф и лимиты</a><a href="#ai">10. ИИ-помощник</a><a href="#daily">11. Ежедневный контроль</a><a href="#problems">12. Если что-то не работает</a></nav>
+<header class="hero">
+<div class="wrap">
+  <div class="brand"><div class="brand-mark">📖</div><span>OS QR-Меню · Кабинет управляющего</span></div>
+  <h1>Инструкция: как правильно работать с системой</h1>
+  <p>Это рабочая последовательность для управляющего: сначала настройте заведение и меню, затем зал и сотрудников, после запуска контролируйте заказы и показатели.</p>
+  <div class="meta">
+    <span class="pill">Меню</span><span class="pill">Заказы</span><span class="pill">Зал и столы</span><span class="pill">Персонал</span><span class="pill">Рецептуры</span><span class="pill">Аналитика</span>
+  </div>
+</div>
+</header>
+
+<main class="wrap layout">
+<nav class="toc" aria-label="Содержание">
+  <h3>Разделы</h3>
+  <a href="#start">1. Первый запуск</a>
+  <a href="#menu">2. Меню</a>
+  <a href="#orders">3. Заказы</a>
+  <a href="#hall">4. Зал и столы</a>
+  <a href="#staff">5. Персонал</a>
+  <a href="#recipes">6. Рецептуры</a>
+  <a href="#delivery">7. Доставка</a>
+  <a href="#analytics">8. Аналитика</a>
+  <a href="#billing">9. Тариф и лимиты</a>
+  <a href="#ai">10. ИИ-помощник</a>
+  <a href="#daily">11. Ежедневный контроль</a>
+</nav>
+
 <section class="content">
-<article class="card" id="start"><h2>1. Первый запуск</h2><p class="lead">Не начинайте с массового заполнения. Сначала сформируйте один полностью рабочий сценарий.</p><div class="steps"><div class="step"><div class="num">01</div><div><b>Выберите нужное заведение</b><span class="muted">Проверьте, что работаете именно с той точкой, которую сейчас настраиваете.</span></div></div><div class="step"><div class="num">02</div><div><b>Проверьте базовые данные</b><span class="muted">Название, код заведения и параметры точки должны быть корректными до запуска меню.</span></div></div><div class="step"><div class="num">03</div><div><b>Настройте меню</b><span class="muted">Добавьте категории, блюда, цены, описания, изображения и необходимые добавки.</span></div></div><div class="step"><div class="num">04</div><div><b>Настройте зал и сотрудников</b><span class="muted">Добавьте столы и рабочие роли — повар, официант, курьер — согласно реальному процессу.</span></div></div><div class="step"><div class="num">05</div><div><b>Сделайте контрольный заказ</b><span class="muted">Проверьте путь меню → корзина → оформление → получение заказа сотрудником.</span></div></div></div><div class="note good"><b>Правило запуска:</b> один рабочий сценарий сначала, масштабирование после проверки.</div></article>
-<article class="card" id="menu"><h2>2. Меню</h2><p class="lead">Меню — основной источник данных для клиента. Цена и доступность должны совпадать с реальным предложением.</p><div class="grid"><div class="mini"><b>Категории</b><span>Делайте структуру понятной клиенту: Бургеры, Салаты, Напитки, Десерты и т. п.</span></div><div class="mini"><b>Карточка блюда</b><span>Название, описание, цена и фотография должны соответствовать фактическому блюду.</span></div><div class="mini"><b>Добавки</b><span>Используйте модификаторы там, где клиент действительно выбирает дополнительные опции.</span></div><div class="mini"><b>Проверка после изменений</b><span>После изменения цены или блюда откройте клиентское меню и проверьте результат.</span></div></div><div class="note warn"><b>Не оставляйте в production:</b> тестовые блюда, старые цены, временные фотографии и непонятные названия.</div></article>
-<article class="card" id="orders"><h2>3. Заказы</h2><p class="lead">Управляющий контролирует поток заказов и следит, чтобы статус соответствовал фактическому состоянию заказа.</p><div><span class="status new">Новый</span><span class="status cooking">Готовится</span><span class="status delivery">Доставка</span><span class="status ready">Готов</span><span class="status done">Завершён</span></div><h3>Правильная последовательность</h3><div class="steps"><div class="step"><div class="num">1</div><div><b>Проверить заказ</b><span class="muted">Состав, комментарии, способ получения и оплату.</span></div></div><div class="step"><div class="num">2</div><div><b>Принять в работу</b><span class="muted">Ответственный сотрудник должен видеть заказ в своём рабочем интерфейсе.</span></div></div><div class="step"><div class="num">3</div><div><b>Менять статус по факту</b><span class="muted">Не пропускайте этапы без необходимости.</span></div></div><div class="step"><div class="num">4</div><div><b>Завершить заказ</b><span class="muted">Статус завершён только после фактической выдачи или доставки.</span></div></div></div></article>
-<article class="card" id="hall"><h2>4. Зал и столы</h2><p class="lead">План зала нужен для привязки обслуживания к конкретным столам.</p><div class="grid"><div class="mini"><b>До открытия</b><span>Проверьте номера и количество столов, чтобы они совпадали с реальным залом.</span></div><div class="mini"><b>Во время работы</b><span>Следите за занятыми и свободными столами и не создавайте дубли.</span></div><div class="mini"><b>QR на столе</b><span>После изменения столов перепроверьте соответствующие QR-коды.</span></div><div class="mini"><b>Проблема со столом</b><span>Сначала проверьте, что сотрудник работает с тем же заведением и номером стола.</span></div></div></article>
-<article class="card" id="staff"><h2>5. Персонал</h2><p class="lead">Каждый сотрудник получает конкретную роль и рабочий доступ. Не передавайте один PIN нескольким людям.</p><div class="grid"><div class="mini"><b>👨‍🍳 Повар</b><span>Работает с заказами кухни и меняет статусы приготовления.</span></div><div class="mini"><b>🧑‍💼 Официант</b><span>Работает с обслуживанием и столами в пределах доступного функционала.</span></div><div class="mini"><b>🚗 Курьер</b><span>Получает заказы на доставку и работает через отдельный интерфейс курьера.</span></div><div class="mini"><b>🔐 PIN</b><span>PIN создаётся при добавлении сотрудника. Сохраните его и передайте только нужному сотруднику.</span></div></div><div class="note danger"><b>Безопасность:</b> при увольнении или смене сотрудника не оставляйте старый PIN действующим доступом.</div></article>
-<article class="card" id="recipes"><h2>6. Рецептуры</h2><p class="lead">Рецептуры связывают блюдо с ингредиентами и позволяют контролировать состав и расход.</p><div class="steps"><div class="step"><div class="num">1</div><div><b>Проверьте ингредиенты</b><span class="muted">Название и единица измерения должны быть понятными и единообразными.</span></div></div><div class="step"><div class="num">2</div><div><b>Создайте рецептуру</b><span class="muted">Свяжите блюдо с ингредиентами и укажите фактические количества.</span></div></div><div class="step"><div class="num">3</div><div><b>Проверьте технологию</b><span class="muted">Состав в системе должен соответствовать реальной карте блюда.</span></div></div><div class="step"><div class="num">4</div><div><b>После изменения блюда</b><span class="muted">Пересмотрите рецептуру, если изменился состав или размер порции.</span></div></div></div></article>
-<article class="card" id="delivery"><h2>7. Доставка</h2><p class="lead">Доставку подключайте только после проверки реального сценария: заказ → адрес → сотрудник → выдача клиенту.</p><div class="grid"><div class="mini"><b>Зона и условия</b><span>Параметры доставки должны соответствовать реальным условиям заведения.</span></div><div class="mini"><b>Адрес клиента</b><span>Контролируйте полноту адреса до передачи заказа курьеру.</span></div><div class="mini"><b>Статусы</b><span>Переход в доставку должен происходить только после фактической передачи заказа курьеру.</span></div><div class="mini"><b>Курьер</b><span>Проверяйте доступ курьера и актуальность его PIN.</span></div></div></article>
-<article class="card" id="analytics"><h2>8. Аналитика</h2><p class="lead">Используйте аналитику не для отчётности ради отчётности, а для поиска отклонений и узких мест.</p><div class="grid"><div class="mini"><b>Выручка</b><span>Смотрите динамику и сопоставляйте её с числом заказов.</span></div><div class="mini"><b>Количество заказов</b><span>Рост заказов без роста выручки может указывать на падение среднего чека.</span></div><div class="mini"><b>Среднее время кухни</b><span>Рост времени — сигнал проверить загрузку и работу поваров.</span></div><div class="mini"><b>Персонал</b><span>Сравнивайте скорость обработки заказов и фактическую нагрузку.</span></div></div></article>
-<article class="card" id="billing"><h2>9. Тариф и лимиты</h2><p class="lead">Следите за текущим тарифом перед добавлением новых заведений, сотрудников или большого количества позиций.</p><div class="grid"><div class="mini"><b>START — 3 499 ₽/мес</b><span>2 заведения, 1 повар, 1 курьер, 1 официант, 50 позиций.</span></div><div class="mini"><b>BUSINESS — 5 499 ₽/мес</b><span>3 заведения, 2 повара, 2 курьера, 2 официанта, 100 позиций.</span></div><div class="mini"><b>PREMIUM — 8 499 ₽/мес</b><span>6 заведений, 4 повара, 4 курьера, 4 официанта, 200 позиций.</span></div><div class="mini"><b>NETWORK — 11 498 ₽/мес</b><span>10 заведений, 6 поваров, 6 курьеров, 6 официантов, 300 позиций.</span></div></div><div class="note good"><b>Пробный период:</b> 5 дней. Проверяйте реальный рабочий сценарий до выбора тарифа.</div></article>
-<article class="card" id="ai"><h2>10. ИИ-помощник</h2><p class="lead">ИИ должен быть рабочим инструментом управляющего, а не просто чат-окном.</p><div class="steps"><div class="step"><div class="num">01</div><div><b>Формулируйте задачу конкретно</b><span class="muted">Например: «Покажи проблемы в заказах за сегодня» или «Добавь чизбургер за 599 ₽ в категорию Бургеры».</span></div></div><div class="step"><div class="num">02</div><div><b>Проверяйте подтверждение действия</b><span class="muted">Изменения меню, сотрудников и других объектов должны выполняться только после понятного подтверждения, когда это предусмотрено системой.</span></div></div><div class="step"><div class="num">03</div><div><b>Проверяйте результат</b><span class="muted">После действия откройте соответствующий раздел и убедитесь, что данные действительно изменились.</span></div></div></div><div class="note warn"><b>Важно:</b> если ИИ сообщил только «анализ завершён», но объект не изменился, считайте действие невыполненным и проверяйте раздел вручную.</div></article>
-<article class="card" id="daily"><h2>11. Ежедневный контроль управляющего</h2><p class="lead">Минимальный регламент перед открытием и в течение дня.</p><div class="check">Проверить активное заведение и статус подписки.</div><div class="check">Проверить меню и актуальность основных цен.</div><div class="check">Проверить работу QR хотя бы на одном столе.</div><div class="check">Проверить сотрудников и рабочие PIN.</div><div class="check">Проверить новые и активные заказы.</div><div class="check">Проверить проблемные/задержанные заказы.</div><div class="check">Посмотреть ключевые показатели аналитики.</div><div class="check">При доставке проверить очередь и работу курьера.</div><div class="check">Перед закрытием убедиться, что зависших рабочих заказов нет.</div></article>
-<article class="card" id="problems"><h2>12. Если что-то не работает</h2><p class="lead">Идите от самого простого к системному. Не меняйте сразу несколько частей проекта.</p><div class="grid"><div class="mini"><b>404 страница</b><span>Проверьте, существует ли нужный файл в корне production и нет ли ошибки в URL.</span></div><div class="mini"><b>Пустые данные</b><span>Проверьте выбранное заведение, роль пользователя и наличие данных в базе.</span></div><div class="mini"><b>Не работает кнопка</b><span>Проверьте консоль браузера и Network: есть ли JS-ошибка или неуспешный API-запрос.</span></div><div class="mini"><b>Изменение не сохранилось</b><span>Проверьте ответ API/Supabase и права доступа/RLS, а не только внешний интерфейс.</span></div></div><div class="note danger"><b>Правило диагностики:</b> сначала локализуйте ошибку, затем исправляйте. Не создавайте новые дубликаты файлов вместо восстановления исходного рабочего маршрута.</div></article>
-<article class="card"><h2>Главный принцип работы</h2><p class="lead">Система должна обслуживать реальный процесс заведения, поэтому любое изменение проверяйте в цепочке «управляющий → персонал → клиент».</p><div class="note good"><b>Правильная последовательность:</b> настроить → проверить → запустить → наблюдать → улучшать. Массово менять рабочие данные без контрольной проверки нельзя.</div></article>
-</section></main><footer class="footer">OS QR-Меню · Инструкция управляющего</footer>
-</body></html>
+  <article class="card" id="start">
+    <h2>1. Первый запуск</h2>
+    <p class="lead">Не начинайте с загрузки десятков блюд. Сначала сформируйте базовую структуру заведения.</p>
+    <div class="steps">
+      <div class="step"><div class="num">01</div><div><b>Выберите нужное заведение</b><span class="muted">Работайте только с той точкой, которую сейчас настраиваете.</span></div></div>
+      <div class="step"><div class="num">02</div><div><b>Проверьте основные данные</b><span class="muted">Название, код заведения и другие базовые параметры должны быть заполнены до запуска меню.</span></div></div>
+      <div class="step"><div class="num">03</div><div><b>Настройте меню</b><span class="muted">Добавьте категории, блюда, цены, описания, изображения и доступные добавки.</span></div></div>
+      <div class="step"><div class="num">04</div><div><b>Настройте зал и сотрудников</b><span class="muted">Добавьте столы и назначьте рабочие роли: повар, официант, курьер — в зависимости от тарифа и процессов заведения.</span></div></div>
+      <div class="step"><div class="num">05</div><div><b>Сделайте контрольный заказ</b><span class="muted">До размещения QR-кодов проверьте весь путь: меню → корзина → оформление → получение заказа сотрудником.</span></div></div>
+    </div>
+    <div class="note good"><b>Правило запуска:</b> сначала один полностью рабочий сценарий, потом массовое заполнение и подключение сотрудников.</div>
+  </article>
+
+  <article class="card" id="menu">
+    <h2>2. Меню</h2>
+    <p class="lead">Меню — основной источник данных для клиента. Ошибка в цене или доступности блюда сразу отражается на заказах.</p>
+    <div class="grid">
+      <div class="mini"><b>Категории</b><span>Сначала создайте понятную структуру: например, Бургеры, Салаты, Напитки, Десерты.</span></div>
+      <div class="mini"><b>Карточка блюда</b><span>Название, описание, цена и фотография должны соответствовать реальному предложению.</span></div>
+      <div class="mini"><b>Добавки</b><span>Используйте модификаторы там, где клиент действительно выбирает дополнительные опции.</span></div>
+      <div class="mini"><b>Цены</b><span>После изменения цены проверьте её не только в кабинете, но и в клиентском меню.</span></div>
+    </div>
+    <div class="note warn"><b>Не делайте:</b> не оставляйте тестовые блюда, старые цены и временные названия в рабочем меню.</div>
+  </article>
+
+  <article class="card" id="orders">
+    <h2>3. Заказы</h2>
+    <p class="lead">Здесь управляющий контролирует текущий поток заказов и состояние выполнения.</p>
+    <div>
+      <span class="status new">Новый</span><span class="status cooking">Готовится</span><span class="status delivery">Доставка</span><span class="status ready">Готов</span><span class="status done">Завершён</span>
+    </div>
+    <h3>Как должен идти заказ</h3>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><div><b>Заказ появился в системе</b><span class="muted">Проверьте состав, способ получения и комментарии клиента.</span></div></div>
+      <div class="step"><div class="num">2</div><div><b>Заказ принят в работу</b><span class="muted">Ответственный сотрудник должен видеть заказ в своём рабочем интерфейсе.</span></div></div>
+      <div class="step"><div class="num">3</div><div><b>Статус меняется по факту</b><span class="muted">Не переводите заказ вперёд, если предыдущий этап физически не выполнен.</span></div></div>
+      <div class="step"><div class="num">4</div><div><b>Завершение</b><span class="muted">Завершённый заказ должен соответствовать фактически выданному или доставленному заказу.</span></div></div>
+    </div>
+  </article>
+
+  <article class="card" id="hall">
+    <h2>4. Зал и столы</h2>
+    <p class="lead">Зал нужен для сценариев, где клиент заказывает со стола, а управляющий контролирует состояние посадки и обслуживания.</p>
+    <div class="check"><div>Добавьте все рабочие столы.</div></div>
+    <div class="check"><div>Проверьте нумерацию — она должна совпадать с физическими столами.</div></div>
+    <div class="check"><div>После настройки разместите правильный QR на каждом столе.</div></div>
+    <div class="check"><div>Перед открытием смены сделайте один тестовый заказ со стола.</div></div>
+    <div class="note">Если QR ведёт не в нужное меню, сначала проверьте код/идентификатор заведения и привязку стола, а уже потом перевыпускайте QR.</div>
+  </article>
+
+  <article class="card" id="staff">
+    <h2>5. Персонал</h2>
+    <p class="lead">Создавайте сотрудников только после того, как определились с ролями и реальной нагрузкой.</p>
+    <div class="grid">
+      <div class="mini"><b>👨‍🍳 Повар</b><span>Работает с поступающими заказами и их приготовлением.</span></div>
+      <div class="mini"><b>🚗 Курьер</b><span>Используется для сценариев доставки, если модуль доступен и включён.</span></div>
+      <div class="mini"><b>👤 Официант</b><span>Нужен для обслуживания зала и работы со столами в соответствующем процессе.</span></div>
+      <div class="mini"><b>🔐 PIN</b><span>Секретный код сотрудника передавайте лично. Для новых сотрудников используйте отдельный PIN.</span></div>
+    </div>
+    <div class="note danger"><b>Важно:</b> не передавайте одному сотруднику чужой PIN и не используйте один PIN для нескольких людей.</div>
+  </article>
+
+  <article class="card" id="recipes">
+    <h2>6. Рецептуры и техкарты</h2>
+    <p class="lead">Рецептуры нужны для того, чтобы состав блюда и расход ингредиентов были едиными и воспроизводимыми.</p>
+    <div class="steps">
+      <div class="step"><div class="num">01</div><div><b>Проверьте ингредиенты</b><span class="muted">Названия и единицы измерения должны совпадать с фактическим складским учётом.</span></div></div>
+      <div class="step"><div class="num">02</div><div><b>Создайте рецептуру</b><span class="muted">Свяжите блюдо с нужными ингредиентами и количеством.</span></div></div>
+      <div class="step"><div class="num">03</div><div><b>Заполните техкарту</b><span class="muted">Добавьте технологию и необходимые параметры, а затем проверьте её перед использованием в работе.</span></div></div>
+    </div>
+  </article>
+
+  <article class="card" id="delivery">
+    <h2>7. Доставка</h2>
+    <p class="lead">Подключайте доставку только после того, как понятны зоны, стоимость и кто отвечает за выполнение заказа.</p>
+    <div class="check"><div>Проверьте, что доставка действительно доступна по вашему тарифу и настройкам.</div></div>
+    <div class="check"><div>Проверьте адресный сценарий на реальном тестовом заказе.</div></div>
+    <div class="check"><div>Сотрудник, отвечающий за доставку, должен иметь рабочий доступ.</div></div>
+    <div class="check"><div>После запуска контролируйте задержки и зависшие заказы.</div></div>
+  </article>
+
+  <article class="card" id="analytics">
+    <h2>8. Аналитика</h2>
+    <p class="lead">Смотрите не только выручку, но и сам процесс обслуживания.</p>
+    <div class="grid">
+      <div class="mini"><b>Выручка</b><span>Показывает финансовый результат по завершённым заказам.</span></div>
+      <div class="mini"><b>Количество заказов</b><span>Понимайте фактическую нагрузку за выбранный период.</span></div>
+      <div class="mini"><b>Средний чек</b><span>Следите за изменением структуры покупки.</span></div>
+      <div class="mini"><b>Время выполнения</b><span>Используйте показатели, чтобы выявлять узкие места кухни и обслуживания.</span></div>
+    </div>
+    <div class="note good"><b>Правильный подход:</b> сравнивайте периоды и ищите причину изменения показателей, а не оценивайте бизнес по одной цифре.</div>
+  </article>
+
+  <article class="card" id="billing">
+    <h2>9. Тариф и лимиты</h2>
+    <p class="lead">Тариф определяет доступный операционный масштаб: количество заведений, позиции меню, сотрудников и дополнительные модули.</p>
+    <div class="check"><div>Перед добавлением нового сотрудника проверьте свободный лимит.</div></div>
+    <div class="check"><div>Перед расширением меню проверьте лимит позиций.</div></div>
+    <div class="check"><div>Перед подключением отдельного модуля убедитесь, что он доступен вашему тарифу.</div></div>
+    <div class="note warn"><b>Не пытайтесь обходить лимиты вручную.</b> Если текущего тарифа недостаточно, используйте раздел «Тарифы» и выберите подходящий уровень.</div>
+  </article>
+
+  <article class="card" id="ai">
+    <h2>10. ИИ-помощник</h2>
+    <p class="lead">ИИ должен помогать управляющему понимать состояние бизнеса и готовить действия, а не подменять контроль над критичными операциями.</p>
+    <div class="grid">
+      <div class="mini"><b>Хорошие запросы</b><span>«Проанализируй продажи за период», «Покажи проблемные заказы», «Какие блюда продаются лучше?».</span></div>
+      <div class="mini"><b>Перед изменениями</b><span>Проверяйте объект, цену, количество и итоговое действие перед подтверждением операции.</span></div>
+    </div>
+    <div class="note">Используйте ИИ как слой управления и анализа: запрос → объяснение → проверка → подтверждение → контроль результата.</div>
+  </article>
+
+  <article class="card" id="daily">
+    <h2>11. Ежедневный контроль управляющего</h2>
+    <div class="check"><div>Проверить активность заказов и нет ли зависших статусов.</div></div>
+    <div class="check"><div>Проверить доступность основных блюд и актуальность цен.</div></div>
+    <div class="check"><div>Проверить работу кухни и распределение нагрузки.</div></div>
+    <div class="check"><div>Проверить доставку, если она используется.</div></div>
+    <div class="check"><div>Смотреть аналитику за день и сравнивать с предыдущими периодами.</div></div>
+    <div class="check"><div>Проверить, не упирается ли бизнес в лимиты тарифа.</div></div>
+  </article>
+
+</section>
+</main>
+
+<footer class="footer"><div class="wrap">OS QR-Меню · Инструкция управляющего · Рабочая версия руководства</div></footer>
+</body>
+</html>
