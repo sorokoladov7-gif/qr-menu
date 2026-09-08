@@ -1,0 +1,75 @@
+/* QR-Menu — QRChick AI for Recipes. Separate recipe-only assistant. */
+(function () {
+  'use strict';
+  if (window.__QR_RECEPT_AI__) return;
+  window.__QR_RECEPT_AI__ = true;
+
+  var lastProductId = null, busy = false;
+  function $(id) { return document.getElementById(id); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function norm(v) { return String(v || '').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim(); }
+  function unitLabel(u) { return {g:'г',kg:'кг',ml:'мл',l:'л',pcs:'шт'}[u] || u || ''; }
+  function st() { return window.__QR_MANAGER_RECIPES_STATE__ || {}; }
+  function product() { var s=st(); return (s.products||[]).find(function(p){return p.id===s.selected;}) || null; }
+  function matchIngredient(name) {
+    var s=st(), t=norm(name); if(!t) return null;
+    var exact=(s.ingredients||[]).find(function(i){return norm(i.name)===t;});
+    if(exact)return exact;
+    var best=null, score=0, tokens=t.split(' ').filter(Boolean);
+    (s.ingredients||[]).forEach(function(i){ var n=norm(i.name), sc=0;
+      if(n.indexOf(t)>=0 || t.indexOf(n)>=0) sc=.75;
+      tokens.forEach(function(x){if(n.split(' ').indexOf(x)>=0) sc+=.25;});
+      if(sc>score){score=sc;best=i;}
+    });
+    return score>=.75?best:null;
+  }
+  function ensurePanel() {
+    if($('qrReceptAiPanel')) return;
+    var host=$('recipe'); if(!host||!host.parentElement)return;
+    var panel=document.createElement('div'); panel.id='qrReceptAiPanel'; panel.className='glass card';
+    panel.style.cssText='margin-top:12px;padding:14px;border:1px solid rgba(99,102,241,.22);background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(52,211,153,.04))';
+    panel.innerHTML='<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><b>🐥 QRChick · Рецептура</b><div id="qrReceptAiStatus" class="muted" style="margin-top:3px">Готов к анализу выбранного блюда.</div></div><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiRun">✨ Проанализировать</button></div><div id="qrReceptAiBody" style="margin-top:10px"></div>';
+    host.parentElement.appendChild(panel);
+    $('qrReceptAiRun').onclick=runAnalysis;
+  }
+  function status(text,error){var e=$('qrReceptAiStatus');if(!e)return;e.textContent=text;e.style.color=error?'#fca5a5':'';}
+  function renderResult(result){
+    var body=$('qrReceptAiBody');if(!body)return;var rows=Array.isArray(result&&result.ingredients)?result.ingredients:[];
+    if(!rows.length){body.innerHTML='<div class="muted">QRChick не смог сформировать состав. Проверьте название блюда и ингредиенты.</div>';return;}
+    body.innerHTML='<div style="display:grid;gap:7px">'+rows.map(function(r){var m=matchIngredient(r.name);var name=m?m.name:r.name;var unit=m?unitLabel(m.unit):unitLabel(r.unit||'g');return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px"><span style="flex:1"><b>'+esc(name)+'</b>'+(!m?' <span style="color:#fbbf24">· нет в базе</span>':'')+'</span><span>'+esc(r.quantity)+' '+esc(unit)+'</span><span class="muted" style="font-size:11px">'+esc(r.note||'')+'</span></div>';}).join('')+'</div><div style="display:flex;gap:8px;align-items:center;justify-content:space-between;margin-top:10px;flex-wrap:wrap"><span class="muted" style="font-size:11px">Проверьте состав перед сохранением.</span><button type="button" class="btn btn-primary btn-sm" id="qrReceptAiApply">Применить к рецептуре</button></div>';
+    $('qrReceptAiApply').onclick=function(){applyResult(rows);};
+  }
+  function applyResult(rows){
+    var s=st(), mapped=[], missing=[]; if(!s.selected)return;
+    rows.forEach(function(r){var m=matchIngredient(r.name);if(!m){missing.push(r.name);return;}mapped.push({ingredient_id:m.id,quantity:Number(r.quantity)||0,note:r.note||'QRChick'});});
+    if(!mapped.length){status('Не удалось сопоставить ингредиенты с базой.',true);return;}
+    s.rows=mapped;
+    var save=document.getElementById('save');
+    var recipe=document.getElementById('recipe');
+    if(recipe){var ev=new CustomEvent('qrchick:recipe-applied');recipe.dispatchEvent(ev);}
+    if(save){save.hidden=false;}
+    /* manager-recipes.js закрыт своей IIFE, поэтому синхронизируем UI напрямую. */
+    renderIntoRecipe();
+    status(missing.length?'Состав применён. Не найдены: '+missing.join(', '):'Состав применён. Нажмите «Сохранить», чтобы записать его.',false);
+  }
+  function renderIntoRecipe(){
+    var s=st(), box=$('recipe');if(!box||!s.selected)return;
+    box.innerHTML=(s.rows||[]).map(function(row,i){var ing=(s.ingredients||[]).find(function(x){return x.id===row.ingredient_id;});return '<div class="recipe-row"><select data-qrai-ri="'+i+'">'+(s.ingredients||[]).map(function(x){return '<option value="'+esc(x.id)+'" '+(x.id===row.ingredient_id?'selected':'')+'>'+esc(x.name)+' ('+esc(unitLabel(x.unit))+')</option>';}).join('')+'</select><input data-qrai-rq="'+i+'" type="number" min=".001" step=".001" value="'+esc(row.quantity)+'"><span class="muted">'+esc(unitLabel(ing?ing.unit:'g'))+'</span><input data-qrai-rn="'+i+'" placeholder="Примечание" value="'+esc(row.note||'')+'"><button type="button" class="btn btn-danger" data-qrai-rd="'+i+'">×</button></div>';}).join('')+'<button type="button" class="btn btn-ghost" id="addRow">+ Ингредиент</button>';
+    Array.prototype.forEach.call(box.querySelectorAll('[data-qrai-ri]'),function(e){e.onchange=function(){s.rows[+e.dataset.qraiRi].ingredient_id=e.value;renderIntoRecipe();};});
+    Array.prototype.forEach.call(box.querySelectorAll('[data-qrai-rq]'),function(e){e.oninput=function(){s.rows[+e.dataset.qraiRq].quantity=Number(e.value)||0;};});
+    Array.prototype.forEach.call(box.querySelectorAll('[data-qrai-rn]'),function(e){e.oninput=function(){s.rows[+e.dataset.qraiRn].note=e.value;};});
+    Array.prototype.forEach.call(box.querySelectorAll('[data-qrai-rd]'),function(e){e.onclick=function(){s.rows.splice(+e.dataset.qraiRd,1);renderIntoRecipe();};});
+  }
+  function runAnalysis(){
+    var s=st(),p=product();if(!p||!s.venueId){status('Сначала выберите блюдо и заведение.',true);return;}if(busy)return;busy=true;
+    var btn=$('qrReceptAiRun');if(btn)btn.disabled=true;status('QRChick анализирует блюдо и подбирает ингредиенты…',false);
+    fetch('/api/qrchick',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'recipe_suggest',product:{id:p.id,name:p.name,description:p.description||'',category:p.category||'',price:p.price||null},ingredients:(s.ingredients||[]).map(function(i){return{id:i.id,name:i.name,unit:i.unit,purchase_quantity:i.purchase_quantity||null};}),globalIngredients:(s.globalIngredients||[]).slice(0,300).map(function(i){return{name:i.name,unit:i.unit,category:i.category||'',aliases:i.aliases||''};})})})
+      .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'QRChick API error');return d;});})
+      .then(function(d){renderResult(d);status('Анализ завершён. Проверьте состав и нажмите «Применить».',false);})
+      .catch(function(e){console.error('[QRChick Recipes]',e);status('QRChick недоступен: '+(e.message||e),true);})
+      .finally(function(){busy=false;if(btn)btn.disabled=false;});
+  }
+  function watch(){var s=st();if(!s.selected||s.selected===lastProductId)return;lastProductId=s.selected;ensurePanel();var b=$('qrReceptAiBody');if(b)b.innerHTML='<div class="muted">Выбрано блюдо: <b>'+esc((product()||{}).name||'')+'</b>. QRChick готов.</div>';status('Готов к анализу выбранного блюда.',false);}
+  function init(){ensurePanel();setInterval(function(){ensurePanel();watch();},500);window.addEventListener('manager-venue-selected',function(){lastProductId=null;});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();
