@@ -1,44 +1,246 @@
-/* QRChick — intelligent recipe workspace extension. */
-(function(){
+/* QRChick — recipe AI extension. Single owner, no DOM observer. */
+(function () {
   'use strict';
-  if(window.__QR_RECEPT_AI_BOOTED__) return;
-  window.__QR_RECEPT_AI_BOOTED__=true;
-  var state=function(){return window.__QR_MANAGER_RECIPES_STATE__||{};};
-  var root=function(){return document.querySelector('.recipe-tab-container[data-qr-sections="1"]')||document.querySelector('.recipe-tab-container');};
-  var esc=function(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});};
-  var norm=function(v){return String(v||'').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim().replace(/\s+/g,' ');};
-  var GENERIC_ERROR='Ошибка системы. Обратитесь к администратору платформы.';
-  function status(text,error){var a=document.getElementById('qrReceptAiStatus'),b=document.getElementById('ocrStatus');if(a){a.textContent=text||'';a.style.color=error?'#fca5a5':'';}if(b){b.textContent=text||'';if(error)b.style.color='#fca5a5';}}
-  function fail(el){if(el)el.innerHTML='<div style="color:#fca5a5">'+GENERIC_ERROR+'</div>';status(GENERIC_ERROR,true);}
-  function rpc(name,args){if(!window.db||!window.db.rpc)return Promise.reject(new Error('DB'));return window.db.rpc(name,args).then(function(r){if(r.error)throw r.error;return r.data;});}
-  function token(){return window.db.auth.getSession().then(function(r){if(r.error)throw r.error;var t=r.data&&r.data.session&&r.data.session.access_token;if(!t)throw new Error('AUTH');return t;});}
-  function ai(mode,message,context,image){return token().then(function(t){return fetch('/api/manager-ai-propose',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({feature:'recipes',mode:mode,message:message||'',context:context||'',image:image||null})});}).then(function(r){return r.json().catch(function(){return{};}).then(function(d){if(!r.ok||d.ok===false)throw new Error('AI');return d;});});}
-  function result(d){if(d&&d.analysis&&typeof d.analysis==='object')return d.analysis;if(d&&d.result&&typeof d.result==='object')return d.result;if(d&&d.answer&&typeof d.answer==='object')return d.answer;var t=String(d&&d.answer||'').trim().replace(/^```json/i,'').replace(/```$/,'').trim();try{return JSON.parse(t);}catch(e){var a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a)try{return JSON.parse(t.slice(a,b+1));}catch(_){}return{};}}
-  function products(){return(state().products||[]).filter(function(x){return x&&x.id&&x.name;});}
-  function product(id){return products().find(function(x){return String(x.id)===String(id);})||null;}
-  function localIngredient(name){var n=norm(name);if(!n)return null;return(state().ingredients||[]).find(function(x){var z=norm(x.name);return z===n||z.indexOf(n)>=0||n.indexOf(z)>=0;})||null;}
-  function catalog(names,limit){var s=state();if(!s.venueId||!names||!names.length)return Promise.resolve([]);return rpc('manager_recipe_catalog_for_venue',{p_venue_id:s.venueId,p_product_names:names,p_limit:Math.min(Number(limit)||100,40)});}
-  function ingredientCatalog(names,limit){var s=state();if(!s.venueId||!names||!names.length)return Promise.resolve([]);return rpc('manager_ingredient_catalog_for_venue',{p_venue_id:s.venueId,p_product_names:names,p_limit:Math.min(Number(limit)||100,120)});}
-  function refreshIngredients(){return rpc('manager_ingredient_list',{p_venue_id:state().venueId}).then(function(x){state().ingredients=Array.isArray(x)?x:[];return state().ingredients;});}
-  function steps(v){v=Array.isArray(v)?v:[];if(!v.length)return '<div class="muted">Технология не заполнена.</div>';return '<ol style="margin:6px 0 0 20px">'+v.map(function(x){var t=typeof x==='string'?x:(x&&((x.text_ru)||x.text||(x.description)))||'';return '<li>'+esc(t)+(x&&x.minutes!=null?' <span class="muted">('+esc(x.minutes)+' мин)</span>':'')+'</li>';}).join('')+'</ol>';}
-  function panel(title,sub){return '<div class="qrchick-panel" style="margin:0 0 14px;padding:13px;border:1px solid rgba(99,102,241,.3);border-radius:14px;background:rgba(99,102,241,.08)"><div style="display:flex;gap:10px;align-items:center"><img src="/assets/img/qrchick-avatar.svg" alt="QRChick" style="width:46px;height:46px;border-radius:50%"><div><b>QRChick</b><div class="muted" style="font-size:11px">'+esc(title)+'</div><div class="muted" style="font-size:10px">'+esc(sub)+'</div></div></div><div class="qrchick-body" style="margin-top:10px"></div></div>';}
-  function ensurePanel(sec,title,sub){if(!sec||!state().baseLoaded)return null;var p=sec.querySelector('.qrchick-panel');if(!p){sec.insertAdjacentHTML('afterbegin',panel(title,sub));p=sec.querySelector('.qrchick-panel');}return p;}
-  function matchProduct(p,out){if(!p||!out)return;out.innerHTML='<div class="muted">🔎 QRChick анализирует название, состав и кулинарный контекст…</div>';Promise.all([catalog([p.name],40),ingredientCatalog([p.name],120),refreshIngredients()]).then(function(x){var recipes=x[0]||[],ings=x[1]||[],local=x[2]||[];if(!recipes.length)throw new Error('NO_RECIPES');var compact=recipes.slice(0,24).map(function(c){return{recipe_id:c.recipe_id||c.id,recipe_name:c.recipe_name||c.name,category:c.category||'',cuisine:c.cuisine||'',description:c.description||'',yield_quantity:c.yield_quantity||null,yield_unit:c.yield_unit||'',ingredients:(c.ingredients||[]).slice(0,15),steps:(c.steps||[]).slice(0,8)};});return ai('recipe_match','Сопоставь блюдо меню с рецептурой максимально точно. Учитывай синонимы, опечатки, состав, категорию, кухню, выход и ингредиенты. Не выдумывай данные. Верни только JSON {"selected_recipe_id":string|null,"confidence":number,"ingredient_matches":[],"reason":string}. Используй только ID из CANDIDATES.',JSON.stringify({product:p,candidates:compact,ingredient_candidates:ings,local_ingredients:local})).then(function(d){return{match:result(d),candidates:compact};});}).then(function(x){var m=x.match,id=m.selected_recipe_id,c=x.candidates.find(function(q){return String(q.recipe_id)===String(id);});if(!c||Number(m.confidence||0)<.55){out.innerHTML='<div class="muted">Уверенного совпадения не найдено.</div>';status('');return;}showRecipe(p,c,m,out);}).catch(function(e){console.error('[QRChick][recipe-match]',e);fail(out);});}
-  function showRecipe(p,c,m,out){var arr=(c.ingredients||[]).map(function(i){return{item:i,checked:true};});out.innerHTML='<div class="qrchick-result"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><div><b>'+esc(c.recipe_name||c.name)+'</b><div class="muted" style="font-size:10px">'+esc(p.name)+' · уверенность '+Math.round(Number(m.confidence||0)*100)+'%</div></div><button type="button" class="btn btn-primary btn-sm" data-qrc-save>💾 Сохранить рецептуру</button></div><div style="margin-top:8px;display:grid;gap:5px">'+arr.map(function(x,i){return'<label><input type="checkbox" data-qrc-r="'+i+'" checked> '+esc(x.item.name)+' — '+esc(x.item.quantity)+' '+esc(x.item.unit||'')+'</label>';}).join('')+'</div><div style="margin-top:8px">'+esc(c.description||'')+steps(c.steps)+'</div></div>';out.querySelectorAll('[data-qrc-r]').forEach(function(c2){c2.onchange=function(){arr[Number(c2.dataset.qrcR)].checked=c2.checked;};});var b=out.querySelector('[data-qrc-save]');if(b)b.onclick=function(){saveRecipe(p,arr,out);};status('Техкарта найдена.');}
-  function saveRecipe(p,arr,out){var chosen=arr.filter(function(x){return x.checked;}).map(function(x){return x.item;});if(!chosen.length){status('Выберите ингредиенты.',true);return;}status('QRChick сохраняет рецептуру…');Promise.all(chosen.map(function(x){return localIngredient(x.name)?null:rpc('manager_ingredient_upsert',{p_venue_id:state().venueId,p_name:x.name,p_unit:x.unit||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null});})).then(refreshIngredients).then(function(){var rows=chosen.map(function(x){var i=localIngredient(x.name);return i?{ingredient_id:i.id,quantity:Number(x.quantity)||1,note:'QRChick'}:null;}).filter(Boolean);return rpc('manager_product_recipe_save',{p_venue_id:state().venueId,p_product_id:p.id,p_rows:rows});}).then(function(){status('Рецептура сохранена.');if(out)out.innerHTML='<div class="qrchick-result"><b>✅ Рецептура сохранена</b><div class="muted">'+esc(p.name)+'</div></div>';window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));}).catch(function(e){console.error('[QRChick][save-recipe]',e);fail(out);});}
-  function recipeBlock(){var r=root(),sec=r&&r.querySelector('[data-section="recipes"]');if(!sec)return;var p=ensurePanel(sec,'Интеллектуальный помощник по рецептурам','Поиск, сопоставление и сохранение рецептур.');if(!p)return;var b=p.querySelector('.qrchick-body'),key=products().map(function(x){return x.id;}).join(',');if(b.dataset.productsKey===key)return;b.dataset.productsKey=key;b.innerHTML='<div style="display:grid;grid-template-columns:minmax(180px,.7fr) minmax(260px,1.3fr);gap:10px"><div style="display:grid;gap:6px" data-qrc-product-list>'+products().map(function(x){return'<button type="button" class="btn btn-ghost btn-sm" data-qrc-product="'+esc(x.id)+'" style="text-align:left">🍽️ '+esc(x.name)+'</button>';}).join('')+'</div><div id="qrcRecipeResult"><div class="muted">Выберите блюдо.</div></div></div>';b.querySelectorAll('[data-qrc-product]').forEach(function(btn){btn.onclick=function(){matchProduct(product(btn.dataset.qrcProduct),b.querySelector('#qrcRecipeResult'));};});}
-  function searchTech(p,out){if(!p||!out)return;out.innerHTML='<div class="muted">🔎 QRChick ищет техкарту…</div>';catalog([p.name],40).then(function(recipes){var list=(recipes||[]).slice(0,30).map(function(c){return{recipe_id:c.recipe_id||c.id,recipe_name:c.recipe_name||c.name,category:c.category||'',cuisine:c.cuisine||'',description:c.description||'',yield_quantity:c.yield_quantity||null,yield_unit:c.yield_unit||'',ingredients:(c.ingredients||[]).slice(0,15),steps:(c.steps||[]).slice(0,8)};});if(!list.length)throw new Error('NO');return ai('recipe_match','Найди лучшую техкарту для блюда меню. Сопоставляй название, синонимы, категорию, кухню, состав, выход и ингредиенты. Не выдумывай данные. Верни только JSON {"selected_recipe_id":string|null,"confidence":number,"reason":string}. Используй только ID CANDIDATES.',JSON.stringify({product:{id:p.id,name:p.name,category:p.category||'',description:p.description||''},candidates:list})).then(function(d){return{m:result(d),list:list};});}).then(function(x){var c=x.list.find(function(q){return String(q.recipe_id)===String(x.m.selected_recipe_id);});if(!c||Number(x.m.confidence||0)<.55){out.innerHTML='<div class="muted">Уверенного совпадения не найдено.</div>';return;}out.innerHTML='<div class="qrchick-result"><b>'+esc(c.recipe_name)+'</b><div class="muted">Уверенность '+Math.round(Number(x.m.confidence||0)*100)+'%</div><div>'+esc(c.description||'')+'</div>'+steps(c.steps)+'<button type="button" class="btn btn-primary btn-sm" data-qrc-import>➕ Добавить техкарту</button></div>';var b=out.querySelector('[data-qrc-import]');b.onclick=function(){b.disabled=true;rpc('manager_tech_card_import_global_recipe',{p_venue_id:state().venueId,p_product_id:p.id,p_recipe_id:c.recipe_id}).then(function(){status('Техкарта добавлена.');state().techLoaded=false;window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));}).catch(function(e){console.error('[QRChick][import-tech]',e);b.disabled=false;fail(out);});};}).catch(function(e){console.error('[QRChick][tech-search]',e);fail(out);});}
-  function catalogBlock(){var r=root(),sec=r&&r.querySelector('[data-section="catalog"]');if(!sec)return;var old=document.getElementById('catalogList');if(old)old.style.display='none';var p=ensurePanel(sec,'Интеллектуальный поиск техкарт','Сопоставление блюда с внутренней базой техкарт.');if(!p||p.dataset.ready==='1')return;p.dataset.ready='1';var b=p.querySelector('.qrchick-body');b.innerHTML=products().map(function(x){return'<div style="padding:8px;border:1px solid rgba(255,255,255,.06);border-radius:9px;margin-bottom:6px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+esc(x.name)+'</b><button type="button" class="btn btn-primary btn-sm" data-qrc-tech="'+esc(x.id)+'">🔎 Сопоставить</button></div><div data-qrc-tech-result style="margin-top:8px"></div></div>';}).join('');b.querySelectorAll('[data-qrc-tech]').forEach(function(btn){btn.onclick=function(){searchTech(product(btn.dataset.qrcTech),btn.parentElement.parentElement.querySelector('[data-qrc-tech-result]'));};});}
-  function ingredientsBlock(){var r=root(),sec=r&&r.querySelector('[data-section="ingredients"]');if(!sec)return;var old=document.getElementById('ingredientsDbList');if(old)old.style.display='none';var p=ensurePanel(sec,'Интеллектуальное сопоставление ингредиентов','Подбор и добавление ингредиентов в базу заведения.');if(!p||p.dataset.ready==='1')return;p.dataset.ready='1';var b=p.querySelector('.qrchick-body'),names=products().slice(0,30).map(function(x){return x.name;});b.innerHTML='<div class="muted">🔎 QRChick готовит предложения…</div>';ingredientCatalog(names,120).then(function(list){list=list||[];if(!list.length){b.innerHTML='<div class="muted">Новых предложений не найдено.</div>';return;}var map={};b.innerHTML=list.map(function(i){map[String(i.id)]=i;var exists=localIngredient(i.name);return'<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px;border:1px solid rgba(255,255,255,.07);border-radius:9px;margin-bottom:5px"><span><b>'+esc(i.name)+'</b> <span class="muted">'+esc(i.unit||'')+'</span></span><button type="button" class="btn btn-primary btn-sm" data-qrc-add="'+esc(i.id)+'" '+(exists?'disabled':'')+'>'+(exists?'Добавлен':'➕ Добавить')+'</button></div>';}).join('');b.querySelectorAll('[data-qrc-add]').forEach(function(btn){btn.onclick=function(){var i=map[String(btn.dataset.qrcAdd)];if(!i)return;btn.disabled=true;btn.textContent='Сохранение…';rpc('manager_ingredient_upsert',{p_venue_id:state().venueId,p_name:i.name,p_unit:i.unit||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null}).then(refreshIngredients).then(function(){btn.textContent='Добавлен';window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));}).catch(function(e){console.error('[QRChick][add-ingredient]',e);btn.disabled=false;fail(b);});};});}).catch(function(e){console.error('[QRChick][ingredients]',e);fail(b);});}
-  function compress(file){return new Promise(function(resolve,reject){var fr=new FileReader();fr.onerror=reject;fr.onload=function(){var img=new Image();img.onerror=reject;img.onload=function(){var max=2200,s=Math.min(1,max/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*s));c.height=Math.max(1,Math.round(img.height*s));var ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.88));};img.src=fr.result;};fr.readAsDataURL(file);});}
-  function analyzePhoto(file){status('QRChick анализирует фотографию техкарты…');return compress(file).then(function(dataUrl){var m=dataUrl.match(/^data:([^;]+);base64,(.*)$/s);if(!m)throw new Error('IMAGE');return ai('recipe_image_analyze','Полностью проанализируй фотографию техкарты. Распознай видимый текст, название, ингредиенты, количества, выход, технологию, температуры, оборудование, хранение, подачу, качество и аллергены. Ничего не выдумывай. Верни только recipe_analysis.',JSON.stringify({venue_id:state().venueId,menu:products().map(function(p){return{id:p.id,name:p.name,category:p.category};})}),{mime_type:m[1],data:m[2]});}).then(function(d){return{analysis:result(d),file:file};});}
-  function matchPhoto(analysis){var name=analysis.recipe_name||'',names=[name].concat((analysis.ingredients||[]).map(function(x){return x.name||'';})).filter(Boolean),menu=products();return Promise.all([catalog(name?[name]:menu.map(function(x){return x.name;}),40),ingredientCatalog(names.length?names:menu.map(function(x){return x.name;}),80)]).then(function(x){return ai('recipe_match','Сопоставь результат фотографии с меню, техкартами и ингредиентами. Выбери лучшее блюдо и рецептуру. Верни только JSON {"selected_product_id":string|null,"selected_recipe_id":string|null,"confidence":number,"ingredient_matches":[],"reason":string}. Используй только реальные ID из CONTEXT.',JSON.stringify({photo_analysis:analysis,menu:menu,candidate_recipes:x[0]||[],candidate_ingredients:x[1]||[]})).then(function(d){return{analysis:analysis,match:result(d)};});});}
-  function showVision(pack){var data=pack.analysis||{},m=pack.match||{},p=document.getElementById('ocrPanel');if(p)p.hidden=false;var text=document.getElementById('ocrText');if(text)text.textContent=JSON.stringify({analysis:data,match:m},null,2);window.__QRCHICK_LAST_TECH__=data;var sel=document.getElementById('ocrProduct'),chosen=m.selected_product_id&&product(m.selected_product_id);if(sel)sel.innerHTML=products().map(function(x){return'<option value="'+esc(x.id)+'"'+(chosen&&String(chosen.id)===String(x.id)?' selected':'')+'>'+esc(x.name)+'</option>';}).join('');status('Анализ фото завершён. Проверьте результат перед сохранением.');var p2=document.getElementById('ocrPanel'),holder=document.getElementById('qrTechAiActions');if(!holder&&p2){holder=document.createElement('div');holder.id='qrTechAiActions';p2.appendChild(holder);}if(holder){holder.innerHTML='<button type="button" class="btn btn-primary" id="qrSaveAiTech">💾 Сохранить техкарту и сопоставление</button>';var b=holder.querySelector('#qrSaveAiTech');if(b)b.onclick=function(){saveVision(sel&&sel.value?product(sel.value):chosen||products()[0],data,m,pack.file);};}}
-  function saveVision(p,data,match,file){if(!p){status('Выберите блюдо.',true);return;}status('QRChick сохраняет техкарту…');var payload=Object.assign({},data,{ai_match:match||{},matched_product_id:p.id});rpc('manager_tech_card_ai_create',{p_venue_id:state().venueId,p_product_id:p.id,p_file_name:file&&file.name||('Техкарта: '+(data.recipe_name||p.name)),p_ocr_text:JSON.stringify(payload,null,2),p_recipe_data:payload}).then(function(){status('Техкарта сохранена и сопоставлена.');window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));}).catch(function(e){console.error('[QRChick][save-tech]',e);status(GENERIC_ERROR,true);});}
-  function photoUpload(){var f=document.getElementById('techFiles');if(!f||f.__qrcVision)return;f.__qrcVision=true;f.addEventListener('change',function(e){e.stopImmediatePropagation();var files=Array.prototype.slice.call(f.files||[]);f.value='';if(!files.length)return;files.reduce(function(q,file){return q.then(function(){return analyzePhoto(file).then(matchPhoto).then(showVision);});},Promise.resolve()).catch(function(e2){console.error('[QRChick][photo]',e2);status(GENERIC_ERROR,true);});},true);}
-  function refreshTechCards(){var s=state();if(!s.venueId)return Promise.resolve([]);return window.db.from('manager_tech_cards').select('id,product_id,file_name,file_path,file_url,ocr_text,status,created_at,title,source_type,global_recipe_id,recipe_data').eq('venue_id',s.venueId).order('created_at',{ascending:false}).then(function(r){if(r.error)throw r.error;s.techCards=r.data||[];s.techLoaded=true;var box=document.getElementById('techList');if(!box)return s.techCards;var cards=s.techCards||[];box.innerHTML=cards.length?cards.map(function(t){return'<div class="tech-card">'+(t.file_url?'<img src="'+esc(t.file_url)+'" alt="" class="qrchick-tech-image">':'')+'<b>'+esc(t.title||t.file_name||'Техкарта')+'</b><div class="muted">'+esc(t.status==='processed'?'Распознано':'Загружено')+'</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button type="button" class="btn btn-ghost btn-sm" data-tech="'+esc(t.id)+'">Открыть</button><button type="button" class="btn btn-ghost btn-sm" data-qrc-edit-tech="'+esc(t.id)+'">✏️ Изменить</button></div></div>';}).join(''):'<div class="muted">Техкарт пока нет.</div>';box.querySelectorAll('[data-tech]').forEach(function(b){b.onclick=function(){var t=cards.find(function(x){return String(x.id)===String(b.dataset.tech);});var p=document.getElementById('ocrPanel');if(p)p.hidden=false;var txt=document.getElementById('ocrText');if(txt)txt.textContent=t&&t.ocr_text||'Текст не распознан';};});box.querySelectorAll('[data-qrc-edit-tech]').forEach(function(b){b.onclick=function(e){e.stopPropagation();var t=cards.find(function(x){return String(x.id)===String(b.dataset.qrcEditTech);});if(!t)return;var title=prompt('Название техкарты:',t.title||t.file_name||'Техкарта');if(title==null||!title.trim())return;rpc('manager_tech_card_update',{p_tech_card_id:t.id,p_title:title.trim(),p_file_name:title.trim()}).then(refreshTechCards).catch(function(err){console.error('[QRChick][edit-tech]',err);status(GENERIC_ERROR,true);});};});return s.techCards;});}
-  function refreshActive(){var r=root(),s=state();if(!r||!s.baseLoaded)return;var tab=r.querySelector('.qr-recipe-subnav [data-section].on'),name=tab?tab.dataset.section:'recipes';if(name==='recipes')recipeBlock();else if(name==='catalog')catalogBlock();else if(name==='ingredients')ingredientsBlock();else if(name==='tech')refreshTechCards().catch(function(e){console.error('[QRChick][tech-refresh]',e);status(GENERIC_ERROR,true);});}
-  function refreshRecipeProducts(){refreshActive();}
-  function boot(){photoUpload();refreshActive();var tries=0;(function waitData(){if(state().baseLoaded){refreshActive();return;}if(++tries<40)setTimeout(waitData,250);})();window.addEventListener('manager-venue-selected',function(){setTimeout(refreshActive,0);});window.addEventListener('qr-recipes-data-changed',function(){setTimeout(function(){refreshActive();refreshRecipeProducts();},0);});window.addEventListener('qr-recipes-view-updated',function(){setTimeout(function(){refreshActive();refreshRecipeProducts();},0);});}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+  if (window.__QR_RECEPT_AI_BOOTED__) return;
+  window.__QR_RECEPT_AI_BOOTED__ = true;
+
+  var ERROR_TEXT = 'Ошибка системы. Обратитесь к администратору платформы.';
+  var state = function () { return window.__QR_MANAGER_RECIPES_STATE__ || {}; };
+  var root = function () { return document.querySelector('.recipe-tab-container'); };
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>\"']/g, function (c) {
+      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c];
+    });
+  }
+
+  function rpc(name, args) {
+    if (!window.db || !window.db.rpc) return Promise.reject(new Error('DB'));
+    return window.db.rpc(name, args).then(function (r) {
+      if (r.error) throw r.error;
+      return r.data;
+    });
+  }
+
+  function token() {
+    if (!window.db || !window.db.auth) return Promise.reject(new Error('AUTH'));
+    return window.db.auth.getSession().then(function (r) {
+      if (r.error) throw r.error;
+      var t = r.data && r.data.session && r.data.session.access_token;
+      if (!t) throw new Error('AUTH');
+      return t;
+    });
+  }
+
+  function ai(mode, message, context, image) {
+    return token().then(function (t) {
+      return fetch('/api/manager-ai-propose', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + t
+        },
+        body: JSON.stringify({
+          feature: 'recipes',
+          mode: mode,
+          message: message || '',
+          context: context || '',
+          image: image || null
+        })
+      });
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) {
+        if (!r.ok || d.ok === false) throw new Error('AI');
+        return d;
+      });
+    });
+  }
+
+  function parseAnswer(d) {
+    if (d && d.analysis && typeof d.analysis === 'object') return d.analysis;
+    if (d && d.result && typeof d.result === 'object') return d.result;
+    if (d && d.answer && typeof d.answer === 'object') return d.answer;
+    var text = String(d && d.answer || '').trim();
+    text = text.replace(/^```json/i, '').replace(/```$/i, '').trim();
+    try { return JSON.parse(text); } catch (e) {}
+    var a = text.indexOf('{');
+    var b = text.lastIndexOf('}');
+    if (a >= 0 && b > a) {
+      try { return JSON.parse(text.slice(a, b + 1)); } catch (e2) {}
+    }
+    return {};
+  }
+
+  function products() {
+    return (state().products || []).filter(function (p) { return p && p.id && p.name; });
+  }
+
+  function getProduct(id) {
+    return products().find(function (p) { return String(p.id) === String(id); }) || null;
+  }
+
+  function setStatus(text, isError) {
+    var a = document.getElementById('qrReceptAiStatus');
+    var b = document.getElementById('ocrStatus');
+    if (a) {
+      a.textContent = text || '';
+      a.style.color = isError ? '#fca5a5' : '';
+    }
+    if (b) {
+      b.textContent = text || '';
+      if (isError) b.style.color = '#fca5a5';
+    }
+  }
+
+  function showError(target) {
+    if (target) target.innerHTML = '<div style="color:#fca5a5">' + ERROR_TEXT + '</div>';
+    setStatus(ERROR_TEXT, true);
+  }
+
+  function searchCatalog(product, target) {
+    if (!product || !target) return;
+    var s = state();
+    if (!s.venueId) {
+      showError(target);
+      return;
+    }
+
+    target.innerHTML = '<div class="muted">🔎 QRChick ищет техкарту по названию блюда…</div>';
+    setStatus('QRChick ищет подходящую техкарту…');
+
+    rpc('manager_recipe_catalog_for_venue', {
+      p_venue_id: s.venueId,
+      p_product_names: [product.name],
+      p_limit: 40
+    }).then(function (rows) {
+      rows = Array.isArray(rows) ? rows : [];
+      if (!rows.length) {
+        target.innerHTML = '<div class="muted">Подходящая техкарта не найдена.</div>';
+        setStatus('Подходящая техкарта не найдена.');
+        return;
+      }
+
+      var candidates = rows.slice(0, 30).map(function (x) {
+        return {
+          recipe_id: x.recipe_id || x.id,
+          recipe_name: x.recipe_name || x.name || '',
+          category: x.category || '',
+          cuisine: x.cuisine || '',
+          description: x.description || '',
+          yield_quantity: x.yield_quantity == null ? null : x.yield_quantity,
+          yield_unit: x.yield_unit || '',
+          ingredients: Array.isArray(x.ingredients) ? x.ingredients.slice(0, 15).map(function (i) {
+            return { name: i.name || '', quantity: i.quantity == null ? null : i.quantity, unit: i.unit || '' };
+          }) : [],
+          steps: Array.isArray(x.steps) ? x.steps.slice(0, 8) : []
+        };
+      });
+
+      return ai(
+        'recipe_match',
+        'Выбери лучшую техкарту для блюда меню. Учитывай название, синонимы, категорию, кухню, состав, выход и ингредиенты. Не выдумывай данные. Верни только JSON: {"selected_recipe_id":string|null,"confidence":number,"reason":string}. Используй только ID из CANDIDATES.',
+        JSON.stringify({ product: { id: product.id, name: product.name, category: product.category || '', description: product.description || '' }, candidates: candidates })
+      ).then(function (d) {
+        var m = parseAnswer(d);
+        var id = m.selected_recipe_id || null;
+        var match = candidates.find(function (x) { return String(x.recipe_id) === String(id); });
+        var confidence = Number(m.confidence || 0);
+
+        if (!match || confidence < 0.55) {
+          target.innerHTML = '<div class="muted">Уверенного совпадения не найдено.</div>';
+          setStatus('Уверенного совпадения не найдено.');
+          return;
+        }
+
+        target.innerHTML =
+          '<div class="qrchick-result" style="padding:10px;border:1px solid rgba(99,102,241,.3);border-radius:10px">' +
+            '<div><b>' + esc(match.recipe_name) + '</b></div>' +
+            '<div class="muted" style="font-size:10px;margin-top:3px">Уверенность: ' + Math.round(confidence * 100) + '%</div>' +
+            (match.description ? '<div style="margin-top:6px">' + esc(match.description) + '</div>' : '') +
+            '<button type="button" class="btn btn-primary btn-sm" data-qrc-import>➕ Добавить техкарту</button>' +
+          '</div>';
+
+        var importButton = target.querySelector('[data-qrc-import]');
+        if (importButton) importButton.onclick = function () {
+          importButton.disabled = true;
+          importButton.textContent = 'Сохранение…';
+          rpc('manager_tech_card_import_global_recipe', {
+            p_venue_id: s.venueId,
+            p_product_id: product.id,
+            p_recipe_id: match.recipe_id
+          }).then(function () {
+            setStatus('Техкарта добавлена.');
+            if (state().techLoaded !== undefined) state().techLoaded = false;
+            window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));
+            target.innerHTML = '<div class="qrchick-result"><b>✅ Техкарта добавлена</b><div class="muted">' + esc(match.recipe_name) + '</div></div>';
+          }).catch(function (e) {
+            console.error('[QRChick][import-tech]', e);
+            showError(target);
+            importButton.disabled = false;
+            importButton.textContent = '➕ Добавить техкарту';
+          });
+        };
+      });
+    }).catch(function (e) {
+      console.error('[QRChick][tech-search]', e);
+      showError(target);
+    });
+  }
+
+  function mountTechSearch() {
+    var r = root();
+    if (!r) return;
+
+    var section = r.querySelector('[data-section="catalog"]');
+    if (!section) return;
+
+    var host = section.querySelector('[data-qrc-tech-search-host]');
+    if (!host) {
+      host = document.createElement('div');
+      host.setAttribute('data-qrc-tech-search-host', '1');
+      host.className = 'qrchick-panel';
+      host.style.cssText = 'margin:0 0 14px;padding:13px;border:1px solid rgba(99,102,241,.3);border-radius:14px;background:rgba(99,102,241,.08)';
+      host.innerHTML = '<div style="display:flex;gap:10px;align-items:center"><img src="/assets/img/qrchick-avatar.svg" alt="QRChick" style="width:46px;height:46px;border-radius:50%"><div><b>QRChick</b><div class="muted" style="font-size:11px">Интеллектуальный поиск техкарты</div></div></div><div data-qrc-tech-list style="margin-top:10px"></div>';
+      section.insertBefore(host, section.firstChild);
+    }
+
+    var list = host.querySelector('[data-qrc-tech-list]');
+    if (!list) return;
+    var signature = products().map(function (p) { return p.id; }).join('|');
+    if (host.getAttribute('data-qrc-signature') === signature) return;
+    host.setAttribute('data-qrc-signature', signature);
+
+    list.innerHTML = products().map(function (p) {
+      return '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+        '<span>' + esc(p.name) + '</span>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-qrc-tech="' + esc(p.id) + '">🔎 Искать техкарту</button>' +
+        '<div data-qrc-result="' + esc(p.id) + '" style="flex:1 1 100%;margin-top:6px"></div>' +
+      '</div>';
+    }).join('');
+
+    list.querySelectorAll('[data-qrc-tech]').forEach(function (button) {
+      button.onclick = function () {
+        var product = getProduct(button.getAttribute('data-qrc-tech'));
+        var result = list.querySelector('[data-qrc-result="' + button.getAttribute('data-qrc-tech') + '"]');
+        searchCatalog(product, result);
+      };
+    });
+  }
+
+  function bind() {
+    mountTechSearch();
+  }
+
+  function boot() {
+    bind();
+    window.addEventListener('manager-venue-selected', function () { setTimeout(bind, 0); });
+    window.addEventListener('qr-recipes-data-changed', function () { setTimeout(bind, 0); });
+    window.addEventListener('qr-recipes-view-updated', function () { setTimeout(bind, 0); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 })();
