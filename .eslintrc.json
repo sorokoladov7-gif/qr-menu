@@ -9,6 +9,12 @@
     "ecmaVersion": "latest",
     "sourceType": "script"
   },
+  "overrides": [
+    {
+      "files": ["*.mjs"],
+      "parserOptions": {"sourceType": "module"}
+    }
+  ],
   "ignorePatterns": [
     "node_modules/**",
     ".vercel/**",
