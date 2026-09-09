@@ -1,11 +1,9 @@
-/* QR Menu — manager compatibility entrypoint. Canonical hall bootstrap lives at /js/manager-hall-ai.js. */
+/* QR Menu — manager compatibility entrypoint. Legacy hall AI implementation lives under /src/assets/js/manager/legacy/. */
 (function(){
   'use strict';
   if(window.__QR_MANAGER_HALL_AI_ROOT_LOADER__) return;
   window.__QR_MANAGER_HALL_AI_ROOT_LOADER__=true;
 
-  /* Qrchick is the only manager AI entry point. Keep the compatibility guard
-     small and safe: never call MutationObserver.observe() before body exists. */
   function hideLegacyAI(){
     if(!document.body)return;
     var nodes=document.querySelectorAll('body *');
@@ -63,9 +61,9 @@
   installAIConflictGuard();
 
   var s=document.createElement('script');
-  s.src='/js/manager-hall-ai.js?v=fix-20260907-3';
+  s.src='/src/assets/js/manager/legacy/manager-hall-ai.js?v=fix-20260909';
   s.async=false;
   s.onload=function(){installAIConflictGuard();};
-  s.onerror=function(){console.error('[QR Manager] Failed to load canonical hall AI:',s.src);};
+  s.onerror=function(){console.error('[QR Manager] Failed to load legacy hall AI:',s.src);};
   document.head.appendChild(s);
 })();

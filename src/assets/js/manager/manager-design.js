@@ -1,11 +1,11 @@
-/* QR Menu — compatibility entrypoint. Canonical manager design lives at /js/manager-design.js. Production sync marker 2026-09-07. */
+/* QR Menu — compatibility entrypoint. Canonical manager design lives under /src/assets/js/manager/legacy/. */
 (function(){
   'use strict';
   if(window.__QR_MANAGER_DESIGN_ROOT_LOADER__) return;
   window.__QR_MANAGER_DESIGN_ROOT_LOADER__=true;
   if(window.__managerDesignLoaded) return;
   var s=document.createElement('script');
-  s.src='/js/manager-design.js?v=fix-20260907';
+  s.src='/src/assets/js/manager/legacy/manager-design.js?v=fix-20260909';
   s.async=false;
   s.onload=function(){};
   s.onerror=function(){ console.error('[Manager Design] canonical module failed to load:',s.src); };
