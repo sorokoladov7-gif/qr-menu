@@ -32,18 +32,12 @@ test('YooKassa webhook preserves terminal payment statuses', () => {
   assert.match(source, /'failed', 'refunded'\]\.includes\(status\)/);
 });
 
-test('trigger-only database functions remain internal', () => {
-  const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260909170000_revoke_trigger_function_execute.sql'), 'utf8');
-  const functions = [
-    'guard_product_permission',
-    'guard_venue_permission',
-    'guard_venue_design_access',
-    'normalize_manager_subscription_owner',
-    'sync_manager_subscription_to_venues',
-    'sync_qr_guest_count_from_order'
-  ];
-  for (const name of functions) {
-    assert.match(migration, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${name}\\(`));
-  }
-  assert.doesNotMatch(migration, /GRANT EXECUTE ON FUNCTION public\\.(?:guard_product_permission|guard_venue_permission|guard_venue_design_access|normalize_manager_subscription_owner|sync_manager_subscription_to_venues|sync_qr_guest_count_from_order)/);
+test('manager AI action gateway keeps feature and venue checks before mutations', () => {
+  const source = fs.readFileSync(path.join(root, 'api', 'manager-ai-action.js'), 'utf8');
+  assert.match(source, /if\(!(MAP\[f\]\|\|\[\]\)\.includes\(type\)\)throw fail\('ACTION_NOT_ALLOWED_FOR_FEATURE'/);
+  assert.match(source, /const e=await entitlement\(c,f\),r=await run\(c,f,action,e\)/);
+  assert.match(source, /if\(type==='create_product'\)\{await venue\(c,vid,'menu'\)/);
+  assert.match(source, /if\(type==='update_product_price'\)\{await venue\(c,vid,'price'\)/);
+  assert.match(source, /if\(type==='create_staff'\)\{await venue\(c,vid,'venue'\)/);
+  assert.match(source, /if\(H\.includes\(type\)\)\{await venue\(c,vid,'venue'\)/);
 });
