@@ -139,6 +139,7 @@ test('guest runtime modules are available at their canonical asset paths', async
     'customer-order-live.js',
     'customer-order-status.js',
     'delivery-calc.js',
+    'design-runtime.js',
     'menu-design-runtime.js',
     'menu-modifiers.js',
     'menu-table-flow.js',
@@ -167,8 +168,9 @@ test('staff runtime modules are available at their canonical asset paths', async
   }
 });
 
-test('manager auxiliary runtime modules are available at their canonical asset paths', async ({ page }) => {
+test('manager runtime modules are available at their canonical asset paths', async ({ page }) => {
   for (const path of [
+    'integrations-hub.js',
     'manager-instruction-tab-v2.js',
     'manager-payment-settings.js',
     'manager-permissions-bridge.js',
