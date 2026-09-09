@@ -39,7 +39,7 @@ function requestPerm(){
 
 function notify(title, body){
   if('Notification' in window && Notification.permission==='granted'){
-    try{ new Notification(title,{body,icon:'/icon-192.png'}); }catch(e){}
+    try{ new Notification(title,{body,icon:'/icons/icon-192.png'}); }catch(e){}
   }
 }
 
