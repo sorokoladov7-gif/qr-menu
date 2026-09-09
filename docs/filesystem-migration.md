@@ -67,11 +67,12 @@ Guest/public-menu modules are now grouped under `/src/assets/js/guest/`:
 - `customer-order-status.js`
 - `delivery-calc.js`
 - `menu-design-runtime.js`
-- `menu-modifiers.js`
 - `menu-table-flow.js`
+- `menu-modifiers.js`
 - `yookassa-order-payment.js`
+- `design-runtime.js`
 
-These are physical relocations only. Existing `/js/*.js` requests remain valid through the `/js/:path*` compatibility rewrite, so existing page script tags do not need to change as part of the filesystem migration.
+These are physical relocations only. Existing `/js/*.js` requests remain valid through the `/js/:path*` compatibility rewrite, so existing page script tags do not need to change as part of the filesystem migration. `design-runtime.js` is explicitly menu-only and was moved after verifying its pathname guard for `/menu.html`.
 
 ## Staff JavaScript assets
 
@@ -122,6 +123,9 @@ The first manager relocation moved the 19-file manager module group, preserving 
 - `manager-personnel-final.js`
 - `manager-staff-quick-actions.js`
 - `manager-staff-statistics.js`
+- `integrations-hub.js`
+
+`integrations-hub.js` is manager-only: it powers the POS integration page, calls the authenticated `/api/integrations/*` endpoints, and has no shared guest/staff dependency. The integrations page now references its canonical `/src/assets/js/manager/integrations-hub.js` path.
 
 The legacy root `manager-design.js`, `manager-hall.js`, `manager-hall-ai.js`, and `manager-hall-view.js` files are intentionally not collapsed into the new manager directory yet. They participate in compatibility/dynamic loading chains and therefore remain under dependency audit until each load path is proven safe to consolidate.
 
@@ -135,7 +139,7 @@ Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compati
 
 ## Validation
 
-The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits. `tests/static-server.cjs` mirrors the `/js/*` compatibility rule, while Playwright smoke coverage checks legacy and canonical JavaScript URLs.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the `/js/*` compatibility rule, while Playwright smoke coverage checks legacy and canonical JavaScript URLs.
 
 The application runtime itself has not been executed in this environment; local network/runtime limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
 
@@ -145,4 +149,4 @@ The application runtime itself has not been executed in this environment; local 
 
 ## Next asset migration
 
-The remaining root JavaScript is now the high-risk boundary: `config.js`, `app.js`, demo bootstrap files, integration runtime, and the legacy manager hall/design implementations. These need dependency/load-order analysis before relocation because they use browser globals, dynamic script insertion, service-worker integration, or cross-page compatibility behavior.
+The remaining root JavaScript is now the highest-risk boundary: `config.js`, `app.js`, demo bootstrap files, and the legacy manager hall/design implementations. These need dependency/load-order analysis before relocation because they use browser globals, dynamic script insertion, service-worker integration, or cross-page compatibility behavior.
