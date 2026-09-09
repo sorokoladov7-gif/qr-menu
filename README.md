@@ -181,4 +181,5 @@ git grep -nE '(sk-|AIza|service_role|SUPABASE_SERVICE_ROLE_KEY|CLIENT_SECRET|SEC
 - `docs/rls-policies.md` — RLS matrix и рекомендации.
 - `docs/decisions.md` — решения по изменениям, отложенным из-за риска регрессии.
 - `docs/decisions-js-migration.md` — ограничения переноса shared JS.
+- `docs/filesystem-migration.md` — карта переноса HTML и compatibility routing.
 - `docs/sentry.md` — Sentry.
