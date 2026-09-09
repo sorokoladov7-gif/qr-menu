@@ -35,7 +35,13 @@
     {"source":"/admin_templates.html","destination":"/src/pages/admin/admin_templates.html","permanent":true},
     {"source":"/staff-history.html","destination":"/src/pages/staff/staff-history.html","permanent":true},
     {"source":"/staff-table.html","destination":"/src/pages/staff/staff-table.html","permanent":true},
-    {"source":"/staff-guide.html","destination":"/src/pages/manager/staff-guide.html","permanent":true}
+    {"source":"/staff-guide.html","destination":"/src/pages/manager/staff-guide.html","permanent":true},
+    {"source":"/manifest.webmanifest","destination":"/src/assets/pwa/manifest.webmanifest","permanent":true},
+    {"source":"/manifest-admin.webmanifest","destination":"/src/assets/pwa/manifest-admin.webmanifest","permanent":true},
+    {"source":"/manifest-cook.webmanifest","destination":"/src/assets/pwa/manifest-cook.webmanifest","permanent":true},
+    {"source":"/manifest-courier.webmanifest","destination":"/src/assets/pwa/manifest-courier.webmanifest","permanent":true},
+    {"source":"/manifest-manager.webmanifest","destination":"/src/assets/pwa/manifest-manager.webmanifest","permanent":true},
+    {"source":"/manifest-waiter.webmanifest","destination":"/src/assets/pwa/manifest-waiter.webmanifest","permanent":true}
   ],
   "rewrites": [
     {"source":"/","destination":"/src/pages/guest/index.html"},
