@@ -1,0 +1,25 @@
+{
+  "env": {
+    "browser": true,
+    "node": true,
+    "es2021": true,
+    "serviceworker": true
+  },
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "script"
+  },
+  "ignorePatterns": [
+    "node_modules/**",
+    ".vercel/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "*.min.js"
+  ],
+  "rules": {
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    "no-redeclare": "warn"
+  }
+}
