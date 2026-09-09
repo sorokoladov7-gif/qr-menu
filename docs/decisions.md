@@ -47,3 +47,13 @@
 **Reason:** The existing UI already presents an explicit administrator confirmation before sending `apply` / `apply_db`. The previous gateway did not implement code application at all, and database application accepted raw change sets after client-side confirmation. The new gateway adds administrator authentication, code path/SHA validation, SQL safety validation, optional cryptographic approval tokens with a five-minute TTL, and atomic Git tree/commit/ref updates for multi-file code changes.
 
 **Impact:** Qrchick can now perform real approved repository and database actions instead of returning analysis-only responses. Code changes are only applied to existing files, require an `expected_sha`, and are written as one Git commit on `main`; stale proposals are rejected. Database changes remain capped and blocked for sensitive privilege/server-file/truncate operations. No production database mutation is performed automatically by the assistant during development of this block.
+
+## 2026-09-09 — Qrchick menu business operations
+
+**Decision:** Natural-language menu requests are treated as real operational requests against the canonical `public.products` table, using the existing Qrchick action gateway rather than a parallel AI-specific persistence layer.
+
+**Reason:** The production menu runtime already loads venue products from `public.products`. Qrchick must resolve the actual venue/product against live Supabase data before proposing a mutation, rather than inventing identifiers or keeping a shadow state.
+
+**Operational rules:** Creation uses an explicit `INSERT` with the real `venue_id` and existing product columns. Updates use an unambiguous product id or exact live-data resolution. A request to remove a dish defaults to `is_available=false` unless the administrator explicitly requests physical deletion. Mutating statements should use `RETURNING id,name,price,category,is_available` so the execution result can be reported from the database.
+
+**Impact:** The intended path is now user command → live schema/data inspection → `database_changes` proposal → explicit administrator confirmation → privileged execution → actual returned result. No production SQL was executed while implementing this business-action block.
