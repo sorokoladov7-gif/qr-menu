@@ -3,6 +3,7 @@
   "short_name": "Управляющий",
   "start_url": "/manager.html?pwa=manager",
   "id": "/manager.html?pwa=manager",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#8b5cf6",
