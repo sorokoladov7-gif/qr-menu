@@ -68,11 +68,17 @@ Browser / PWA
     register.html
 ```
 
-HTML-файлы физически перенесены в `/src/pages`. Старые production/deep-link URL вроде `/menu.html`, `/manager.html`, `/admin.html`, `/login.html` и `/register.html` сохраняются через Vercel redirects. Относительные asset paths старых HTML не переписывались массово: compatibility rewrites на уровне Vercel направляют `css/js/img/icons` к текущим runtime-ресурсам. Это снижает риск изменения порядка загрузки и browser-global side effects.
+HTML-файлы физически перенесены в `/src/pages`. Старые production/deep-link URL вроде `/menu.html`, `/manager.html`, `/admin.html`, `/login.html` и `/register.html` сохраняются через Vercel redirects. Относительные asset paths исходных страниц не переписывались массово внутри самих HTML: compatibility rewrites на уровне Vercel направляют `css/js/img/icons` к текущим runtime-ресурсам. Это минимизирует риск изменения browser-global load order.
+
+### Runtime directories
+
+`/api`, `/lib`, `/supabase` и `/docs` остаются в корне намеренно: Vercel Serverless Functions, серверные библиотеки, Supabase CLI/migrations и документация используют эти пути как текущие runtime/infrastructure boundaries.
+
+`/src/assets` создан как целевая зона для будущего staged migration frontend-ресурсов. Перенос `/css`, `/js`, `/img`, `/icons` в эту область не выполнялся в рамках одного шага, потому что существующий frontend использует root-absolute paths, browser globals и compatibility bridges.
 
 ## Почему `menu-v2.html` сохранён
 
-`menu-v2.html` не считается безопасным дублем `menu.html`: текущая версия является отдельным launcher/compatibility сценарий для role-oriented staff navigation. Поэтому файл остаётся отдельной страницей.
+`menu-v2.html` не считается безопасным дублем `menu.html`: текущая версия является отдельным launcher/compatibility сценарием для role-oriented staff navigation. Поэтому файл остаётся отдельной страницей.
 
 ## Переменные окружения
 
