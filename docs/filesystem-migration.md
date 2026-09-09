@@ -29,7 +29,7 @@
 
 ## PWA assets
 
-The six web app manifests are now physically grouped under `/src/assets/pwa/`:
+The six web app manifests are physically grouped under `/src/assets/pwa/`:
 
 | Legacy URL | New file |
 |---|---|
@@ -42,9 +42,15 @@ The six web app manifests are now physically grouped under `/src/assets/pwa/`:
 
 The manifest contents are unchanged. Existing application references such as `/manifest-cook.webmanifest` remain valid through permanent redirects.
 
+## Icon assets
+
+The complete 12-file root `/icons` directory is now physically grouped under `/src/assets/icons/` without changing any blob contents. Public `/icons/*` URLs remain stable through one Vercel compatibility rewrite to the new location.
+
+This includes the generic client PWA icons, cook/waiter favicons, manager/courier PWA icons, and admin icons. No unknown file was included in this move; the source directory was fully enumerated before relocation.
+
 ## Compatibility
 
-Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime asset directories (`/css`, `/js`, `/img`, `/icons`) through compatibility rewrites.
+Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime asset directories (`/css`, `/js`, `/img`) through compatibility rewrites. Root `/icons/*` remains a public compatibility URL backed by `/src/assets/icons/*`.
 
 Moved-page relative navigation is also covered at the hosting layer where the original relative URL would otherwise resolve inside the new role directory:
 
@@ -61,9 +67,9 @@ For relocated pages whose original relative links are intentionally role-local (
 
 ## Validation
 
-The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs are likewise moved without content edits. Legacy redirects were added for the relocated pages and manifests, and `tests/static-server.cjs` mirrors these compatibility routes.
+The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs and the 12 icon blobs are likewise moved without content edits. Legacy redirects were added for pages/manifests, and the `/icons/*` public path is preserved with an internal compatibility rewrite. `tests/static-server.cjs` mirrors these routes.
 
-Playwright smoke coverage asserts the main legacy redirects and the critical cross-role links introduced by the page relocation. The local static server mirrors the same role-page and asset compatibility behavior.
+Playwright smoke coverage asserts critical legacy redirects and now checks both the legacy manifest response and the relocated icon response. The local static server mirrors the same role-page and asset compatibility behavior.
 
 ## menu-v2
 
@@ -71,4 +77,4 @@ Playwright smoke coverage asserts the main legacy redirects and the critical cro
 
 ## Future asset migration
 
-The next risky asset group is the large `/css`, `/js`, `/img`, and `/icons` runtime tree. It should be migrated role-by-role only after exhaustive reference scans because those directories are used by root-absolute browser paths, global scripts, side effects, Service Worker logic, and PWA runtime behavior.
+The remaining large runtime groups are `/css`, `/js`, and `/img`. They require role-by-role reference analysis before physical relocation because they contain executable/global code, side effects, and runtime coupling beyond simple static assets.
