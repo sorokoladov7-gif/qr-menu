@@ -1,3 +1,5 @@
 # QR Menu
 
-The role-oriented frontend pages are physically organized under `/src/pages/{guest,staff,manager,admin,auth}`. Legacy production URLs remain compatible through Vercel routing; existing runtime asset roots and backend boundaries are preserved. `menu-v2.html` remains separate because it is not proven equivalent to `menu.html`.
+Role-oriented frontend pages are physically organized under `/src/pages/{guest,staff,manager,admin,auth}`. Legacy production URLs remain supported by Vercel redirects. Existing runtime assets remain in `/css`, `/js`, `/img`, and `/icons`.
+
+`menu-v2.html` remains separate because it is not proven equivalent to `menu.html`.
