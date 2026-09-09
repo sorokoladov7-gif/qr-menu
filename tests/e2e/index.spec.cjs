@@ -254,6 +254,27 @@ test('flat legacy JS URLs resolve to their relocated canonical modules', async (
   }
 });
 
+test('legacy manager JS entrypoints resolve to isolated implementations', async ({ page }) => {
+  const paths = [
+    ['manager-design.js', 'manager/manager-design.js', 'manager/legacy/manager-design.js'],
+    ['manager-hall.js', 'manager/manager-hall.js', 'manager/legacy/manager-hall.js'],
+    ['manager-hall-ai.js', 'manager/manager-hall-ai.js', 'manager/legacy/manager-hall-ai.js'],
+    ['manager-hall-view.js', 'manager/manager-hall-view.js', 'manager/legacy/manager-hall-view.js'],
+  ];
+  for (const [legacy, entrypoint, implementation] of paths) {
+    const response = await page.request.get(`/js/${legacy}`);
+    expect(response.status(), legacy).toBe(200);
+    expect(response.headers()['content-type'], legacy).toMatch(/^text\/javascript/i);
+    expect((await response.body()).length, legacy).toBeGreaterThan(0);
+    for (const canonical of [entrypoint, implementation]) {
+      const direct = await page.request.get(`/src/assets/js/${canonical}`);
+      expect(direct.status(), canonical).toBe(200);
+      expect(direct.headers()['content-type'], canonical).toMatch(/^text\/javascript/i);
+      expect((await direct.body()).length, canonical).toBeGreaterThan(0);
+    }
+  }
+});
+
 test('admin design access module is available at its canonical asset path', async ({ page }) => {
   const response = await page.request.get('/src/assets/js/admin/admin-design-access.js');
   expect(response.status()).toBe(200);
