@@ -52,6 +52,7 @@
     {"source":"/api/payments/yookassa/:path*","destination":"/api/payments"},
     {"source":"/api/cron/integration-sync","destination":"/api/cron"},
     {"source":"/recipe-images/:slug*","destination":"https://theunitools.com/recipes/:slug*"},
+    {"source":"/assets/:path*","destination":"/src/assets/:path*"},
     {"source":"/icons/:path*","destination":"/src/assets/icons/:path*"},
     {"source":"/img/:path*","destination":"/src/assets/img/:path*"},
     {"source":"/css/:path*","destination":"/src/assets/css/:path*"},
