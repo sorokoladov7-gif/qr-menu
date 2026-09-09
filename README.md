@@ -68,55 +68,24 @@ Browser / PWA
     register.html
 ```
 
-Все перечисленные role-oriented HTML-файлы физически находятся в `/src/pages`. Старые production/deep-link URL `/menu.html`, `/manager.html`, `/admin.html`, `/login.html`, `/register.html` и остальные перемещённые entrypoints сохраняются через Vercel redirects. Относительные `css/js/img/icons` пути сохраняются через compatibility rewrites, поэтому перенос не требует переписывания всей существующей browser-global инициализации.
-
-`/api`, `/lib`, `/supabase` и `/docs` остаются root-level инфраструктурными границами; `/src/assets` подготовлен для последующей поэтапной миграции frontend-ресурсов.
+Перечисленные role-oriented HTML-файлы физически находятся в `/src/pages`. Старые production/deep-link URL сохраняются через Vercel redirects, а относительные asset paths поддерживаются compatibility rewrites. `/api`, `/lib`, `/supabase` и `/docs` остаются root-level runtime boundaries. `/src/assets` подготовлен для последующей staged migration frontend assets.
 
 ## `menu-v2.html`
 
-`menu-v2.html` оставлен отдельным файлом: repository evidence не подтверждает его как drop-in replacement для `menu.html`. Объединение страниц без доказательства эквивалентности query-параметров и deep links могло бы изменить рабочие сценарии.
+`menu-v2.html` оставлен отдельным: текущие данные не доказывают полную drop-in эквивалентность `menu.html`, поэтому безопасное объединение без регрессионной проверки не выполняется.
 
 ## Переменные окружения
 
-### Supabase
-
-- `SUPABASE_URL` — URL проекта Supabase.
-- `SUPABASE_ANON_KEY` — публичный client/anon key.
-- `SUPABASE_PUBLISHABLE_KEY` — совместимое имя publishable key.
-- `SUPABASE_SERVICE_ROLE_KEY` — server-side service-role key; не отдавать браузеру.
-- `SUPABASE_SERVICE_KEY` — legacy alias service-role key.
-- `SUPABASE_SECRET_KEYS` — JSON с секретными ключами для Edge Function fallback.
-- `SUPABASE_MANAGEMENT_API_TOKEN` — Management API token для read-only AI diagnostics.
-- `SUPABASE_ACCESS_TOKEN` — совместимый alias Management API token.
-- `SUPABASE_PROJECT_REF` — reference ID проекта Supabase.
-
-### AI / automation
-
-- `ADMIN_AI_KEY` — ключ QRChick/Gemini Interactions.
-- `GEMINI_AUDIT_MODEL` — модель аудита/AI по умолчанию.
-- `GITHUB_TOKEN` — GitHub API token для server-side automation.
-- `VERCEL_TOKEN` — Vercel API token.
-- `VERCEL_PROJECT_ID` — Vercel project ID.
-- `VERCEL_TEAM_ID` — Vercel team/owner ID.
-
-### Address / payments
-
-- `DADATA_API_KEY` / `DADATA_TOKEN` — токен DaData.
-- `YOOKASSA_CLIENT_ID` — OAuth client ID.
-- `YOOKASSA_CLIENT_SECRET` — OAuth client secret.
-- `YOOKASSA_SHOP_ID` — shop ID.
-- `YOOKASSA_SECRET_KEY` — API secret key.
-- `SUBSCRIPTION_DURATION_DAYS` — длина подписочного периода; default `30`.
-
-### Tests / monitoring
-
-- `PLAYWRIGHT_BASE_URL` — URL приложения для E2E.
-- `PLAYWRIGHT_MANAGER_EMAIL` — тестовый login менеджера.
-- `PLAYWRIGHT_MANAGER_PASSWORD` — тестовый пароль.
-- `PLAYWRIGHT_TEST_VENUE_SLUG` — slug тестового заведения.
-- `SENTRY_DSN` — Sentry DSN.
-- `SENTRY_ENVIRONMENT` — environment (`development`, `staging`, `production`).
-- `SENTRY_RELEASE` — release identifier.
+- `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SERVICE_KEY`, `SUPABASE_SECRET_KEYS`
+- `SUPABASE_MANAGEMENT_API_TOKEN`, `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`
+- `ADMIN_AI_KEY`, `GEMINI_AUDIT_MODEL`
+- `GITHUB_TOKEN`, `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_TEAM_ID`
+- `DADATA_API_KEY`, `DADATA_TOKEN`
+- `YOOKASSA_CLIENT_ID`, `YOOKASSA_CLIENT_SECRET`, `YOOKASSA_SHOP_ID`, `YOOKASSA_SECRET_KEY`
+- `SUBSCRIPTION_DURATION_DAYS`
+- `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_MANAGER_EMAIL`, `PLAYWRIGHT_MANAGER_PASSWORD`, `PLAYWRIGHT_TEST_VENUE_SLUG`
+- `SENTRY_DSN`, `SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`
 
 Полный шаблон без секретов: `.env.example`.
 
@@ -132,22 +101,17 @@ npx playwright install --with-deps chromium
 npm run test:e2e
 ```
 
-Для локального static server используйте HTTP server, например `npx serve .`. Тестовые credentials задаются только environment variables.
+Для static server: `npx serve .`.
 
-## Supabase setup
+## Supabase
 
-1. Создайте проект и задайте `SUPABASE_URL`, client key и server secrets.
-2. Примените `supabase/migrations` по хронологии через Supabase CLI/SQL Editor.
-3. Убедитесь, что RLS включён на tenant-scoped таблицах.
-4. Service-role и Management API credentials должны использоваться только server-side.
-5. Роль приложения должна проверяться RLS/RPC, а не только UI.
-6. После миграций проверьте auth, venue access, menu, order flow и staff flows.
+Применяйте `supabase/migrations` по хронологии. RLS должен оставаться источником server-side авторизации, а service-role и management credentials — только server-side.
 
-Bootstrap-роли приложения: `admin`, `manager`, `waiter`, `cook`, `courier`. Публичный клиент работает без staff-role. Подробные рекомендации: `docs/rls-policies.md`.
+Роли приложения: `admin`, `manager`, `waiter`, `cook`, `courier`; публичный клиент работает без staff-role. Подробно: `docs/rls-policies.md`.
 
 ## Vercel
 
-Production/Preview environment variables задаются в Vercel Project Settings; секреты не хранятся в Git.
+Секреты задаются в Vercel Project Settings, не в Git.
 
 ```bash
 npx vercel@latest pull
@@ -155,27 +119,14 @@ npx vercel@latest build
 npx vercel@latest deploy --prebuilt
 ```
 
-CI также выполняет `vercel build`, когда заданы Vercel credentials.
-
 ## Security
 
-В исходном `vercel.json` находился публичный Supabase publishable/anon key. В этой ветке он убран из `vercel.json`; client-side public key может оставаться частью браузерного runtime, но значение, когда-либо попавшее в Git, следует считать раскрытым. При вашей политике безопасности выполните замену ключа и проверьте Supabase audit.
-
-Для аудита истории:
-
-```bash
-git log -p --all -- . ':!node_modules'
-git grep -nE '(sk-|AIza|service_role|SUPABASE_SERVICE_ROLE_KEY|CLIENT_SECRET|SECRET_KEY)' $(git rev-list --all)
-```
-
-## Change policy
-
-Один логический блок = один атомарный commit. Заказы, роли, AI-агенты, платежи и парсинг не рефакторятся без отдельного архитектурного решения.
+Исторически `vercel.json` содержал публичный Supabase publishable/anon key. Он удалён из конфигурации ветки. Значения, попавшие в Git, следует считать раскрытыми согласно вашей security policy.
 
 ## Документы
 
-- `docs/rls-policies.md` — RLS matrix и рекомендации.
-- `docs/decisions.md` — решения по изменениям, отложенным из-за риска регрессии.
-- `docs/decisions-js-migration.md` — ограничения переноса shared JS.
-- `docs/filesystem-migration.md` — карта переноса HTML и compatibility routing.
-- `docs/sentry.md` — Sentry.
+- `docs/rls-policies.md`
+- `docs/decisions.md`
+- `docs/decisions-js-migration.md`
+- `docs/filesystem-migration.md`
+- `docs/sentry.md`
