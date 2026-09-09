@@ -34,11 +34,23 @@
   function minutes(v){return v==null||v===''?'':num(v)+' мин';}
   function temp(v){return v==null||v===''?'':num(v)+' °C';}
   function stepsArray(v){return Array.isArray(v)?v:[];}
-  function stepText(v){if(typeof v==='string')return v; if(v&&typeof v==='object'){return v.text||v.description||v.instruction||JSON.stringify(v);} return String(v||'');}
+  function stepText(v){
+    if(typeof v==='string')return v;
+    if(v&&typeof v==='object'){
+      if(typeof v.text==='string')return v.text;
+      if(v.text&&typeof v.text==='object')return v.text.ru||v.text.en||v.text.text||'';
+      if(typeof v.description==='string')return v.description;
+      if(v.description&&typeof v.description==='object')return v.description.ru||v.description.en||'';
+      if(typeof v.instruction==='string')return v.instruction;
+      if(v.instruction&&typeof v.instruction==='object')return v.instruction.ru||v.instruction.en||'';
+    }
+    return String(v||'');
+  }
+  function stepMinutes(v){return v&&v.minutes!=null?minutes(v.minutes):'';}
 
   function renderTechSteps(steps){
     if(!steps.length)return '<div class="muted">Технология приготовления не заполнена.</div>';
-    return '<ol style="margin:0;padding-left:22px;display:grid;gap:7px">'+steps.map(function(s){return '<li>'+esc(stepText(s))+'</li>';}).join('')+'</ol>';
+    return '<ol style="margin:0;padding-left:22px;display:grid;gap:7px">'+steps.map(function(s){var text=stepText(s),tm=stepMinutes(s);return '<li><span>'+esc(text)+'</span>'+(tm?'<span class="muted" style="margin-left:6px;font-size:10px">('+esc(tm)+')</span>':'')+'</li>';}).join('')+'</ol>';
   }
 
   function renderTechMeta(r){
@@ -82,8 +94,8 @@
             (r.description?'<div style="font-size:12px;line-height:1.5;margin-bottom:10px">'+esc(r.description)+'</div>':'')+
             renderTechMeta(r)+
             '<div style="display:grid;gap:10px;margin-top:12px">'+
-              '<section><div style="font-weight:700;font-size:12px;margin-bottom:6px">Ингредиенты</div>'+renderIngredients(ing)+'</section>'+
-              '<section><div style="font-weight:700;font-size:12px;margin-bottom:6px">Технология приготовления</div><div style="font-size:12px;line-height:1.5">'+esc(r.technology||'')+'</div><div style="margin-top:8px">'+renderTechSteps(steps)+'</div></section>'+
+              '<section><div style="font-weight:700;font-size:12px;margin-bottom:6px">Ингредиенты</div>'+renderIngredients(ing)+'</section>'+ 
+              '<section><div style="font-weight:700;font-size:12px;margin-bottom:6px">Технология приготовления</div><div style="font-size:12px;line-height:1.5">'+esc(r.technology||'')+'</div><div style="margin-top:8px">'+renderTechSteps(steps)+'</div></section>'+ 
               (r.equipment?'<section><div style="font-weight:700;font-size:12px;margin-bottom:5px">Оборудование и инвентарь</div><div class="muted" style="font-size:11px">'+esc(r.equipment)+'</div></section>':'')+
               (r.serving_description?'<section><div style="font-weight:700;font-size:12px;margin-bottom:5px">Подача</div><div class="muted" style="font-size:11px">'+esc(r.serving_description)+'</div></section>':'')+
               (r.plating_description?'<section><div style="font-weight:700;font-size:12px;margin-bottom:5px">Оформление</div><div class="muted" style="font-size:11px">'+esc(r.plating_description)+'</div></section>':'')+
