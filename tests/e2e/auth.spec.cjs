@@ -8,6 +8,12 @@ test('legacy login URL redirects to the role-organized page', async ({ page }) =
   await expect(page.locator('#loginButton')).toBeVisible();
 });
 
+test('register page keeps guest menu link after auth page move', async ({ page }) => {
+  await page.goto('/register.html');
+  await page.locator('a[href="menu.html"]').click();
+  await expect(page).toHaveURL(/\/src\/pages\/guest\/menu\.html(?:$|\?)/);
+});
+
 test('configured manager credentials can sign in', async ({ page }) => {
   const email = process.env.PLAYWRIGHT_MANAGER_EMAIL;
   const password = process.env.PLAYWRIGHT_MANAGER_PASSWORD;
