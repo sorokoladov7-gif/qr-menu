@@ -31,6 +31,8 @@
 
 The six web app manifests are physically grouped under `/src/assets/pwa/`.
 
+The install/runtime helper is now grouped under `/src/assets/js/pwa/pwa-install.js`. It still registers the existing `/sw.js` service worker and preserves its role-aware behavior; only the physical asset location changed.
+
 ## Icon assets
 
 The complete 12-file root `/icons` directory is physically grouped under `/src/assets/icons/` without changing blob contents. Public `/icons/*` URLs remain stable through the Vercel compatibility rewrite.
@@ -56,6 +58,34 @@ The shared browser runtime is physically grouped under `/src/assets/js/shared/`:
 
 The blobs were moved without source changes. Existing `/js/shared/*` URLs remain valid through the root `/js/:path*` compatibility rewrite.
 
+## Guest JavaScript assets
+
+Guest/public-menu modules are now grouped under `/src/assets/js/guest/`:
+
+- `address-suggestions.js`
+- `customer-order-live.js`
+- `customer-order-status.js`
+- `delivery-calc.js`
+- `menu-design-runtime.js`
+- `menu-modifiers.js`
+- `menu-table-flow.js`
+- `yookassa-order-payment.js`
+
+These are physical relocations only. Existing `/js/*.js` requests remain valid through the `/js/:path*` compatibility rewrite, so existing page script tags do not need to change as part of the filesystem migration.
+
+## Staff JavaScript assets
+
+Staff-facing runtime modules are grouped under `/src/assets/js/staff/`:
+
+- `cook-table-unified.js`
+- `notify.js`
+- `staff-auth.js`
+- `staff-notifications.js`
+- `staff-workday.js`
+- `waiter-history-inline.js`
+
+The files retain their existing blob contents. `staff-auth.js` remains a pre-`config.js` session dependency, while `notify.js` remains a staff-only notification helper.
+
 ## Admin JavaScript assets
 
 The complete admin JavaScript runtime group is now physically grouped under `/src/assets/js/admin/`:
@@ -65,6 +95,7 @@ The complete admin JavaScript runtime group is now physically grouped under `/sr
 - `admin-app.js`
 - `admin-console-enhancer.js`
 - `admin-core.js`
+- `admin-design-access.js`
 - `admin-managers.js`
 - `admin-menu.js`
 - `admin-payments.js`
@@ -75,9 +106,24 @@ The complete admin JavaScript runtime group is now physically grouped under `/sr
 - `admin-templates.js`
 - `admin-venues.js`
 
-All 14 files were relocated by preserving their existing Git blob SHAs. No business logic, Vue mixin contract, global symbol, or load-order dependency was changed. The admin shell may continue to request `/js/admin/*.js`; Vercel and the local static server resolve `/js/:path*` to `/src/assets/js/:path*`.
+All files were relocated by preserving their existing Git blob SHAs. No business logic, Vue mixin contract, global symbol, or load-order dependency was changed. The admin shell may continue to request `/js/admin/*.js`; Vercel and the local static server resolve `/js/:path*` to `/src/assets/js/:path*`.
 
 Internal dynamic script paths such as `/js/admin/admin-ai-audit.js`, `/js/admin/admin-console-enhancer.js`, and `/js/admin/admin-ai-usage.js` therefore remain valid without modifying runtime code.
+
+## Manager JavaScript assets
+
+The manager browser runtime is physically grouped under `/src/assets/js/manager/`.
+
+The first manager relocation moved the 19-file manager module group, preserving strict script ordering and the existing `window.__QR_MANAGER_*_MIXIN__` contracts. A second pass moved the manager-only auxiliary modules from the root `/js` directory:
+
+- `manager-instruction-tab-v2.js`
+- `manager-payment-settings.js`
+- `manager-permissions-bridge.js`
+- `manager-personnel-final.js`
+- `manager-staff-quick-actions.js`
+- `manager-staff-statistics.js`
+
+The legacy root `manager-design.js`, `manager-hall.js`, `manager-hall-ai.js`, and `manager-hall-view.js` files are intentionally not collapsed into the new manager directory yet. They participate in compatibility/dynamic loading chains and therefore remain under dependency audit until each load path is proven safe to consolidate.
 
 ## Compatibility
 
@@ -89,7 +135,7 @@ Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compati
 
 ## Validation
 
-The standalone page and static asset migrations preserve existing blobs. Shared and admin JavaScript groups were also relocated by blob SHA, avoiding source rewrites. `tests/static-server.cjs` mirrors the `/js/*` compatibility rule, while Playwright smoke coverage checks legacy and canonical JavaScript URLs.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits. `tests/static-server.cjs` mirrors the `/js/*` compatibility rule, while Playwright smoke coverage checks legacy and canonical JavaScript URLs.
 
 The application runtime itself has not been executed in this environment; local network/runtime limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
 
@@ -99,4 +145,4 @@ The application runtime itself has not been executed in this environment; local 
 
 ## Next asset migration
 
-The remaining JavaScript runtime outside `/js/shared` and `/js/admin` stays in place for now. The next migration requires the same per-role load-order analysis for `/js/manager` and the remaining root JS files, especially files with service-worker integration, dynamic script loading, browser globals, and API/page coupling.
+The remaining root JavaScript is now the high-risk boundary: `config.js`, `app.js`, demo bootstrap files, integration runtime, and the legacy manager hall/design implementations. These need dependency/load-order analysis before relocation because they use browser globals, dynamic script insertion, service-worker integration, or cross-page compatibility behavior.
