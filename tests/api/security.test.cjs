@@ -30,6 +30,28 @@ test('YooKassa webhook preserves terminal payment statuses', () => {
   assert.match(source, /if \(status === 'failed'\) return 'failed';/);
   assert.match(source, /if \(status === 'refunded'\) return 'refunded';/);
   assert.match(source, /'failed', 'refunded'\]\.includes\(status\)/);
+  assert.match(source, /payment_status=neq\.paid&paid_at=is\.null/);
+});
+
+test('admin payment confirmation uses the canonical plan and entitlement chain', () => {
+  const migrationDir = path.join(root, 'supabase', 'migrations');
+  const files = fs.readdirSync(migrationDir).filter((name) => name.endsWith('.sql'));
+  const source = files
+    .filter((name) => name >= '20260910100000_harden_admin_payment_entitlement_chain.sql')
+    .map((name) => fs.readFileSync(path.join(migrationDir, name), 'utf8'))
+    .join('\n');
+
+  assert.match(source, /from public\.plans\s+where id = v_payment\.plan_id\s+and is_active = true/);
+  assert.match(source, /public\.admin_set_manager_plan\(v_payment\.manager_id, v_plan\.id::text\)/);
+  assert.match(source, /where id = p_payment_id\s+and status = 'pending'/);
+  assert.match(source, /already_processed/);
+});
+
+test('manager entitlement RPCs serialize per-manager mutations', () => {
+  const source = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260910101000_lock_manager_entitlement_rpcs.sql'), 'utf8');
+  assert.match(source, /pg_advisory_xact_lock\(hashtextextended\(p_manager_id::text, 0\)\)/g);
+  assert.equal((source.match(/pg_advisory_xact_lock\(hashtextextended\(p_manager_id::text, 0\)\)/g) || []).length, 2);
+  assert.match(source, /limit 1\s+for update/);
 });
 
 test('manager AI action gateway keeps feature and venue checks before mutations', () => {
