@@ -1,8 +1,8 @@
 # QR Menu
 
-## Frontend layout
+## Filesystem layout
 
-The role-oriented HTML pages are physically organized under `/src/pages`:
+Role-oriented pages are now physically stored under `/src/pages`:
 
 ```text
 /src/pages
@@ -29,10 +29,8 @@ The role-oriented HTML pages are physically organized under `/src/pages`:
     register.html
 ```
 
-Legacy production URLs remain supported by Vercel redirects. Existing runtime assets stay in `/css`, `/js`, `/img`, `/icons` and are exposed from relocated pages through compatibility rewrites. `/api`, `/lib`, `/supabase`, and `/docs` remain root-level runtime/infrastructure boundaries.
+Legacy production URLs are preserved with Vercel redirects. Existing `/css`, `/js`, `/img`, and `/icons` remain runtime asset roots and are exposed from relocated pages with compatibility rewrites. `/api`, `/lib`, `/supabase`, and `/docs` remain root-level runtime boundaries.
 
-`menu-v2.html` remains separate because the repository evidence does not establish full drop-in equivalence with `menu.html`.
+`menu-v2.html` remains separate because current repository evidence does not establish it as a full drop-in replacement for `menu.html`.
 
-## Environment
-
-All secrets are environment-only. See `.env.example` for the complete variable set and `docs/rls-policies.md`, `docs/filesystem-migration.md`, and `docs/decisions-js-migration.md` for operational guidance.
+The complete environment-variable documentation remains available in `.env.example` and the repository documentation set.
