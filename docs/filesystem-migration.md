@@ -25,7 +25,20 @@
 
 Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime asset directories (`/css`, `/js`, `/img`, `/icons`) through compatibility rewrites.
 
+Moved-page relative navigation is also covered at the hosting layer where the original relative URL would otherwise resolve inside the new role directory:
+
+- `/src/pages/guest/login.html` → `/src/pages/auth/login.html`
+- `/src/pages/guest/register.html` → `/src/pages/auth/register.html`
+- `/src/pages/guest/manager-demo.html` → `/src/pages/manager/manager-demo.html`
+- `/src/pages/guest/demo-staff.html` → `/demo-staff.html`
+- `/src/pages/auth/menu.html` → `/src/pages/guest/menu.html`
+- `/src/pages/guest/{cook,courier,waiter}.html` → corresponding staff pages
+
 `/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
+
+## Validation
+
+Playwright smoke coverage asserts the main legacy redirects and the critical cross-role links introduced by the page relocation. The local static server mirrors the same role-page and asset compatibility behavior.
 
 ## menu-v2
 
