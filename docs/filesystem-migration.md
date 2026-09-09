@@ -76,9 +76,22 @@ The intermediate root `/assets` tree was audited against `/src/assets` before re
 
 The public `/assets/:path*` URL space is preserved through a Vercel rewrite to `/src/assets/:path*`; the local static server mirrors the same compatibility rule. This also keeps the historical QRChick avatar URL functional without retaining a second physical copy.
 
+## Shared JavaScript assets
+
+The first production JS group has now been moved physically under `/src/assets/js/shared/`:
+
+- `/js/shared/utils.js` → `/src/assets/js/shared/utils.js`
+- `/js/shared/qr-support.js` → `/src/assets/js/shared/qr-support.js`
+
+Both files were copied without business-logic changes. `utils.js` remains loaded by the admin and manager shells through the existing `/js/shared/utils.js` URL; the hosting layer now resolves that legacy URL to the relocated file. The same compatibility rule applies to the support runtime.
+
+No relative JavaScript import or module dependency was found inside this group, so the move does not require changing script order or introducing an import system.
+
 ## Compatibility
 
-Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime `/js` directory and migrated static image/icon/stylesheet assets through compatibility rewrites. Root `/assets/*`, `/icons/*`, `/img/*`, and `/css/*` are public compatibility URLs backed by `/src/assets/*`.
+Legacy production/deep links remain available through Vercel redirects. Relocated pages retain existing root runtime URLs through compatibility rewrites, while migrated static image/icon/stylesheet assets and the first shared JS group are physically stored under `/src/assets/*`.
+
+Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`.
 
 Moved-page relative navigation is also covered at the hosting layer where the original relative URL would otherwise resolve inside the new role directory:
 
@@ -95,9 +108,9 @@ For relocated pages whose original relative links are intentionally role-local (
 
 ## Validation
 
-The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs, the 12 icon blobs, the 4 image blobs, and the 4 stylesheet blobs are likewise moved without content edits. Legacy redirects were added for pages/manifests, and the `/assets/*`, `/icons/*`, `/img/*`, and `/css/*` public paths are preserved with internal compatibility rewrites. `tests/static-server.cjs` mirrors these routes.
+The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs, the 12 icon blobs, the 4 image blobs, and the 4 stylesheet blobs are likewise moved without content edits. The first two shared JS blobs were also moved without source edits. Legacy redirects remain defined for pages/manifests, while `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` public paths are preserved with internal compatibility rewrites. `tests/static-server.cjs` mirrors these routes.
 
-Playwright smoke coverage asserts critical legacy redirects and checks the legacy manifest response plus relocated static asset responses, including the compatibility `/assets/img/qrchick-avatar.svg` URL. The local static server mirrors the same role-page and asset compatibility behavior.
+Playwright smoke coverage asserts critical legacy redirects and checks legacy static URLs plus canonical relocated asset responses, including the compatibility `/assets/img/qrchick-avatar.svg` URL and the relocated shared JavaScript files.
 
 ## menu-v2
 
@@ -105,4 +118,4 @@ Playwright smoke coverage asserts critical legacy redirects and checks the legac
 
 ## Next asset migration
 
-The remaining large runtime group is `/js`. JavaScript requires repository-wide dependency and load-order analysis before physical relocation because it contains browser globals, side effects, imports, dynamic script loading, service-worker integration, and API/page coupling.
+The remaining JavaScript runtime outside `/js/shared` stays in place for now. The next migrations require per-role load-order analysis of `/js/admin`, `/js/manager`, and the remaining root JS files because they contain browser globals, side effects, dynamic script loading, service-worker integration, and API/page coupling.
