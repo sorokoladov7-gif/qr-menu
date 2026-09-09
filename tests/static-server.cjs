@@ -42,6 +42,12 @@ const legacyRedirects = new Map([
   ['/admin_templates.html', '/src/pages/admin/admin_templates.html'],
   ['/login.html', '/src/pages/auth/login.html'],
   ['/register.html', '/src/pages/auth/register.html'],
+  ['/manifest.webmanifest', '/src/assets/pwa/manifest.webmanifest'],
+  ['/manifest-admin.webmanifest', '/src/assets/pwa/manifest-admin.webmanifest'],
+  ['/manifest-cook.webmanifest', '/src/assets/pwa/manifest-cook.webmanifest'],
+  ['/manifest-courier.webmanifest', '/src/assets/pwa/manifest-courier.webmanifest'],
+  ['/manifest-manager.webmanifest', '/src/assets/pwa/manifest-manager.webmanifest'],
+  ['/manifest-waiter.webmanifest', '/src/assets/pwa/manifest-waiter.webmanifest'],
 ]);
 
 const roleAssetRewrites = /^\/src\/pages\/(guest|staff|manager|admin|auth)\/(css|js|img|icons)\/(.+)$/;
