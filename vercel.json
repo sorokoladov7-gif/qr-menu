@@ -34,7 +34,6 @@
   "rewrites": [
     {"source":"/","destination":"/src/pages/guest/index.html"},
     {"source":"/api/admin-ai-audit","destination":"/api/admin-ai-isolated"},
-    {"source":"/api/admin-ai-stream","destination":"/api/admin-ai-stream"},
     {"source":"/api/menu/import","destination":"/api/import-ai"},
     {"source":"/api/manager-ai","destination":"/api/manager-ai-propose"},
     {"source":"/api/integrations/:path*","destination":"/api/integrations"},
