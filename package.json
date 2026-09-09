@@ -22,7 +22,8 @@
     "eslint": "^8.57.1",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.6.2",
+    "vercel": "59.12.0"
   },
   "lint-staged": {
     "**/*.{js,cjs,mjs}": ["eslint --fix", "prettier --write"],
