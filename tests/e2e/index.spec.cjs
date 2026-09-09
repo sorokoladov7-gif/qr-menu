@@ -64,3 +64,24 @@ test('legacy assets URL remains available after duplicate tree cleanup', async (
   expect(response.headers()['content-type']).toMatch(/^image\/svg\+xml/i);
   expect((await response.body()).length).toBeGreaterThan(0);
 });
+
+test('legacy JS URL remains available after shared runtime relocation', async ({ page }) => {
+  const response = await page.request.get('/js/shared/utils.js');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
+test('relocated shared JS is directly reachable at its canonical asset path', async ({ page }) => {
+  const response = await page.request.get('/src/assets/js/shared/utils.js');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
+test('relocated support JS is directly reachable at its canonical asset path', async ({ page }) => {
+  const response = await page.request.get('/src/assets/js/shared/qr-support.js');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
