@@ -39,3 +39,11 @@
 **Reason:** The key is a publishable/anon client credential, not a service-role secret, and the static application already expects browser-side configuration. Replacing its transport would require coordinated frontend changes. Server-side service-role, management, payment, AI and integration credentials remain environment-only.
 
 **Impact:** `vercel.json` no longer acts as committed environment storage. The public browser key remains subject to normal publishable-key handling and should be rotated if the project's security policy requires it.
+
+## 2026-09-09 — Qrchick action execution gate
+
+**Decision:** Qrchick action execution remains separate from the intelligence layer and is exposed through the existing `/api/admin-ai-audit` compatibility route to `admin-ai-isolated.js`. Code and database changes are validated server-side before execution.
+
+**Reason:** The existing UI already presents an explicit administrator confirmation before sending `apply` / `apply_db`. The previous gateway did not implement code application at all, and database application accepted raw change sets after client-side confirmation. The new gateway adds administrator authentication, code path/SHA validation, SQL safety validation, optional cryptographic approval tokens with a five-minute TTL, and atomic Git tree/commit/ref updates for multi-file code changes.
+
+**Impact:** Qrchick can now perform real approved repository and database actions instead of returning analysis-only responses. Code changes are only applied to existing files, require an `expected_sha`, and are written as one Git commit on `main`; stale proposals are rejected. Database changes remain capped and blocked for sensitive privilege/server-file/truncate operations. No production database mutation is performed automatically by the assistant during development of this block.
