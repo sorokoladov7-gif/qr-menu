@@ -43,3 +43,17 @@ test('relocated image is directly reachable at its canonical asset path', async 
   expect(response.headers()['content-type']).toMatch(/^image\/png/i);
   expect((await response.body()).length).toBeGreaterThan(0);
 });
+
+test('legacy stylesheet URL remains available after stylesheet relocation', async ({ page }) => {
+  const response = await page.request.get('/css/style.css');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/css/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
+test('relocated stylesheet is directly reachable at its canonical asset path', async ({ page }) => {
+  const response = await page.request.get('/src/assets/css/style.css');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/css/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
