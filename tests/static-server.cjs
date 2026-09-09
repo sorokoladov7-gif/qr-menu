@@ -54,7 +54,6 @@ const roleAssetRewrites = /^\/src\/pages\/(guest|staff|manager|admin|auth)\/(css
 const rootIconRewrite = /^\/icons\/(.+)$/;
 const rootCssRewrite = /^\/css\/(.+)$/;
 const rootImgRewrite = /^\/img\/(.+)$/;
-const rootJsRewrite = /^\/js\/(.+)$/;
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'],
   ['/src/pages/guest/register.html', '/src/pages/auth/register.html'],
@@ -94,11 +93,6 @@ function resolveRequestPath(requestPath) {
   const imgMatch = requestPath.match(rootImgRewrite);
   if (imgMatch) {
     return `/src/assets/img/${imgMatch[1]}`;
-  }
-
-  const jsMatch = requestPath.match(rootJsRewrite);
-  if (jsMatch) {
-    return `/src/assets/js/${jsMatch[1]}`;
   }
 
   const iconMatch = requestPath.match(rootIconRewrite);
