@@ -56,6 +56,7 @@ const rootIconRewrite = /^\/icons\/(.+)$/;
 const rootCssRewrite = /^\/css\/(.+)$/;
 const rootImgRewrite = /^\/img\/(.+)$/;
 const rootJsRewrite = /^\/js\/(.+)$/;
+const rootFaviconRewrite = '/favicon.svg';
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'],
   ['/src/pages/guest/register.html', '/src/pages/auth/register.html'],
@@ -110,6 +111,10 @@ function resolveRequestPath(requestPath) {
   const jsMatch = requestPath.match(rootJsRewrite);
   if (jsMatch) {
     return `/src/assets/js/${jsMatch[1]}`;
+  }
+
+  if (requestPath === rootFaviconRewrite) {
+    return '/src/assets/icons/favicon.svg';
   }
 
   return requestPath;
