@@ -57,3 +57,11 @@
 **Operational rules:** Creation uses an explicit `INSERT` with the real `venue_id` and existing product columns. Updates use an unambiguous product id or exact live-data resolution. A request to remove a dish defaults to `is_available=false` unless the administrator explicitly requests physical deletion. Mutating statements should use `RETURNING id,name,price,category,is_available` so the execution result can be reported from the database.
 
 **Impact:** The intended path is now user command → live schema/data inspection → `database_changes` proposal → explicit administrator confirmation → privileged execution → actual returned result. No production SQL was executed while implementing this business-action block.
+
+## 2026-09-09 — Standalone HTML role grouping
+
+**Decision:** Move the remaining standalone role-facing HTML entrypoints into their role directories: public venue selector → `guest`, staff history/table tools → `staff`, integrations and manager guide → `manager`, and admin template catalog → `admin`.
+
+**Reason:** These pages have role-specific data access and navigation semantics, while their relative asset paths and page-local links remain valid after co-location. Legacy root URLs are preserved with permanent Vercel redirects; no application logic was rewritten as part of the move.
+
+**Impact:** The role-oriented page tree is now substantially complete. Root-level HTML files are limited to pages that still need separate reference/runtime analysis before relocation.
