@@ -31,11 +31,18 @@
 
 The six web app manifests are physically grouped under `/src/assets/pwa/`.
 
-The install/runtime helper is now grouped under `/src/assets/js/pwa/pwa-install.js`. It still registers the existing `/sw.js` service worker and preserves its role-aware behavior; only the physical asset location changed.
+The install/runtime helper is grouped under `/src/assets/js/pwa/pwa-install.js`. It still registers the existing `/sw.js` service worker and preserves its role-aware behavior; only the physical asset location changed.
 
 ## Icon assets
 
-The complete 12-file root `/icons` directory is physically grouped under `/src/assets/icons/` without changing blob contents. Public `/icons/*` URLs remain stable through the Vercel compatibility rewrite.
+The icon asset set is physically grouped under `/src/assets/icons/`. The four root Apple touch icons are now included there as well:
+
+- `apple-touch-icon.png`
+- `apple-touch-icon-courier.png`
+- `apple-touch-icon-manager.png`
+- `apple-touch-icon-waiter.png`
+
+The icon blobs were moved without content changes. Public `/icons/*` URLs and the historical root Apple touch icon URLs remain available through compatibility rewrites.
 
 ## Image assets
 
@@ -66,13 +73,13 @@ Guest/public-menu modules are now grouped under `/src/assets/js/guest/`:
 - `customer-order-live.js`
 - `customer-order-status.js`
 - `delivery-calc.js`
-- `menu-design-runtime.js`
-- `menu-table-flow.js`
-- `menu-modifiers.js`
-- `yookassa-order-payment.js`
 - `design-runtime.js`
+- `menu-design-runtime.js`
+- `menu-modifiers.js`
+- `menu-table-flow.js`
+- `yookassa-order-payment.js`
 
-These are physical relocations only. Existing `/js/*.js` requests remain valid through the `/js/:path*` compatibility rewrite, so existing page script tags do not need to change as part of the filesystem migration. `design-runtime.js` is explicitly menu-only and was moved after verifying its pathname guard for `/menu.html`.
+These are physical relocations only. Existing `/js/*.js` requests remain valid through the `/js/:path*` compatibility rewrite. `design-runtime.js` is menu-only and was moved after verifying its pathname guard for `/menu.html`.
 
 ## Staff JavaScript assets
 
@@ -86,6 +93,17 @@ Staff-facing runtime modules are grouped under `/src/assets/js/staff/`:
 - `waiter-history-inline.js`
 
 The files retain their existing blob contents. `staff-auth.js` remains a pre-`config.js` session dependency, while `notify.js` remains a staff-only notification helper.
+
+## Demo JavaScript assets
+
+The demo-only browser runtime is now isolated under `/src/assets/js/demo/`:
+
+- `demo-data.js`
+- `demo-manager-create.js`
+- `demo-mode.js`
+- `demo-staff-v2.js`
+
+These files are still served through the compatibility `/js/:path*` rewrite at their historical URLs. Their demo gating logic remains unchanged; no production runtime logic was merged into the demo layer.
 
 ## Admin JavaScript assets
 
@@ -107,25 +125,13 @@ The complete admin JavaScript runtime group is now physically grouped under `/sr
 - `admin-templates.js`
 - `admin-venues.js`
 
-All files were relocated by preserving their existing Git blob SHAs. No business logic, Vue mixin contract, global symbol, or load-order dependency was changed. The admin shell may continue to request `/js/admin/*.js`; Vercel and the local static server resolve `/js/:path*` to `/src/assets/js/:path*`.
-
-Internal dynamic script paths such as `/js/admin/admin-ai-audit.js`, `/js/admin/admin-console-enhancer.js`, and `/js/admin/admin-ai-usage.js` therefore remain valid without modifying runtime code.
+All files were relocated by preserving their existing Git blob SHAs. No business logic, Vue mixin contract, global symbol, or load-order dependency was changed.
 
 ## Manager JavaScript assets
 
 The manager browser runtime is physically grouped under `/src/assets/js/manager/`.
 
-The first manager relocation moved the 19-file manager module group, preserving strict script ordering and the existing `window.__QR_MANAGER_*_MIXIN__` contracts. A second pass moved the manager-only auxiliary modules from the root `/js` directory:
-
-- `manager-instruction-tab-v2.js`
-- `manager-payment-settings.js`
-- `manager-permissions-bridge.js`
-- `manager-personnel-final.js`
-- `manager-staff-quick-actions.js`
-- `manager-staff-statistics.js`
-- `integrations-hub.js`
-
-`integrations-hub.js` is manager-only: it powers the POS integration page, calls the authenticated `/api/integrations/*` endpoints, and has no shared guest/staff dependency. The integrations page now references its canonical `/src/assets/js/manager/integrations-hub.js` path.
+The first manager relocation moved the 19-file manager module group, preserving strict script ordering and the existing `window.__QR_MANAGER_*_MIXIN__` contracts. A second pass moved manager-only auxiliary modules from the root `/js` directory, and the POS integrations hub is now included in the same manager namespace.
 
 The legacy root `manager-design.js`, `manager-hall.js`, `manager-hall-ai.js`, and `manager-hall-view.js` files are intentionally not collapsed into the new manager directory yet. They participate in compatibility/dynamic loading chains and therefore remain under dependency audit until each load path is proven safe to consolidate.
 
@@ -135,13 +141,15 @@ Legacy production/deep links remain available through Vercel redirects. Relocate
 
 Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`.
 
+Historical root Apple touch icon URLs are separately mapped to `/src/assets/icons/*` so existing installed PWAs and bookmarks do not lose their icon resources.
+
 `/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
 
 ## Validation
 
-The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the `/js/*` compatibility rule, while Playwright smoke coverage checks legacy and canonical JavaScript URLs.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the compatibility rules, while Playwright smoke coverage checks legacy and canonical asset URLs.
 
-The application runtime itself has not been executed in this environment; local network/runtime limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
+The application runtime itself has not been executed in this environment; local runtime/network limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
 
 ## menu-v2
 
@@ -149,4 +157,4 @@ The application runtime itself has not been executed in this environment; local 
 
 ## Next asset migration
 
-The remaining root JavaScript is now the highest-risk boundary: `config.js`, `app.js`, demo bootstrap files, and the legacy manager hall/design implementations. These need dependency/load-order analysis before relocation because they use browser globals, dynamic script insertion, service-worker integration, or cross-page compatibility behavior.
+The remaining root JavaScript is now the highest-risk boundary: `config.js`, `app.js`, `offline-sync.js`, and the legacy manager hall/design implementations. These require dependency/load-order analysis before relocation because they use browser globals, cross-page bootstrap behavior, service-worker integration, or compatibility loading chains.
