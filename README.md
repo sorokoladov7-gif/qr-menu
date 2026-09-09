@@ -1,5 +1,3 @@
 # QR Menu
 
-Filesystem migration marker: role-oriented HTML pages are organized under `/src/pages/{guest,staff,manager,admin,auth}`. Legacy URLs remain available through Vercel compatibility routing. Runtime assets remain in `/css`, `/js`, `/img`, `/icons`; backend boundaries remain `/api`, `/lib`, `/supabase`, `/docs`.
-
-`menu-v2.html` remains separate because repository evidence does not prove equivalence with `menu.html`.
+The role-oriented frontend pages are physically organized under `/src/pages/{guest,staff,manager,admin,auth}`. Legacy production URLs remain compatible through Vercel routing; existing runtime asset roots and backend boundaries are preserved. `menu-v2.html` remains separate because it is not proven equivalent to `menu.html`.
