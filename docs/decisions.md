@@ -73,3 +73,11 @@
 **Reason:** Manifests are static configuration assets rather than executable runtime code. Existing pages already reference them by root-absolute legacy URLs, so redirects preserve browser/PWA behavior without rewriting the application pages.
 
 **Impact:** Manifest contents are unchanged. The remaining runtime asset groups `/css`, `/js`, `/img`, and `/icons` are still not mass-moved; they require deeper reference and Service Worker analysis.
+
+## 2026-09-09 — Icon asset grouping
+
+**Decision:** Physically move the complete root `/icons` asset set into `/src/assets/icons/` and preserve public `/icons/*` URLs through an internal Vercel rewrite. Remove root-level duplicate generic `icon-192.png` and `icon-512.png` after updating their only confirmed runtime reference in `js/notify.js`.
+
+**Reason:** The `/icons` directory was fully enumerated before relocation and contained only 12 known PWA/favicon assets. The browser-facing application can continue using stable `/icons/*` URLs while the repository gains the requested asset hierarchy. The generic root icons were duplicate legacy paths; repository search found the only runtime code reference in `js/notify.js`, while manifests already referenced `/icons/icon-192.png` and `/icons/icon-512.png`.
+
+**Impact:** All 12 icon blobs are preserved under `/src/assets/icons/` with unchanged content. `js/notify.js` now uses `/icons/icon-192.png`, which is served by the compatibility rewrite. No `/icons/*` application URL needs to change. The remaining major runtime groups `/css`, `/js`, and `/img` stay staged for deeper migration analysis.
