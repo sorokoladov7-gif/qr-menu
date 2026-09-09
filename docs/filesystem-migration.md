@@ -70,9 +70,15 @@ The root `/css` directory is now physically grouped under `/src/assets/css/`. Th
 
 Public `/css/*` URLs remain stable through a Vercel compatibility rewrite to `/src/assets/css/*`. Existing role-page CSS rewrites continue to resolve through this compatibility layer.
 
+## Duplicate asset tree cleanup
+
+The intermediate root `/assets` tree was audited against `/src/assets` before removal. Its `css`, `icons`, `img`, `js`, and `pwa` subtrees had the same Git tree SHAs as their `/src/assets/*` counterparts, so the root tree contained no independent production assets. It has therefore been removed instead of retained as a duplicate staging copy.
+
+The public `/assets/:path*` URL space is preserved through a Vercel rewrite to `/src/assets/:path*`; the local static server mirrors the same compatibility rule. This also keeps the historical QRChick avatar URL functional without retaining a second physical copy.
+
 ## Compatibility
 
-Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime `/js` directory and migrated static image/icon/stylesheet assets through compatibility rewrites. Root `/icons/*`, `/img/*`, and `/css/*` are public compatibility URLs backed by `/src/assets/icons/*`, `/src/assets/img/*`, and `/src/assets/css/*`.
+Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime `/js` directory and migrated static image/icon/stylesheet assets through compatibility rewrites. Root `/assets/*`, `/icons/*`, `/img/*`, and `/css/*` are public compatibility URLs backed by `/src/assets/*`.
 
 Moved-page relative navigation is also covered at the hosting layer where the original relative URL would otherwise resolve inside the new role directory:
 
@@ -89,9 +95,9 @@ For relocated pages whose original relative links are intentionally role-local (
 
 ## Validation
 
-The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs, the 12 icon blobs, the 4 image blobs, and the 4 stylesheet blobs are likewise moved without content edits. Legacy redirects were added for pages/manifests, and the `/icons/*`, `/img/*`, and `/css/*` public paths are preserved with internal compatibility rewrites. `tests/static-server.cjs` mirrors these routes.
+The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs, the 12 icon blobs, the 4 image blobs, and the 4 stylesheet blobs are likewise moved without content edits. Legacy redirects were added for pages/manifests, and the `/assets/*`, `/icons/*`, `/img/*`, and `/css/*` public paths are preserved with internal compatibility rewrites. `tests/static-server.cjs` mirrors these routes.
 
-Playwright smoke coverage asserts critical legacy redirects and checks the legacy manifest response plus relocated static asset responses. The local static server mirrors the same role-page and asset compatibility behavior.
+Playwright smoke coverage asserts critical legacy redirects and checks the legacy manifest response plus relocated static asset responses, including the compatibility `/assets/img/qrchick-avatar.svg` URL. The local static server mirrors the same role-page and asset compatibility behavior.
 
 ## menu-v2
 
