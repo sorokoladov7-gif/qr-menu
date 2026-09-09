@@ -68,11 +68,11 @@ Browser / PWA
     register.html
 ```
 
-HTML-файлы физически перенесены в `/src/pages`. При этом публичные и исторические URL вроде `/menu.html`, `/manager.html`, `/admin.html` сохраняются через Vercel redirects, а относительные `css/js/img/icons` пути новых страниц разрешаются через compatibility rewrites. Это позволяет менять файловую структуру без изменения внешних deep links и бизнес-логики.
+HTML-файлы физически перенесены в `/src/pages`. Старые production/deep-link URL вроде `/menu.html`, `/manager.html`, `/admin.html`, `/login.html` и `/register.html` сохраняются через Vercel redirects. Относительные asset paths старых HTML не переписывались массово: compatibility rewrites на уровне Vercel направляют `css/js/img/icons` к текущим runtime-ресурсам. Это снижает риск изменения порядка загрузки и browser-global side effects.
 
 ## Почему `menu-v2.html` сохранён
 
-`menu-v2.html` не считается безопасным дублем `menu.html`: по текущему коду это отдельный сценарий/launcher для staff-role маршрутизации. Поэтому файл не удалён и не заменён без доказательства эквивалентности всех query-параметров и deep links.
+`menu-v2.html` не считается безопасным дублем `menu.html`: текущая версия является отдельным launcher/compatibility сценарий для role-oriented staff navigation. Поэтому файл остаётся отдельной страницей.
 
 ## Переменные окружения
 
