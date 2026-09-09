@@ -30,21 +30,49 @@ QR Menu — production SaaS-платформа для ресторанов и к
 
 ```text
 Browser / PWA
-  ├─ static HTML pages
-  ├─ role-specific JS + shared runtime
-  ├─ Vercel /api
-  │   ├─ AI
-  │   ├─ integrations
-  │   ├─ payments
-  │   └─ import/address/cron
-  └─ Supabase
-      ├─ Auth
-      ├─ PostgreSQL
-      ├─ RLS / RPC
-      └─ Edge Functions
+  ├─ /src/pages
+  │   ├─ guest
+  │   ├─ staff
+  │   ├─ manager
+  │   ├─ admin
+  │   └─ auth
+  ├─ /css + /js + /img + /icons   # runtime assets, root paths сохранены для совместимости
+  ├─ /api
+  └─ /lib + /supabase + /docs
 ```
 
-Репозиторий исторически развивался как плоский static frontend (`/*.html`, `/js`, `/css`) с совместимостными bridge-файлами. Полный физический перенос в `/src` в этой ветке не выполняется без безопасной миграции всех URL, относительных ссылок, Service Worker, PWA и runtime bridge-зависимостей. Решение зафиксировано в `docs/decisions.md`.
+### Структура frontend pages
+
+```text
+/src/pages
+  /guest
+    menu.html
+    menu-v2.html
+    index.html
+  /staff
+    waiter.html
+    cook.html
+    courier.html
+    hall.html
+  /manager
+    manager.html
+    manager-demo.html
+    manager-staff-statistics.html
+  /admin
+    admin.html
+    admin-analytics.html
+    admin-permissions.html
+    venue-analytics.html
+  /auth
+    login.html
+    register.html
+```
+
+HTML-файлы физически перенесены в `/src/pages`. При этом публичные и исторические URL вроде `/menu.html`, `/manager.html`, `/admin.html` сохраняются через Vercel redirects, а относительные `css/js/img/icons` пути новых страниц разрешаются через compatibility rewrites. Это позволяет менять файловую структуру без изменения внешних deep links и бизнес-логики.
+
+## Почему `menu-v2.html` сохранён
+
+`menu-v2.html` не считается безопасным дублем `menu.html`: по текущему коду это отдельный сценарий/launcher для staff-role маршрутизации. Поэтому файл не удалён и не заменён без доказательства эквивалентности всех query-параметров и deep links.
 
 ## Переменные окружения
 
@@ -146,4 +174,5 @@ git grep -nE '(sk-|AIza|service_role|SUPABASE_SERVICE_ROLE_KEY|CLIENT_SECRET|SEC
 
 - `docs/rls-policies.md` — RLS matrix и рекомендации.
 - `docs/decisions.md` — решения по изменениям, отложенным из-за риска регрессии.
+- `docs/decisions-js-migration.md` — ограничения переноса shared JS.
 - `docs/sentry.md` — Sentry.
