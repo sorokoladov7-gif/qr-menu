@@ -53,6 +53,7 @@
     {"source":"/api/cron/integration-sync","destination":"/api/cron"},
     {"source":"/recipe-images/:slug*","destination":"https://theunitools.com/recipes/:slug*"},
     {"source":"/icons/:path*","destination":"/src/assets/icons/:path*"},
+    {"source":"/img/:path*","destination":"/src/assets/img/:path*"},
     {"source":"/src/pages/guest/css/:path*","destination":"/css/:path*"},
     {"source":"/src/pages/guest/js/:path*","destination":"/js/:path*"},
     {"source":"/src/pages/guest/img/:path*","destination":"/img/:path*"},
