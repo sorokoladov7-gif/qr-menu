@@ -9,7 +9,7 @@
     "format:check": "prettier --check .eslintrc.json .prettierrc package.json playwright.config.cjs tests src .github 2>/dev/null || prettier --check .eslintrc.json .prettierrc package.json playwright.config.cjs tests .github",
     "test": "node --test \"tests/api/**/*.test.cjs\"",
     "test:e2e": "playwright test",
-    "build": "vercel build",
+    "build": "node -e \"console.log('No application build required; Vercel serves static files and /api functions directly.')\"",
     "prepare": "husky"
   },
   "dependencies": {
