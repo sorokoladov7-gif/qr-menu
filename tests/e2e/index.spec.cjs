@@ -29,3 +29,17 @@ test('legacy icon URL remains available after icon relocation', async ({ page })
   expect(response.headers()['content-type']).toMatch(/^image\/png/i);
   expect((await response.body()).length).toBeGreaterThan(0);
 });
+
+test('legacy image URL remains available after image relocation', async ({ page }) => {
+  const response = await page.request.get('/img/dashboard.PNG');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^image\/png/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
+test('relocated image is directly reachable at its canonical asset path', async ({ page }) => {
+  const response = await page.request.get('/src/assets/img/dashboard.PNG');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^image\/png/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
