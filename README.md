@@ -36,7 +36,7 @@ Browser / PWA
   │   ├─ manager
   │   ├─ admin
   │   └─ auth
-  ├─ /css + /js + /img + /icons   # runtime assets, root paths сохранены для совместимости
+  ├─ /css + /js + /img + /icons
   ├─ /api
   └─ /lib + /supabase + /docs
 ```
@@ -68,17 +68,13 @@ Browser / PWA
     register.html
 ```
 
-HTML-файлы физически перенесены в `/src/pages`. Старые production/deep-link URL вроде `/menu.html`, `/manager.html`, `/admin.html`, `/login.html` и `/register.html` сохраняются через Vercel redirects. Относительные asset paths исходных страниц не переписывались массово внутри самих HTML: compatibility rewrites на уровне Vercel направляют `css/js/img/icons` к текущим runtime-ресурсам. Это минимизирует риск изменения browser-global load order.
+Все перечисленные role-oriented HTML-файлы физически находятся в `/src/pages`. Старые production/deep-link URL `/menu.html`, `/manager.html`, `/admin.html`, `/login.html`, `/register.html` и остальные перемещённые entrypoints сохраняются через Vercel redirects. Относительные `css/js/img/icons` пути сохраняются через compatibility rewrites, поэтому перенос не требует переписывания всей существующей browser-global инициализации.
 
-### Runtime directories
+`/api`, `/lib`, `/supabase` и `/docs` остаются root-level инфраструктурными границами; `/src/assets` подготовлен для последующей поэтапной миграции frontend-ресурсов.
 
-`/api`, `/lib`, `/supabase` и `/docs` остаются в корне намеренно: Vercel Serverless Functions, серверные библиотеки, Supabase CLI/migrations и документация используют эти пути как текущие runtime/infrastructure boundaries.
+## `menu-v2.html`
 
-`/src/assets` создан как целевая зона для будущего staged migration frontend-ресурсов. Перенос `/css`, `/js`, `/img`, `/icons` в эту область не выполнялся в рамках одного шага, потому что существующий frontend использует root-absolute paths, browser globals и compatibility bridges.
-
-## Почему `menu-v2.html` сохранён
-
-`menu-v2.html` не считается безопасным дублем `menu.html`: текущая версия является отдельным launcher/compatibility сценарием для role-oriented staff navigation. Поэтому файл остаётся отдельной страницей.
+`menu-v2.html` оставлен отдельным файлом: repository evidence не подтверждает его как drop-in replacement для `menu.html`. Объединение страниц без доказательства эквивалентности query-параметров и deep links могло бы изменить рабочие сценарии.
 
 ## Переменные окружения
 
