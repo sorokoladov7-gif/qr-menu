@@ -58,6 +58,19 @@ const rootImgRewrite = /^\/img\/(.+)$/;
 const rootJsRewrite = /^\/js\/(.+)$/;
 const rootAppleTouchIconRewrite = /^\/(apple-touch-icon(?:-(?:courier|manager|waiter))?\.png)$/i;
 const rootFaviconRewrite = '/favicon.svg';
+const rootFlatJsCompatibility = new Map([
+  ['/js/app.js', '/src/assets/js/shared/app.js'],
+  ['/js/config.js', '/src/assets/js/shared/config.js'],
+  ['/js/offline-sync.js', '/src/assets/js/shared/offline-sync.js'],
+  ['/js/design-runtime.js', '/src/assets/js/guest/design-runtime.js'],
+  ['/js/demo-data.js', '/src/assets/js/demo/demo-data.js'],
+  ['/js/demo-manager-create.js', '/src/assets/js/demo/demo-manager-create.js'],
+  ['/js/demo-mode.js', '/src/assets/js/demo/demo-mode.js'],
+  ['/js/demo-staff-v2.js', '/src/assets/js/demo/demo-staff-v2.js'],
+  ['/js/integrations-hub.js', '/src/assets/js/manager/integrations-hub.js'],
+  ['/js/qr-ai-assistant.js', '/src/assets/js/manager/qr-ai-assistant.js'],
+  ['/js/staff-ui-patches.js', '/src/assets/js/staff/staff-ui-patches.js'],
+]);
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'],
   ['/src/pages/guest/register.html', '/src/pages/auth/register.html'],
@@ -107,6 +120,11 @@ function resolveRequestPath(requestPath) {
   const iconMatch = requestPath.match(rootIconRewrite);
   if (iconMatch) {
     return `/src/assets/icons/${iconMatch[1]}`;
+  }
+
+  const flatJsTarget = rootFlatJsCompatibility.get(requestPath);
+  if (flatJsTarget) {
+    return flatJsTarget;
   }
 
   const jsMatch = requestPath.match(rootJsRewrite);
