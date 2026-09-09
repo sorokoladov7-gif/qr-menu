@@ -56,6 +56,7 @@ const rootIconRewrite = /^\/icons\/(.+)$/;
 const rootCssRewrite = /^\/css\/(.+)$/;
 const rootImgRewrite = /^\/img\/(.+)$/;
 const rootJsRewrite = /^\/js\/(.+)$/;
+const rootAppleTouchIconRewrite = /^\/(apple-touch-icon(?:-(?:courier|manager|waiter))?\.png)$/i;
 const rootFaviconRewrite = '/favicon.svg';
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'],
@@ -111,6 +112,11 @@ function resolveRequestPath(requestPath) {
   const jsMatch = requestPath.match(rootJsRewrite);
   if (jsMatch) {
     return `/src/assets/js/${jsMatch[1]}`;
+  }
+
+  const appleTouchIconMatch = requestPath.match(rootAppleTouchIconRewrite);
+  if (appleTouchIconMatch) {
+    return `/src/assets/icons/${appleTouchIconMatch[1]}`;
   }
 
   if (requestPath === rootFaviconRewrite) {
