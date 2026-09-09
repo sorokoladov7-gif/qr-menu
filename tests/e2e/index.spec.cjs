@@ -15,3 +15,17 @@ test('legacy homepage redirects and role links remain reachable', async ({ page 
   await page.locator('a[href="login.html"]').click();
   await expect(page).toHaveURL(/\/src\/pages\/auth\/login\.html(?:$|\?)/);
 });
+
+test('legacy manifest URL redirects to the relocated PWA asset', async ({ page }) => {
+  const response = await page.request.get('/manifest.webmanifest');
+  expect(response.status()).toBe(200);
+  expect(response.url()).toMatch(/\/src\/assets\/pwa\/manifest\.webmanifest$/);
+  expect(response.headers()['content-type']).toMatch(/application\/manifest\+json/i);
+});
+
+test('legacy icon URL remains available after icon relocation', async ({ page }) => {
+  const response = await page.request.get('/icons/icon-192.png');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^image\/png/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
