@@ -19,9 +19,69 @@ const types = {
   '.xml': 'application/xml; charset=utf-8',
 };
 
+const legacyRedirects = new Map([
+  ['/index.html', '/src/pages/guest/index.html'],
+  ['/menu.html', '/src/pages/guest/menu.html'],
+  ['/menu-v2.html', '/src/pages/guest/menu-v2.html'],
+  ['/waiter.html', '/src/pages/staff/waiter.html'],
+  ['/cook.html', '/src/pages/staff/cook.html'],
+  ['/courier.html', '/src/pages/staff/courier.html'],
+  ['/hall.html', '/src/pages/staff/hall.html'],
+  ['/manager.html', '/src/pages/manager/manager.html'],
+  ['/manager-demo.html', '/src/pages/manager/manager-demo.html'],
+  ['/manager-staff-statistics.html', '/src/pages/manager/manager-staff-statistics.html'],
+  ['/admin.html', '/src/pages/admin/admin.html'],
+  ['/admin-analytics.html', '/src/pages/admin/admin-analytics.html'],
+  ['/admin-permissions.html', '/src/pages/admin/admin-permissions.html'],
+  ['/venue-analytics.html', '/src/pages/admin/venue-analytics.html'],
+  ['/login.html', '/src/pages/auth/login.html'],
+  ['/register.html', '/src/pages/auth/register.html'],
+]);
+
+const roleAssetRewrites = /^\/src\/pages\/(guest|staff|manager|admin|auth)\/(css|js|img|icons)\/(.+)$/;
+const rolePageRewrites = new Map([
+  ['/src/pages/guest/cook.html', '/src/pages/staff/cook.html'],
+  ['/src/pages/guest/courier.html', '/src/pages/staff/courier.html'],
+  ['/src/pages/guest/waiter.html', '/src/pages/staff/waiter.html'],
+]);
+
+function resolveRequestPath(requestPath) {
+  if (requestPath === '/') {
+    return '/src/pages/guest/index.html';
+  }
+
+  const legacyTarget = legacyRedirects.get(requestPath);
+  if (legacyTarget) {
+    return legacyTarget;
+  }
+
+  const roleTarget = rolePageRewrites.get(requestPath);
+  if (roleTarget) {
+    return roleTarget;
+  }
+
+  const assetMatch = requestPath.match(roleAssetRewrites);
+  if (assetMatch) {
+    return `/${assetMatch[2]}/${assetMatch[3]}`;
+  }
+
+  return requestPath;
+}
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
-  const relative = decodeURIComponent(url.pathname).replace(/^\/+/, '') || 'index.html';
+  const requestPath = decodeURIComponent(url.pathname);
+
+  const legacyTarget = legacyRedirects.get(requestPath);
+  if (legacyTarget) {
+    const query = url.search || '';
+    res.writeHead(308, { Location: `${legacyTarget}${query}` });
+    res.end();
+    return;
+  }
+
+  const resolvedPath = resolveRequestPath(requestPath);
+  const relative = resolvedPath.replace(/^\/+/, '') || 'index.html';
   const target = path.resolve(root, relative);
 
   if (!target.startsWith(root + path.sep) && target !== root) {
