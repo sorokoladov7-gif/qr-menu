@@ -16,7 +16,7 @@ const types = {
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
   '.txt': 'text/plain; charset=utf-8',
-  '.xml': 'application/xml; charset=utf-8',
+  '.xml': 'application/xml',
 };
 
 const legacyRedirects = new Map([
@@ -53,6 +53,7 @@ const legacyRedirects = new Map([
 const roleAssetRewrites = /^\/src\/pages\/(guest|staff|manager|admin|auth)\/(css|js|img|icons)\/(.+)$/;
 const rootIconRewrite = /^\/icons\/(.+)$/;
 const rootImageRewrite = /^\/img\/(.+)$/;
+const rootCssRewrite = /^\/css\/(.+)$/;
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'],
   ['/src/pages/guest/register.html', '/src/pages/auth/register.html'],
@@ -92,6 +93,11 @@ function resolveRequestPath(requestPath) {
   const imageMatch = requestPath.match(rootImageRewrite);
   if (imageMatch) {
     return `/src/assets/img/${imageMatch[1]}`;
+  }
+
+  const cssMatch = requestPath.match(rootCssRewrite);
+  if (cssMatch) {
+    return `/src/assets/css/${cssMatch[1]}`;
   }
 
   return requestPath;
