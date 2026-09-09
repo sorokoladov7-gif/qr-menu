@@ -29,7 +29,13 @@
     {"source":"/admin-permissions.html","destination":"/src/pages/admin/admin-permissions.html","permanent":true},
     {"source":"/venue-analytics.html","destination":"/src/pages/admin/venue-analytics.html","permanent":true},
     {"source":"/login.html","destination":"/src/pages/auth/login.html","permanent":true},
-    {"source":"/register.html","destination":"/src/pages/auth/register.html","permanent":true}
+    {"source":"/register.html","destination":"/src/pages/auth/register.html","permanent":true},
+    {"source":"/venues.html","destination":"/src/pages/guest/venues.html","permanent":true},
+    {"source":"/integrations.html","destination":"/src/pages/manager/integrations.html","permanent":true},
+    {"source":"/admin_templates.html","destination":"/src/pages/admin/admin_templates.html","permanent":true},
+    {"source":"/staff-history.html","destination":"/src/pages/staff/staff-history.html","permanent":true},
+    {"source":"/staff-table.html","destination":"/src/pages/staff/staff-table.html","permanent":true},
+    {"source":"/staff-guide.html","destination":"/src/pages/manager/staff-guide.html","permanent":true}
   ],
   "rewrites": [
     {"source":"/","destination":"/src/pages/guest/index.html"},
@@ -82,6 +88,7 @@
     {"source":"/src/pages/manager/manager.html","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
     {"source":"/src/pages/admin/admin.html","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
     {"source":"/integrations.html","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
+    {"source":"/src/pages/manager/integrations.html","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
     {"source":"/js/config.js","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
     {"source":"/js/manager-site-import.js","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]},
     {"source":"/js/integrations-hub.js","headers":[{"key":"Cache-Control","value":"no-store, max-age=0"}]}
