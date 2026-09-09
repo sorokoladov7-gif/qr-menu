@@ -3,158 +3,35 @@
   'use strict';
   if (window.__QR_RECEPT_AI_BOOTED__) return;
   window.__QR_RECEPT_AI_BOOTED__ = true;
-
-  var ERROR_TEXT = 'Ошибка системы. Обратитесь к администратору платформы.';
-  var state = function () { return window.__QR_MANAGER_RECIPES_STATE__ || {}; };
-  var root = function () { return document.querySelector('.recipe-tab-container'); };
-
-  function esc(v) {
-    return String(v == null ? '' : v).replace(/[&<>\"']/g, function (c) {
-      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c];
-    });
-  }
-
-  function rpc(name, args) {
-    if (!window.db || !window.db.rpc) return Promise.reject(new Error('DB'));
-    return window.db.rpc(name, args).then(function (r) {
-      if (r.error) throw r.error;
-      return r.data;
-    });
-  }
-
-  function token() {
-    if (!window.db || !window.db.auth) return Promise.reject(new Error('AUTH'));
-    return window.db.auth.getSession().then(function (r) {
-      if (r.error) throw r.error;
-      var t = r.data && r.data.session && r.data.session.access_token;
-      if (!t) throw new Error('AUTH');
-      return t;
-    });
-  }
-
-  function ai(mode, message, context, image) {
-    return token().then(function (t) {
-      return fetch('/api/manager-ai-propose', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + t },
-        body: JSON.stringify({ feature:'recipes', mode:mode, message:message || '', context:context || '', image:image || null })
-      });
-    }).then(function (r) {
-      return r.json().catch(function () { return {}; }).then(function (d) {
-        if (!r.ok || d.ok === false) throw new Error('AI');
-        return d;
-      });
-    });
-  }
-
-  function parseAnswer(d) {
-    if (d && d.analysis && typeof d.analysis === 'object') return d.analysis;
-    if (d && d.result && typeof d.result === 'object') return d.result;
-    if (d && d.answer && typeof d.answer === 'object') return d.answer;
-    var text = String(d && d.answer || '').trim();
-    text = text.replace(/^```json/i, '').replace(/```$/i, '').trim();
-    try { return JSON.parse(text); } catch (e) {}
-    var a = text.indexOf('{'), b = text.lastIndexOf('}');
-    if (a >= 0 && b > a) { try { return JSON.parse(text.slice(a, b + 1)); } catch (e2) {} }
-    return {};
-  }
-
-  function products() { return (state().products || []).filter(function (p) { return p && p.id && p.name; }); }
-  function getProduct(id) { return products().find(function (p) { return String(p.id) === String(id); }) || null; }
-
-  function setStatus(text, isError) {
-    var a = document.getElementById('qrReceptAiStatus'), b = document.getElementById('ocrStatus');
-    if (a) { a.textContent = text || ''; a.style.color = isError ? '#fca5a5' : ''; }
-    if (b) { b.textContent = text || ''; if (isError) b.style.color = '#fca5a5'; }
-  }
-
-  function showError(target) {
-    if (target) target.innerHTML = '<div style="color:#fca5a5">' + ERROR_TEXT + '</div>';
-    setStatus(ERROR_TEXT, true);
-  }
-
-  function searchCatalog(product, target, button) {
-    if (!product || !target || (button && button.disabled)) return;
-    var s = state();
-    if (!s.venueId) { showError(target); return; }
-
-    if (button) {
-      button.disabled = true;
-      button.setAttribute('aria-busy', 'true');
-      button.dataset.qrcBusy = '1';
-      button.textContent = '⏳ Поиск…';
-    }
-    target.innerHTML = '<div class="muted">🔎 QRChick ищет техкарту по названию блюда…</div>';
-    setStatus('QRChick ищет подходящую техкарту…');
-
-    rpc('manager_recipe_catalog_for_venue', { p_venue_id:s.venueId, p_product_names:[product.name], p_limit:40 })
-      .then(function (rows) {
-        rows = Array.isArray(rows) ? rows : [];
-        if (!rows.length) {
-          target.innerHTML = '<div class="muted">Подходящая техкарта не найдена.</div>';
-          setStatus('Подходящая техкарта не найдена.');
-          return;
-        }
-
-        var candidates = rows.slice(0, 30).map(function (x) {
-          return {
-            recipe_id:x.recipe_id || x.id,
-            recipe_name:x.recipe_name || x.name || '',
-            category:x.category || '', cuisine:x.cuisine || '', description:x.description || '',
-            yield_quantity:x.yield_quantity == null ? null : x.yield_quantity,
-            yield_unit:x.yield_unit || '',
-            ingredients:Array.isArray(x.ingredients) ? x.ingredients.slice(0,15).map(function (i) { return {name:i.name || '',quantity:i.quantity == null ? null : i.quantity,unit:i.unit || ''}; }) : [],
-            steps:Array.isArray(x.steps) ? x.steps.slice(0,8) : []
-          };
-        });
-
-        return ai('recipe_match', 'Выбери лучшую техкарту для блюда меню. Учитывай название, синонимы, категорию, кухню, состав, выход и ингредиенты. Не выдумывай данные. Верни только JSON: {"selected_recipe_id":string|null,"confidence":number,"reason":string}. Используй только ID из CANDIDATES.', JSON.stringify({ product:{id:product.id,name:product.name,category:product.category || '',description:product.description || ''}, candidates:candidates }))
-          .then(function (d) {
-            var m=parseAnswer(d), id=m.selected_recipe_id || null, match=candidates.find(function (x) { return String(x.recipe_id) === String(id); }), confidence=Number(m.confidence || 0);
-            if (!match || confidence < 0.55) {
-              target.innerHTML = '<div class="muted">Уверенного совпадения не найдено.</div>';
-              setStatus('Уверенного совпадения не найдено.');
-              return;
-            }
-            target.innerHTML='<div class="qrchick-result" style="padding:10px;border:1px solid rgba(99,102,241,.3);border-radius:10px"><div><b>'+esc(match.recipe_name)+'</b></div><div class="muted" style="font-size:10px;margin-top:3px">Уверенность: '+Math.round(confidence*100)+'%</div>'+(match.description?'<div style="margin-top:6px">'+esc(match.description)+'</div>':'')+'<button type="button" class="btn btn-primary btn-sm" data-qrc-import>➕ Добавить техкарту</button></div>';
-            var importButton=target.querySelector('[data-qrc-import]');
-            if(importButton)importButton.onclick=function(){
-              importButton.disabled=true;importButton.textContent='Сохранение…';
-              rpc('manager_tech_card_import_global_recipe',{p_venue_id:s.venueId,p_product_id:product.id,p_recipe_id:match.recipe_id}).then(function(){
-                setStatus('Техкарта добавлена.');if(state().techLoaded!==undefined)state().techLoaded=false;window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));
-                target.innerHTML='<div class="qrchick-result"><b>✅ Техкарта добавлена</b><div class="muted">'+esc(match.recipe_name)+'</div></div>';
-              }).catch(function(e){console.error('[QRChick][import-tech]',e);showError(target);importButton.disabled=false;importButton.textContent='➕ Добавить техкарту'});
-            };
-          });
+  var ERROR_TEXT='Ошибка системы. Обратитесь к администратору платформы.';
+  var state=function(){return window.__QR_MANAGER_RECIPES_STATE__||{}};
+  var root=function(){return document.querySelector('.recipe-tab-container')};
+  function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]})}
+  function rpc(name,args){if(!window.db||!window.db.rpc)return Promise.reject(new Error('DB'));return window.db.rpc(name,args).then(function(r){if(r.error)throw r.error;return r.data})}
+  function token(){if(!window.db||!window.db.auth)return Promise.reject(new Error('AUTH'));return window.db.auth.getSession().then(function(r){if(r.error)throw r.error;var t=r.data&&r.data.session&&r.data.session.access_token;if(!t)throw new Error('AUTH');return t})}
+  function ai(mode,message,context,image){return token().then(function(t){return fetch('/api/manager-ai-propose',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+t},body:JSON.stringify({feature:'recipes',mode:mode,message:message||'',context:context||'',image:image||null})})}).then(function(r){return r.json().catch(function(){return{}}).then(function(d){if(!r.ok||d.ok===false)throw new Error('AI');return d})})}
+  function parseAnswer(d){if(d&&d.analysis&&typeof d.analysis==='object')return d.analysis;if(d&&d.result&&typeof d.result==='object')return d.result;if(d&&d.answer&&typeof d.answer==='object')return d.answer;var text=String(d&&d.answer||'').trim();text=text.replace(/^```json/i,'').replace(/```$/i,'').trim();try{return JSON.parse(text)}catch(e){}var a=text.indexOf('{'),b=text.lastIndexOf('}');if(a>=0&&b>a){try{return JSON.parse(text.slice(a,b+1))}catch(e2){}}return{}}
+  function products(){return(state().products||[]).filter(function(p){return p&&p.id&&p.name})}
+  function getProduct(id){return products().find(function(p){return String(p.id)===String(id)})||null}
+  function setStatus(text,isError){var a=document.getElementById('qrReceptAiStatus'),b=document.getElementById('ocrStatus');if(a){a.textContent=text||'';a.style.color=isError?'#fca5a5':''}if(b){b.textContent=text||'';if(isError)b.style.color='#fca5a5'}}
+  function showError(target){if(target)target.innerHTML='<div style="color:#fca5a5">'+ERROR_TEXT+'</div>';setStatus(ERROR_TEXT,true)}
+  function searchCatalog(product,target,button){
+    if(!product||!target||(button&&button.disabled))return;
+    var s=state();if(!s.venueId){showError(target);return}
+    if(button){button.disabled=true;button.setAttribute('aria-busy','true');button.dataset.qrcBusy='1';button.textContent='⏳ Поиск…'}
+    target.innerHTML='<div class="muted">🔎 QRChick ищет техкарту по названию блюда…</div>';setStatus('QRChick ищет подходящую техкарту…');
+    rpc('manager_recipe_catalog_for_venue',{p_venue_id:s.venueId,p_product_names:[product.name],p_limit:40}).then(function(rows){
+      rows=Array.isArray(rows)?rows:[];if(!rows.length){target.innerHTML='<div class="muted">Подходящая техкарта не найдена.</div>';setStatus('Подходящая техкарта не найдена.');return}
+      var candidates=rows.slice(0,30).map(function(x){return{recipe_id:x.recipe_id||x.id,recipe_name:x.recipe_name||x.name||'',category:x.category||'',cuisine:x.cuisine||'',description:x.description||'',yield_quantity:x.yield_quantity==null?null:x.yield_quantity,yield_unit:x.yield_unit||'',ingredients:Array.isArray(x.ingredients)?x.ingredients.slice(0,15).map(function(i){return{name:i.name||'',quantity:i.quantity==null?null:i.quantity,unit:i.unit||''}}):[],steps:Array.isArray(x.steps)?x.steps.slice(0,8):[]}});
+      return ai('recipe_match','Выбери лучшую техкарту для блюда меню. Учитывай название, синонимы, категорию, кухню, состав, выход и ингредиенты. Не выдумывай данные. Верни только JSON: {"selected_recipe_id":string|null,"confidence":number,"reason":string}. Используй только ID из CANDIDATES.',JSON.stringify({product:{id:product.id,name:product.name,category:product.category||'',description:product.description||''},candidates:candidates})).then(function(d){
+        var m=parseAnswer(d),id=m.selected_recipe_id||null,match=candidates.find(function(x){return String(x.recipe_id)===String(id)}),confidence=Number(m.confidence||0);if(!match||confidence<.55){target.innerHTML='<div class="muted">Уверенного совпадения не найдено.</div>';setStatus('Уверенного совпадения не найдено.');return}
+        target.innerHTML='<div class="qrchick-result" style="padding:10px;border:1px solid rgba(99,102,241,.3);border-radius:10px"><div><b>'+esc(match.recipe_name)+'</b></div><div class="muted" style="font-size:10px;margin-top:3px">Уверенность: '+Math.round(confidence*100)+'%</div>'+(match.description?'<div style="margin-top:6px">'+esc(match.description)+'</div>':'')+'<button type="button" class="btn btn-primary btn-sm" data-qrc-import>➕ Добавить техкарту</button></div>';
+        var importButton=target.querySelector('[data-qrc-import]');if(importButton)importButton.onclick=function(){importButton.disabled=true;importButton.textContent='Сохранение…';rpc('manager_tech_card_import_global_recipe',{p_venue_id:s.venueId,p_product_id:product.id,p_recipe_id:match.recipe_id}).then(function(){setStatus('Техкарта добавлена.');if(state().techLoaded!==undefined)state().techLoaded=false;window.dispatchEvent(new CustomEvent('qr-recipes-data-changed'));target.innerHTML='<div class="qrchick-result"><b>✅ Техкарта добавлена</b><div class="muted">'+esc(match.recipe_name)+'</div></div>'}).catch(function(e){console.error('[QRChick][import-tech]',e);showError(target);importButton.disabled=false;importButton.textContent='➕ Добавить техкарту'})}
       })
-      .catch(function (e) { console.error('[QRChick][tech-search]', e); showError(target); })
-      .finally(function () {
-        if (button) {
-          button.disabled=false;
-          button.removeAttribute('aria-busy');
-          delete button.dataset.qrcBusy;
-          button.textContent='🔎 Искать техкарту';
-        }
-      });
+    }).catch(function(e){console.error('[QRChick][tech-search]',e);showError(target)}).finally(function(){if(button){button.disabled=false;button.removeAttribute('aria-busy');delete button.dataset.qrcBusy;button.textContent='🔎 Искать техкарту'}})
   }
-
-  function mountTechSearch() {
-    var r=root(); if(!r)return;
-    var section=r.querySelector('[data-section="catalog"]'); if(!section)return;
-    var host=section.querySelector('[data-qrc-tech-search-host]');
-    if(!host){
-      host=document.createElement('div');host.setAttribute('data-qrc-tech-search-host','1');host.className='qrchick-panel';
-      host.style.cssText='margin:0 0 14px;padding:13px;border:1px solid rgba(99,102,241,.3);border-radius:14px;background:rgba(99,102,241,.08)';
-      host.innerHTML='<div style="display:flex;gap:10px;align-items:center"><img src="/assets/img/qrchick-avatar.svg" alt="QRChick" style="width:46px;height:46px;border-radius:50%"><div><b>QRChick</b><div class="muted" style="font-size:11px">Интеллектуальный поиск техкарты</div></div></div><div data-qrc-tech-list style="margin-top:10px"></div>';
-      section.insertBefore(host,section.firstChild);
-    }
-    var list=host.querySelector('[data-qrc-tech-list]');if(!list)return;
-    var signature=products().map(function(p){return p.id}).join('|');if(host.getAttribute('data-qrc-signature')===signature)return;host.setAttribute('data-qrc-signature',signature);
-    list.innerHTML=products().map(function(p){return '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span>'+esc(p.name)+'</span><button type="button" class="btn btn-ghost btn-sm" data-qrc-tech="'+esc(p.id)+'" aria-label="Искать техкарту для '+esc(p.name)+'">🔎 Искать техкарту</button><div data-qrc-result="'+esc(p.id)+'" style="grid-column:1 / -1;margin-top:6px"></div></div>'}).join('');
-    list.querySelectorAll('[data-qrc-tech]').forEach(function(button){button.onclick=function(){var product=getProduct(button.getAttribute('data-qrc-tech')),result=list.querySelector('[data-qrc-result="'+button.getAttribute('data-qrc-tech')+'"];');searchCatalog(product,result,button)}});
-  }
-
+  function mountTechSearch(){var r=root();if(!r)return;var section=r.querySelector('[data-section="catalog"]');if(!section)return;var host=section.querySelector('[data-qrc-tech-search-host]');if(!host){host=document.createElement('div');host.setAttribute('data-qrc-tech-search-host','1');host.className='qrchick-panel';host.style.cssText='margin:0 0 14px;padding:13px;border:1px solid rgba(99,102,241,.3);border-radius:14px;background:rgba(99,102,241,.08)';host.innerHTML='<div style="display:flex;gap:10px;align-items:center"><img src="/assets/img/qrchick-avatar.svg" alt="QRChick" style="width:46px;height:46px;border-radius:50%"><div><b>QRChick</b><div class="muted" style="font-size:11px">Интеллектуальный поиск техкарты</div></div></div><div data-qrc-tech-list style="margin-top:10px"></div>';section.insertBefore(host,section.firstChild)}var list=host.querySelector('[data-qrc-tech-list]');if(!list)return;var signature=products().map(function(p){return p.id}).join('|');if(host.getAttribute('data-qrc-signature')===signature)return;host.setAttribute('data-qrc-signature',signature);list.innerHTML=products().map(function(p){return '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)"><span>'+esc(p.name)+'</span><button type="button" class="btn btn-ghost btn-sm" data-qrc-tech="'+esc(p.id)+'" aria-label="Искать техкарту для '+esc(p.name)+'">🔎 Искать техкарту</button><div data-qrc-result="'+esc(p.id)+'" style="grid-column:1 / -1;margin-top:6px"></div></div>'}).join('');list.querySelectorAll('[data-qrc-tech]').forEach(function(button){button.onclick=function(){var product=getProduct(button.getAttribute('data-qrc-tech')),result=list.querySelector('[data-qrc-result="'+button.getAttribute('data-qrc-tech')+'"]');searchCatalog(product,result,button)}})}
   function bind(){mountTechSearch()}
   function boot(){bind();window.addEventListener('manager-venue-selected',function(){setTimeout(bind,0)});window.addEventListener('qr-recipes-data-changed',function(){setTimeout(bind,0)});window.addEventListener('qr-recipes-view-updated',function(){setTimeout(bind,0)})}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot()
 })();
