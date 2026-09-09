@@ -3,6 +3,7 @@
   "short_name": "Курьер",
   "start_url": "/courier.html?pwa=courier",
   "id": "/courier.html?pwa=courier",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#f59e0b",
