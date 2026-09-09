@@ -57,6 +57,7 @@
     {"source":"/img/:path*","destination":"/src/assets/img/:path*"},
     {"source":"/css/:path*","destination":"/src/assets/css/:path*"},
     {"source":"/js/:path*","destination":"/src/assets/js/:path*"},
+    {"source":"/favicon.svg","destination":"/src/assets/icons/favicon.svg"},
     {"source":"/src/pages/guest/css/:path*","destination":"/css/:path*"},
     {"source":"/src/pages/guest/js/:path*","destination":"/js/:path*"},
     {"source":"/src/pages/guest/img/:path*","destination":"/img/:path*"},
