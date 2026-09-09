@@ -60,8 +60,16 @@
 
 ## 2026-09-09 — Standalone HTML role grouping
 
-**Decision:** Move the remaining standalone role-facing HTML entrypoints into their role directories: public venue selector → `guest`, staff history/table tools → `staff`, integrations and manager guide → `manager`, and admin template catalog → `admin`.
+**Decision:** Move standalone role-facing HTML entrypoints into their role directories: public venue selector → `guest`, staff history/table tools → `staff`, integrations and manager guide → `manager`, and admin template catalog → `admin`.
 
 **Reason:** These pages have role-specific data access and navigation semantics, while their relative asset paths and page-local links remain valid after co-location. Legacy root URLs are preserved with permanent Vercel redirects; no application logic was rewritten as part of the move.
 
-**Impact:** The role-oriented page tree is now substantially complete. Root-level HTML files are limited to pages that still need separate reference/runtime analysis before relocation.
+**Impact:** The role-oriented page tree is substantially complete for HTML entrypoints. Root-level HTML files are limited to pages that still need separate reference/runtime analysis before relocation.
+
+## 2026-09-09 — PWA manifest grouping
+
+**Decision:** Physically group the six web app manifests under `/src/assets/pwa/` while preserving their existing root URLs through permanent Vercel redirects.
+
+**Reason:** Manifests are static configuration assets rather than executable runtime code. Existing pages already reference them by root-absolute legacy URLs, so redirects preserve browser/PWA behavior without rewriting the application pages.
+
+**Impact:** Manifest contents are unchanged. The remaining runtime asset groups `/css`, `/js`, `/img`, and `/icons` are still not mass-moved; they require deeper reference and Service Worker analysis.
