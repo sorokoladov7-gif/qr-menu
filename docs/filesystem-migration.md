@@ -59,9 +59,20 @@ The root `/img` directory is now physically grouped under `/src/assets/img/` wit
 
 Public `/img/*` URLs remain stable through a Vercel compatibility rewrite to `/src/assets/img/*`. Existing role-page asset rewrites continue to resolve relative `/img/*` requests through this compatibility layer.
 
+## Stylesheet assets
+
+The root `/css` directory is now physically grouped under `/src/assets/css/`. The four existing stylesheet blobs were moved without content edits while preserving their existing internal structure:
+
+- `/css/style.css` → `/src/assets/css/style.css`
+- `/css/shared/common.css` → `/src/assets/css/shared/common.css`
+- `/css/admin/admin.css` → `/src/assets/css/admin/admin.css`
+- `/css/manager/manager.css` → `/src/assets/css/manager/manager.css`
+
+Public `/css/*` URLs remain stable through a Vercel compatibility rewrite to `/src/assets/css/*`. Existing role-page CSS rewrites continue to resolve through this compatibility layer.
+
 ## Compatibility
 
-Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime asset directories (`/css`, `/js`) and the migrated static image/icon assets through compatibility rewrites. Root `/icons/*` and `/img/*` are public compatibility URLs backed by `/src/assets/icons/*` and `/src/assets/img/*`.
+Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime `/js` directory and migrated static image/icon/stylesheet assets through compatibility rewrites. Root `/icons/*`, `/img/*`, and `/css/*` are public compatibility URLs backed by `/src/assets/icons/*`, `/src/assets/img/*`, and `/src/assets/css/*`.
 
 Moved-page relative navigation is also covered at the hosting layer where the original relative URL would otherwise resolve inside the new role directory:
 
@@ -78,7 +89,7 @@ For relocated pages whose original relative links are intentionally role-local (
 
 ## Validation
 
-The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs, the 12 icon blobs, and the 4 image blobs are likewise moved without content edits. Legacy redirects were added for pages/manifests, and the `/icons/*` and `/img/*` public paths are preserved with internal compatibility rewrites. `tests/static-server.cjs` mirrors these routes.
+The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs, the 12 icon blobs, the 4 image blobs, and the 4 stylesheet blobs are likewise moved without content edits. Legacy redirects were added for pages/manifests, and the `/icons/*`, `/img/*`, and `/css/*` public paths are preserved with internal compatibility rewrites. `tests/static-server.cjs` mirrors these routes.
 
 Playwright smoke coverage asserts critical legacy redirects and checks the legacy manifest response plus relocated static asset responses. The local static server mirrors the same role-page and asset compatibility behavior.
 
@@ -88,4 +99,4 @@ Playwright smoke coverage asserts critical legacy redirects and checks the legac
 
 ## Next asset migration
 
-The remaining large runtime groups are `/css` and `/js`. They require role-by-role reference and load-order analysis before physical relocation because CSS and JavaScript are actively coupled to page markup, browser globals, side effects, and runtime initialization.
+The remaining large runtime group is `/js`. JavaScript requires repository-wide dependency and load-order analysis before physical relocation because it contains browser globals, side effects, imports, dynamic script loading, service-worker integration, and API/page coupling.
