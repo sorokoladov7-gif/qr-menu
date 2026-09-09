@@ -1,142 +1,38 @@
 /* QR-Menu — Рецептуры. Единая компактная реализация. */
 (function () {
   'use strict';
-
   if (window.__QR_MANAGER_RECIPES__) return;
   window.__QR_MANAGER_RECIPES__ = true;
 
   var state = {
-    venueId: null,
-    products: [],
-    ingredients: [],
-    recipes: [],
-    selected: null,
-    rows: [],
-    catalog: [],
-    catalogItems: [],
-    globalIngredients: [],
-    techCards: [],
-    ocrParsed: [],
-    baseLoaded: false,
-    baseLoading: false,
-    catalogLoaded: false,
-    catalogLoading: false,
-    globalIngredientsLoaded: false,
-    globalIngredientsLoading: false,
-    techLoaded: false,
-    techLoading: false,
-    generating: false
+    venueId:null, products:[], ingredients:[], recipes:[], selected:null, rows:[], catalog:[], catalogItems:[],
+    globalIngredients:[], techCards:[], ocrParsed:[], baseLoaded:false, baseLoading:false,
+    catalogLoaded:false, catalogLoading:false, globalIngredientsLoaded:false, globalIngredientsLoading:false,
+    techLoaded:false, techLoading:false, generating:false
   };
   window.__QR_MANAGER_RECIPES_STATE__ = state;
 
-  function $(id) { return document.getElementById(id); }
+  function $(id){return document.getElementById(id)}
+  function esc(value){return String(value==null?'':value).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]})}
+  function norm(value){return String(value||'').toLowerCase().replace(/ё/g,'е').replace(/[^а-яa-z0-9]+/g,' ').trim()}
+  function tokens(value){return norm(value).split(/\s+/).filter(Boolean)}
+  function similarity(a,b){var aa=norm(a),bb=norm(b);if(!aa||!bb)return 0;if(aa===bb)return 1;if(aa.indexOf(bb)>=0||bb.indexOf(aa)>=0)return .9;var A=tokens(aa),B=tokens(bb),seen={};A.forEach(function(x){seen[x]=true});var common=B.filter(function(x){return seen[x]}).length,union=Array.from(new Set(A.concat(B))).length;return union?common/union:0}
+  function unitLabel(unit){return {g:'г',kg:'кг',ml:'мл',l:'л',pcs:'шт'}[unit]||unit||''}
+  function canonicalUnit(unit){var u=String(unit||'').toLowerCase().replace(/ё/g,'е').trim();if(/^гр?\.?$/.test(u))return'g';if(u==='кг')return'kg';if(u==='мл')return'ml';if(u==='л')return'l';if(u==='шт')return'pcs';return['g','kg','ml','l','pcs'].indexOf(u)>=0?u:null}
+  function convertQuantity(q,from,to){q=Number(q)||0;from=canonicalUnit(from)||from;to=canonicalUnit(to)||to;if(!from||!to||from===to)return q;var mass={g:1,kg:1000},vol={ml:1,l:1000};if(mass[from]&&mass[to])return q*mass[from]/mass[to];if(vol[from]&&vol[to])return q*vol[from]/vol[to];return q}
+  function isUuid(value){return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value||''))}
+  function safeStorageGet(key){try{return window.localStorage.getItem(key)||''}catch(e){return''}}
+  function safeStorageSet(key,value){try{window.localStorage.setItem(key,value)}catch(e){}}
+  function safeSessionGet(key){try{return window.sessionStorage.getItem(key)||''}catch(e){return''}}
+  function safeSessionSet(key,value){try{window.sessionStorage.setItem(key,value)}catch(e){}}
+  function getVenueId(){var v=window.__managerCurrentVenue||window.__managerSelectedVenue||null,id=v&&v.id;if(!isUuid(id))id=safeStorageGet('manager_venue_id')||safeStorageGet('selectedVenueId')||'';return isUuid(id)?String(id):null}
+  function rpc(name,args){if(!window.db)return Promise.reject(new Error('window.db отсутствует'));return window.db.rpc(name,args).then(function(r){if(r.error)throw r.error;return r.data})}
+  function message(text,error){var el=$('msg');if(!el)return;el.innerHTML=text?'<div class="msg '+(error?'error':'ok')+'">'+esc(text)+'</div>':''}
+  function debounce(fn,wait){var timer=null;return function(){var ctx=this,args=arguments;clearTimeout(timer);timer=setTimeout(function(){fn.apply(ctx,args)},wait)}}
 
-  function esc(value) {
-    return String(value == null ? '' : value).replace(/[&<>\"']/g, function (c) {
-      return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c];
-    });
-  }
-
-  function norm(value) {
-    return String(value || '').toLowerCase().replace(/ё/g, 'е').replace(/[^а-яa-z0-9]+/g, ' ').trim();
-  }
-
-  function tokens(value) {
-    return norm(value).split(/\s+/).filter(Boolean);
-  }
-
-  function similarity(a, b) {
-    var aa = norm(a), bb = norm(b);
-    if (!aa || !bb) return 0;
-    if (aa === bb) return 1;
-    if (aa.indexOf(bb) >= 0 || bb.indexOf(aa) >= 0) return 0.9;
-    var A = tokens(aa), B = tokens(bb), seen = {};
-    A.forEach(function (x) { seen[x] = true; });
-    var common = B.filter(function (x) { return seen[x]; }).length;
-    var union = Array.from(new Set(A.concat(B))).length;
-    return union ? common / union : 0;
-  }
-
-  function unitLabel(unit) {
-    return { g:'г', kg:'кг', ml:'мл', l:'л', pcs:'шт' }[unit] || unit || '';
-  }
-
-  function canonicalUnit(unit) {
-    var u = String(unit || '').toLowerCase().replace(/ё/g, 'е').trim();
-    if (/^гр?\.?$/.test(u)) return 'g';
-    if (u === 'кг') return 'kg';
-    if (u === 'мл') return 'ml';
-    if (u === 'л') return 'l';
-    if (u === 'шт') return 'pcs';
-    return ['g','kg','ml','l','pcs'].indexOf(u) >= 0 ? u : null;
-  }
-
-  function convertQuantity(q, from, to) {
-    q = Number(q) || 0;
-    from = canonicalUnit(from) || from;
-    to = canonicalUnit(to) || to;
-    if (!from || !to || from === to) return q;
-    var mass = { g:1, kg:1000 }, vol = { ml:1, l:1000 };
-    if (mass[from] && mass[to]) return q * mass[from] / mass[to];
-    if (vol[from] && vol[to]) return q * vol[from] / vol[to];
-    return q;
-  }
-
-  function getVenueId() {
-    var v = window.__managerCurrentVenue || window.__managerSelectedVenue || null;
-    var id = v && v.id;
-    if (!isUuid(id)) id = safeStorageGet('manager_venue_id') || safeStorageGet('selectedVenueId') || '';
-    return isUuid(id) ? String(id) : null;
-  }
-
-  function isUuid(value) {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ''));
-  }
-
-  function safeStorageGet(key) {
-    try { return window.localStorage.getItem(key) || ''; } catch (e) { return ''; }
-  }
-
-  function safeStorageSet(key, value) {
-    try { window.localStorage.setItem(key, value); } catch (e) {}
-  }
-
-  function safeSessionGet(key) {
-    try { return window.sessionStorage.getItem(key) || ''; } catch (e) { return ''; }
-  }
-
-  function safeSessionSet(key, value) {
-    try { window.sessionStorage.setItem(key, value); } catch (e) {}
-  }
-
-  function rpc(name, args) {
-    if (!window.db) return Promise.reject(new Error('window.db отсутствует'));
-    return window.db.rpc(name, args).then(function (r) {
-      if (r.error) throw r.error;
-      return r.data;
-    });
-  }
-
-  function message(text, error) {
-    var el = $('msg');
-    if (!el) return;
-    el.innerHTML = text ? '<div class="msg ' + (error ? 'error' : 'ok') + '">' + esc(text) + '</div>' : '';
-  }
-
-  function debounce(fn, wait) {
-    var timer = null;
-    return function () {
-      var ctx = this, args = arguments;
-      clearTimeout(timer);
-      timer = setTimeout(function () { fn.apply(ctx, args); }, wait);
-    };
-  }
-
-  function compactLayout() {
-    if ($('qrRecipesCompactStyle')) return;
-    var style = document.createElement('style');
-    style.id = 'qrRecipesCompactStyle';
-    style.textContent = [
+  function compactLayout(){
+    if($('qrRecipesCompactStyle'))return;
+    var style=document.createElement('style');style.id='qrRecipesCompactStyle';style.textContent=[
       '.recipe-tab-container{height:calc(100vh - 150px);max-height:calc(100vh - 150px);overflow:auto!important;overscroll-behavior:contain}',
       '.recipe-tab-container .recipe-wrap{min-height:0!important;height:auto!important}',
       '.recipe-tab-container .recipe-grid{align-items:start}',
@@ -144,8 +40,7 @@
       '.recipe-tab-container .list{max-height:calc(100vh - 310px);overflow:auto}',
       '.recipe-tab-container #ingredients{max-height:360px;overflow:auto}',
       '.recipe-row{display:grid;grid-template-columns:minmax(180px,1fr) 100px 45px minmax(150px,1fr) auto;gap:8px;align-items:center}',
-      '.recipe-tab-container img{max-width:100%;height:auto}',
-      '.modalx{overscroll-behavior:contain}',
+      '.recipe-tab-container img{max-width:100%;height:auto}','.modalx{overscroll-behavior:contain}',
       '.qr-recipe-subnav{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px;padding:7px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.025);position:sticky;top:0;z-index:20;backdrop-filter:blur(14px)}',
       '.qr-recipe-subnav button{appearance:none;border:1px solid transparent;background:transparent;color:#94a3b8;border-radius:10px;padding:9px 13px;font:600 12px inherit;cursor:pointer;transition:.2s}',
       '.qr-recipe-subnav button:hover{color:#fff;background:rgba(255,255,255,.05)}',
@@ -156,627 +51,87 @@
       '.qr-recipe-section-grid{display:grid;grid-template-columns:minmax(240px,.8fr) minmax(420px,1.45fr);gap:14px;align-items:start}',
       '.qr-recipe-section-card{margin:0!important}',
       '.qr-recipe-toolbar{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}',
-      '.qr-recipe-toolbar .qr-recipe-count{font-size:11px;color:#94a3b8}',
-      '.qr-inline-detail{margin-top:14px}',
+      '.qr-recipe-toolbar .qr-recipe-count{font-size:11px;color:#94a3b8}','.qr-inline-detail{margin-top:14px}',
       '.qr-inline-detail-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}',
       '.qr-tech-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}',
       '.qr-global-ing-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px;max-height:420px;overflow:auto}',
-      '.qr-recipe-section .tech-card{height:100%}',
-      '@media(max-width:900px){.qr-recipe-section-grid{grid-template-columns:1fr}}',
+      '.qr-recipe-section .tech-card{height:100%}','@media(max-width:900px){.qr-recipe-section-grid{grid-template-columns:1fr}}',
       '@media(max-width:800px){.recipe-tab-container{height:auto;max-height:none}.recipe-row{grid-template-columns:1fr 90px 40px 1fr auto}.qr-recipe-subnav{position:static}.qr-recipe-subnav button{flex:1 1 calc(50% - 8px)}}'
-    ].join('');
-    document.head.appendChild(style);
+    ].join('');document.head.appendChild(style)
   }
 
-  function loadData() {
-    state.venueId = getVenueId();
-    if (!state.venueId) {
-      state.baseLoaded = false;
-      message('Выберите реальное заведение в кабинете управляющего. Демо-идентификатор не используется.', true);
-      return Promise.resolve();
-    }
-    if (state.baseLoading) return state.baseLoading;
+  function loadData(){
+    state.venueId=getVenueId();
+    if(!state.venueId){state.baseLoaded=false;message('Выберите реальное заведение в кабинете управляющего. Демо-идентификатор не используется.',true);return Promise.resolve()}
+    if(state.baseLoading)return state.baseLoading;
+    state.baseLoading=Promise.all([dbQuery('products','id,name,description,category,price'),rpc('manager_ingredient_list',{p_venue_id:state.venueId})]).then(function(r){
+      state.products=r[0]||[];state.ingredients=Array.isArray(r[1])?r[1]:[];state.baseLoaded=true;renderProducts();renderIngredients();renderRecipe();bindButtons();mountInternalSections();ensureCurrentSectionLoaded();return r
+    }).catch(function(e){state.baseLoaded=false;console.error('[Recipes] base load:',e);message('Ошибка загрузки блюд и ингредиентов: '+(e.message||e),true)}).finally(function(){state.baseLoading=false});
+    return state.baseLoading
+  }
+  function dbQuery(table,columns,global,order){var q=window.db.from(table).select(columns);if(!global)q=q.eq('venue_id',state.venueId);if(order)q=q.order(order,{ascending:false});else q=q.order('name',{ascending:true});return q.then(function(r){if(r.error)throw r.error;return r.data||[]})}
+  function loadCatalogItems(){if(!state.catalog.length){state.catalogItems=[];return Promise.resolve()}return window.db.from('global_recipe_catalog_items').select('recipe_id,sort_order,quantity,unit,note,ingredient:global_ingredient_catalog(id,name,unit)').then(function(r){if(r.error)throw r.error;state.catalogItems=r.data||[]})}
+  function ensureCatalogLoaded(){if(state.catalogLoaded)return Promise.resolve();if(state.catalogLoading)return state.catalogLoading;state.catalogLoading=dbQuery('global_recipe_catalog','id,name,category,description,yield_quantity,yield_unit,cuisine,difficulty,base_servings,prep_minutes,cook_minutes,nutrition_per_serving,steps,source,source_license,source_attribution,photo',true).then(function(data){state.catalog=data||[];return loadCatalogItems()}).then(function(){state.catalogLoaded=true;renderCatalog()}).catch(function(e){console.error('[Recipes] catalog load:',e);message('Ошибка загрузки базы блюд: '+(e.message||e),true)}).finally(function(){state.catalogLoading=false});renderCatalogLoading();return state.catalogLoading}
+  function ensureGlobalIngredientsLoaded(){if(state.globalIngredientsLoaded)return Promise.resolve();if(state.globalIngredientsLoading)return state.globalIngredientsLoading;state.globalIngredientsLoading=dbQuery('global_ingredient_catalog','id,name,unit,category,aliases',true).then(function(data){state.globalIngredients=data||[];state.globalIngredientsLoaded=true;renderGlobalIngredients()}).catch(function(e){console.error('[Recipes] global ingredients load:',e);message('Ошибка загрузки общей базы ингредиентов: '+(e.message||e),true)}).finally(function(){state.globalIngredientsLoading=false});renderGlobalIngredientsLoading();return state.globalIngredientsLoading}
+  function ensureTechCardsLoaded(){if(state.techLoaded)return Promise.resolve();if(state.techLoading)return state.techLoading;state.techLoading=dbQuery('manager_tech_cards','id,product_id,file_name,file_path,file_url,ocr_text,status,created_at',false,'created_at').then(function(data){state.techCards=data||[];state.techLoaded=true;renderTechCards()}).catch(function(e){console.error('[Recipes] tech cards load:',e);message('Ошибка загрузки техкарт: '+(e.message||e),true)}).finally(function(){state.techLoading=false});renderTechLoading();return state.techLoading}
 
-    state.baseLoading = Promise.all([
-      dbQuery('products', 'id,name,description,category,price'),
-      rpc('manager_ingredient_list', { p_venue_id: state.venueId })
-    ]).then(function (r) {
-      state.products = r[0] || [];
-      state.ingredients = Array.isArray(r[1]) ? r[1] : [];
-      state.baseLoaded = true;
-      renderProducts();
-      renderIngredients();
-      renderRecipe();
-      bindButtons();
-      mountInternalSections();
-      ensureCurrentSectionLoaded();
-      return r;
-    }).catch(function (e) {
-      state.baseLoaded = false;
-      console.error('[Recipes] base load:', e);
-      message('Ошибка загрузки блюд и ингредиентов: ' + (e.message || e), true);
-    }).finally(function () {
-      state.baseLoading = false;
-    });
+  function renderProducts(){var box=$('products');if(!box)return;var q=norm($('productSearch')?$('productSearch').value:'');var list=state.products.filter(function(p){return !q||norm(p.name).indexOf(q)>=0});if($('productCount'))$('productCount').textContent=state.products.length;box.innerHTML=list.length?list.map(function(p){return '<button type="button" class="btn '+(state.selected===p.id?'product-active':'btn-ghost')+'" data-product="'+esc(p.id)+'" aria-pressed="'+(state.selected===p.id?'true':'false')+'">'+esc(p.name)+(p.category?' <span class="muted">· '+esc(p.category)+'</span>':'')+'</button>'}).join(''):'<p class="muted">Нет товаров.</p>';Array.prototype.forEach.call(box.querySelectorAll('[data-product]'),function(b){b.onclick=function(){selectProduct(b.dataset.product)}})}
+  function updateProductSelection(){var box=$('products');if(!box)return;Array.prototype.forEach.call(box.querySelectorAll('[data-product]'),function(b){var on=String(b.dataset.product)===String(state.selected);b.classList.toggle('product-active',on);b.classList.toggle('btn-ghost',!on);b.setAttribute('aria-pressed',on?'true':'false')})}
+  function renderIngredients(){var box=$('ingredients');if(!box)return;box.innerHTML=state.ingredients.length?state.ingredients.map(function(i){return '<div class="ingredient-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div style="flex:1"><b>'+esc(i.name)+'</b><div class="muted" style="font-size:11px">'+esc(unitLabel(i.unit))+' · '+Number(i.purchase_price||0).toFixed(2)+' ₽ / '+esc(i.purchase_quantity||1)+' '+esc(unitLabel(i.unit))+'</div></div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-edit-ing="'+esc(i.id)+'" aria-label="Изменить ингредиент '+esc(i.name)+'">Изменить</button><button type="button" class="btn btn-danger btn-sm" data-delete-ing="'+esc(i.id)+'" aria-label="Удалить ингредиент '+esc(i.name)+'">Удалить</button></div></div>'}).join(''):'<span class="muted">Пока нет ингредиентов.</span>';Array.prototype.forEach.call(box.querySelectorAll('[data-edit-ing]'),function(b){b.onclick=function(){editIngredient(b.dataset.editIng)}});Array.prototype.forEach.call(box.querySelectorAll('[data-delete-ing]'),function(b){b.onclick=function(){deleteIngredient(b.dataset.deleteIng)}})}
+  function selectProduct(id){state.selected=id;var p=state.products.find(function(x){return x.id===id});if(!p)return;if($('title'))$('title').textContent='Рецептура: '+p.name;if($('save'))$('save').hidden=false;updateProductSelection();rpc('manager_recipe_list',{p_venue_id:state.venueId,p_product_id:id}).then(function(data){state.rows=(Array.isArray(data)?data:[]).map(function(r){return{ingredient_id:r.ingredient_id,quantity:Number(r.quantity)||0,note:r.note||''}});renderRecipe();return loadCost()}).catch(function(e){message('Ошибка загрузки рецептуры: '+(e.message||e),true)})}
+  function renderRecipe(){var box=$('recipe');if(!box)return;if(!state.selected){box.innerHTML='<p class="muted">Выберите товар.</p>';return}box.innerHTML=(state.rows.length?state.rows.map(function(row,i){var ing=state.ingredients.find(function(x){return x.id===row.ingredient_id});return '<div class="recipe-row"><select data-ri="'+i+'">'+state.ingredients.map(function(x){return '<option value="'+esc(x.id)+'" '+(x.id===row.ingredient_id?'selected':'')+'>'+esc(x.name)+' ('+esc(unitLabel(x.unit))+')</option>'}).join('')+'</select><input data-rq="'+i+'" type="number" min=".001" step=".001" value="'+esc(row.quantity)+'"><span class="muted">'+esc(unitLabel(ing?ing.unit:'g'))+'</span><input data-rn="'+i+'" placeholder="Примечание" value="'+esc(row.note)+'"><button type="button" class="btn btn-danger" data-rd="'+i+'" aria-label="Удалить ингредиент из рецептуры">×</button></div>'}).join(''):'<div class="muted" style="padding:12px 0">Рецептура пустая.</div>')+'<button type="button" class="btn btn-ghost" id="addRow">+ Ингредиент</button>';Array.prototype.forEach.call(box.querySelectorAll('[data-ri]'),function(e){e.onchange=function(){state.rows[+e.dataset.ri].ingredient_id=e.value;renderRecipe()}});Array.prototype.forEach.call(box.querySelectorAll('[data-rq]'),function(e){e.oninput=function(){state.rows[+e.dataset.rq].quantity=Number(e.value)||0}});Array.prototype.forEach.call(box.querySelectorAll('[data-rn]'),function(e){e.oninput=function(){state.rows[+e.dataset.rn].note=e.value}});Array.prototype.forEach.call(box.querySelectorAll('[data-rd]'),function(e){e.onclick=function(){state.rows.splice(+e.dataset.rd,1);renderRecipe()}});if($('addRow'))$('addRow').onclick=addRecipeRow}
+  function addRecipeRow(){if(!state.ingredients.length){message('Сначала добавьте ингредиент.',true);return}state.rows.push({ingredient_id:state.ingredients[0].id,quantity:1,note:''});renderRecipe()}
+  function saveRecipe(){if(!state.selected)return;if(state.rows.some(function(r){return !(r.quantity>0)})){message('Количество каждого ингредиента должно быть больше нуля.',true);return}rpc('manager_product_recipe_save',{p_venue_id:state.venueId,p_product_id:state.selected,p_rows:state.rows}).then(function(){message('Рецептура сохранена.');return loadCost()}).catch(function(e){message('Ошибка сохранения: '+(e.message||e),true)})}
+  function loadCost(){if(!state.selected)return Promise.resolve();return rpc('manager_recipe_cost',{p_venue_id:state.venueId,p_product_id:state.selected}).then(function(c){c=c||{};if($('cost'))$('cost').innerHTML='<div class="cost-grid"><div class="cost-card"><div class="n">'+Number(c.cost||0).toFixed(2)+' ₽</div><div class="l">Себестоимость</div></div><div class="cost-card"><div class="n">'+Number(c.price||0).toFixed(2)+' ₽</div><div class="l">Цена продажи</div></div><div class="cost-card"><div class="n">'+Number(c.gross_profit||0).toFixed(2)+' ₽</div><div class="l">Валовая прибыль</div></div><div class="cost-card"><div class="n">'+Number(c.margin_percent||0).toFixed(1)+'%</div><div class="l">Маржа</div></div></div>'})}
+  function reloadIngredients(){return rpc('manager_ingredient_list',{p_venue_id:state.venueId}).then(function(d){state.ingredients=Array.isArray(d)?d:[];renderIngredients();renderRecipe();return loadCost()})}
+  function addIngredient(){var name=$('iname')?$('iname').value.trim():'',qty=Number($('iqty')?$('iqty').value:0),price=Number($('iprice')?$('iprice').value:0);if(!name){message('Введите название ингредиента.',true);return}if(!(qty>0)){message('Закупочное количество должно быть больше нуля.',true);return}if(!Number.isFinite(price)||price<0){message('Некорректная закупочная цена.',true);return}rpc('manager_ingredient_upsert',{p_venue_id:state.venueId,p_name:name,p_unit:$('iunit').value,p_purchase_quantity:qty,p_purchase_price:price,p_id:null}).then(function(){message('Ингредиент добавлен.');$('iname').value='';$('iqty').value='1';$('iprice').value='0';return reloadIngredients()}).catch(function(e){message('Ошибка: '+(e.message||e),true)})}
+  function editIngredient(id){var item=state.ingredients.find(function(x){return x.id===id});if(!item)return;var name=window.prompt('Название ингредиента:',item.name);if(name===null)return;name=name.trim();if(!name)return;var price=Number(window.prompt('Закупочная цена:',item.purchase_price||0));if(!Number.isFinite(price)||price<0)return;rpc('manager_ingredient_upsert',{p_venue_id:state.venueId,p_name:name,p_unit:item.unit,p_purchase_quantity:Number(item.purchase_quantity||1),p_purchase_price:price,p_id:id}).then(function(){message('Ингредиент изменён.');return reloadIngredients()}).catch(function(e){message('Ошибка изменения: '+(e.message||e),true)})}
+  function deleteIngredient(id){var item=state.ingredients.find(function(x){return x.id===id});if(!item||!window.confirm('Удалить ингредиент «'+item.name+'»?'))return;rpc('manager_ingredient_delete',{p_venue_id:state.venueId,p_ingredient_id:id}).then(function(){message('Ингредиент удалён.');return reloadIngredients()}).catch(function(e){message('Не удалось удалить: '+(e.message||e),true)})}
+  function renderTechCards(){var box=$('techList');if(!box)return;box.innerHTML=state.techCards.length?state.techCards.map(function(t){return '<div class="tech-card">'+(t.file_url?'<img src="'+esc(t.file_url)+'" alt="">':'')+'<b>'+esc(t.file_name||'Техкарта')+'</b><div class="muted">'+esc(t.status==='processed'?'Распознано':'Загружено')+'</div><button type="button" class="btn btn-ghost btn-sm" data-tech="'+esc(t.id)+'" aria-label="Открыть техкарту '+esc(t.file_name||'')+'">Открыть</button></div>'}).join(''):'<div class="muted">Техкарт пока нет.</div>';Array.prototype.forEach.call(box.querySelectorAll('[data-tech]'),function(b){b.onclick=function(){var t=state.techCards.find(function(x){return x.id===b.dataset.tech});if(t)showOcr(t.ocr_text||'',t)}})}
+  function renderTechLoading(){var box=$('techList');if(box)box.innerHTML='<div class="muted">Загрузка техкарт…</div>'}
+  function renderCatalogLoading(){var box=$('catalogList');if(box)box.innerHTML='<div class="muted">Загрузка базы блюд…</div>';if($('catalogStats'))$('catalogStats').textContent=''}
+  function renderGlobalIngredientsLoading(){var box=$('ingredientsDbList');if(box)box.innerHTML='<div class="muted">Загрузка общей базы ингредиентов…</div>'}
+  function renderCatalog(){var box=$('catalogList');if(!box)return;var q=norm($('catalogSearch')?$('catalogSearch').value:'');var list=state.catalog.filter(function(c){return !q||norm([c.name,c.description,c.cuisine].join(' ')).indexOf(q)>=0});if($('catalogStats'))$('catalogStats').textContent=state.catalogLoaded?'Показано '+list.length+' из '+state.catalog.length+' рецептур':'';box.innerHTML=list.length?list.map(function(c){return '<div class="catalog-card"><div class="badge2">'+esc(c.category||'Блюдо')+'</div><h4>'+esc(c.name)+'</h4><div class="muted">'+esc(c.description||'')+'</div><button type="button" class="btn btn-primary btn-sm" data-detail="'+esc(c.id)+'">Открыть техкарту</button></div>'}).join(''):(state.catalogLoaded?'<p class="muted">Ничего не найдено.</p>':'<div class="muted">Загрузка базы блюд…</div>');Array.prototype.forEach.call(box.querySelectorAll('[data-detail]'),function(b){b.onclick=function(){openCatalogDetail(b.dataset.detail)}})}
+  function openCatalogDetail(id){var c=state.catalog.find(function(x){return x.id===id});if(!c)return;var items=state.catalogItems.filter(function(x){return x.recipe_id===c.id}).sort(function(a,b){return(a.sort_order||0)-(b.sort_order||0)});var html='<div class="detail-section"><b>Ингредиенты</b><table class="detail-table"><tr><th>Ингредиент</th><th>Количество</th></tr>'+items.map(function(x){return '<tr><td>'+esc(x.ingredient?x.ingredient.name:'Ингредиент')+'</td><td>'+esc(x.quantity)+' '+esc(unitLabel(x.unit||(x.ingredient&&x.ingredient.unit)))+'</td></tr>'}).join('')+'</table></div><div class="detail-section"><h4>Технология приготовления</h4><div style="white-space:pre-line">'+esc(Array.isArray(c.steps)?c.steps.map(function(s){return typeof s==='string'?s:(s.text||'')}).join('\n'):c.description||'—')+'</div></div>';var body=$('qrCatalogDetailBody');if(body){$('qrCatalogDetailTitle').textContent=c.name;$('qrCatalogDetailSub').textContent=[c.category,c.cuisine,c.difficulty].filter(Boolean).join(' · ');body.innerHTML=html;$('qrCatalogDetail').hidden=false;$('qrCatalogDetail').scrollIntoView({behavior:'smooth',block:'nearest'});return}if($('catalogDetailModal')){$('catalogDetailModal').hidden=false;if($('catalogDetailTitle'))$('catalogDetailTitle').textContent=c.name;if($('catalogDetailBody'))$('catalogDetailBody').innerHTML=html}}
+  function renderGlobalIngredients(){var box=$('ingredientsDbList');if(!box)return;var q=norm($('ingredientsSearch')?$('ingredientsSearch').value:'');var list=state.globalIngredients.filter(function(x){return !q||norm(x.name).indexOf(q)>=0});box.innerHTML=list.length?list.map(function(x){return '<div class="ingredient-row" style="padding:9px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px"><b>'+esc(x.name)+'</b><span class="muted"> · '+esc(unitLabel(x.unit))+'</span></div>'}).join(''):(state.globalIngredientsLoaded?'<p class="muted">Ничего не найдено.</p>':'<div class="muted">Загрузка общей базы ингредиентов…</div>')}
+  function showOcr(text,meta){if($('ocrPanel'))$('ocrPanel').hidden=false;if($('ocrText'))$('ocrText').textContent=text||'Текст не распознан';state.ocrParsed=parseOcr(text);if($('ocrStatus'))$('ocrStatus').textContent='Распознано. Найдено строк: '+state.ocrParsed.length;if($('ocrProduct'))$('ocrProduct').innerHTML=state.products.map(function(p){return '<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>'}).join('');window.__ocrMeta=meta||{};window.__ocrMeta.ocrText=text||''}
+  function parseOcr(text){var out=[];String(text||'').split(/\n+/).forEach(function(line){var raw=String(line||'').trim();if(!raw)return;var m=raw.match(/^(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?\s*(.+)$/i),tail=raw.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?\s*$/i),name='',quantity=0,unit='g';if(m){quantity=Number(String(m[1]).replace(',','.'));unit=canonicalUnit(m[2])||'g';name=m[3].replace(/^[,;:–—-]+\s*/,'').trim()}else if(tail){name=tail[1].replace(/[,;:–—-]+\s*$/,'').trim();quantity=Number(String(tail[2]).replace(',','.'));unit=canonicalUnit(tail[3])||'g'}if(!name||!(quantity>0))return;out.push({name:name,quantity:quantity,unit:unit,note:'OCR'})});return out}
+  function processFiles(files){if(!window.Tesseract){message('OCR-библиотека не загрузилась.',true);return}Array.prototype.slice.call(files||[]).reduce(function(p,file){return p.then(function(){return Tesseract.recognize(file,'rus+eng').then(function(r){showOcr(r.data&&r.data.text||'',{file:file,name:file.name})})})},Promise.resolve()).then(function(){message('Техкарта обработана. Проверьте результат.')}).catch(function(e){message('Ошибка OCR: '+(e.message||e),true)})}
 
-    return state.baseLoading;
+  function setSection(name){var root=document.querySelector('.recipe-tab-container[data-qr-sections="1"]');if(!root)return;root.querySelectorAll('.qr-recipe-subnav button').forEach(function(b){b.classList.toggle('on',b.dataset.section===name)});root.querySelectorAll('.qr-recipe-section').forEach(function(s){s.classList.toggle('on',s.dataset.section===name)});safeSessionSet('qr_recipe_section',name);if(name==='catalog')ensureCatalogLoaded();else if(name==='ingredients')ensureGlobalIngredientsLoaded();else if(name==='tech')ensureTechCardsLoaded()}
+  function ensureCurrentSectionLoaded(){var saved=safeSessionGet('qr_recipe_section');setSection(saved==='tech'||saved==='catalog'||saved==='ingredients'?saved:'recipes')}
+  function buildSection(title,key){var section=document.createElement('section');section.className='qr-recipe-section';section.dataset.section=key;section.innerHTML='<div class="qr-recipe-toolbar"><div><h3 style="margin:0">'+esc(title)+'</h3><div class="qr-recipe-count" data-section-count></div></div></div>';return section}
+
+  function mountInternalSections(){
+    var root=document.querySelector('.recipe-tab-container');
+    if(!root||root.dataset.qrSections==='1'){if(root){renderProducts();renderIngredients();renderRecipe();ensureCurrentSectionLoaded()}return}
+    var wrap=root.querySelector('.recipe-wrap'),head=wrap&&wrap.querySelector('.recipe-head');if(!wrap||!head)return;
+    root.dataset.qrSections='1';
+    var oldActions=head.querySelector('.recipe-actions');if(oldActions)oldActions.style.display='none';
+    var nav=document.createElement('nav');nav.className='qr-recipe-subnav';nav.setAttribute('aria-label','Разделы рецептур');nav.innerHTML='<button type="button" data-section="recipes">🧾 Рецептуры</button><button type="button" data-section="tech">📷 Техкарты по фото</button><button type="button" data-section="catalog">📚 База блюд</button><button type="button" data-section="ingredients">🧂 Ингредиенты</button>';head.insertAdjacentElement('afterend',nav);
+    var host=document.createElement('div');host.className='qr-recipe-sections';nav.insertAdjacentElement('afterend',host);
+    var recipes=buildSection('Рецептуры','recipes'),tech=buildSection('Техкарты по фото','tech'),catalog=buildSection('База блюд','catalog'),ingredients=buildSection('Ингредиенты','ingredients');host.appendChild(recipes);host.appendChild(tech);host.appendChild(catalog);host.appendChild(ingredients);
+    var msg=$('msg'),generation=$('generationSummary'),generationCard=$('generateAllBtn')&&$('generateAllBtn').closest('.card'),recipeGrid=root.querySelector('.recipe-grid');if(generation)recipes.appendChild(generation);if(generationCard)recipes.appendChild(generationCard);
+    if(recipeGrid){var recipeCard=$('recipe')&&$('recipe').closest('.card'),productCard=$('products')&&$('products').closest('.card'),recipeGridNew=document.createElement('div');recipeGridNew.className='qr-recipe-section-grid';if(productCard)recipeGridNew.appendChild(productCard);if(recipeCard){var hr=recipeCard.querySelector('hr'),ingredientNodes=[];if(hr){var n=hr.nextElementSibling;while(n){var next=n.nextElementSibling;ingredientNodes.push(n);n=next}hr.remove()}recipeGridNew.appendChild(recipeCard);var ingredientCard=document.createElement('div');ingredientCard.className='glass card qr-recipe-section-card';ingredientCard.innerHTML='<div class="qr-recipe-toolbar"><div><h3 style="margin:0">Ингредиенты заведения</h3><div class="qr-recipe-count">Ингредиенты конкретного заведения используются в рецептурах и расчёте себестоимости.</div></div><button type="button" class="btn btn-ghost btn-sm" id="refreshIngredients2">🔄 Обновить</button></div>';ingredientNodes.forEach(function(node){ingredientCard.appendChild(node)});ingredients.appendChild(ingredientCard);if(msg)recipeGridNew.insertAdjacentElement('beforebegin',msg);recipes.appendChild(recipeGridNew)}recipeGrid.remove()}
+    var techModal=$('techModal');if(techModal){var techCard=techModal.querySelector('.glass.card'),techInner=document.createElement('div');techInner.className='glass card qr-recipe-section-card';if(techCard)Array.prototype.slice.call(techCard.children).forEach(function(node){techInner.appendChild(node)});var techHeader=document.createElement('div');techHeader.className='qr-recipe-toolbar';techHeader.innerHTML='<div><h3 style="margin:0">Загрузка техкарты по фото</h3><div class="qr-recipe-count">Загрузите фото техкарты — OCR распознает текст и подготовит данные для рецептуры.</div></div><button type="button" class="btn btn-primary" id="qrTechUpload">📷 Загрузить фото</button>';techInner.insertBefore(techHeader,techInner.firstChild);tech.appendChild(techInner);techModal.hidden=true;techModal.style.display='none';var techUpload=$('qrTechUpload');if(techUpload)techUpload.onclick=function(){var f=$('techFiles');if(f)f.click()};var tl=$('techList');if(tl)tl.classList.add('qr-tech-grid')}
+    var catalogModal=$('catalogModal');if(catalogModal){var catalogCard=catalogModal.querySelector('.glass.card'),catalogInner=document.createElement('div');catalogInner.className='glass card qr-recipe-section-card';if(catalogCard)Array.prototype.slice.call(catalogCard.children).forEach(function(node){catalogInner.appendChild(node)});catalog.appendChild(catalogInner);var detail=document.createElement('div');detail.id='qrCatalogDetail';detail.className='glass card qr-recipe-section-card qr-inline-detail';detail.hidden=true;detail.innerHTML='<div class="qr-inline-detail-head"><div><h3 id="qrCatalogDetailTitle" style="margin:0">Техкарта</h3><div id="qrCatalogDetailSub" class="muted" style="font-size:11px;margin-top:3px"></div></div><button type="button" class="btn btn-ghost btn-sm" id="qrCatalogDetailClose">× Закрыть</button></div><div id="qrCatalogDetailBody" style="margin-top:14px"></div>';catalog.appendChild(detail);catalogModal.hidden=true;catalogModal.style.display='none';if($('qrCatalogDetailClose'))$('qrCatalogDetailClose').onclick=function(){$('qrCatalogDetail').hidden=true}}
+    var ingredientsModal=$('ingredientsModal');if(ingredientsModal){var globalCard=ingredientsModal.querySelector('.glass.card'),globalInner=document.createElement('div');globalInner.className='glass card qr-recipe-section-card';if(globalCard)Array.prototype.slice.call(globalCard.children).forEach(function(node){globalInner.appendChild(node)});var title=globalInner.querySelector('h3');if(title)title.textContent='🧂 Общая база ингредиентов';var list=$('ingredientsDbList');if(list)list.classList.add('qr-global-ing-grid');ingredients.appendChild(globalInner);ingredientsModal.hidden=true;ingredientsModal.style.display='none'}
+    nav.querySelectorAll('button').forEach(function(b){b.onclick=function(){setSection(b.dataset.section)}});if($('refreshIngredients2'))$('refreshIngredients2').onclick=function(){reloadIngredients().then(function(){message('Ингредиенты обновлены.')})};renderProducts();renderIngredients();renderRecipe();ensureCurrentSectionLoaded()
   }
 
-  function dbQuery(table, columns, global, order) {
-    var q = window.db.from(table).select(columns);
-    if (!global) q = q.eq('venue_id', state.venueId);
-    if (order) q = q.order(order, { ascending: false });
-    else q = q.order('name', { ascending: true });
-    return q.then(function (r) {
-      if (r.error) throw r.error;
-      return r.data || [];
-    });
+  function ensureLocalIngredient(globalItem){var gi=globalItem&&globalItem.ingredient;if(!gi)return Promise.resolve(null);var ranked=state.ingredients.map(function(x){return{x:x,s:similarity(x.name,gi.name)}}).sort(function(a,b){return b.s-a.s});if(ranked[0]&&ranked[0].s>=.86)return Promise.resolve(ranked[0].x);return rpc('manager_ingredient_upsert',{p_venue_id:state.venueId,p_name:gi.name,p_unit:canonicalUnit(gi.unit||globalItem.unit)||'g',p_purchase_quantity:1,p_purchase_price:0,p_id:null}).then(function(up){var iid=up&&up.id?up.id:(Array.isArray(up)&&up[0]?up[0].id:null);return reloadIngredients().then(function(){if(iid){var found=state.ingredients.find(function(x){return x.id===iid});if(found)return found}var fallback=state.ingredients.map(function(x){return{x:x,s:similarity(x.name,gi.name)}}).sort(function(a,b){return b.s-a.s})[0];return fallback?fallback.x:null})})}
+  function generateAll(){
+    if(state.generating)return Promise.resolve();if(!state.venueId){message('Выберите реальное заведение перед автозаполнением.',true);return Promise.resolve()}
+    state.generating=true;var button=$('generateAllBtn');if(button){button.disabled=true;button.textContent='⏳ Заполнение…'}
+    return ensureCatalogLoaded().then(function(){if(!state.catalog.length)throw new Error('База стандартных техкарт пуста.');var made=0,skipped=0,errors=0;if($('generationSummary'))$('generationSummary').textContent='Сопоставление меню с базой стандартных техкарт…';return state.products.reduce(function(chain,product){return chain.then(function(){var ranked=state.catalog.map(function(c){return{c:c,s:similarity(product.name,c.name)}}).sort(function(a,b){return b.s-a.s}),best=ranked[0];if(!best||best.s<.72){skipped++;return null}return rpc('manager_recipe_list',{p_venue_id:state.venueId,p_product_id:product.id}).then(function(existing){if(Array.isArray(existing)&&existing.length){skipped++;return null}var items=state.catalogItems.filter(function(x){return x.recipe_id===best.c.id}).sort(function(a,b){return(a.sort_order||0)-(b.sort_order||0)});if(!items.length){skipped++;return null}var rows=[];return items.reduce(function(step,item){return step.then(function(){return ensureLocalIngredient(item).then(function(local){if(!local)return;var q=convertQuantity(item.quantity,item.unit||(item.ingredient&&item.ingredient.unit),local.unit);if(q>0)rows.push({ingredient_id:local.id,quantity:q,note:item.note||'Автотехкарта из базы'})})})},Promise.resolve()).then(function(){if(!rows.length){skipped++;return null}return rpc('manager_product_recipe_save',{p_venue_id:state.venueId,p_product_id:product.id,p_rows:rows}).then(function(){made++})})}).catch(function(e){errors++;console.error('[generateAll]',product.name,e)})})},Promise.resolve()).then(function(){return reloadIngredients().catch(function(){}).then(function(){if($('generationSummary'))$('generationSummary').textContent='Готово: создано '+made+'; пропущено '+skipped+'; ошибок '+errors+'. Существующие рецептуры не перезаписывались.';message(made?'Автозаполнение завершено.':'Новых рецептур не создано. Проверьте названия блюд и базу техкарт.',!made)})})}).catch(function(e){if($('generationSummary'))$('generationSummary').textContent='';message('Ошибка автозаполнения: '+(e.message||e),true)}).finally(function(){state.generating=false;var b=$('generateAllBtn');if(b){b.disabled=false;b.textContent='⚡ Автозаполнить рецептуры'}})
   }
 
-  function loadCatalogItems() {
-    if (!state.catalog.length) {
-      state.catalogItems = [];
-      return Promise.resolve();
-    }
-    return window.db.from('global_recipe_catalog_items')
-      .select('recipe_id,sort_order,quantity,unit,note,ingredient:global_ingredient_catalog(id,name,unit)')
-      .then(function (r) {
-        if (r.error) throw r.error;
-        state.catalogItems = r.data || [];
-      });
+  function bindButtons(){
+    if($('productSearch')&&!$('productSearch').__qrDebounced){$('productSearch').__qrDebounced=true;$('productSearch').oninput=debounce(renderProducts,180)}
+    if($('save'))$('save').onclick=saveRecipe;if($('addIng'))$('addIng').onclick=addIngredient;if($('refreshIngredients'))$('refreshIngredients').onclick=function(){reloadIngredients().then(function(){message('Ингредиенты обновлены.')})};if($('catalogBtn'))$('catalogBtn').onclick=function(){setSection('catalog')};if($('catalogSearch')&&!$('catalogSearch').__qrDebounced){$('catalogSearch').__qrDebounced=true;$('catalogSearch').oninput=debounce(renderCatalog,180)}if($('ingredientsDbBtn'))$('ingredientsDbBtn').onclick=function(){setSection('ingredients')};if($('ingredientsSearch')&&!$('ingredientsSearch').__qrDebounced){$('ingredientsSearch').__qrDebounced=true;$('ingredientsSearch').oninput=debounce(renderGlobalIngredients,180)}if($('uploadTechBtn'))$('uploadTechBtn').onclick=function(){setSection('tech');var f=$('techFiles');if(f)f.click()};if($('techFiles'))$('techFiles').onchange=function(){processFiles(this.files);this.value=''};Array.prototype.forEach.call(document.querySelectorAll('[data-close]'),function(b){b.onclick=function(e){e.preventDefault();var m=$(b.dataset.close);if(m)m.hidden=true}});Array.prototype.forEach.call(document.querySelectorAll('.modalx'),function(m){if(m.__qrCloseBound)return;m.__qrCloseBound=true;m.onclick=function(e){if(e.target===m)m.hidden=true}});if($('generateAllBtn'))$('generateAllBtn').onclick=function(){generateAll()};
+    if(!window.__QR_RECIPES_VENUE_HANDLER__){window.__QR_RECIPES_VENUE_HANDLER__=true;window.addEventListener('manager-venue-selected',function(e){if(!e.detail||!e.detail.id)return;state.venueId=e.detail.id;if(!isUuid(state.venueId)){message('Выбрано некорректное заведение. Выберите заведение из базы.',true);return}safeStorageSet('manager_venue_id',String(state.venueId));state.baseLoaded=false;state.catalogLoaded=false;state.globalIngredientsLoaded=false;state.techLoaded=false;state.products=[];state.ingredients=[];state.catalog=[];state.catalogItems=[];state.globalIngredients=[];state.techCards=[];state.selected=null;state.rows=[];loadData()})}
   }
-
-  function ensureCatalogLoaded() {
-    if (state.catalogLoaded) return Promise.resolve();
-    if (state.catalogLoading) return state.catalogLoading;
-    state.catalogLoading = dbQuery('global_recipe_catalog', 'id,name,category,description,yield_quantity,yield_unit,cuisine,difficulty,base_servings,prep_minutes,cook_minutes,nutrition_per_serving,steps,source,source_license,source_attribution,photo', true)
-      .then(function (data) {
-        state.catalog = data || [];
-        return loadCatalogItems();
-      }).then(function () {
-        state.catalogLoaded = true;
-        renderCatalog();
-      }).catch(function (e) {
-        console.error('[Recipes] catalog load:', e);
-        message('Ошибка загрузки базы блюд: ' + (e.message || e), true);
-      }).finally(function () {
-        state.catalogLoading = false;
-      });
-    renderCatalogLoading();
-    return state.catalogLoading;
-  }
-
-  function ensureGlobalIngredientsLoaded() {
-    if (state.globalIngredientsLoaded) return Promise.resolve();
-    if (state.globalIngredientsLoading) return state.globalIngredientsLoading;
-    state.globalIngredientsLoading = dbQuery('global_ingredient_catalog', 'id,name,unit,category,aliases', true)
-      .then(function (data) {
-        state.globalIngredients = data || [];
-        state.globalIngredientsLoaded = true;
-        renderGlobalIngredients();
-      }).catch(function (e) {
-        console.error('[Recipes] global ingredients load:', e);
-        message('Ошибка загрузки общей базы ингредиентов: ' + (e.message || e), true);
-      }).finally(function () {
-        state.globalIngredientsLoading = false;
-      });
-    renderGlobalIngredientsLoading();
-    return state.globalIngredientsLoading;
-  }
-
-  function ensureTechCardsLoaded() {
-    if (state.techLoaded) return Promise.resolve();
-    if (state.techLoading) return state.techLoading;
-    state.techLoading = dbQuery('manager_tech_cards', 'id,product_id,file_name,file_path,file_url,ocr_text,status,created_at', false, 'created_at')
-      .then(function (data) {
-        state.techCards = data || [];
-        state.techLoaded = true;
-        renderTechCards();
-      }).catch(function (e) {
-        console.error('[Recipes] tech cards load:', e);
-        message('Ошибка загрузки техкарт: ' + (e.message || e), true);
-      }).finally(function () {
-        state.techLoading = false;
-      });
-    renderTechLoading();
-    return state.techLoading;
-  }
-
-  function renderProducts() {
-    var box = $('products'); if (!box) return;
-    var q = norm($('productSearch') ? $('productSearch').value : '');
-    var list = state.products.filter(function (p) { return !q || norm(p.name).indexOf(q) >= 0; });
-    if ($('productCount')) $('productCount').textContent = state.products.length;
-    box.innerHTML = list.length ? list.map(function (p) {
-      return '<button type="button" class="btn ' + (state.selected === p.id ? 'product-active' : 'btn-ghost') + '" data-product="' + esc(p.id) + '" aria-pressed="' + (state.selected === p.id ? 'true' : 'false') + '">' + esc(p.name) + (p.category ? ' <span class="muted">· ' + esc(p.category) + '</span>' : '') + '</button>';
-    }).join('') : '<p class="muted">Нет товаров.</p>';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-product]'), function (b) {
-      b.onclick = function () { selectProduct(b.dataset.product); };
-    });
-  }
-
-  function updateProductSelection() {
-    var box = $('products'); if (!box) return;
-    Array.prototype.forEach.call(box.querySelectorAll('[data-product]'), function (b) {
-      var on = String(b.dataset.product) === String(state.selected);
-      b.classList.toggle('product-active', on);
-      b.classList.toggle('btn-ghost', !on);
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    });
-  }
-
-  function renderIngredients() {
-    var box = $('ingredients'); if (!box) return;
-    box.innerHTML = state.ingredients.length ? state.ingredients.map(function (i) {
-      return '<div class="ingredient-row" style="display:flex;align-items:center;justify-content:space-between;gap:10px"><div style="flex:1"><b>' + esc(i.name) + '</b><div class="muted" style="font-size:11px">' + esc(unitLabel(i.unit)) + ' · ' + Number(i.purchase_price || 0).toFixed(2) + ' ₽ / ' + esc(i.purchase_quantity || 1) + ' ' + esc(unitLabel(i.unit)) + '</div></div><div style="display:flex;gap:6px"><button type="button" class="btn btn-ghost btn-sm" data-edit-ing="' + esc(i.id) + '" aria-label="Изменить ингредиент ' + esc(i.name) + '">Изменить</button><button type="button" class="btn btn-danger btn-sm" data-delete-ing="' + esc(i.id) + '" aria-label="Удалить ингредиент ' + esc(i.name) + '">Удалить</button></div></div>';
-    }).join('') : '<span class="muted">Пока нет ингредиентов.</span>';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-edit-ing]'), function (b) { b.onclick = function () { editIngredient(b.dataset.editIng); }; });
-    Array.prototype.forEach.call(box.querySelectorAll('[data-delete-ing]'), function (b) { b.onclick = function () { deleteIngredient(b.dataset.deleteIng); }; });
-  }
-
-  function selectProduct(id) {
-    state.selected = id;
-    var p = state.products.find(function (x) { return x.id === id; }); if (!p) return;
-    if ($('title')) $('title').textContent = 'Рецептура: ' + p.name;
-    if ($('save')) $('save').hidden = false;
-    updateProductSelection();
-    rpc('manager_recipe_list', { p_venue_id: state.venueId, p_product_id: id }).then(function (data) {
-      state.rows = (Array.isArray(data) ? data : []).map(function (r) { return { ingredient_id:r.ingredient_id, quantity:Number(r.quantity) || 0, note:r.note || '' }; });
-      renderRecipe();
-      return loadCost();
-    }).catch(function (e) { message('Ошибка загрузки рецептуры: ' + (e.message || e), true); });
-  }
-
-  function renderRecipe() {
-    var box = $('recipe'); if (!box) return;
-    if (!state.selected) { box.innerHTML = '<p class="muted">Выберите товар.</p>'; return; }
-    box.innerHTML = (state.rows.length ? state.rows.map(function (row, i) {
-      var ing = state.ingredients.find(function (x) { return x.id === row.ingredient_id; });
-      return '<div class="recipe-row"><select data-ri="' + i + '">' + state.ingredients.map(function (x) { return '<option value="' + esc(x.id) + '" ' + (x.id === row.ingredient_id ? 'selected' : '') + '>' + esc(x.name) + ' (' + esc(unitLabel(x.unit)) + ')</option>'; }).join('') + '</select><input data-rq="' + i + '" type="number" min=".001" step=".001" value="' + esc(row.quantity) + '"><span class="muted">' + esc(unitLabel(ing ? ing.unit : 'g')) + '</span><input data-rn="' + i + '" placeholder="Примечание" value="' + esc(row.note) + '"><button type="button" class="btn btn-danger" data-rd="' + i + '" aria-label="Удалить ингредиент из рецептуры">×</button></div>';
-    }).join('') : '<div class="muted" style="padding:12px 0">Рецептура пустая.</div>') + '<button type="button" class="btn btn-ghost" id="addRow">+ Ингредиент</button>';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-ri]'), function (e) { e.onchange = function () { state.rows[+e.dataset.ri].ingredient_id = e.value; renderRecipe(); }; });
-    Array.prototype.forEach.call(box.querySelectorAll('[data-rq]'), function (e) { e.oninput = function () { state.rows[+e.dataset.rq].quantity = Number(e.value) || 0; }; });
-    Array.prototype.forEach.call(box.querySelectorAll('[data-rn]'), function (e) { e.oninput = function () { state.rows[+e.dataset.rn].note = e.value; }; });
-    Array.prototype.forEach.call(box.querySelectorAll('[data-rd]'), function (e) { e.onclick = function () { state.rows.splice(+e.dataset.rd, 1); renderRecipe(); }; });
-    if ($('addRow')) $('addRow').onclick = function () { addRecipeRow(); };
-  }
-
-  function addRecipeRow() {
-    if (!state.ingredients.length) { message('Сначала добавьте ингредиент.', true); return; }
-    state.rows.push({ ingredient_id:state.ingredients[0].id, quantity:1, note:'' });
-    renderRecipe();
-  }
-
-  function saveRecipe() {
-    if (!state.selected) return;
-    if (state.rows.some(function (r) { return !(r.quantity > 0); })) { message('Количество каждого ингредиента должно быть больше нуля.', true); return; }
-    rpc('manager_product_recipe_save', { p_venue_id:state.venueId, p_product_id:state.selected, p_rows:state.rows }).then(function () { message('Рецептура сохранена.'); return loadCost(); }).catch(function (e) { message('Ошибка сохранения: ' + (e.message || e), true); });
-  }
-
-  function loadCost() {
-    if (!state.selected) return Promise.resolve();
-    return rpc('manager_recipe_cost', { p_venue_id:state.venueId, p_product_id:state.selected }).then(function (c) {
-      c = c || {};
-      if ($('cost')) $('cost').innerHTML = '<div class="cost-grid"><div class="cost-card"><div class="n">' + Number(c.cost || 0).toFixed(2) + ' ₽</div><div class="l">Себестоимость</div></div><div class="cost-card"><div class="n">' + Number(c.price || 0).toFixed(2) + ' ₽</div><div class="l">Цена продажи</div></div><div class="cost-card"><div class="n">' + Number(c.gross_profit || 0).toFixed(2) + ' ₽</div><div class="l">Валовая прибыль</div></div><div class="cost-card"><div class="n">' + Number(c.margin_percent || 0).toFixed(1) + '%</div><div class="l">Маржа</div></div></div>';
-    });
-  }
-
-  function reloadIngredients() {
-    return rpc('manager_ingredient_list', { p_venue_id:state.venueId }).then(function (d) {
-      state.ingredients = Array.isArray(d) ? d : [];
-      renderIngredients(); renderRecipe(); return loadCost();
-    });
-  }
-
-  function addIngredient() {
-    var name = $('iname') ? $('iname').value.trim() : '', qty = Number($('iqty') ? $('iqty').value : 0), price = Number($('iprice') ? $('iprice').value : 0);
-    if (!name) { message('Введите название ингредиента.', true); return; }
-    if (!(qty > 0)) { message('Закупочное количество должно быть больше нуля.', true); return; }
-    if (!Number.isFinite(price) || price < 0) { message('Некорректная закупочная цена.', true); return; }
-    rpc('manager_ingredient_upsert', { p_venue_id:state.venueId, p_name:name, p_unit:$('iunit').value, p_purchase_quantity:qty, p_purchase_price:price, p_id:null }).then(function () {
-      message('Ингредиент добавлен.'); $('iname').value=''; $('iqty').value='1'; $('iprice').value='0'; return reloadIngredients();
-    }).catch(function (e) { message('Ошибка: ' + (e.message || e), true); });
-  }
-
-  function editIngredient(id) {
-    var item = state.ingredients.find(function (x) { return x.id === id; }); if (!item) return;
-    var name = window.prompt('Название ингредиента:', item.name); if (name === null) return; name = name.trim(); if (!name) return;
-    var price = Number(window.prompt('Закупочная цена:', item.purchase_price || 0)); if (!Number.isFinite(price) || price < 0) return;
-    rpc('manager_ingredient_upsert', { p_venue_id:state.venueId, p_name:name, p_unit:item.unit, p_purchase_quantity:Number(item.purchase_quantity || 1), p_purchase_price:price, p_id:id }).then(function () { message('Ингредиент изменён.'); return reloadIngredients(); }).catch(function (e) { message('Ошибка изменения: ' + (e.message || e), true); });
-  }
-
-  function deleteIngredient(id) {
-    var item = state.ingredients.find(function (x) { return x.id === id; }); if (!item || !window.confirm('Удалить ингредиент «' + item.name + '»?')) return;
-    rpc('manager_ingredient_delete', { p_venue_id:state.venueId, p_ingredient_id:id }).then(function () { message('Ингредиент удалён.'); return reloadIngredients(); }).catch(function (e) { message('Не удалось удалить: ' + (e.message || e), true); });
-  }
-
-  function renderTechCards() {
-    var box = $('techList'); if (!box) return;
-    box.innerHTML = state.techCards.length ? state.techCards.map(function (t) { return '<div class="tech-card">' + (t.file_url ? '<img src="' + esc(t.file_url) + '" alt="">' : '') + '<b>' + esc(t.file_name || 'Техкарта') + '</b><div class="muted">' + esc(t.status === 'processed' ? 'Распознано' : 'Загружено') + '</div><button type="button" class="btn btn-ghost btn-sm" data-tech="' + esc(t.id) + '" aria-label="Открыть техкарту ' + esc(t.file_name || '') + '">Открыть</button></div>'; }).join('') : '<div class="muted">Техкарт пока нет.</div>';
-    Array.prototype.forEach.call(box.querySelectorAll('[data-tech]'), function (b) { b.onclick = function () { var t = state.techCards.find(function (x) { return x.id === b.dataset.tech; }); if (t) showOcr(t.ocr_text || '', t); }; });
-  }
-
-  function renderTechLoading() {
-    var box = $('techList'); if (box) box.innerHTML = '<div class="muted">Загрузка техкарт…</div>';
-  }
-
-  function renderCatalogLoading() {
-    var box = $('catalogList'); if (box) box.innerHTML = '<div class="muted">Загрузка базы блюд…</div>';
-    if ($('catalogStats')) $('catalogStats').textContent = '';
-  }
-
-  function renderGlobalIngredientsLoading() {
-    var box = $('ingredientsDbList'); if (box) box.innerHTML = '<div class="muted">Загрузка общей базы ингредиентов…</div>';
-  }
-
-  function renderCatalog() {
-    var box = $('catalogList'); if (!box) return;
-    var q = norm($('catalogSearch') ? $('catalogSearch').value : '');
-    var list = state.catalog.filter(function (c) { return !q || norm([c.name,c.description,c.cuisine].join(' ')).indexOf(q) >= 0; });
-    if ($('catalogStats')) $('catalogStats').textContent = state.catalogLoaded ? 'Показано ' + list.length + ' из ' + state.catalog.length + ' рецептур' : '';
-    box.innerHTML = list.length ? list.map(function (c) { return '<div class="catalog-card"><div class="badge2">' + esc(c.category || 'Блюдо') + '</div><h4>' + esc(c.name) + '</h4><div class="muted">' + esc(c.description || '') + '</div><button type="button" class="btn btn-primary btn-sm" data-detail="' + esc(c.id) + '">Открыть техкарту</button></div>'; }).join('') : (state.catalogLoaded ? '<p class="muted">Ничего не найдено.</p>' : '<div class="muted">Загрузка базы блюд…</div>');
-    Array.prototype.forEach.call(box.querySelectorAll('[data-detail]'), function (b) { b.onclick = function () { openCatalogDetail(b.dataset.detail); }; });
-  }
-
-  function openCatalogDetail(id) {
-    var c = state.catalog.find(function (x) { return x.id === id; }); if (!c) return;
-    var items = state.catalogItems.filter(function (x) { return x.recipe_id === c.id; }).sort(function (a,b) { return (a.sort_order || 0) - (b.sort_order || 0); });
-    var body = $('qrCatalogDetailBody');
-    var html = '<div class="detail-section"><b>Ингредиенты</b><table class="detail-table"><tr><th>Ингредиент</th><th>Количество</th></tr>' + items.map(function (x) { return '<tr><td>' + esc(x.ingredient ? x.ingredient.name : 'Ингредиент') + '</td><td>' + esc(x.quantity) + ' ' + esc(unitLabel(x.unit || (x.ingredient && x.ingredient.unit))) + '</td></tr>'; }).join('') + '</table></div><div class="detail-section"><h4>Технология приготовления</h4><div style="white-space:pre-line">' + esc(Array.isArray(c.steps) ? c.steps.map(function (s) { return typeof s === 'string' ? s : (s.text || ''); }).join('\n') : c.description || '—') + '</div></div>';
-    if (body) {
-      $('qrCatalogDetailTitle').textContent = c.name;
-      $('qrCatalogDetailSub').textContent = [c.category, c.cuisine, c.difficulty].filter(Boolean).join(' · ');
-      body.innerHTML = html;
-      $('qrCatalogDetail').hidden = false;
-      $('qrCatalogDetail').scrollIntoView({ behavior:'smooth', block:'nearest' });
-      return;
-    }
-    if ($('catalogDetailModal')) {
-      $('catalogDetailModal').hidden = false;
-      if ($('catalogDetailTitle')) $('catalogDetailTitle').textContent = c.name;
-      if ($('catalogDetailBody')) $('catalogDetailBody').innerHTML = html;
-    }
-  }
-
-  function renderGlobalIngredients() {
-    var box = $('ingredientsDbList'); if (!box) return;
-    var q = norm($('ingredientsSearch') ? $('ingredientsSearch').value : '');
-    var list = state.globalIngredients.filter(function (x) { return !q || norm(x.name).indexOf(q) >= 0; });
-    box.innerHTML = list.length ? list.map(function (x) { return '<div class="ingredient-row" style="padding:9px 10px;border:1px solid rgba(255,255,255,.07);border-radius:10px"><b>' + esc(x.name) + '</b><span class="muted"> · ' + esc(unitLabel(x.unit)) + '</span></div>'; }).join('') : (state.globalIngredientsLoaded ? '<p class="muted">Ничего не найдено.</p>' : '<div class="muted">Загрузка общей базы ингредиентов…</div>');
-  }
-
-  function showOcr(text, meta) {
-    if ($('ocrPanel')) $('ocrPanel').hidden = false;
-    if ($('ocrText')) $('ocrText').textContent = text || 'Текст не распознан';
-    state.ocrParsed = parseOcr(text);
-    if ($('ocrStatus')) $('ocrStatus').textContent = 'Распознано. Найдено строк: ' + state.ocrParsed.length;
-    if ($('ocrProduct')) $('ocrProduct').innerHTML = state.products.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('');
-    window.__ocrMeta = meta || {};
-    window.__ocrMeta.ocrText = text || '';
-  }
-
-  function parseOcr(text) {
-    var out = [];
-    String(text || '').split(/\n+/).forEach(function (line) {
-      var raw = String(line || '').trim();
-      if (!raw) return;
-      var m = raw.match(/^(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?\s*(.+)$/i);
-      var tail = raw.match(/^(.+?)\s+(\d+(?:[.,]\d+)?)\s*(кг|kg|г|гр|g|мл|ml|л|l|шт|pcs)?\s*$/i);
-      var name = '', quantity = 0, unit = 'g';
-      if (m) {
-        quantity = Number(String(m[1]).replace(',', '.'));
-        unit = canonicalUnit(m[2]) || 'g';
-        name = m[3].replace(/^[,;:–—-]+\s*/, '').trim();
-      } else if (tail) {
-        name = tail[1].replace(/[,;:–—-]+\s*$/, '').trim();
-        quantity = Number(String(tail[2]).replace(',', '.'));
-        unit = canonicalUnit(tail[3]) || 'g';
-      }
-      if (!name || !(quantity > 0)) return;
-      out.push({ name:name, quantity:quantity, unit:unit, note:'OCR' });
-    });
-    return out;
-  }
-
-  function processFiles(files) {
-    if (!window.Tesseract) { message('OCR-библиотека не загрузилась.', true); return; }
-    Array.prototype.slice.call(files || []).reduce(function (p, file) {
-      return p.then(function () {
-        return Tesseract.recognize(file, 'rus+eng').then(function (r) {
-          showOcr(r.data && r.data.text || '', { file:file, name:file.name });
-        });
-      });
-    }, Promise.resolve()).then(function () {
-      message('Техкарта обработана. Проверьте результат.');
-    }).catch(function (e) {
-      message('Ошибка OCR: ' + (e.message || e), true);
-    });
-  }
-
-  function setSection(name) {
-    var root = document.querySelector('.recipe-tab-container[data-qr-sections="1"]');
-    if (!root) return;
-    root.querySelectorAll('.qr-recipe-subnav button').forEach(function (b) { b.classList.toggle('on', b.dataset.section === name); });
-    root.querySelectorAll('.qr-recipe-section').forEach(function (s) { s.classList.toggle('on', s.dataset.section === name); });
-    safeSessionSet('qr_recipe_section', name);
-    if (name === 'catalog') ensureCatalogLoaded();
-    else if (name === 'ingredients') ensureGlobalIngredientsLoaded();
-    else if (name === 'tech') ensureTechCardsLoaded();
-  }
-
-  function ensureCurrentSectionLoaded() {
-    var saved = safeSessionGet('qr_recipe_section');
-    setSection(saved === 'tech' || saved === 'catalog' || saved === 'ingredients' ? saved : 'recipes');
-  }
-
-  function buildSection(title, key) {
-    var section = document.createElement('section');
-    section.className = 'qr-recipe-section';
-    section.dataset.section = key;
-    section.innerHTML = '<div class="qr-recipe-toolbar"><div><h3 style="margin:0">' + esc(title) + '</h3><div class="qr-recipe-count" data-section-count></div></div></div>';
-    return section;
-  }
-
-  function mountInternalSections() {
-    var root = document.querySelector('.recipe-tab-container');
-    if (!root || root.dataset.qrSections === '1') {
-      if (root) { renderProducts(); renderIngredients(); renderRecipe(); ensureCurrentSectionLoaded(); }
-      return;
-    }
-    var wrap = root.querySelector('.recipe-wrap');
-    var head = wrap && wrap.querySelector('.recipe-head');
-    if (!wrap || !head) return;
-
-    root.dataset.qrSections = '1';
-
-    var oldActions = head.querySelector('.recipe-actions');
-    if (oldActions) oldActions.style.display = 'none';
-
-    var nav = document.createElement('nav');
-    nav.className = 'qr-recipe-subnav';
-    nav.setAttribute('aria-label', 'Разделы рецептур');
-    nav.innerHTML = '<button type="button" data-section="recipes">🧾 Рецептуры</button><button type="button" data-section="tech">📷 Техкарты по фото</button><button type="button" data-section="catalog">📚 База блюд</button><button type="button" data-section="ingredients">🧂 Ингредиенты</button>';
-    head.insertAdjacentElement('afterend', nav);
-
-    var host = document.createElement('div');
-    host.className = 'qr-recipe-sections';
-    nav.insertAdjacentElement('afterend', host);
-
-    var recipes = buildSection('Рецептуры', 'recipes');
-    var tech = buildSection('Техкарты по фото', 'tech');
-    var catalog = buildSection('База блюд', 'catalog');
-    var ingredients = buildSection('Ингредиенты', 'ingredients');
-    host.appendChild(recipes); host.appendChild(tech); host.appendChild(catalog); host.appendChild(ingredients);
-
-    var msg = $('msg');
-    var generation = $('generationSummary');
-    var generationCard = $('generateAllBtn') && $('generateAllBtn').closest('.card');
-    var recipeGrid = root.querySelector('.recipe-grid');
-    if (generation) recipes.appendChild(generation);
-    if (generationCard) recipes.appendChild(generationCard);
-    if (recipeGrid) {
-      var recipeCard = $('recipe') && $('recipe').closest('.card');
-      var productCard = $('products') && $('products').closest('.card');
-      var recipeGridNew = document.createElement('div');
-      recipeGridNew.className = 'qr-recipe-section-grid';
-      if (productCard) recipeGridNew.appendChild(productCard);
-      if (recipeCard) {
-        var hr = recipeCard.querySelector('hr');
-        var ingredientNodes = [];
-        if (hr) {
-          var n = hr.nextElementSibling;
-          while (n) { var next = n.nextElementSibling; ingredientNodes.push(n); n = next; }
-          hr.remove();
-        }
-        recipeGridNew.appendChild(recipeCard);
-        var ingredientCard = document.createElement('div');
-        ingredientCard.className = 'glass card qr-recipe-section-card';
-        ingredientCard.innerHTML = '<div class="qr-recipe-toolbar"><div><h3 style="margin:0">Ингредиенты заведения</h3><div class="qr-recipe-count">Ингредиенты конкретного заведения используются в рецептурах и расчёте себестоимости.</div></div><button type="button" class="btn btn-ghost btn-sm" id="refreshIngredients2">🔄 Обновить</button></div>';
-        ingredientNodes.forEach(function (node) { ingredientCard.appendChild(node); });
-        ingredients.appendChild(ingredientCard);
-        if (msg) recipeGridNew.insertAdjacentElement('beforebegin', msg);
-        recipes.appendChild(recipeGridNew);
-      }
-      recipeGrid.remove();
-    }
-
-    var techModal = $('techModal');
-    if (techModal) {
-      var techCard = techModal.querySelector('.glass.card');
-      var techInner = document.createElement('div');
-      techInner.className = 'glass card qr-recipe-section-card';
-      if (techCard) Array.prototype.slice.call(techCard.children).forEach(function (node) { techInner.appendChild(node); });
-      var techHeader = document.createElement('div');
-      techHeader.className = 'qr-recipe-toolbar';
-      techHeader.innerHTML = '<div><h3 style="margin:0">Загрузка техкарты по фото</h3><div class="qr-recipe-count">Загрузите фото техкарты — OCR распознает текст и подготовит данные для рецептуры.</div></div><button type="button" class="btn btn-primary" id="qrTechUpload">📷 Загрузить фото</button>';
-      techInner.insertBefore(techHeader, techInner.firstChild);
-      tech.appendChild(techInner);
-      techModal.hidden = true;
-      techModal.style.display = 'none';
-      var techUpload = $('qrTechUpload');
-      if (techUpload) techUpload.onclick = function () { var f = $('techFiles'); if (f) f.click(); };
-      var tl = $('techList'); if (tl) tl.classList.add('qr-tech-grid');
-    }
-
-    var catalogModal = $('catalogModal');
-    if (catalogModal) {
-      var catalogCard = catalogModal.querySelector('.glass.card');
-      var catalogInner = document.createElement('div');
-      catalogInner.className = 'glass card qr-recipe-section-card';
-      if (catalogCard) Array.prototype.slice.call(catalogCard.children).forEach(function (node) { catalogInner.appendChild(node); });
-      catalog.appendChild(catalogInner);
-      var detail = document.createElement('div');
-      detail.id = 'qrCatalogDetail';
-      detail.className = 'glass card qr-recipe-section-card qr-inline-detail';
-      detail.hidden = true;
-      detail.innerHTML = '<div class="qr-inline-detail-head"><div><h3 id="qrCatalogDetailTitle" style="margin:0">Техкарта</h3><div id="qrCatalogDetailSub" class="muted" style="font-size:11px;margin-top:3px"></div></div><button type="button" class="btn btn-ghost btn-sm" id="qrCatalogDetailClose">× Закрыть</button></div><div id="qrCatalogDetailBody" style="margin-top:14px"></div>';
-      catalog.appendChild(detail);
-      catalogModal.hidden = true;
-      catalogModal.style.display = 'none';
-      if ($('qrCatalogDetailClose')) $('qrCatalogDetailClose').onclick = function () { $('qrCatalogDetail').hidden = true; };
-    }
-
-    var ingredientsModal = $('ingredientsModal');
-    if (ingredientsModal) {
-      var globalCard = ingredientsModal.querySelector('.glass.card');
-      var globalInner = document.createElement('div');
-      globalInner.className = 'glass card qr-recipe-section-card';
-      if (globalCard) Array.prototype.slice.call(globalCard.children).forEach(function (node) { globalInner.appendChild(node); });
-      var title = globalInner.querySelector('h3');
-      if (title) title.textContent = '🧂 Общая база ингредиентов';
-      var list = $('ingredientsDbList'); if (list) list.classList.add('qr-global-ing-grid');
-      ingredients.appendChild(globalInner);
-      ingredientsModal.hidden = true;
-      ingredientsModal.style.display = 'none';
-    }
-
-    nav.querySelectorAll('button').forEach(function (b) { b.onclick = function () { setSection(b.dataset.section); }; });
-    if ($('refreshIngredients2')) $('refreshIngredients2').onclick = function () { reloadIngredients().then(function () { message('Ингредиенты обновлены.'); }); };
-
-    renderProducts();
-    renderIngredients();
-    renderRecipe();
-    ensureCurrentSectionLoaded();
-  }
-
-  function ensureLocalIngredient(globalItem) {
-    var gi = globalItem && globalItem.ingredient;
-    if (!gi) return Promise.resolve(null);
-    var ranked = state.ingredients.map(function (x) { return { x:x, s:similarity(x.name, gi.name) }; }).sort(function (a,b) { return b.s-a.s; });
-    if (ranked[0] && ranked[0].s >= 0.86) return Promise.resolve(ranked[0].x);
-    return rpc('manager_ingredient_upsert', {
-      p_venue_id:state.venueId,
-      p_name:gi.name,
-      p_unit:canonicalUnit(gi.unit || globalItem.unit) || 'g',
-      p_purchase_quantity:1,
-      p_purchase_price:0,
-      p_id:null
-    }).then(function (up) {
-      var iid = up && up.id ? up.id : (Array.isArray(up) && up[0] ? up[0].id : null);
-      return reloadIngredients().then(function () {
-        if (iid) {
-          var found = state.ingredients.find(function (x) { return x.id === iid; });
-          if (found) return found;
-        }
-        var fallback = state.ingredients.map(function (x) { return { x:x, s:similarity(x.name, gi.name) }; }).sort(function (a,b) { return b.s-a.s; })[0];
-        return fallback ? fallback.x : null;
-      });
-    });
-  }
-
-  function generateAll() {
-    if (state.generating) return Promise.resolve();
-    if (!state.venueId) { message('Выберите реальное заведение перед автозаполнением.', true); return Promise.resolve(); }
-    state.generating = true;
-    var button = $('generateAllBtn');
-    if (button) { button.disabled = true; button.textContent = '⏳ Заполнение…'; }
-    return ensureCatalogLoaded().then(function () {
-      if (!state.catalog.length) throw new Error('База стандартных техкарт пуста.');
-      var made = 0, skipped = 0, errors = 0;
-      if ($('generationSummary')) $('generationSummary').textContent = 'Сопоставление меню с базой стандартных техкарт…';
-      return state.products.reduce(function (chain, product) {
-        return chain.then(function () {
-          var p = product;
-          var ranked = state.catalog.map(function (c) { return { c:c, s:similarity(p.name, c.name) }; }).sort(function (a,b) { return b.s-a.s; });
-          var best = ranked[0];
-          if (!best || best.s < 0.72) { skipped++; return null; }
-          return rpc('manager_recipe_list', { p_venue_id:state.venueId, p_product_id:p.id }).then(function (existing) {
-            if (Array.isArray(existing) && existing.length) { skipped++; return null; }
-            var items = state.catalogItems.filter(function (x) { return x.recipe_id === best.c.id; }).sort(function (a,b) { return (a.sort_order || 0) - (b.sort_order || 0); });
-            if (!items.length) { skipped++; return null; }
-            var rows = [];
-            return items.reduce(function (step, item) {
-              return step.then(function () {
-                return ensureLocalIngredient(item).then(function (local) {
-                  if (!local) return;
-                  var q = convertQuantity(item.quantity, item.unit || (item.ingredient && item.ingredient.unit), local.unit);
-                  if (q > 0) rows.push({ ingredient_id:local.id, quantity:q, note:item.note || 'Автотехкарта из базы' });
-                });
-              });
-            }, Promise.resolve()).then(function () {
-              if (!rows.length) { skipped++; return null; }
-              return rpc('manager_product_recipe_save', { p_venue_id:state.venueId, p_product_id:p.id, p_rows:rows }).then(function () { made++; });
-            });
-          }).catch(function (e) { errors++; console.error('[generateAll]', p.name, e); });
-        });
-      }, Promise.resolve()).then(function () {
-        return reloadIngredients().catch(function () {}).then(function () {
-          if ($('generationSummary')) $('generationSummary').textContent = 'Готово: создано ' + made + '; пропущено ' + skipped + '; ошибок ' + errors + '. Существующие рецептуры не перезаписывались.';
-          message(made ? 'Автозаполнение завершено.' : 'Новых рецептур не создано. Проверьте названия блюд и базу техкарт.', !made);
-        });
-      });
-    }).catch(function (e) {
-      if ($('generationSummary')) $('generationSummary').textContent = '';
-      message('Ошибка автозаполнения: ' + (e.message || e), true);
-    }).finally(function () {
-      state.generating = false;
-      var button2 = $('generateAllBtn');
-      if (button2) { button2.disabled = false; button2.textContent = '⚡ Автозаполнить рецептуры'; }
-    });
-  }
-
-  function bindButtons() {
-    if ($('productSearch') && !$('productSearch').__qrDebounced) {
-      $('productSearch').__qrDebounced = true;
-      $('productSearch').oninput = debounce(renderProducts, 180);
-    }
-    if ($('save')) $('save').onclick = saveRecipe;
-    if ($('addIng')) $('addIng').onclick = addIngredient;
-    if ($('refreshIngredients')) $('refreshIngredients').onclick = function () { reloadIngredients().then(function () { message('Ингредиенты обновлены.'); }); };
-    if ($('catalogBtn')) $('catalogBtn').onclick = function () { setSection('catalog'); };
-    if ($('catalogSearch') && !$('catalogSearch').__qrDebounced) { $('catalogSearch').__qrDebounced = true; $('catalogSearch').oninput = debounce(renderCatalog, 180); }
-    if ($('ingredientsDbBtn')) $('ingredientsDbBtn').onclick = function () { setSection('ingredients'); };
-    if ($('ingredientsSearch') && !$('ingredientsSearch').__qrDebounced) { $('ingredientsSearch').__qrDebounced = true; $('ingredientsSearch').oninput = debounce(renderGlobalIngredients, 180); }
-    if ($('uploadTechBtn')) $('uploadTechBtn').onclick = function () { setSection('tech'); var f=$('techFiles'); if (f) f.click(); };
-    if ($('techFiles')) $('techFiles').onchange = function () { processFiles(this.files); this.value = ''; };
-    Array.prototype.forEach.call(document.querySelectorAll('[data-close]'), function (b) { b.onclick = function (e) { e.preventDefault(); var m = $(b.dataset.close); if (m) m.hidden = true; }; });
-    Array.prototype.forEach.call(document.querySelectorAll('.modalx'), function (m) { if (m.__qrCloseBound) return; m.__qrCloseBound = true; m.onclick = function (e) { if (e.target === m) m.hidden = true; }; });
-    if ($('generateAllBtn')) $('generateAllBtn').onclick = function () { generateAll(); };
-    if (!window.__QR_RECIPES_VENUE_HANDLER__) {
-      window.__QR_RECIPES_VENUE_HANDLER__ = true;
-      window.addEventListener('manager-venue-selected', function (e) {
-        if (!e.detail || !e.detail.id) return;
-        state.venueId = e.detail.id;
-        if (!isUuid(state.venueId)) {
-          message('Выбрано некорректное заведение. Выберите заведение из базы.', true);
-          return;
-        }
-        safeStorageSet('manager_venue_id', String(state.venueId));
-        state.baseLoaded = false;
-        state.catalogLoaded = false;
-        state.globalIngredientsLoaded = false;
-        state.techLoaded = false;
-        state.products = [];
-        state.ingredients = [];
-        state.catalog = [];
-        state.catalogItems = [];
-        state.globalIngredients = [];
-        state.techCards = [];
-        state.selected = null;
-        state.rows = [];
-        loadData();
-      });
-    }
-  }
-
-  function loadQRChick() {
-    if (window.__QR_RECEPT_AI_LOADED__) return;
-    window.__QR_RECEPT_AI_LOADED__ = true;
-    var script = document.createElement('script');
-    script.src = '/js/manager/manager-recept-ai.js?v=2';
-    script.async = true;
-    script.onload = function () { window.dispatchEvent(new CustomEvent('qr-recipes-view-updated')); };
-    script.onerror = function () { console.warn('[Recipes] QRChick recipe extension is unavailable.'); };
-    document.head.appendChild(script);
-  }
-
-  function init() {
-    compactLayout();
-    if (!window.db) { console.error('[Recipes] window.db отсутствует'); return; }
-    loadQRChick();
-    loadData();
-  }
-
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
-  else init();
+  function loadQRChick(){if(window.__QR_RECEPT_AI_LOADED__)return;window.__QR_RECEPT_AI_LOADED__=true;var script=document.createElement('script');script.src='/js/manager/manager-recept-ai.js?v=2';script.async=true;script.onload=function(){window.dispatchEvent(new CustomEvent('qr-recipes-view-updated'))};script.onerror=function(){console.warn('[Recipes] QRChick recipe extension is unavailable.')};document.head.appendChild(script)}
+  function init(){compactLayout();if(!window.db){console.error('[Recipes] window.db отсутствует');return}loadQRChick();loadData()}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init()
 })();
