@@ -65,6 +65,7 @@
     {"source":"/src/pages/auth/js/:path*","destination":"/js/:path*"},
     {"source":"/src/pages/auth/img/:path*","destination":"/img/:path*"},
     {"source":"/src/pages/auth/icons/:path*","destination":"/icons/:path*"},
+    {"source":"/src/pages/auth/menu.html","destination":"/src/pages/guest/menu.html"},
     {"source":"/src/pages/guest/cook.html","destination":"/src/pages/staff/cook.html"},
     {"source":"/src/pages/guest/courier.html","destination":"/src/pages/staff/courier.html"},
     {"source":"/src/pages/guest/waiter.html","destination":"/src/pages/staff/waiter.html"}
