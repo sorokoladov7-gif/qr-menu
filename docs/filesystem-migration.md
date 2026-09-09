@@ -35,9 +35,9 @@ The install/runtime helper is grouped under `/src/assets/js/pwa/pwa-install.js`.
 
 ## Icon assets
 
-The icon asset set is physically grouped under `/src/assets/icons/`. The role-specific 192/512 icons and the four root Apple touch icons are included there as well.
+The icon asset set is physically grouped under `/src/assets/icons/`. The role-specific 192/512 icons are stored there; legacy root role-icon URLs are compatibility rewrites only. The four Apple touch icon URLs remain compatibility targets, but their physical root files are not used as canonical assets.
 
-The icon blobs were moved without content changes. Public `/icons/*` URLs and the historical root Apple touch icon URLs remain available through compatibility rewrites.
+The icon blobs were moved without content changes. Public `/icons/*` URLs and historical root icon URLs remain available through compatibility rewrites.
 
 ## Image assets
 
@@ -132,21 +132,32 @@ The manager browser runtime is physically grouped under `/src/assets/js/manager/
 
 The first manager relocation moved the 19-file manager module group, preserving strict script ordering and the existing `window.__QR_MANAGER_*_MIXIN__` contracts. A second pass moved manager-only auxiliary modules, the POS integrations hub, and the manager AI assistant into the same namespace.
 
-The legacy root `manager-design.js`, `manager-hall.js`, `manager-hall-ai.js`, and `manager-hall-view.js` files are intentionally not collapsed into the new manager directory yet. They participate in compatibility/dynamic loading chains and remain under dependency audit until each load path is proven safe to consolidate.
+The old manager hall/design implementations are now physically isolated under `/src/assets/js/manager/legacy/`:
+
+- `manager-design.js`
+- `manager-hall.js`
+- `manager-hall-ai.js`
+- `manager-hall-view.js`
+
+The canonical `src/assets/js/manager/manager-*.js` entrypoints remain thin compatibility loaders and keep their existing public contracts. Historical `/js/manager-*.js` URLs are explicitly rewritten to the legacy implementation paths where required.
+
+## Verification scripts
+
+Standalone database verification scripts are grouped under `/supabase/verify/`. The unified operational-core checker moved from the repository root to `/supabase/verify/unified-core.sql` without source changes.
 
 ## Compatibility
 
 Legacy production/deep links remain available through Vercel redirects. Relocated pages retain existing runtime URLs through compatibility rewrites, while migrated static assets and role-specific JavaScript are physically stored under `/src/assets/*`.
 
-Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules that were moved into role or shared subdirectories use explicit rewrites before the generic `/js/:path*` rule.
+Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules and legacy manager implementations that were moved into role/shared/legacy subdirectories use explicit rewrites before the generic `/js/:path*` rule. Legacy root role-icon URLs likewise use explicit rewrites to canonical icon files.
 
-Historical root Apple touch icon URLs are separately mapped to `/src/assets/icons/*` so existing installed PWAs and bookmarks do not lose their icon resources.
+Historical root Apple touch icon URLs are mapped to `/src/assets/icons/*` so existing installed PWAs and bookmarks retain their resource URLs; the canonical physical assets must exist before those routes are considered fully materialized.
 
 `/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
 
 ## Validation
 
-The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the compatibility rules, while Playwright smoke coverage checks legacy and canonical asset URLs, including the new flat-to-canonical JavaScript mappings.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the compatibility rules, while Playwright smoke coverage checks legacy and canonical asset URLs, including flat-to-canonical JavaScript mappings and role-icon compatibility.
 
 The application runtime itself has not been executed in this environment; local runtime/network limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
 
@@ -154,6 +165,8 @@ The application runtime itself has not been executed in this environment; local 
 
 `menu-v2.html` remains a distinct page. Repository evidence does not establish it as a drop-in replacement for `menu.html`, so it is not deleted or merged.
 
-## Next asset migration
+## Remaining root files
 
-The remaining root JavaScript is now concentrated in the legacy manager hall/design compatibility boundary: `manager-design.js`, `manager-hall.js`, `manager-hall-ai.js`, and `manager-hall-view.js`, plus any root files discovered by the dependency audit. These require load-order and dynamic-loader analysis before relocation. No blanket rename is planned.
+Root files that remain intentionally include Vercel/serverless entrypoints, the root service worker (`sw.js`, whose scope depends on root placement), repository configuration, robots/sitemap metadata, and the standalone `demo-staff.html` shell. `demo-staff.html` is not relocated yet because its current iframe and error-state links are relative to the root role URLs; moving it would require coordinated URL changes rather than a pure filesystem move.
+
+The browser-asset migration is therefore considered structurally complete for the audited JS/assets boundary. Further cleanup should target dependency-driven server/runtime layout rather than another blanket file move.
