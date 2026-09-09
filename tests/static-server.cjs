@@ -51,6 +51,7 @@ const legacyRedirects = new Map([
 ]);
 
 const roleAssetRewrites = /^\/src\/pages\/(guest|staff|manager|admin|auth)\/(css|js|img|icons)\/(.+)$/;
+const rootAssetsRewrite = /^\/assets\/(.+)$/;
 const rootIconRewrite = /^\/icons\/(.+)$/;
 const rootCssRewrite = /^\/css\/(.+)$/;
 const rootImgRewrite = /^\/img\/(.+)$/;
@@ -83,6 +84,11 @@ function resolveRequestPath(requestPath) {
   const assetMatch = requestPath.match(roleAssetRewrites);
   if (assetMatch) {
     return `/${assetMatch[2]}/${assetMatch[3]}`;
+  }
+
+  const assetsMatch = requestPath.match(rootAssetsRewrite);
+  if (assetsMatch) {
+    return `/src/assets/${assetsMatch[1]}`;
   }
 
   const cssMatch = requestPath.match(rootCssRewrite);
