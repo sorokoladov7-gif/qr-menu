@@ -31,3 +31,19 @@ test('YooKassa webhook preserves terminal payment statuses', () => {
   assert.match(source, /if \(status === 'refunded'\) return 'refunded';/);
   assert.match(source, /'failed', 'refunded'\]\.includes\(status\)/);
 });
+
+test('trigger-only database functions remain internal', () => {
+  const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260909170000_revoke_trigger_function_execute.sql'), 'utf8');
+  const functions = [
+    'guard_product_permission',
+    'guard_venue_permission',
+    'guard_venue_design_access',
+    'normalize_manager_subscription_owner',
+    'sync_manager_subscription_to_venues',
+    'sync_qr_guest_count_from_order'
+  ];
+  for (const name of functions) {
+    assert.match(migration, new RegExp(`REVOKE EXECUTE ON FUNCTION public\\.${name}\\(`));
+  }
+  assert.doesNotMatch(migration, /GRANT EXECUTE ON FUNCTION public\\.(?:guard_product_permission|guard_venue_permission|guard_venue_design_access|normalize_manager_subscription_owner|sync_manager_subscription_to_venues|sync_qr_guest_count_from_order)/);
+});
