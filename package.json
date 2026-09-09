@@ -3,8 +3,29 @@
   "private": true,
   "version": "1.0.0",
   "engines": { "node": "22.x" },
+  "scripts": {
+    "lint": "eslint . --ext .js,.cjs,.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .eslintrc.json .prettierrc package.json playwright.config.cjs tests src .github 2>/dev/null || prettier --check .eslintrc.json .prettierrc package.json playwright.config.cjs tests .github",
+    "test": "node --test \"tests/api/**/*.test.cjs\"",
+    "test:e2e": "playwright test",
+    "build": "vercel build",
+    "prepare": "husky"
+  },
   "dependencies": {
+    "@sentry/node": "^10.15.0",
     "@sparticuz/chromium": "141.0.0",
     "puppeteer-core": "24.23.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "eslint": "^8.57.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "prettier": "^3.6.2"
+  },
+  "lint-staged": {
+    "**/*.{js,cjs,mjs}": ["eslint --fix", "prettier --write"],
+    "**/*.{json,md,yml,yaml,webmanifest}": ["prettier --write"]
   }
 }
