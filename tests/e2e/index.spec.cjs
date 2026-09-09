@@ -178,6 +178,7 @@ test('staff runtime modules are available at their canonical asset paths', async
     'staff-auth.js',
     'staff-notifications.js',
     'staff-workday.js',
+    'staff-ui-patches.js',
     'waiter-history-inline.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/staff/${path}`);
@@ -196,6 +197,7 @@ test('manager runtime modules are available at their canonical asset paths', asy
     'manager-personnel-final.js',
     'manager-staff-quick-actions.js',
     'manager-staff-statistics.js',
+    'qr-ai-assistant.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/manager/${path}`);
     expect(response.status(), path).toBe(200);
@@ -215,6 +217,40 @@ test('demo runtime modules are available at their canonical asset paths', async 
     expect(response.status(), path).toBe(200);
     expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
     expect((await response.body()).length, path).toBeGreaterThan(0);
+  }
+});
+
+test('shared bootstrap modules are available at canonical paths', async ({ page }) => {
+  for (const path of ['app.js', 'config.js', 'offline-sync.js']) {
+    const response = await page.request.get(`/src/assets/js/shared/${path}`);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
+    expect((await response.body()).length, path).toBeGreaterThan(0);
+  }
+});
+
+test('flat legacy JS URLs resolve to their relocated canonical modules', async ({ page }) => {
+  const paths = [
+    ['app.js', 'shared/app.js'],
+    ['config.js', 'shared/config.js'],
+    ['offline-sync.js', 'shared/offline-sync.js'],
+    ['design-runtime.js', 'guest/design-runtime.js'],
+    ['demo-data.js', 'demo/demo-data.js'],
+    ['demo-manager-create.js', 'demo/demo-manager-create.js'],
+    ['demo-mode.js', 'demo/demo-mode.js'],
+    ['demo-staff-v2.js', 'demo/demo-staff-v2.js'],
+    ['integrations-hub.js', 'manager/integrations-hub.js'],
+    ['qr-ai-assistant.js', 'manager/qr-ai-assistant.js'],
+    ['staff-ui-patches.js', 'staff/staff-ui-patches.js'],
+  ];
+  for (const [legacy, canonical] of paths) {
+    const response = await page.request.get(`/js/${legacy}`);
+    expect(response.status(), legacy).toBe(200);
+    expect(response.headers()['content-type'], legacy).toMatch(/^text\/javascript/i);
+    expect((await response.body()).length, legacy).toBeGreaterThan(0);
+    const direct = await page.request.get(`/src/assets/js/${canonical}`);
+    expect(direct.status(), canonical).toBe(200);
+    expect((await direct.body()).length, canonical).toBeGreaterThan(0);
   }
 });
 
