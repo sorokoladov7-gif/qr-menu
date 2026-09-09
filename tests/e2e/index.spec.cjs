@@ -121,6 +121,25 @@ test('relocated favicon is directly reachable at its canonical asset path', asyn
   expect((await response.body()).length).toBeGreaterThan(0);
 });
 
+test('apple touch icons remain available after icon relocation', async ({ page }) => {
+  for (const path of [
+    'apple-touch-icon.png',
+    'apple-touch-icon-courier.png',
+    'apple-touch-icon-manager.png',
+    'apple-touch-icon-waiter.png',
+  ]) {
+    const legacy = await page.request.get(`/${path}`);
+    expect(legacy.status(), path).toBe(200);
+    expect(legacy.headers()['content-type'], path).toMatch(/^image\/png/i);
+    expect((await legacy.body()).length, path).toBeGreaterThan(0);
+
+    const canonical = await page.request.get(`/src/assets/icons/${path}`);
+    expect(canonical.status(), path).toBe(200);
+    expect(canonical.headers()['content-type'], path).toMatch(/^image\/png/i);
+    expect((await canonical.body()).length, path).toBeGreaterThan(0);
+  }
+});
+
 test('relocated PWA runtime is directly reachable while the legacy URL is rewritten', async ({ page }) => {
   const legacy = await page.request.get('/js/pwa-install.js');
   expect(legacy.status()).toBe(200);
@@ -179,6 +198,20 @@ test('manager runtime modules are available at their canonical asset paths', asy
     'manager-staff-statistics.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/manager/${path}`);
+    expect(response.status(), path).toBe(200);
+    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
+    expect((await response.body()).length, path).toBeGreaterThan(0);
+  }
+});
+
+test('demo runtime modules are available at their canonical asset paths', async ({ page }) => {
+  for (const path of [
+    'demo-data.js',
+    'demo-manager-create.js',
+    'demo-mode.js',
+    'demo-staff-v2.js',
+  ]) {
+    const response = await page.request.get(`/src/assets/js/demo/${path}`);
     expect(response.status(), path).toBe(200);
     expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
     expect((await response.body()).length, path).toBeGreaterThan(0);
