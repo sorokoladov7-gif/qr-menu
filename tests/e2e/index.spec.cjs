@@ -86,6 +86,27 @@ test('relocated support JS is directly reachable at its canonical asset path', a
   expect((await response.body()).length).toBeGreaterThan(0);
 });
 
+test('legacy admin JS URL remains available after admin runtime relocation', async ({ page }) => {
+  const response = await page.request.get('/js/admin/admin-core.js');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
+test('relocated admin JS is directly reachable at its canonical asset path', async ({ page }) => {
+  const response = await page.request.get('/src/assets/js/admin/admin-core.js');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
+test('relocated admin AI workspace remains directly reachable', async ({ page }) => {
+  const response = await page.request.get('/src/assets/js/admin/admin-ai-audit.js');
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
+  expect((await response.body()).length).toBeGreaterThan(0);
+});
+
 test('legacy favicon URL remains available after icon relocation', async ({ page }) => {
   const response = await page.request.get('/favicon.svg');
   expect(response.status()).toBe(200);
