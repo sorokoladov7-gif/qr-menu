@@ -35,7 +35,7 @@ The install/runtime helper is grouped under `/src/assets/js/pwa/pwa-install.js`.
 
 ## Icon assets
 
-The icon asset set is physically grouped under `/src/assets/icons/`. The role-specific 192/512 icons are stored there; legacy root role-icon URLs are compatibility rewrites only. The four Apple touch icon URLs remain compatibility targets, but their physical root files are not used as canonical assets.
+The icon asset set is physically grouped under `/src/assets/icons/`. The role-specific 192/512 icons and the four Apple touch icons are canonical there. Legacy root role-icon and Apple touch icon URLs are compatibility rewrites only.
 
 The icon blobs were moved without content changes. Public `/icons/*` URLs and historical root icon URLs remain available through compatibility rewrites.
 
@@ -149,15 +149,13 @@ Standalone database verification scripts are grouped under `/supabase/verify/`. 
 
 Legacy production/deep links remain available through Vercel redirects. Relocated pages retain existing runtime URLs through compatibility rewrites, while migrated static assets and role-specific JavaScript are physically stored under `/src/assets/*`.
 
-Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules and legacy manager implementations that were moved into role/shared/legacy subdirectories use explicit rewrites before the generic `/js/:path*` rule. Legacy root role-icon URLs likewise use explicit rewrites to canonical icon files.
-
-Historical root Apple touch icon URLs are mapped to `/src/assets/icons/*` so existing installed PWAs and bookmarks retain their resource URLs; the canonical physical assets must exist before those routes are considered fully materialized.
+Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules and legacy manager implementations that were moved into role/shared/legacy subdirectories use explicit rewrites before the generic `/js/:path*` rule. Legacy root role-icon and Apple touch icon URLs likewise use explicit rewrites to canonical icon files.
 
 `/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
 
 ## Validation
 
-The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the compatibility rules, while Playwright smoke coverage checks legacy and canonical asset URLs, including flat-to-canonical JavaScript mappings and role-icon compatibility.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the compatibility rules, while Playwright smoke coverage checks legacy and canonical asset URLs, including flat-to-canonical JavaScript mappings, role-icon compatibility, and Apple touch icon paths.
 
 The application runtime itself has not been executed in this environment; local runtime/network limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
 
