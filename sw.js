@@ -1,25 +1,29 @@
-const CACHE = 'qr-platform-v50';
+const CACHE = 'qr-platform-v51';
 const CORE = [
   '/',
-  '/index.html',
-  '/login.html',
-  '/register.html',
-  '/menu.html',
-  '/menu-v2.html',
+  '/src/pages/guest/index.html',
+  '/src/pages/guest/menu.html',
+  '/src/pages/guest/menu-v2.html',
+  '/src/pages/staff/hall.html',
+  '/src/pages/staff/cook.html',
+  '/src/pages/staff/courier.html',
+  '/src/pages/staff/waiter.html',
+  '/src/pages/manager/manager.html',
+  '/src/pages/manager/manager-demo.html',
+  '/src/pages/manager/manager-staff-statistics.html',
+  '/src/pages/admin/admin.html',
+  '/src/pages/admin/admin-analytics.html',
+  '/src/pages/admin/admin-permissions.html',
+  '/src/pages/admin/venue-analytics.html',
+  '/src/pages/auth/login.html',
+  '/src/pages/auth/register.html',
   '/venues.html',
-  '/hall.html',
   '/staff-table.html',
   '/staff-history.html',
-  '/admin-analytics.html',
-  '/admin-permissions.html',
-  '/venue-analytics.html',
-  '/cook.html',
-  '/courier.html',
-  '/waiter.html',
-  '/admin.html',
   '/admin_templates.html',
-  '/manager-demo.html',
   '/demo-staff.html',
+  '/integrations.html',
+  '/staff-guide.html',
   '/robots.txt',
   '/sitemap.xml',
   '/css/style.css',
@@ -55,7 +59,6 @@ const CORE = [
   '/icons/icon-512.png',
   '/icons/icon-manager-192.png',
   '/icons/icon-manager-512.png',
-  '/icons/icon-cook-192.png',
   '/icons/icon-courier-192.png',
   '/icons/icon-courier-512.png',
   '/icons/icon-waiter-192.png',
@@ -89,11 +92,11 @@ async function enhanceHtml(response) {
   let extra = '';
   if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/js/pwa-install.js"></script><script src="/js/offline-sync.js"></script>';
   const pathname = new URL(response.url).pathname;
-  if (pathname === '/menu.html' && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/js/delivery-calc.js?v=24"></script>';
-  if (pathname === '/manager.html' && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
-  if (pathname === '/manager.html' && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-ai.js?v=4"></script>';
-  if (pathname === '/manager.html' && !/js\\/manager\\/manager-chef-full\\.js/i.test(text)) extra += '<script src="/js/manager/manager-chef-full.js?v=1"></script>';
-  if ((pathname === '/manager.html' || pathname === '/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/js/shared/qr-support.js?v=1"></script>';
+  if ((pathname === '/src/pages/guest/menu.html' || pathname === '/menu.html') && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/js/delivery-calc.js?v=24"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-ai.js?v=4"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/js\\/manager\\/manager-chef-full\\.js/i.test(text)) extra += '<script src="/js/manager/manager-chef-full.js?v=1"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html' || pathname === '/src/pages/admin/admin.html' || pathname === '/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/js/shared/qr-support.js?v=1"></script>';
 
   return new Response(text.replace(/<\\/body>/i, extra + '</body>'), {
     status: response.status,
@@ -109,7 +112,9 @@ self.addEventListener('fetch', (event) => {
 
   const noStore = [
     '/manager.html',
+    '/src/pages/manager/manager.html',
     '/admin.html',
+    '/src/pages/admin/admin.html',
     '/js/manager/manager-app.js',
     '/js/manager/manager-ai.js',
     '/js/manager/manager-chef-full.js',
@@ -123,7 +128,7 @@ self.addEventListener('fetch', (event) => {
   if (noStore) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).then(async (response) => {
-        if ((url.pathname === '/manager.html' || url.pathname === '/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) {
+        if ((url.pathname === '/manager.html' || url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/admin.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) {
           return enhanceHtml(response.clone());
         }
         return response;

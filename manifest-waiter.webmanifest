@@ -1,8 +1,8 @@
 {
   "name": "QR Menu — Официант",
   "short_name": "Официант",
-  "start_url": "/waiter.html?pwa=waiter",
-  "id": "/waiter.html?pwa=waiter",
+  "start_url": "/src/pages/staff/waiter.html?pwa=waiter",
+  "id": "/src/pages/staff/waiter.html?pwa=waiter",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",
