@@ -27,6 +27,21 @@
 | `/login.html` | `/src/pages/auth/login.html` |
 | `/register.html` | `/src/pages/auth/register.html` |
 
+## PWA assets
+
+The six web app manifests are now physically grouped under `/src/assets/pwa/`:
+
+| Legacy URL | New file |
+|---|---|
+| `/manifest.webmanifest` | `/src/assets/pwa/manifest.webmanifest` |
+| `/manifest-admin.webmanifest` | `/src/assets/pwa/manifest-admin.webmanifest` |
+| `/manifest-cook.webmanifest` | `/src/assets/pwa/manifest-cook.webmanifest` |
+| `/manifest-courier.webmanifest` | `/src/assets/pwa/manifest-courier.webmanifest` |
+| `/manifest-manager.webmanifest` | `/src/assets/pwa/manifest-manager.webmanifest` |
+| `/manifest-waiter.webmanifest` | `/src/assets/pwa/manifest-waiter.webmanifest` |
+
+The manifest contents are unchanged. Existing application references such as `/manifest-cook.webmanifest` remain valid through permanent redirects.
+
 ## Compatibility
 
 Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime asset directories (`/css`, `/js`, `/img`, `/icons`) through compatibility rewrites.
@@ -46,7 +61,7 @@ For relocated pages whose original relative links are intentionally role-local (
 
 ## Validation
 
-The six latest standalone-page moves preserve the original HTML blobs unchanged; only their repository paths changed. Legacy redirects were added in the same final routing tree, and the manager integrations page keeps its existing no-store behavior.
+The standalone-page moves preserve the original HTML blobs unchanged; PWA manifest blobs are likewise moved without content edits. Legacy redirects were added for the relocated pages and manifests, and `tests/static-server.cjs` mirrors these compatibility routes.
 
 Playwright smoke coverage asserts the main legacy redirects and the critical cross-role links introduced by the page relocation. The local static server mirrors the same role-page and asset compatibility behavior.
 
@@ -56,4 +71,4 @@ Playwright smoke coverage asserts the main legacy redirects and the critical cro
 
 ## Future asset migration
 
-A later staged migration can move frontend assets into `/src/assets`. It should be performed role-by-role after exhaustive reference scans and smoke tests.
+The next risky asset group is the large `/css`, `/js`, `/img`, and `/icons` runtime tree. It should be migrated role-by-role only after exhaustive reference scans because those directories are used by root-absolute browser paths, global scripts, side effects, Service Worker logic, and PWA runtime behavior.
