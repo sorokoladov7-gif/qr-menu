@@ -3,6 +3,7 @@
   "short_name": "Админ",
   "start_url": "/admin.html?pwa=admin",
   "id": "/admin.html?pwa=admin",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",
   "theme_color": "#ef4444",
