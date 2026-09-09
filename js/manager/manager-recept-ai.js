@@ -211,10 +211,10 @@
     host.setAttribute('data-qrc-signature', signature);
 
     list.innerHTML = products().map(function (p) {
-      return '<div style="display:flex;gap:8px;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
+      return '<div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)">' +
         '<span>' + esc(p.name) + '</span>' +
         '<button type="button" class="btn btn-ghost btn-sm" data-qrc-tech="' + esc(p.id) + '">🔎 Искать техкарту</button>' +
-        '<div data-qrc-result="' + esc(p.id) + '" style="flex:1 1 100%;margin-top:6px"></div>' +
+        '<div data-qrc-result="' + esc(p.id) + '" style="grid-column:1 / -1;margin-top:6px"></div>' +
       '</div>';
     }).join('');
 
