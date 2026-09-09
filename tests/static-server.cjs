@@ -58,6 +58,14 @@ const rootImgRewrite = /^\/img\/(.+)$/;
 const rootJsRewrite = /^\/js\/(.+)$/;
 const rootAppleTouchIconRewrite = /^\/(apple-touch-icon(?:-(?:courier|manager|waiter))?\.png)$/i;
 const rootFaviconRewrite = '/favicon.svg';
+const rootFlatAssetCompatibility = new Map([
+  ['/icon-courier-192.png', '/src/assets/icons/icon-courier-192.png'],
+  ['/icon-courier-512.png', '/src/assets/icons/icon-courier-512.png'],
+  ['/icon-manager-192.png', '/src/assets/icons/icon-manager-192.png'],
+  ['/icon-manager-512.png', '/src/assets/icons/icon-manager-512.png'],
+  ['/icon-waiter-192.png', '/src/assets/icons/icon-waiter-192.png'],
+  ['/icon-waiter-512.png', '/src/assets/icons/icon-waiter-512.png'],
+]);
 const rootFlatJsCompatibility = new Map([
   ['/js/app.js', '/src/assets/js/shared/app.js'],
   ['/js/config.js', '/src/assets/js/shared/config.js'],
@@ -124,6 +132,11 @@ function resolveRequestPath(requestPath) {
   const iconMatch = requestPath.match(rootIconRewrite);
   if (iconMatch) {
     return `/src/assets/icons/${iconMatch[1]}`;
+  }
+
+  const flatAssetTarget = rootFlatAssetCompatibility.get(requestPath);
+  if (flatAssetTarget) {
+    return flatAssetTarget;
   }
 
   const flatJsTarget = rootFlatJsCompatibility.get(requestPath);
