@@ -21,16 +21,8 @@
 | `/login.html` | `/src/pages/auth/login.html` |
 | `/register.html` | `/src/pages/auth/register.html` |
 
-## Compatibility
+Legacy URLs are preserved by Vercel redirects. Relocated pages keep the existing root runtime asset directories (`/css`, `/js`, `/img`, `/icons`) through compatibility routing.
 
-Legacy production/deep links remain available through Vercel redirects. Relocated pages retain the existing root runtime asset directories (`/css`, `/js`, `/img`, `/icons`) through compatibility rewrites.
+`/api`, `/lib`, `/supabase`, and `/docs` remain root-level runtime boundaries.
 
-`/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
-
-## menu-v2
-
-`menu-v2.html` remains a distinct page. Repository evidence does not establish it as a drop-in replacement for `menu.html`, so it is not deleted or merged.
-
-## Future asset migration
-
-A later staged migration can move frontend assets into `/src/assets`. It should be performed role-by-role after exhaustive reference scans and smoke tests.
+`menu-v2.html` remains a distinct page because repository evidence does not establish it as a drop-in replacement for `menu.html`.
