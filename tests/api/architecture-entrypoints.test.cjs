@@ -82,6 +82,9 @@ test('integration management and diagnostics modules use canonical manager auth'
     assert.ok(source.includes("../shared/manager-auth"), `${file} must use ../shared/manager-auth`);
     assert.ok(!source.includes("../_lib/manager-auth"), `${file} must not use obsolete ../_lib/manager-auth`);
   }
+  const diagnostics = readLib('integrations/test.js');
+  assert.ok(diagnostics.includes('assertVenueAccess(user,venue_id)'), 'diagnostics must authorize venue ownership before adapter execution and persistence');
+  assert.ok(diagnostics.includes("manager_venues?manager_id=eq."), 'diagnostics must bind manager access to manager_venues');
 });
 
 test('integration router binds sync locks to the actual route provider', () => {
@@ -93,6 +96,7 @@ test('integration router binds sync locks to the actual route provider', () => {
   assert.ok(router.includes("['/api/integrations/syrve','syrve']"), 'Syrve route must lock as syrve');
   assert.ok(router.includes("['/api/integrations/evotor','evotor']"), 'Evotor route must lock as evotor');
   assert.ok(router.includes("['/api/integrations/frontpad','frontpad']"), 'FrontPad route must lock as frontpad');
+  assert.ok(router.includes("if(!validProvider)return send(res,400,{ok:false,error:'provider_route_mismatch'"), 'router must reject provider/route mismatches before invoking an adapter');
 });
 
 test('integration sync locking is centralized', () => {
