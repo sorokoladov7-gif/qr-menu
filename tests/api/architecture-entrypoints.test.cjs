@@ -20,12 +20,26 @@ test('architecture entrypoints stay thin and point to canonical lib modules', ()
     'address.js': "require('../lib/address/suggestions')",
     'integrations.js': "require('../lib/integrations/router')",
     'import-site.js': "require('../lib/import/site')",
+    'import-ai.js': "require('../lib/import/ai')",
     'cron.js': "require('../lib/jobs/integration-sync')",
   };
   for (const [file, target] of Object.entries(expected)) {
     const source = readEntry(file);
     assert.ok(source.includes(target), `${file} must dispatch to ${target}`);
   }
+});
+
+test('AI import entrypoint remains a dispatcher, not a business-logic module', () => {
+  const source = readEntry('import-ai.js');
+  assert.equal(source.trim(), "'use strict';\n\nmodule.exports = require('../lib/import/ai');");
+  assert.ok(!source.includes('fetch('), 'import-ai.js must not contain upstream business calls');
+  assert.ok(!source.includes('createClient('), 'import-ai.js must not contain Supabase client setup');
+});
+
+test('AI import canonical module resolves its analyzer locally', () => {
+  const source = readLib('import/ai.js');
+  assert.ok(source.includes("require('./site-menu-analyzer-v3')"), 'lib/import/ai.js must use its local analyzer path');
+  assert.ok(!source.includes("require('../lib/import/site-menu-analyzer-v3')"), 'lib/import/ai.js must not use the old API-relative analyzer path');
 });
 
 test('payments entrypoint remains a dispatcher, not a business-logic module', () => {
@@ -58,6 +72,7 @@ test('canonical architecture modules exist', () => {
     'lib/address/suggestions.js',
     'lib/integrations/router.js',
     'lib/import/site.js',
+    'lib/import/ai.js',
     'lib/import/site-menu-analyzer-v3.js',
     'lib/import/site-browser-renderer-v2.js',
     'lib/shared/manager-auth.js',
