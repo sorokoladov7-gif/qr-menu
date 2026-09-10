@@ -67,10 +67,23 @@ test('YooKassa modules use the canonical payments core', () => {
   }
 });
 
+test('integration sync locking is centralized', () => {
+  const router = readLib('integrations/router.js');
+  const cron = readLib('jobs/integration-sync.js');
+  const lock = readLib('integrations/sync-lock.js');
+  assert.ok(router.includes("require('./sync-lock')"), 'integration router must use the canonical sync lock');
+  assert.ok(cron.includes("require('../integrations/sync-lock')"), 'integration cron job must use the canonical sync lock');
+  assert.ok(lock.includes("claim_integration_sync_lock"), 'sync lock module must claim the database lock');
+  assert.ok(lock.includes("release_integration_sync_lock"), 'sync lock module must release the database lock');
+  assert.ok(!router.includes('crypto.randomUUID'), 'integration router must not implement its own lock token generation');
+  assert.ok(!cron.includes('crypto.randomUUID'), 'integration cron job must not implement its own lock token generation');
+});
+
 test('canonical architecture modules exist', () => {
   const required = [
     'lib/address/suggestions.js',
     'lib/integrations/router.js',
+    'lib/integrations/sync-lock.js',
     'lib/import/site.js',
     'lib/import/ai.js',
     'lib/import/site-menu-analyzer-v3.js',
