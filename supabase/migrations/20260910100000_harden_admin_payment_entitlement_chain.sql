@@ -1,7 +1,8 @@
 -- QR Menu payment/entitlement runtime hardening.
 -- Canonical source of plans is public.plans. Admin payment confirmation must
 -- activate the manager-owned subscription through admin_set_manager_plan and
--- must be idempotent under concurrent confirmation attempts.
+-- must be idempotent under concurrent confirmation attempts, including races
+-- with the YooKassa webhook path.
 
 begin;
 
@@ -18,6 +19,7 @@ declare
   v_plan public.plans%rowtype;
   v_base timestamptz;
   v_end timestamptz;
+  v_paid_at timestamptz;
 begin
   select exists(
     select 1 from public.profiles p
@@ -29,7 +31,7 @@ begin
   end if;
 
   -- Serialize confirmation of this exact payment. A second concurrent caller
-  -- therefore observes the terminal status instead of extending the subscription.
+  -- therefore observes the terminal payment status instead of re-processing it.
   select * into v_payment
   from public.payments
   where id = p_payment_id
@@ -39,6 +41,7 @@ begin
     raise exception 'payment_not_found';
   end if;
 
+  -- The payment row is also the manual-confirmation idempotency marker.
   if v_payment.status <> 'pending' then
     return jsonb_build_object(
       'ok', true,
@@ -57,24 +60,86 @@ begin
     raise exception 'plan_not_found_or_inactive';
   end if;
 
+  -- Lock the canonical manager subscription before deciding whether the
+  -- payment has already been granted by the automatic YooKassa webhook.
+  select * into v_sub
+  from public.subscriptions
+  where manager_id = v_payment.manager_id
+    and venue_id is null
+  order by created_at desc
+  limit 1
+  for update;
+
+  if v_sub.id is not null
+     and v_sub.payment_id = p_payment_id
+     and v_sub.payment_status = 'paid'
+     and v_sub.paid_at is not null then
+    update public.payments
+    set status = 'confirmed',
+        processed_at = coalesce(processed_at, v_sub.paid_at, now())
+    where id = p_payment_id
+      and status = 'pending';
+
+    return jsonb_build_object(
+      'ok', true,
+      'already_processed', true,
+      'payment_id', p_payment_id,
+      'subscription_id', v_sub.id,
+      'current_period_end', v_sub.current_period_end,
+      'status', 'confirmed'
+    );
+  end if;
+
   -- Keep plan selection in the canonical admin entitlement RPC.
   select * into v_sub
   from public.admin_set_manager_plan(v_payment.manager_id, v_plan.id::text);
+
+  -- Serialize the final entitlement update as well. This protects the
+  -- subscription state when the automatic webhook is concurrently claiming
+  -- the same payment.
+  select * into v_sub
+  from public.subscriptions
+  where id = v_sub.id
+  for update;
+
+  if v_sub.payment_id = p_payment_id
+     and v_sub.payment_status = 'paid'
+     and v_sub.paid_at is not null then
+    update public.payments
+    set status = 'confirmed',
+        processed_at = coalesce(processed_at, v_sub.paid_at, now())
+    where id = p_payment_id
+      and status = 'pending';
+
+    return jsonb_build_object(
+      'ok', true,
+      'already_processed', true,
+      'payment_id', p_payment_id,
+      'subscription_id', v_sub.id,
+      'current_period_end', v_sub.current_period_end,
+      'status', 'confirmed'
+    );
+  end if;
 
   -- Payment confirmation grants one billing period. Extend from the later of
   -- now/current end so an early renewal does not shorten an existing term.
   v_base := greatest(coalesce(v_sub.current_period_end, now()), now());
   v_end := v_base + interval '1 month';
+  v_paid_at := coalesce(v_sub.paid_at, now());
 
   update public.subscriptions
   set status = 'active',
-      current_period_end = v_end
+      current_period_end = v_end,
+      payment_id = p_payment_id,
+      payment_status = 'paid',
+      paid_at = v_paid_at,
+      plan_id = v_plan.id
   where id = v_sub.id
   returning * into v_sub;
 
   update public.payments
   set status = 'confirmed',
-      processed_at = coalesce(processed_at, now())
+      processed_at = coalesce(processed_at, v_paid_at)
   where id = p_payment_id
     and status = 'pending';
 
@@ -118,6 +183,7 @@ declare
   v_sub public.subscriptions%rowtype;
   v_plan public.plans%rowtype;
   v_base timestamptz;
+  v_paid_at timestamptz;
 begin
   select * into v_payment
   from public.payments
@@ -138,16 +204,40 @@ begin
   if not found then raise exception 'plan_not_found_or_inactive'; end if;
 
   select * into v_sub
+  from public.subscriptions
+  where manager_id = v_payment.manager_id and venue_id is null
+  order by created_at desc limit 1
+  for update;
+
+  if v_sub.id is not null
+     and v_sub.payment_id = p_payment_id
+     and v_sub.payment_status = 'paid'
+     and v_sub.paid_at is not null then
+    return v_sub;
+  end if;
+
+  select * into v_sub
   from public.admin_set_manager_plan(v_payment.manager_id, v_plan.id::text);
 
+  select * into v_sub from public.subscriptions where id = v_sub.id for update;
+  if v_sub.payment_id = p_payment_id and v_sub.payment_status = 'paid' and v_sub.paid_at is not null then
+    return v_sub;
+  end if;
+
   v_base := greatest(coalesce(v_sub.current_period_end, now()), now());
+  v_paid_at := coalesce(v_sub.paid_at, now());
   update public.subscriptions
-  set status = 'active', current_period_end = v_base + interval '1 month'
+  set status = 'active',
+      current_period_end = v_base + interval '1 month',
+      payment_id = p_payment_id,
+      payment_status = 'paid',
+      paid_at = v_paid_at,
+      plan_id = v_plan.id
   where id = v_sub.id
   returning * into v_sub;
 
   update public.payments
-  set status = 'confirmed', processed_at = coalesce(processed_at, now())
+  set status = 'confirmed', processed_at = coalesce(processed_at, v_paid_at)
   where id = p_payment_id and status = 'pending';
 
   return v_sub;
