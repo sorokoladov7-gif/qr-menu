@@ -65,3 +65,14 @@ test('manager AI action gateway keeps feature and venue checks before mutations'
   assert.match(source, /if\(type==='create_staff'\)\{await venue\(c,vid,'venue'\)/);
   assert.match(source, /if\(H\.includes\(type\)\)\{await venue\(c,vid,'venue'\)/);
 });
+
+test('manager support thread creation enforces supplied venue ownership', () => {
+  const migrationDir = path.join(root, 'supabase', 'migrations');
+  const source = fs.readFileSync(
+    path.join(migrationDir, '20260910180000_harden_manager_support_thread_venue_scope.sql'),
+    'utf8',
+  );
+  assert.match(source, /p_venue_id is not null and not public\.is_manager_of\(p_venue_id\)/);
+  assert.match(source, /raise exception 'VENUE_ACCESS_DENIED'/);
+  assert.match(source, /p_venue_id,\s*coalesce\(nullif\(trim\(p_subject\),''\),'Поддержка'\)/);
+});
