@@ -76,6 +76,14 @@ test('integration provider modules use the canonical shared manager auth module'
   }
 });
 
+test('integration management and diagnostics modules use canonical manager auth', () => {
+  for (const file of ['manage.js', 'test.js']) {
+    const source = readLib(`integrations/${file}`);
+    assert.ok(source.includes("../shared/manager-auth"), `${file} must use ../shared/manager-auth`);
+    assert.ok(!source.includes("../_lib/manager-auth"), `${file} must not use obsolete ../_lib/manager-auth`);
+  }
+});
+
 test('integration router binds sync locks to the actual route provider', () => {
   const router = readLib('integrations/router.js');
   assert.ok(router.includes("['/api/integrations/iiko','iiko']"), 'iiko route must lock as iiko');
