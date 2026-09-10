@@ -67,6 +67,15 @@ test('YooKassa modules use the canonical payments core', () => {
   }
 });
 
+test('integration provider modules use the canonical shared manager auth module', () => {
+  const modules = ['iiko.js', 'pos.js', 'saby-presto.js', 'poster.js', 'syrve.js', 'evotor.js', 'frontpad.js'];
+  for (const file of modules) {
+    const source = readLib(`integrations/${file}`);
+    assert.ok(source.includes("../shared/manager-auth"), `${file} must use ../shared/manager-auth`);
+    assert.ok(!source.includes("../_lib/manager-auth"), `${file} must not use obsolete ../_lib/manager-auth`);
+  }
+});
+
 test('integration sync locking is centralized', () => {
   const router = readLib('integrations/router.js');
   const cron = readLib('jobs/integration-sync.js');
