@@ -76,6 +76,17 @@ test('integration provider modules use the canonical shared manager auth module'
   }
 });
 
+test('integration router binds sync locks to the actual route provider', () => {
+  const router = readLib('integrations/router.js');
+  assert.ok(router.includes("['/api/integrations/iiko','iiko']"), 'iiko route must lock as iiko');
+  assert.ok(router.includes("['/api/integrations/pos',new Set(['quick_resto','r_keeper'])]"), 'POS route must only lock supported POS providers');
+  assert.ok(router.includes("['/api/integrations/saby-presto','saby_presto']"), 'Saby route must lock as saby_presto');
+  assert.ok(router.includes("['/api/integrations/poster','poster']"), 'Poster route must lock as poster');
+  assert.ok(router.includes("['/api/integrations/syrve','syrve']"), 'Syrve route must lock as syrve');
+  assert.ok(router.includes("['/api/integrations/evotor','evotor']"), 'Evotor route must lock as evotor');
+  assert.ok(router.includes("['/api/integrations/frontpad','frontpad']"), 'FrontPad route must lock as frontpad');
+});
+
 test('integration sync locking is centralized', () => {
   const router = readLib('integrations/router.js');
   const cron = readLib('jobs/integration-sync.js');
