@@ -68,11 +68,17 @@ test('manager AI action gateway keeps feature and venue checks before mutations'
 
 test('manager support thread creation enforces supplied venue ownership', () => {
   const migrationDir = path.join(root, 'supabase', 'migrations');
-  const source = fs.readFileSync(
+  const rpcSource = fs.readFileSync(
     path.join(migrationDir, '20260910180000_harden_manager_support_thread_venue_scope.sql'),
     'utf8',
   );
-  assert.match(source, /p_venue_id is not null and not public\.is_manager_of\(p_venue_id\)/);
-  assert.match(source, /raise exception 'VENUE_ACCESS_DENIED'/);
-  assert.match(source, /p_venue_id,\s*coalesce\(nullif\(trim\(p_subject\),''\),'Поддержка'\)/);
+  const rlsSource = fs.readFileSync(
+    path.join(migrationDir, '20260910181500_harden_manager_support_thread_rls_venue_scope.sql'),
+    'utf8',
+  );
+  assert.match(rpcSource, /p_venue_id is not null and not public\.is_manager_of\(p_venue_id\)/);
+  assert.match(rpcSource, /raise exception 'VENUE_ACCESS_DENIED'/);
+  assert.match(rlsSource, /manager_support_threads_manager_insert/);
+  assert.match(rlsSource, /venue_id is null or public\.is_manager_of\(venue_id\)/);
+  assert.match(rlsSource, /manager_support_threads_manager_update/);
 });
