@@ -230,29 +230,9 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opac
   .plans-grid{grid-template-columns:1fr}
   .template-grid{grid-template-columns:repeat(2,1fr)}
 }
-
-/* ═══════════════════════════════════════════════════════════
-   FIX: Мобильное боковое меню - исправление z-index
-   ═══════════════════════════════════════════════════════════ */
-@media (max-width: 900px) {
-  #app {
-    position: static !important;
-    z-index: auto !important;
-  }
-  
-  .qr-corp-nav-overlay {
-    z-index: 9998 !important;
-  }
-  .qr-corp-shell .tabs {
-    z-index: 9999 !important;
-  }
-  .qr-corp-nav-toggle {
-    z-index: 10000 !important;
-  }
-}
 </style>
 </head>
-<body class="qr-corp-shell">
+<body>
 
 <!-- LOADER -->
 <div class="app-loader" id="appLoader"><div style="text-align:center"><div class="spinner"></div><p>Загрузка кабинета...</p></div></div>
@@ -376,4 +356,4 @@ document.addEventListener('click',function(e){
 });
 </script>
 </body>
-</html>
+   </html>
