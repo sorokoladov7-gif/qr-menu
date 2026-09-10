@@ -22,21 +22,6 @@ create index if not exists staff_login_rate_limits_locked_until_idx
 revoke all on schema private from public, anon, authenticated;
 revoke all on private.staff_login_rate_limits from public, anon, authenticated;
 
-declare
-  v_venue_id uuid;
-  v_venue_name text;
-  v_staff_id uuid;
-  v_staff_name text;
-  v_token text;
-  v_expires timestamptz;
-  v_ip_key text;
-  v_window_started timestamptz;
-  v_failed_attempts integer;
-  v_locked_until timestamptz;
-begin
-  -- This block is intentionally replaced below with the function definition.
-end;
-
 create or replace function public.staff_login(p_type text, p_slug text, p_pin text)
 returns jsonb
 language plpgsql
@@ -117,26 +102,14 @@ begin
   end if;
 
   if p_type = 'cook' then
-    select id, name into v_staff_id, v_staff_name
-      from public.cooks
-     where venue_id = v_venue_id
-       and is_active = true
-       and pin = extensions.crypt(trim(p_pin), pin)
-     limit 1;
+    select id, name into v_staff_id, v_staff_name from public.cooks
+     where venue_id = v_venue_id and is_active = true and pin = extensions.crypt(trim(p_pin), pin) limit 1;
   elsif p_type = 'courier' then
-    select id, name into v_staff_id, v_staff_name
-      from public.couriers
-     where venue_id = v_venue_id
-       and is_active = true
-       and pin = extensions.crypt(trim(p_pin), pin)
-     limit 1;
+    select id, name into v_staff_id, v_staff_name from public.couriers
+     where venue_id = v_venue_id and is_active = true and pin = extensions.crypt(trim(p_pin), pin) limit 1;
   elsif p_type = 'waiter' then
-    select id, name into v_staff_id, v_staff_name
-      from public.waiters
-     where venue_id = v_venue_id
-       and is_active = true
-       and pin = extensions.crypt(trim(p_pin), pin)
-     limit 1;
+    select id, name into v_staff_id, v_staff_name from public.waiters
+     where venue_id = v_venue_id and is_active = true and pin = extensions.crypt(trim(p_pin), pin) limit 1;
   end if;
 
   if v_staff_id is null then
@@ -173,12 +146,9 @@ begin
   values (p_type, v_staff_id, v_venue_id, v_token, v_expires);
 
   return jsonb_build_object(
-    'staffId', v_staff_id,
-    'staffName', v_staff_name,
-    'venueId', v_venue_id,
-    'venueName', v_venue_name,
-    'token', v_token,
-    'expiresAt', extract(epoch from v_expires)::bigint * 1000
+    'staffId', v_staff_id, 'staffName', v_staff_name,
+    'venueId', v_venue_id, 'venueName', v_venue_name,
+    'token', v_token, 'expiresAt', extract(epoch from v_expires)::bigint * 1000
   );
 end;
 $function$;
