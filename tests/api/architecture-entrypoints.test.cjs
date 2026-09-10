@@ -111,6 +111,15 @@ test('integration sync locking is centralized', () => {
   assert.ok(!cron.includes('crypto.randomUUID'), 'integration cron job must not implement its own lock token generation');
 });
 
+test('integration registry and cron coverage cannot silently diverge', () => {
+  const registry = readLib('integrations/registry.js');
+  const cron = readLib('jobs/integration-sync.js');
+  const implemented = [...registry.matchAll(/([a-z_]+):\{name:[^\n]+?implemented:true\}/g)].map(match => match[1]);
+  const covered = new Set(['quick_resto', 'r_keeper', ...[...cron.matchAll(/^\s{2}([a-z_]+):require\(/gm)].map(match => match[1])]);
+  assert.ok(implemented.length > 0, 'registry must expose implemented providers');
+  for (const provider of implemented) assert.ok(covered.has(provider), `implemented provider ${provider} must have cron sync coverage`);
+});
+
 test('canonical architecture modules exist', () => {
   const required = [
     'lib/address/suggestions.js',
