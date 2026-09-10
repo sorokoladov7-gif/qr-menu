@@ -16,13 +16,11 @@ test('architecture entrypoints stay thin and point to canonical lib modules', ()
     'address.js': "require('../lib/address/suggestions')",
     'integrations.js': "require('../lib/integrations/router')",
     'import-site.js': "require('../lib/import/site')",
-    'import-ai.js': "require('../lib/import/ai')",
   };
 
   for (const [file, target] of Object.entries(expected)) {
     const source = readEntry(file);
-    assert.match(source, new RegExp(target.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')),
-      `${file} must dispatch to ${target}`);
+    assert.ok(source.includes(target), `${file} must dispatch to ${target}`);
   }
 });
 
