@@ -3,7 +3,7 @@
 const dns = require('node:dns').promises;
 const net = require('node:net');
 const crypto = require('node:crypto');
-const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
+const { analyzeSite } = require('../lib/import/site-menu-analyzer-v3');
 
 const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
 const PRIMARY_MODEL = process.env.GEMINI_IMPORT_MODEL || 'gemini-3.7-flash';
