@@ -7,7 +7,6 @@
   "functions": {
     "api/admin-ai-agent.js":{"maxDuration":120,"memory":1024},
     "api/admin-ai-isolated.js":{"maxDuration":120,"memory":1024},
-    "api/admin-ai-stream.js":{"maxDuration":120,"memory":1024},
     "api/import-site.js":{"maxDuration":60,"memory":1024},
     "api/import-ai.js":{"maxDuration":120,"memory":1024},
     "api/cron.js":{"maxDuration":60,"memory":1024},
