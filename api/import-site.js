@@ -1,6 +1,6 @@
 'use strict';
 
-const { analyzeSite } = require('../lib/site-menu-analyzer-v3');
+const { analyzeSite } = require('../lib/import/site-menu-analyzer-v3');
 
 const ANALYSIS_BUDGET_MS = 55000;
 const MAX_RENDER_TARGETS = 28;
@@ -377,7 +377,7 @@ module.exports = async function(req, res) {
 
     let browserResult = { ok: false, code: 'NOT_RUN', products: [], diagnostics: {} };
     try {
-      const { renderMenuPages } = require('../lib/site-browser-renderer-v2');
+      const { renderMenuPages } = require('../lib/import/site-browser-renderer-v2');
       browserResult = await renderMenuPages(renderTargets);
     } catch (browserLoadError) {
       browserResult = {
