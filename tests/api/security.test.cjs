@@ -25,7 +25,7 @@ test('Qrchick mutation gateway requires explicit approval tokens', () => {
   assert.doesNotMatch(source, /if\(body\.approval_token\)verifyApproval\(/);
 });
 
-test('YooKassa webhook preserves terminal payment statuses', () => {
+test('YooKassa webhook preserves terminal payment statuses and claims subscriptions atomically', () => {
   const source = fs.readFileSync(path.join(root, 'lib', 'payments', 'yookassa', 'webhook.js'), 'utf8');
   assert.match(source, /if \(status === 'failed'\) return 'failed';/);
   assert.match(source, /if \(status === 'refunded'\) return 'refunded';/);
@@ -43,6 +43,8 @@ test('admin payment confirmation uses the canonical plan and entitlement chain',
 
   assert.match(source, /from public\.plans\s+where id = v_payment\.plan_id\s+and is_active = true/);
   assert.match(source, /public\.admin_set_manager_plan\(v_payment\.manager_id, v_plan\.id::text\)/);
+  assert.match(source, /payment_status = 'paid'/);
+  assert.match(source, /paid_at is not null/);
   assert.match(source, /where id = p_payment_id\s+and status = 'pending'/);
   assert.match(source, /already_processed/);
 });
