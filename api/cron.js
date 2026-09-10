@@ -1,6 +1,6 @@
 'use strict';
-/* Production cron dispatcher. Integration auto-sync is handled by lib/cron/integration-sync.js. */
-const integrationSync = require('../lib/cron/integration-sync');
+/* Production cron dispatcher. Integration auto-sync is handled by lib/jobs/integration-sync.js. */
+const integrationSync = require('../lib/jobs/integration-sync');
 
 module.exports = async function handler(req, res) {
   const pathname = String((req.url || '').split('?')[0] || '').replace(/\/$/, '') || '/';
