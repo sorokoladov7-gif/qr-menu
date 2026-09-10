@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": ".",
   "git": {"deploymentEnabled":{"main":true}},
   "github": {"enabled":true},
   "crons": [{"path":"/api/cron/integration-sync","schedule":"0 3 * * *"}],
