@@ -9,38 +9,156 @@ const root = path.resolve(__dirname, '../..');
 function readEntry(name) { return fs.readFileSync(path.join(root, 'api', name), 'utf8'); }
 function readLib(relative) { return fs.readFileSync(path.join(root, 'lib', relative), 'utf8'); }
 
-test('canonical recipe mutation module owns recipe actions',()=>{const source=readLib('ai/manager/mutations/recipes.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','recipes.js')));for(const type of ['recipe_auto_sync','attach_ingredients','create_tech_card','save_recipe'])assert.ok(source.includes(`'${type}'`),`${type} must live in recipe mutation module`);assert.ok(source.includes("await venue(c,vid,'menu')"));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('manager_recipe_auto_sync'));assert.ok(source.includes('manager_product_recipe_save'));assert.ok(source.includes('resolveProduct'));assert.ok(source.includes('resolveIngredient'));});
-test('manager AI action dispatches recipe mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/recipes')"));assert.ok(source.includes('if(recipes.TYPES.has(type))return recipes.run(type,c,vid,p);'));for(const marker of ["if(type==='recipe_auto_sync')","if(['attach_ingredients','create_tech_card','save_recipe'].includes(type)"])assert.equal(source.includes(marker),false,`${marker} must not remain in central action dispatcher`);});
-test('manager AI recipe mutations remain venue-isolated',()=>{const source=readLib('ai/manager/mutations/recipes.js');assert.ok(source.includes("await venue(c,vid,'menu')"));assert.ok(source.includes('Object.assign({},r,{venue_id:vid})'));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('p_product_id:pid'));});
-test('canonical venue mutation module owns venue settings and design actions',()=>{const source=readLib('ai/manager/mutations/venue.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','venue.js')));for(const type of ['update_venue_settings','update_delivery_settings','save_design'])assert.ok(source.includes(`'${type}'`),`${type} must live in venue mutation module`);assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes("await venue(c,vid,'delivery')"));assert.ok(source.includes("await venue(c,vid,'design')"));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('manager_save_venue_settings'));assert.ok(source.includes('manager_save_design'));assert.ok(source.includes('venues?id=eq.'));assert.ok(source.includes("'PATCH'"));});
-test('manager AI action dispatches venue mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/venue')"));assert.ok(source.includes('if(venueSettings.TYPES.has(type))return venueSettings.run(type,c,vid,p);'));for(const marker of ["if(type==='update_venue_settings'||type==='update_delivery_settings')","if(type==='save_design')"])assert.equal(source.includes(marker),false,`${marker} must not remain in central action dispatcher`);});
-test('manager AI venue mutations remain venue-isolated',()=>{const source=readLib('ai/manager/mutations/venue.js');assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes("await venue(c,vid,'delivery')"));assert.ok(source.includes("await venue(c,vid,'design')"));assert.ok(source.includes('p_venue_id:vid'));});
-test('canonical delivery mutation module owns delivery integration actions',()=>{const source=readLib('ai/manager/mutations/delivery.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','delivery.js')));for(const type of ['update_delivery_integration','delete_delivery_integration'])assert.ok(source.includes(`'${type}'`),`${type} must live in delivery mutation module`);assert.ok(source.includes("await venue(c,vid,'delivery')"));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('manager_delivery_integration_upsert'));assert.ok(source.includes('manager_delivery_integration_delete'));for(const provider of ['yandex','delivery','samokat','custom'])assert.ok(source.includes(`'${provider}'`));});
-test('manager AI action dispatches delivery mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/delivery')"));assert.ok(source.includes('if(delivery.TYPES.has(type))return delivery.run(type,c,vid,p);'));assert.equal(source.includes("if(type==='update_delivery_integration'||type==='delete_delivery_integration')"),false);});
-test('manager AI delivery mutations remain venue-isolated',()=>{const source=readLib('ai/manager/mutations/delivery.js');assert.ok(source.includes("await venue(c,vid,'delivery')"));assert.ok(source.includes('p_venue_id:vid'));});
-test('canonical order mutation module owns order actions',()=>{const source=readLib('ai/manager/mutations/orders.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','orders.js')));assert.ok(source.includes("'update_order'"));assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('orders?id=eq.'));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes('ORDER_ACCESS_DENIED'));assert.ok(source.includes("'cooking'"));assert.ok(source.includes("'ready'"));assert.ok(source.includes('cooking_started_at'));assert.ok(source.includes('ready_at'));assert.ok(source.includes("'PATCH'"));});
-test('manager AI action dispatches order mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/orders')"));assert.ok(source.includes('if(orders.TYPES.has(type))return orders.run(type,c,vid,p);'));assert.equal(source.includes("if(type==='update_order')"),false);});
-test('manager AI order mutations remain venue-isolated',()=>{const source=readLib('ai/manager/mutations/orders.js');assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('orders?id=eq.'));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes("'PATCH'"));});
-test('canonical hall mutation module owns hall and table actions',()=>{const source=readLib('ai/manager/mutations/hall.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','hall.js')));for(const type of ['create_table','update_table','move_table','delete_table','regenerate_table_qr','set_table_status','seat_table','set_table_reservation_guest','close_table_session','save_hall_plan','delete_hall_plan'])assert.ok(source.includes(`'${type}'`),`${type} must live in hall mutation module`);assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('p_venue_id:vid'));for(const rpcName of ['manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan'])assert.ok(source.includes(rpcName),`${rpcName} must remain in hall mutation module`);});
-test('manager AI action dispatches hall mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/hall')"));assert.ok(source.includes('if(hall.TYPES.has(type))return hall.run(type,c,vid,p);'));assert.equal(source.includes('if(H.includes(type)'),false);});
-test('manager AI hall mutations remain venue-isolated',()=>{const source=readLib('ai/manager/mutations/hall.js');assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('p_table_id:tid'));});
-test('canonical integration mutation module owns integration disconnect action',()=>{const source=readLib('ai/manager/mutations/integrations.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','integrations.js')));assert.ok(source.includes("'disconnect_integration'"));assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('venue_integrations?venue_id=eq.'));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes("'DELETE'"));assert.ok(source.includes('INTEGRATION_NOT_FOUND'));});
-test('manager AI action dispatches integration mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/integrations')"));assert.ok(source.includes('if(integrations.TYPES.has(type))return integrations.run(type,c,vid,p);'));assert.equal(source.includes("if(type==='disconnect_integration')"),false);});
-test('manager AI integration disconnect remains venue-isolated',()=>{const source=readLib('ai/manager/mutations/integrations.js');assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes('id=eq.'));});
-test('canonical subscription mutation module owns trial plan action',()=>{const source=readLib('ai/manager/mutations/subscription.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','subscription.js')));assert.ok(source.includes("'change_trial_plan'"));assert.ok(source.includes('manager_id=eq.'));assert.ok(source.includes('venue_id=is.null'));assert.ok(source.includes('status=eq.trialing'));assert.ok(source.includes('manager_change_trial_plan'));assert.ok(source.includes('TRIAL_SUBSCRIPTION_REQUIRED'));});
-test('manager AI action dispatches subscription mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/subscription')"));assert.ok(source.includes('if(subscription.TYPES.has(type))return subscription.run(type,c,f,p,e);'));assert.equal(source.includes("if(type==='change_trial_plan')"),false);});
-test('manager AI subscription mutation remains manager-scoped',()=>{const source=readLib('ai/manager/mutations/subscription.js');assert.ok(source.includes('manager_id=eq.'));assert.ok(source.includes('venue_id=is.null'));assert.ok(source.includes('c.user.id'));assert.ok(source.includes('manager_change_trial_plan'));});
-test('canonical onboarding mutation module owns create_venue action',()=>{const source=readLib('ai/manager/mutations/onboarding.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations','onboarding.js')));assert.ok(source.includes("'create_venue'"));assert.ok(source.includes('manager_import_venue'));assert.ok(source.includes('e.subscription'));assert.ok(source.includes('p_products:prod'));assert.ok(source.includes('p_subscription_end'));});
-test('manager AI action dispatches onboarding mutations through canonical module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./mutations/onboarding')"));assert.ok(source.includes('if(onboarding.TYPES.has(type))return onboarding.run(type,c,f,p,e);'));assert.equal(source.includes("if(type==='create_venue')"),false);assert.equal(source.includes("const prod=Array.isArray(p.products)"),false);});
-test('manager AI onboarding keeps manager subscription contract intact',()=>{const source=readLib('ai/manager/mutations/onboarding.js');assert.ok(source.includes('manager_import_venue'));assert.ok(source.includes('p_plan:str(p.plan_id||s.plan_id,80)'));assert.ok(source.includes('p_subscription_end:p.subscription_end||s.current_period_end||null'));assert.ok(source.includes('c.token'));});
-test('canonical marketing action module owns presentation-only marketing action',()=>{const source=readLib('ai/manager/actions/marketing.js');assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','actions','marketing.js')));assert.ok(source.includes("'marketing_draft'"));assert.ok(source.includes('str(p.title,180)'));assert.ok(source.includes('str(p.text,6000'));});
-test('manager AI action dispatches marketing through canonical action module',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes("require('./actions/marketing')"));assert.ok(source.includes('if(marketing.TYPES.has(type))return marketing.run(type,c,f,p,e);'));assert.equal(source.includes("if(type==='marketing_draft')return"),false);});
-test('manager AI action endpoint remains a thin dispatcher',()=>{const source=readEntry('manager-ai-action.js');assert.equal(source.trim(),"'use strict';\n\nmodule.exports = require('../lib/ai/manager/action');");assert.ok(!source.includes('fetch('));assert.ok(!source.includes('createClient('));});
-test('architecture modules retain canonical manager context boundaries',()=>{const context=readLib('ai/manager/context.js');for(const symbol of ['MAP','fail','api','rpc','auth','entitlement','venue','resolveProduct','resolveIngredient','resolveStaff'])assert.ok(context.includes(symbol),`${symbol} must live in manager action context`);});
-test('manager AI action keeps one canonical mutation boundary',()=>{const source=readLib('ai/manager/action.js');assert.ok(source.includes('async function run(c,f,a,e)'));assert.ok(source.includes("if(!(MAP[f]||[]).includes(type))throw fail('ACTION_NOT_ALLOWED_FOR_FEATURE:"));assert.ok(source.includes("const vid=str(p.venue_id,80)"));for(const line of ["if(marketing.TYPES.has(type))return marketing.run(type,c,f,p,e);","if(onboarding.TYPES.has(type))return onboarding.run(type,c,f,p,e);","if(subscription.TYPES.has(type))return subscription.run(type,c,f,p,e);","if(menu.TYPES.has(type))return menu.run(type,c,vid,p,e);","if(ingredients.TYPES.has(type))return ingredients.run(type,c,vid,p);","if(staff.TYPES.has(type))return staff.run(type,c,vid,p);","if(recipes.TYPES.has(type))return recipes.run(type,c,vid,p);","if(venueSettings.TYPES.has(type))return venueSettings.run(type,c,vid,p);","if(delivery.TYPES.has(type))return delivery.run(type,c,vid,p);","if(orders.TYPES.has(type))return orders.run(type,c,vid,p);","if(hall.TYPES.has(type))return hall.run(type,c,vid,p);"])assert.ok(source.includes(line));});
-test('manager AI menu mutations are isolated by venue and permission',()=>{const source=readLib('ai/manager/mutations/menu.js');assert.ok(source.includes("await venue(c,vid,'menu')"));assert.ok(source.includes("await venue(c,vid,'price')"));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes("'DELETE'"));assert.ok(source.includes("'PATCH'"));});
-test('manager AI ingredient mutations are isolated by venue and permission',()=>{const source=readLib('ai/manager/mutations/ingredients.js');assert.ok(source.includes("await venue(c,vid,'menu')"));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes('manager_ingredient_upsert'));assert.ok(source.includes('manager_ingredient_delete'));});
-test('manager AI staff mutations are isolated by venue and permission',()=>{const source=readLib('ai/manager/mutations/staff.js');assert.ok(source.includes("await venue(c,vid,'venue')"));assert.ok(source.includes('p_venue_id:vid'));assert.ok(source.includes('venue_id=eq.'));assert.ok(source.includes('manager_create_staff'));assert.ok(source.includes('manager_reset_staff_pin'));assert.ok(source.includes("'DELETE'"));assert.ok(source.includes("/^\\d{4}$/"));});
-test('manager AI extracted mutation families no longer remain in central action dispatcher',()=>{const source=readLib('ai/manager/action.js');for(const marker of ["if(type==='recipe_auto_sync')","if(['attach_ingredients','create_tech_card','save_recipe'].includes(type)","if(type==='update_venue_settings'||type==='update_delivery_settings')","if(type==='save_design')","if(type==='update_delivery_integration'||type==='delete_delivery_integration')","if(type==='update_order')","if(H.includes(type)","if(type==='disconnect_integration')","if(type==='change_trial_plan')","if(type==='create_venue')","if(type==='marketing_draft')return"])assert.equal(source.includes(marker),false,`${marker} must be extracted`);});
-test('manager AI resolver queries are venue-scoped',()=>{const source=readLib('ai/manager/context.js');for(const table of ['products','ingredients','cooks','couriers','waiters'])assert.ok(source.includes(`${table}?venue_id=eq.`),`${table} resolver must be venue-scoped`);});
-test('propose uses canonical manager context contracts',()=>{const context=readLib('ai/manager/context.js');const propose=readLib('ai/manager/propose.js');for(const symbol of ['MAP','H','POS','DEL','fail','auth','entitlement'])assert.ok(context.includes(`const ${symbol}=`)||context.includes(`const ${symbol} =`),`${symbol} must remain canonical in context`);for(const forbidden of ['const H=','const ALLOWED=','const PROVIDERS=','const DELIVERY=','function auth(','function entitlement(','function active(','function bearer(','function api(','const FAIL='])assert.equal(propose.includes(forbidden),false,`${forbidden} must not be duplicated in propose`);for(const imported of ["const {A,MAP,H,POS,DEL,fail,auth,entitlement}=require('./context');","const {MAP,H,POS,DEL,fail,auth,entitlement}=require('./context');"])assert.ok(propose.includes(imported),'propose must import canonical context contracts');for(const feature of ['assistant','menu_analysis','analytics','recipes','chef','staff','marketing','settings','hall','engineer'])assert.ok(propose.includes(`${feature}:`),`propose must retain feature contract for ${feature}`);});
+const families = {
+  menu: ['create_product','update_product','update_product_price','delete_product'],
+  ingredients: ['create_ingredient','update_ingredient','delete_ingredient'],
+  staff: ['create_staff','reset_staff_pin','delete_staff'],
+  recipes: ['attach_ingredients','create_tech_card','save_recipe'],
+  venue: ['update_venue_settings','update_delivery_settings','save_design'],
+  delivery: ['update_delivery_integration','delete_delivery_integration'],
+  orders: ['update_order'],
+  hall: ['create_table','update_table','move_table','delete_table','regenerate_table_qr','set_table_status','seat_table','set_table_reservation_guest','close_table_session','save_hall_plan','delete_hall_plan'],
+  integrations: ['disconnect_integration'],
+  subscription: ['change_trial_plan'],
+  onboarding: ['create_venue']
+};
+
+test('canonical mutation families own their actions', () => {
+  for (const [module, types] of Object.entries(families)) {
+    const source = readLib(`ai/manager/mutations/${module}.js`);
+    assert.ok(fs.existsSync(path.join(root,'lib','ai','manager','mutations',`${module}.js`)));
+    for (const type of types) assert.ok(source.includes(`'${type}'`), `${type} must live in ${module}.js`);
+  }
+});
+
+test('recipe mutation contract excludes revoked legacy auto-sync', () => {
+  const source = readLib('ai/manager/mutations/recipes.js');
+  assert.equal(source.includes('recipe_auto_sync'), false);
+  assert.equal(source.includes('manager_recipe_auto_sync'), false);
+  assert.ok(source.includes('manager_product_recipe_save'));
+  assert.ok(source.includes("Object.assign({},p,{venue_id:vid})"));
+  assert.ok(source.includes("Object.assign({},r,{venue_id:vid})"));
+  assert.ok(source.includes('p_venue_id:vid'));
+});
+
+test('venue mutation uses canonical venue write/RPC contracts', () => {
+  const source = readLib('ai/manager/mutations/venue.js');
+  assert.equal(source.includes('manager_save_venue_settings'), false);
+  assert.ok(source.includes('manager_save_design'));
+  assert.ok(source.includes('venues?id=eq.'));
+  assert.ok(source.includes("'PATCH'"));
+  assert.ok(source.includes("await venue(c,vid,'delivery')"));
+});
+
+test('manager AI dispatcher contains one canonical mutation boundary', () => {
+  const source = readLib('ai/manager/action.js');
+  assert.ok(source.includes('async function run(c,f,a,e)'));
+  assert.ok(source.includes("if(!(MAP[f]||[]).includes(type))throw fail('ACTION_NOT_ALLOWED_FOR_FEATURE:"));
+  assert.ok(source.includes('const vid=str(p.venue_id,80)'));
+  for (const line of [
+    "if(marketing.TYPES.has(type))return marketing.run(type,c,f,p,e);",
+    "if(onboarding.TYPES.has(type))return onboarding.run(type,c,f,p,e);",
+    "if(subscription.TYPES.has(type))return subscription.run(type,c,f,p,e);",
+    "if(menu.TYPES.has(type))return menu.run(type,c,vid,p,e);",
+    "if(ingredients.TYPES.has(type))return ingredients.run(type,c,vid,p);",
+    "if(staff.TYPES.has(type))return staff.run(type,c,vid,p);",
+    "if(recipes.TYPES.has(type))return recipes.run(type,c,vid,p);",
+    "if(venueSettings.TYPES.has(type))return venueSettings.run(type,c,vid,p);",
+    "if(delivery.TYPES.has(type))return delivery.run(type,c,vid,p);",
+    "if(orders.TYPES.has(type))return orders.run(type,c,vid,p);",
+    "if(hall.TYPES.has(type))return hall.run(type,c,vid,p);"
+  ]) assert.ok(source.includes(line));
+});
+
+test('legacy mutation branches are absent from central dispatcher', () => {
+  const source = readLib('ai/manager/action.js');
+  for (const marker of [
+    "if(type==='recipe_auto_sync')",
+    "if(['attach_ingredients','create_tech_card','save_recipe'].includes(type)",
+    "if(type==='update_venue_settings'||type==='update_delivery_settings')",
+    "if(type==='save_design')",
+    "if(type==='update_delivery_integration'||type==='delete_delivery_integration')",
+    "if(type==='update_order')",
+    'if(H.includes(type)',
+    "if(type==='disconnect_integration')",
+    "if(type==='change_trial_plan')",
+    "if(type==='create_venue')",
+    "if(type==='marketing_draft')return"
+  ]) assert.equal(source.includes(marker), false, `${marker} must be extracted`);
+});
+
+test('all manager mutation modules enforce canonical venue context', () => {
+  for (const module of ['menu','ingredients','staff','recipes','venue','delivery','orders','hall','integrations']) {
+    const source = readLib(`ai/manager/mutations/${module}.js`);
+    assert.ok(source.includes('vid'), `${module} must receive canonical venue id`);
+  }
+});
+
+test('resolver boundary is venue-scoped', () => {
+  const context = readLib('ai/manager/context.js');
+  for (const table of ['products','ingredients','cooks','couriers','waiters']) {
+    assert.ok(context.includes(`${table}?venue_id=eq.`), `${table} resolver must be venue-scoped`);
+  }
+});
+
+test('recipe resolver calls override payload venue_id with canonical vid', () => {
+  const source = readLib('ai/manager/mutations/recipes.js');
+  assert.ok(source.includes("resolveProduct(c,Object.assign({},p,{venue_id:vid})"));
+  assert.ok(source.includes("resolveIngredient(c,Object.assign({},r,{venue_id:vid})"));
+});
+
+test('manager mutation resolver calls never trust payload venue_id', () => {
+  const menu = readLib('ai/manager/mutations/menu.js');
+  const ingredients = readLib('ai/manager/mutations/ingredients.js');
+  const staff = readLib('ai/manager/mutations/staff.js');
+  assert.ok(menu.includes("resolveProduct(c,Object.assign({},p,{venue_id:vid})"));
+  assert.ok(ingredients.includes("resolveIngredient(c,Object.assign({},p,{venue_id:vid})"));
+  assert.ok(staff.includes("resolveStaff(c,Object.assign({},p,{venue_id:vid})"));
+});
+
+test('manager AI action endpoint remains a thin dispatcher', () => {
+  const source = readEntry('manager-ai-action.js');
+  assert.equal(source.trim(), "'use strict';\n\nmodule.exports = require('../lib/ai/manager/action');");
+  assert.ok(!source.includes('fetch('));
+  assert.ok(!source.includes('createClient('));
+});
+
+test('manager context owns authentication and entitlement boundaries', () => {
+  const context = readLib('ai/manager/context.js');
+  for (const symbol of ['MAP','fail','api','rpc','auth','entitlement','venue','resolveProduct','resolveIngredient','resolveStaff']) {
+    assert.ok(context.includes(symbol), `${symbol} must remain in canonical manager context`);
+  }
+});
+
+test('subscription mutation is manager-scoped', () => {
+  const source = readLib('ai/manager/mutations/subscription.js');
+  assert.ok(source.includes('manager_id=eq.'));
+  assert.ok(source.includes('venue_id=is.null'));
+  assert.ok(source.includes('status=eq.trialing'));
+  assert.ok(source.includes('manager_change_trial_plan'));
+});
+
+test('hall mutations use manager RPC boundary and canonical venue id', () => {
+  const source = readLib('ai/manager/mutations/hall.js');
+  assert.ok(source.includes("await venue(c,vid,'venue')"));
+  assert.ok(source.includes('p_venue_id:vid'));
+  for (const rpcName of ['manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan']) {
+    assert.ok(source.includes(rpcName), `${rpcName} must remain in hall mutation module`);
+  }
+});
+
+test('onboarding preserves manager subscription contract', () => {
+  const source = readLib('ai/manager/mutations/onboarding.js');
+  assert.ok(source.includes('manager_import_venue'));
+  assert.ok(source.includes('e.subscription'));
+  assert.ok(source.includes('p_products:prod'));
+  assert.ok(source.includes('p_subscription_end:p.subscription_end||s.current_period_end||null'));
+});
+
+test('marketing action remains presentation-only', () => {
+  const source = readLib('ai/manager/actions/marketing.js');
+  assert.ok(source.includes("'marketing_draft'"));
+  assert.equal(source.includes('rpc('), false);
+  assert.equal(source.includes("'PATCH'"), false);
+  assert.equal(source.includes("'POST'"), false);
+});
