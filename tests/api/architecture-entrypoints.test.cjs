@@ -211,3 +211,9 @@ test('manager RPC SQL definitions retain an authorization predicate', () => {
     assert.match(body, /auth\.uid\(\)|is_manager_of\(|manager_can_manage_venue\(|manager_has_permission\(|is_admin\(\)/i, `${name} must retain an authorization predicate`);
   }
 });
+
+test('legacy manager RPC overloads are not authenticated client contracts', () => {
+  const sql = readSql();
+  assert.match(sql, /REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.manager_reset_staff_pin\(text,\s*uuid\)\s+FROM\s+public,\s*anon,\s*authenticated/i);
+  assert.match(sql, /REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.manager_set_table_status\(uuid,\s*text\)\s+FROM\s+public,\s*anon,\s*authenticated/i);
+});
