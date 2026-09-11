@@ -145,6 +145,10 @@ The canonical `src/assets/js/manager/manager-*.js` entrypoints remain thin compa
 
 Standalone database verification scripts are grouped under `/supabase/verify/`. The unified operational-core checker moved from the repository root to `/supabase/verify/unified-core.sql` without source changes.
 
+## Test support
+
+Test infrastructure that is not itself a test suite is grouped under `/tests/support/`. The static compatibility server moved from `/tests/static-server.cjs` to `/tests/support/static-server.cjs`; `playwright.config.cjs` points to the canonical location. No runtime or production route was changed.
+
 ## Compatibility
 
 Legacy production/deep links remain available through Vercel redirects. Relocated pages retain existing runtime URLs through compatibility rewrites, while migrated static assets and role-specific JavaScript are physically stored under `/src/assets/*`.
@@ -155,7 +159,7 @@ Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compati
 
 ## Validation
 
-The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` mirrors the compatibility rules, while Playwright smoke coverage checks legacy and canonical asset URLs, including flat-to-canonical JavaScript mappings, role-icon compatibility, and Apple touch icon paths.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` was relocated as a test-infrastructure-only change, and architecture coverage now asserts the canonical `/tests/support/` location. Playwright smoke coverage checks legacy and canonical asset URLs, including flat-to-canonical JavaScript mappings, role-icon compatibility, and Apple touch icon paths.
 
 The application runtime itself has not been executed in this environment; local runtime/network limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
 
@@ -167,4 +171,4 @@ The application runtime itself has not been executed in this environment; local 
 
 Root files that remain intentionally include Vercel/serverless entrypoints, the root service worker (`sw.js`, whose scope depends on root placement), repository configuration, robots/sitemap metadata, and the standalone `demo-staff.html` shell. `demo-staff.html` is not relocated yet because its current iframe and error-state links are relative to the root role URLs; moving it would require coordinated URL changes rather than a pure filesystem move.
 
-The browser-asset migration is therefore considered structurally complete for the audited JS/assets boundary. Further cleanup should target dependency-driven server/runtime layout rather than another blanket file move.
+The browser-asset migration is structurally complete for the audited JS/assets boundary. Further cleanup targets dependency-driven server/runtime layout and test infrastructure rather than another blanket file move.
