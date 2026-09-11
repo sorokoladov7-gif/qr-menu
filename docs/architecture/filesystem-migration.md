@@ -130,16 +130,32 @@ All files were relocated by preserving their existing Git blob SHAs. No business
 
 The manager browser runtime is physically grouped under `/src/assets/js/manager/`.
 
-The first manager relocation moved the 19-file manager module group, preserving strict script ordering and the existing `window.__QR_MANAGER_*_MIXIN__` contracts. A second pass moved manager-only auxiliary modules, the POS integrations hub, and the manager AI assistant into the same namespace.
+The canonical manager runtime contains the actual implementations and browser compatibility bridges. It is not a thin-loader/legacy split. Important runtime modules include:
 
-The old manager hall/design implementations are now physically isolated under `/src/assets/js/manager/legacy/`:
+- `manager-core.js` — shared manager state, entitlement helpers, canonical action bridge, and browser mutation interception.
+- `manager-menu.js` — menu UI, PDF/photo/site import UI, and menu interaction layer.
+- `manager-recipes.js` — recipe/ingredient UI; canonical RPC writes are intercepted by the manager core bridge.
+- `manager-staff.js` — staff UI; destructive staff mutations use the canonical manager action boundary while supported read/analytics RPCs remain read-only.
+- `manager-hall.js` — hall/table UI using the canonical manager hall RPC contract.
+- `manager-hall-ai.js` — compatibility bootstrap only; revoked global-ingredient mutation RPCs are not exposed here.
+- `manager-design.js` and `manager-hall-view.js` — manager design/hall presentation/runtime helpers.
 
-- `manager-design.js`
-- `manager-hall.js`
-- `manager-hall-ai.js`
-- `manager-hall-view.js`
+Historical `/js/manager-*.js` URLs remain compatibility routes to the canonical files. No duplicate `legacy/` implementation tree is required by the current architecture.
 
-The canonical `src/assets/js/manager/manager-*.js` entrypoints remain thin compatibility loaders and keep their existing public contracts. Historical `/js/manager-*.js` URLs are explicitly rewritten to the legacy implementation paths where required.
+## Server/runtime boundaries
+
+Server-side runtime remains intentionally separated from browser assets:
+
+- `/api` — thin HTTP entrypoints and compatibility dispatchers.
+- `/lib/ai/manager/` — canonical manager AI action context, dispatcher, and mutation families.
+- `/lib/integrations/` — provider registry/router and integration runtime.
+- `/lib/import/` — menu/site import runtime.
+- `/lib/jobs/` — scheduled/background jobs.
+- `/lib/payments/` — payment provider runtime.
+- `/lib/shared/` — reusable server-side security/auth helpers.
+- `/supabase/migrations/` — database schema, RPC authorization, and security migrations.
+
+Manager mutation flow is intentionally centralized as `browser UI → /api/manager-ai-action → lib/ai/manager/action.js → mutation family → Supabase/RPC`, while read-only browser queries may continue to use the existing Supabase client where their contract is explicitly read-only.
 
 ## Verification scripts
 
@@ -153,15 +169,15 @@ Test infrastructure that is not itself a test suite is grouped under `/tests/sup
 
 Legacy production/deep links remain available through Vercel redirects. Relocated pages retain existing runtime URLs through compatibility rewrites, while migrated static assets and role-specific JavaScript are physically stored under `/src/assets/*`.
 
-Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules and legacy manager implementations that were moved into role/shared/legacy subdirectories use explicit rewrites before the generic `/js/:path*` rule. Legacy root role-icon and Apple touch icon URLs likewise use explicit rewrites to canonical icon files.
+Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules and historical manager URLs use explicit rewrites before the generic `/js/:path*` rule. Legacy root role-icon and Apple touch icon URLs likewise use explicit rewrites to canonical icon files.
 
 `/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
 
 ## Validation
 
-The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA, avoiding source rewrites and business-logic edits wherever possible. `tests/static-server.cjs` was relocated as a test-infrastructure-only change, and architecture coverage now asserts the canonical `/tests/support/` location. Playwright smoke coverage checks legacy and canonical asset URLs, including flat-to-canonical JavaScript mappings, role-icon compatibility, and Apple touch icon paths.
+The page and static asset migrations preserve existing blobs. Shared, admin, manager, guest, staff, demo, and PWA JavaScript groups were relocated by blob SHA where possible. Runtime contract tests now cover the canonical manager mutation families, venue isolation, legacy RPC ACL boundaries, browser mutation bridges, and the canonical manager filesystem map.
 
-The application runtime itself has not been executed in this environment; local runtime/network limitations previously prevented a reliable full browser test run. The filesystem changes are therefore validated structurally through repository state and route definitions rather than claimed as a successful production deployment test.
+The application runtime is not claimed as fully browser-tested in this environment. Production deployment status is checked separately through Vercel for each relevant commit.
 
 ## menu-v2
 
@@ -171,4 +187,4 @@ The application runtime itself has not been executed in this environment; local 
 
 Root files that remain intentionally include Vercel/serverless entrypoints, the root service worker (`sw.js`, whose scope depends on root placement), repository configuration, robots/sitemap metadata, and the standalone `demo-staff.html` shell. `demo-staff.html` is not relocated yet because its current iframe and error-state links are relative to the root role URLs; moving it would require coordinated URL changes rather than a pure filesystem move.
 
-The browser-asset migration is structurally complete for the audited JS/assets boundary. Further cleanup targets dependency-driven server/runtime layout and test infrastructure rather than another blanket file move.
+The browser-asset migration is structurally complete for the audited JS/assets boundary. Further cleanup targets dependency-driven server/runtime layout and runtime-contract hardening rather than another blanket file move.
