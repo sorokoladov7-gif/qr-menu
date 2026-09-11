@@ -35,9 +35,7 @@
   function installCanonicalRpcBridge(){
     if(!window.db||typeof window.db.rpc!=='function'||window.db.__QR_MANAGER_RPC_BRIDGE__)return;
     try{
-      var original=window.db.rpc.bind(window.db);
-      var mutationMap={manager_product_recipe_save:'save_recipe',manager_ingredient_upsert:null,manager_ingredient_delete:'delete_ingredient'};
-      window.db.__QR_MANAGER_RPC_BRIDGE__=true;
+      var original=window.db.rpc.bind(window.db);window.db.__QR_MANAGER_RPC_BRIDGE__=true;
       window.db.rpc=function(name,args,options){
         if(name==='manager_ingredient_upsert'&&args&&args.p_venue_id){
           var type=args.p_id?'update_ingredient':'create_ingredient',payload={venue_id:args.p_venue_id,name:args.p_name,unit:args.p_unit,purchase_quantity:args.p_purchase_quantity,purchase_price:args.p_purchase_price};
@@ -56,17 +54,33 @@
     }catch(e){console.warn('[QR Manager] canonical RPC bridge:',e);}
   }
 
+  function installProductInsertBridge(){
+    if(!window.db||typeof window.db.from!=='function'||window.db.__QR_MANAGER_PRODUCT_BRIDGE__)return;
+    try{
+      var originalFrom=window.db.from.bind(window.db);window.db.__QR_MANAGER_PRODUCT_BRIDGE__=true;
+      window.db.from=function(table){
+        var builder=originalFrom(table);
+        if(table!=='products'||!builder||typeof builder.insert!=='function')return builder;
+        var originalInsert=builder.insert.bind(builder);
+        builder.insert=function(values,options){
+          if(!Array.isArray(values))return originalInsert(values,options);
+          var rows=values.slice();
+          return Promise.all(rows.map(function(row){var payload=Object.assign({},row);return runManagerAction({type:'create_product',payload:payload});})).then(function(result){return{data:result,error:null};}).catch(function(error){return{data:null,error:error};});
+        };
+        return builder;
+      };
+    }catch(e){console.warn('[QR Manager] product insert bridge:',e);}
+  }
+
   function addIntegrationsLink(){if(!/\/manager\.html$/i.test(location.pathname))return;var tabs=document.querySelector('.tabs');if(!tabs||tabs.querySelector('[data-qr-integrations-link]'))return;var link=document.createElement('a');link.href='/integrations.html';link.textContent='🔗 Интеграции';link.setAttribute('data-qr-integrations-link','1');link.className='qr-integrations-tab';link.style.cssText='display:inline-flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;';tabs.appendChild(link);}
   function initIntegrationsLink(){addIntegrationsLink();var attempts=0,timer=setInterval(function(){addIntegrationsLink();attempts++;if(document.querySelector('[data-qr-integrations-link]')||attempts>=40)clearInterval(timer);},250);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initIntegrationsLink,{once:true});else initIntegrationsLink();
-
   function restoreDeliverySettingsMount(){if(!/\/manager\.html$/i.test(location.pathname))return;var vm=window.__managerVue;if(!vm||vm.tab!=='settings')return;var root=document.getElementById('app');if(!root)return;if(root.querySelector('[data-qr-delivery-settings]'))return;var cards=root.querySelectorAll('.glass.card');for(var i=0;i<cards.length;i++){var text=(cards[i].textContent||'').replace(/\s+/g,' ');if(text.indexOf('Фактический адрес заведения')!==-1){cards[i].setAttribute('v-if',"tab==='settings'");cards[i].setAttribute('data-qr-settings-panel','1');return;}}}
   function watchDeliverySettingsMount(){var attempts=0,timer=setInterval(function(){restoreDeliverySettingsMount();attempts++;if(document.querySelector('[data-qr-delivery-settings]')||attempts>=120)clearInterval(timer);},250);setTimeout(function(){clearInterval(timer);},30000);}
   function normalizeDeliveryCards(vm){var ids=['yandex','delivery','samokat','custom'];var cards=vm.deliveryProviderCards||[];cards.forEach(function(p,i){if(ids[i]){p.id=ids[i];p.provider=ids[i];}});return cards;}
   function installSettingsPersistencePatch(vm){if(!vm||vm.__qrSettingsPersistencePatch)return;vm.__qrSettingsPersistencePatch=true;var originalLoad=vm.loadDeliverySettings;if(typeof originalLoad==='function'){vm.loadDeliverySettings=function(){var self=this;return Promise.resolve(originalLoad.apply(this,arguments)).then(function(result){var cards=normalizeDeliveryCards(self),enabled=cards.filter(function(p){return p.enabled;}).sort(function(a,b){return Number(a.priority||100)-Number(b.priority||100);});self.deliveryPrimaryProvider=enabled.length?enabled[0].id:'';return result;});};}var originalSaveVenue=vm.saveVenue;if(typeof originalSaveVenue==='function'){vm.saveVenue=function(){var self=this,venueId=self.venue&&self.venue.id;if(!venueId)return originalSaveVenue.apply(this,arguments);var f=self.vform||{},lat=Number(f.latitude),lng=Number(f.longitude),hasLat=Number.isFinite(lat),hasLng=Number.isFinite(lng),patch={address:String(f.address==null?'':f.address).trim()||null,latitude:hasLat?lat:null,longitude:hasLng?lng:null,delivery_enabled:typeof f.delivery_enabled==='boolean'?f.delivery_enabled:null,delivery_min_order:Math.max(0,Number(f.delivery_min_order)||0),delivery_min_order_free:Math.max(0,Number(f.delivery_min_order_free)||0),delivery_base_fee:Math.max(0,Number(f.delivery_base_fee)||0),delivery_rate_per_km:Math.max(0,Number(f.delivery_rate_per_km)||0),delivery_max_km:Math.max(0,Number(f.delivery_max_km)||0)};return runManagerAction({type:'update_delivery_settings',payload:Object.assign({venue_id:venueId},patch)}).then(function(){self.venue=Object.assign({},self.venue,patch);self.vform=Object.assign({},self.vform,Object.assign({},patch,{address:patch.address||''}));self.showToast('Настройки доставки сохранены.');return self.venue;}).catch(function(e){console.error('[Manager] venue settings:',e);self.showToast('Ошибка сохранения настроек заведения: '+(e.message||String(e)),'error');throw e;});};}}
   function watchSettingsPersistence(){var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);watchDeliverySettingsMount();if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);}
-  window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();},{once:true});
+  window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();installCanonicalRpcBridge();installProductInsertBridge();},{once:true});
   if(window.__managerVue){watchSettingsPersistence();watchDeliverySettingsMount();}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installCanonicalRpcBridge,{once:true});else installCanonicalRpcBridge();
-  window.addEventListener('qr-manager-vue-ready',installCanonicalRpcBridge,{once:true});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){installCanonicalRpcBridge();installProductInsertBridge();},{once:true});else{installCanonicalRpcBridge();installProductInsertBridge();}
 })();
