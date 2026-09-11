@@ -111,3 +111,39 @@ test('obsolete architecture locations are not present', () => {
 test('static test infrastructure lives under the test support boundary', () => {
   assert.equal(fs.existsSync(path.join(root,'tests/support/static-server.cjs')),true); assert.equal(fs.existsSync(path.join(root,'tests/static-server.cjs')),false);
 });
+
+test('manager AI action endpoint is a thin dispatcher', () => {
+  const source=readEntry('manager-ai-action.js');
+  assert.equal(source.trim(), "'use strict';\n\nmodule.exports = require('../lib/ai/manager/action');");
+  assert.ok(!source.includes('fetch('));
+  assert.ok(!source.includes('createClient('));
+});
+
+test('manager AI action keeps one canonical mutation boundary', () => {
+  const source=readLib('ai/manager/action.js');
+  assert.ok(source.includes('async function run(c,f,a,e)'));
+  assert.ok(source.includes("if(!(MAP[f]||[]).includes(type))throw fail('ACTION_NOT_ALLOWED_FOR_FEATURE:"));
+  assert.ok(source.includes("const vid=str(p.venue_id,80)"));
+  assert.ok(source.includes("async function venue(c,id,need)"));
+});
+
+test('manager AI mutation branches retain venue isolation before data mutation', () => {
+  const source=readLib('ai/manager/action.js');
+  const mutations=['create_product','update_product','update_product_price','delete_product','create_ingredient','update_ingredient','delete_ingredient','create_staff','reset_staff_pin','delete_staff','update_order','update_venue_settings','update_delivery_settings','save_design','update_delivery_integration','delete_delivery_integration','recipe_auto_sync','attach_ingredients','create_tech_card','save_recipe',...['create_table','update_table','move_table','delete_table','regenerate_table_qr','set_table_status','seat_table','set_table_reservation_guest','close_table_session','save_hall_plan','delete_hall_plan']];
+  for(const type of mutations){
+    const marker=`if(type==='${type}')`;
+    const at=source.indexOf(marker);
+    assert.notEqual(at,-1,`${type} branch must exist`);
+    const next=source.indexOf('\nif(type===',at+marker.length);
+    const branch=source.slice(at,next===-1?source.length:next);
+    assert.ok(branch.includes('await venue(c,vid,'),`${type} must verify venue access before mutation`);
+    assert.ok(branch.includes('venue_id'),`${type} must carry venue_id into its data boundary`);
+  }
+});
+
+test('manager AI resolver queries are venue-scoped', () => {
+  const source=readLib('ai/manager/action.js');
+  for(const table of ['products','ingredients','cooks','couriers','waiters']) {
+    assert.ok(source.includes(`${table}?venue_id=eq.`),`${table} resolver must be venue-scoped`);
+  }
+});
