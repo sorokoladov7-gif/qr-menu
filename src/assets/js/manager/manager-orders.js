@@ -35,12 +35,20 @@
             });
           return;
         }
-        db.from('orders').update(u).eq('id',id).then(function(r){
-          if(r&&r.error && !navigator.onLine && window.OfflineSync){
-            return window.OfflineSync.add({operation:'update',table:'orders',payload:u,filters:{id:id},venue_id:self.venue&&self.venue.id});
-          }
-          return self.loadOrders();
-        });
+
+        var action=window.__QR_RUN_MANAGER_ACTION__;
+        if(typeof action!=='function'){
+          self.showToast&&self.showToast('Канал действий управляющего не загружен.','error');
+          return;
+        }
+        action({type:'update_order',payload:Object.assign({venue_id:self.venue&&self.venue.id,order_id:id},u)})
+          .then(function(){return self.loadOrders();})
+          .catch(function(e){
+            if(e&&e.message){
+              console.error('[Manager] order status:',e);
+              self.showToast&&self.showToast('Ошибка изменения статуса: '+e.message,'error');
+            }
+          });
       },
       orderBadge:function(s){return 'b-'+s;},
       deliveryIcon:function(t){return t==='delivery'?'🚗':'';},
