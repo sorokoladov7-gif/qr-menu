@@ -140,3 +140,8 @@ test('obsolete architecture locations are not present', () => {
   const obsolete = ['lib/_lib/manager-auth.js', 'lib/_lib/yookassa.js', 'lib/cron/integration-sync.js'];
   for (const relative of obsolete) assert.equal(fs.existsSync(path.join(root, relative)), false, `${relative} must not exist`);
 });
+
+test('static test infrastructure lives under the test support boundary', () => {
+  assert.equal(fs.existsSync(path.join(root, 'tests/support/static-server.cjs')), true, 'static-server.cjs must live under tests/support');
+  assert.equal(fs.existsSync(path.join(root, 'tests/static-server.cjs')), false, 'legacy static-server.cjs location must not return');
+});
