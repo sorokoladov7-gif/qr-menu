@@ -81,25 +81,24 @@
         if(!venueId){return originalSaveVenue.apply(this,arguments);}
         var f=self.vform||{},lat=Number(f.latitude),lng=Number(f.longitude);
         var hasLat=Number.isFinite(lat),hasLng=Number.isFinite(lng);
-        var payload={
-          p_venue_id:venueId,
-          p_address:String(f.address==null?'':f.address).trim()||null,
-          p_latitude:hasLat?lat:null,
-          p_longitude:hasLng?lng:null,
-          p_delivery_enabled:typeof f.delivery_enabled==='boolean'?f.delivery_enabled:null,
-          p_delivery_min_order:Math.max(0,Number(f.delivery_min_order)||0),
-          p_delivery_min_order_free:Math.max(0,Number(f.delivery_min_order_free)||0),
-          p_delivery_base_fee:Math.max(0,Number(f.delivery_base_fee)||0),
-          p_delivery_rate_per_km:Math.max(0,Number(f.delivery_rate_per_km)||0),
-          p_delivery_max_km:Math.max(0,Number(f.delivery_max_km)||0)
+        var patch={
+          address:String(f.address==null?'':f.address).trim()||null,
+          latitude:hasLat?lat:null,
+          longitude:hasLng?lng:null,
+          delivery_enabled:typeof f.delivery_enabled==='boolean'?f.delivery_enabled:null,
+          delivery_min_order:Math.max(0,Number(f.delivery_min_order)||0),
+          delivery_min_order_free:Math.max(0,Number(f.delivery_min_order_free)||0),
+          delivery_base_fee:Math.max(0,Number(f.delivery_base_fee)||0),
+          delivery_rate_per_km:Math.max(0,Number(f.delivery_rate_per_km)||0),
+          delivery_max_km:Math.max(0,Number(f.delivery_max_km)||0)
         };
-        return db.rpc('manager_save_venue_settings',payload).then(function(r){
+        return db.from('venues').update(patch).eq('id',venueId).then(function(r){
           if(r.error)throw r.error;
-          var v=r.data&&r.data.venue?r.data.venue:null;
-          if(v){self.venue=v;self.vform=Object.assign({},self.vform,{address:v.address||'',latitude:v.latitude!=null?Number(v.latitude):(v.lat!=null?Number(v.lat):null),longitude:v.longitude!=null?Number(v.longitude):(v.lng!=null?Number(v.lng):null),delivery_min_order:Number(v.delivery_min_order||0),delivery_min_order_free:Number(v.delivery_min_order_free||0),delivery_base_fee:Number(v.delivery_base_fee!=null?v.delivery_base_fee:(v.delivery_base_price||0)),delivery_rate_per_km:Number(v.delivery_rate_per_km!=null?v.delivery_rate_per_km:(v.delivery_per_km||0)),delivery_max_km:Number(v.delivery_max_km||0)});}
+          self.venue=Object.assign({},self.venue,{address:patch.address,latitude:patch.latitude,longitude:patch.longitude,delivery_enabled:patch.delivery_enabled,delivery_min_order:patch.delivery_min_order,delivery_min_order_free:patch.delivery_min_order_free,delivery_base_fee:patch.delivery_base_fee,delivery_rate_per_km:patch.delivery_rate_per_km,delivery_max_km:patch.delivery_max_km});
+          self.vform=Object.assign({},self.vform,{address:patch.address||'',latitude:patch.latitude,longitude:patch.longitude,delivery_enabled:patch.delivery_enabled,delivery_min_order:patch.delivery_min_order,delivery_min_order_free:patch.delivery_min_order_free,delivery_base_fee:patch.delivery_base_fee,delivery_rate_per_km:patch.delivery_rate_per_km,delivery_max_km:patch.delivery_max_km});
           return originalSaveVenue.apply(self,arguments);
         }).catch(function(e){
-          console.error('[Manager] manager_save_venue_settings:',e);
+          console.error('[Manager] venue settings:',e);
           self.showToast('Ошибка сохранения настроек заведения: '+(e.message||String(e)),'error');
           throw e;
         });
