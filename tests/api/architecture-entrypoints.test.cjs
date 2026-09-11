@@ -8,6 +8,17 @@ const fs = require('node:fs');
 const root = path.resolve(__dirname, '../..');
 function readEntry(name) { return fs.readFileSync(path.join(root, 'api', name), 'utf8'); }
 function readLib(relative) { return fs.readFileSync(path.join(root, 'lib', relative), 'utf8'); }
+function sqlFiles(dir = path.join(root, 'supabase', 'migrations')) {
+  const out = [];
+  for (const name of fs.readdirSync(dir)) {
+    const file = path.join(dir, name);
+    const stat = fs.statSync(file);
+    if (stat.isDirectory()) out.push(...sqlFiles(file));
+    else if (name.endsWith('.sql')) out.push(file);
+  }
+  return out;
+}
+function readSql() { return sqlFiles().map(file => fs.readFileSync(file, 'utf8')).join('\n'); }
 
 const families = {
   menu: ['create_product','update_product','update_product_price','delete_product'],
@@ -161,4 +172,42 @@ test('marketing action remains presentation-only', () => {
   assert.equal(source.includes('rpc('), false);
   assert.equal(source.includes("'PATCH'"), false);
   assert.equal(source.includes("'POST'"), false);
+});
+
+test('manager RPCs keep an explicit authenticated/public execute boundary', () => {
+  const sql = readSql();
+  const rpcNames = [
+    'manager_ingredient_upsert','manager_ingredient_delete',
+    'manager_create_staff','manager_reset_staff_pin',
+    'manager_product_recipe_save','manager_save_design',
+    'manager_delivery_integration_upsert','manager_delivery_integration_delete',
+    'manager_create_table','manager_update_table','manager_move_table','manager_delete_table',
+    'manager_regenerate_table_qr','manager_set_table_status','manager_seat_table',
+    'manager_set_table_reservation_guest','manager_close_table_session',
+    'manager_save_hall_plan','manager_delete_hall_plan',
+    'manager_change_trial_plan','manager_import_venue'
+  ];
+  for (const name of rpcNames) {
+    const grant = new RegExp(`GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.${name}\\([^)]*\\)\\s+TO\\s+authenticated`, 'i');
+    const revoke = new RegExp(`REVOKE\\s+(?:ALL|EXECUTE)\\s+ON\\s+FUNCTION\\s+public\\.${name}\\([^)]*\\)\\s+FROM\\s+(?:PUBLIC|public|anon)`, 'i');
+    assert.match(sql, grant, `${name} must be executable only through authenticated RPC flow`);
+    assert.match(sql, revoke, `${name} must not retain public/anon execute`);
+  }
+});
+
+test('manager RPC SQL definitions retain an authorization predicate', () => {
+  const sql = readSql();
+  const rpcNames = [
+    'manager_ingredient_upsert','manager_ingredient_delete','manager_create_staff','manager_reset_staff_pin',
+    'manager_product_recipe_save','manager_save_design','manager_delivery_integration_upsert','manager_delivery_integration_delete',
+    'manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr',
+    'manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session',
+    'manager_save_hall_plan','manager_delete_hall_plan','manager_change_trial_plan','manager_import_venue'
+  ];
+  for (const name of rpcNames) {
+    const start = sql.search(new RegExp(`(?:CREATE|CREATE OR REPLACE)\\s+FUNCTION\\s+public\\.${name}\\s*\\(`, 'i'));
+    assert.ok(start >= 0, `${name} definition must exist in migrations`);
+    const body = sql.slice(start, start + 12000);
+    assert.match(body, /auth\.uid\(\)|is_manager_of\(|manager_can_manage_venue\(|manager_has_permission\(|is_admin\(\)/i, `${name} must retain an authorization predicate`);
+  }
 });
