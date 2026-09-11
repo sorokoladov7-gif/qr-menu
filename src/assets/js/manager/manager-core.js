@@ -54,22 +54,51 @@
     }catch(e){console.warn('[QR Manager] canonical RPC bridge:',e);}
   }
 
-  function installProductInsertBridge(){
-    if(!window.db||typeof window.db.from!=='function'||window.db.__QR_MANAGER_PRODUCT_BRIDGE__)return;
+  function installProductMutationBridge(){
+    if(!window.db||typeof window.db.from!=='function'||window.db.__QR_MANAGER_PRODUCT_MUTATION_BRIDGE__)return;
     try{
-      var originalFrom=window.db.from.bind(window.db);window.db.__QR_MANAGER_PRODUCT_BRIDGE__=true;
+      var originalFrom=window.db.from.bind(window.db);window.db.__QR_MANAGER_PRODUCT_MUTATION_BRIDGE__=true;
       window.db.from=function(table){
         var builder=originalFrom(table);
-        if(table!=='products'||!builder||typeof builder.insert!=='function')return builder;
-        var originalInsert=builder.insert.bind(builder);
-        builder.insert=function(values,options){
-          if(!Array.isArray(values))return originalInsert(values,options);
-          var rows=values.slice();
-          return Promise.all(rows.map(function(row){var payload=Object.assign({},row);return runManagerAction({type:'create_product',payload:payload});})).then(function(result){return{data:result,error:null};}).catch(function(error){return{data:null,error:error};});
-        };
+        if(table!=='products'||!builder)return builder;
+        if(typeof builder.insert==='function'){
+          var originalInsert=builder.insert.bind(builder);
+          builder.insert=function(values,options){
+            if(!Array.isArray(values))return originalInsert(values,options);
+            var rows=values.slice();
+            return Promise.all(rows.map(function(row){return runManagerAction({type:'create_product',payload:Object.assign({},row)});})).then(function(result){return{data:result,error:null};}).catch(function(error){return{data:null,error:error};});
+          };
+        }
+        function mutationBridge(type,values){
+          var filters=[];
+          var executed=false;
+          function execute(){
+            if(executed)return Promise.resolve({data:null,error:null});
+            executed=true;
+            var id=null,venueId=null;
+            filters.forEach(function(f){if(f.field==='id')id=String(f.value);if(f.field==='venue_id')venueId=String(f.value);});
+            var vm=window.__managerVue||null,canonicalVenue=vm&&vm.venue&&vm.venue.id?String(vm.venue.id):venueId;
+            if(!canonicalVenue)throw new Error('Заведение не выбрано');
+            if(!id)throw new Error('Товар не выбран');
+            if(venueId&&venueId!==canonicalVenue)throw new Error('VENUE_ACCESS_DENIED');
+            var payload={venue_id:canonicalVenue,id:id};
+            if(type==='update_product')payload=Object.assign(payload,values||{});
+            return runManagerAction({type:type,payload:payload}).then(function(result){return{data:result,error:null};}).catch(function(error){return{data:null,error:error};});
+          }
+          var q={
+            eq:function(field,value){filters.push({field:String(field),value:value});return q;},
+            select:function(){return q;},
+            then:function(resolve,reject){return execute().then(resolve,reject);},
+            catch:function(reject){return execute().catch(reject);},
+            finally:function(fn){return execute().finally(fn);}
+          };
+          return q;
+        }
+        if(typeof builder.update==='function')builder.update=function(values){return mutationBridge('update_product',Object.assign({},values||{}));};
+        if(typeof builder.delete==='function')builder.delete=function(){return mutationBridge('delete_product',{});};
         return builder;
       };
-    }catch(e){console.warn('[QR Manager] product insert bridge:',e);}
+    }catch(e){console.warn('[QR Manager] product mutation bridge:',e);}
   }
 
   function addIntegrationsLink(){if(!/\/manager\.html$/i.test(location.pathname))return;var tabs=document.querySelector('.tabs');if(!tabs||tabs.querySelector('[data-qr-integrations-link]'))return;var link=document.createElement('a');link.href='/integrations.html';link.textContent='🔗 Интеграции';link.setAttribute('data-qr-integrations-link','1');link.className='qr-integrations-tab';link.style.cssText='display:inline-flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;';tabs.appendChild(link);}
@@ -80,7 +109,7 @@
   function normalizeDeliveryCards(vm){var ids=['yandex','delivery','samokat','custom'];var cards=vm.deliveryProviderCards||[];cards.forEach(function(p,i){if(ids[i]){p.id=ids[i];p.provider=ids[i];}});return cards;}
   function installSettingsPersistencePatch(vm){if(!vm||vm.__qrSettingsPersistencePatch)return;vm.__qrSettingsPersistencePatch=true;var originalLoad=vm.loadDeliverySettings;if(typeof originalLoad==='function'){vm.loadDeliverySettings=function(){var self=this;return Promise.resolve(originalLoad.apply(this,arguments)).then(function(result){var cards=normalizeDeliveryCards(self),enabled=cards.filter(function(p){return p.enabled;}).sort(function(a,b){return Number(a.priority||100)-Number(b.priority||100);});self.deliveryPrimaryProvider=enabled.length?enabled[0].id:'';return result;});};}var originalSaveVenue=vm.saveVenue;if(typeof originalSaveVenue==='function'){vm.saveVenue=function(){var self=this,venueId=self.venue&&self.venue.id;if(!venueId)return originalSaveVenue.apply(this,arguments);var f=self.vform||{},lat=Number(f.latitude),lng=Number(f.longitude),hasLat=Number.isFinite(lat),hasLng=Number.isFinite(lng),patch={address:String(f.address==null?'':f.address).trim()||null,latitude:hasLat?lat:null,longitude:hasLng?lng:null,delivery_enabled:typeof f.delivery_enabled==='boolean'?f.delivery_enabled:null,delivery_min_order:Math.max(0,Number(f.delivery_min_order)||0),delivery_min_order_free:Math.max(0,Number(f.delivery_min_order_free)||0),delivery_base_fee:Math.max(0,Number(f.delivery_base_fee)||0),delivery_rate_per_km:Math.max(0,Number(f.delivery_rate_per_km)||0),delivery_max_km:Math.max(0,Number(f.delivery_max_km)||0)};return runManagerAction({type:'update_delivery_settings',payload:Object.assign({venue_id:venueId},patch)}).then(function(){self.venue=Object.assign({},self.venue,patch);self.vform=Object.assign({},self.vform,Object.assign({},patch,{address:patch.address||''}));self.showToast('Настройки доставки сохранены.');return self.venue;}).catch(function(e){console.error('[Manager] venue settings:',e);self.showToast('Ошибка сохранения настроек заведения: '+(e.message||String(e)),'error');throw e;});};}}
   function watchSettingsPersistence(){var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);watchDeliverySettingsMount();if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);}
-  window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();installCanonicalRpcBridge();installProductInsertBridge();},{once:true});
+  window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();installCanonicalRpcBridge();installProductMutationBridge();},{once:true});
   if(window.__managerVue){watchSettingsPersistence();watchDeliverySettingsMount();}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){installCanonicalRpcBridge();installProductInsertBridge();},{once:true});else{installCanonicalRpcBridge();installProductInsertBridge();}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){installCanonicalRpcBridge();installProductMutationBridge();},{once:true});else{installCanonicalRpcBridge();installProductMutationBridge();}
 })();
