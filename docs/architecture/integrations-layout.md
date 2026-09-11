@@ -1,12 +1,15 @@
 # Integration runtime layout
 
-The integration backend is split into two boundaries under `/lib/integrations/`:
+The integration backend is split into control-plane and adapter boundaries under `/lib/integrations/`:
 
 - control-plane modules remain at the integration root: `router.js`, `registry.js`, `manage.js`, `test.js`, and `sync-lock.js`;
-- provider adapters live under `/lib/integrations/providers/`.
+- provider adapters live under `/lib/integrations/providers/`;
+- `providers/index.js` is the single adapter-loading boundary shared by HTTP routing and scheduled synchronization.
 
 The provider adapter boundary currently contains `iiko.js`, `pos.js`, `saby-presto.js`, `poster.js`, `syrve.js`, `evotor.js`, and `frontpad.js`.
 
-`router.js` is the canonical API integration dispatcher and loads adapters through `./providers/*`. `lib/jobs/integration-sync.js` invokes the same canonical provider adapters. This keeps provider-specific code separate from routing, registry, management, diagnostics, and synchronization infrastructure.
+`quick_resto` and `r_keeper` intentionally resolve to the shared `pos.js` adapter while remaining separate provider IDs in the domain registry.
 
-The relocation is a filesystem-level move using the existing Git blobs; provider source contents are not changed. Runtime URLs and API routes remain unchanged.
+`router.js` owns API route dispatch and synchronization locking. `lib/jobs/integration-sync.js` consumes the same canonical adapter map instead of maintaining a second provider `require()` list. `registry.js` remains the source of provider capability/implementation metadata.
+
+The reorganization is filesystem/module-boundary only. Provider runtime URLs, API route paths, and provider business contracts remain unchanged.
