@@ -54,6 +54,13 @@ test('integration provider adapters live behind the providers boundary', () => {
   }
 });
 
+test('integration provider map is the single adapter loading boundary', () => {
+  const source=readLib('integrations/providers/index.js');
+  for (const [provider,target] of [['iiko','./iiko'],['quick_resto','./pos'],['r_keeper','./pos'],['saby_presto','./saby-presto'],['poster','./poster'],['syrve','./syrve'],['evotor','./evotor'],['frontpad','./frontpad']]) {
+    assert.ok(source.includes(`${provider}:require('${target}')`), `${provider} must resolve through providers/index.js`);
+  }
+});
+
 test('integration management and diagnostics modules use canonical manager auth', () => {
   for (const file of ['manage.js','test.js']) { const source=readLib(`integrations/${file}`); assert.ok(source.includes("../shared/manager-auth")); assert.ok(!source.includes("../_lib/manager-auth")); }
   const diagnostics=readLib('integrations/test.js'); assert.ok(diagnostics.includes('assertVenueAccess(user,venue_id)')); assert.ok(diagnostics.includes("manager_venues?manager_id=eq."));
@@ -63,7 +70,19 @@ test('integration router binds sync locks to the actual route provider', () => {
   const router=readLib('integrations/router.js');
   for (const entry of ["['/api/integrations/iiko','iiko']","['/api/integrations/pos',new Set(['quick_resto','r_keeper'])]","['/api/integrations/saby-presto','saby_presto']","['/api/integrations/poster','poster']","['/api/integrations/syrve','syrve']","['/api/integrations/evotor','evotor']","['/api/integrations/frontpad','frontpad']"]) assert.ok(router.includes(entry));
   assert.ok(router.includes("provider_route_mismatch"));
-  for (const provider of ['iiko','pos','saby-presto','poster','syrve','evotor','frontpad']) assert.ok(router.includes(`./providers/${provider}`));
+  assert.ok(router.includes("require('./providers')"));
+  assert.ok(!router.includes("require('./providers/iiko')"));
+});
+
+test('integration sync job reuses the canonical provider map', () => {
+  const cron=readLib('jobs/integration-sync.js');
+  assert.ok(cron.includes("require('../integrations/providers')"));
+  assert.ok(!cron.includes("require('../integrations/providers/iiko')"));
+  assert.ok(!cron.includes("require('../integrations/providers/saby-presto')"));
+  assert.ok(!cron.includes("require('../integrations/providers/poster')"));
+  assert.ok(!cron.includes("require('../integrations/providers/syrve')"));
+  assert.ok(!cron.includes("require('../integrations/providers/evotor')"));
+  assert.ok(!cron.includes("require('../integrations/providers/frontpad')"));
 });
 
 test('integration sync locking is centralized', () => {
@@ -74,14 +93,14 @@ test('integration sync locking is centralized', () => {
 });
 
 test('integration registry and cron coverage cannot silently diverge', () => {
-  const registry=readLib('integrations/registry.js'), cron=readLib('jobs/integration-sync.js');
+  const registry=readLib('integrations/registry.js'), providers=readLib('integrations/providers/index.js');
   const implemented=[...registry.matchAll(/([a-z_]+):\{name:[^\n]+?implemented:true\}/g)].map(match=>match[1]);
-  const covered=new Set(['quick_resto','r_keeper',...[...cron.matchAll(/^\s{2}([a-z_]+):require\(/gm)].map(match=>match[1])]);
-  assert.ok(implemented.length>0); for(const provider of implemented) assert.ok(covered.has(provider),`implemented provider ${provider} must have cron sync coverage`);
+  const covered=[...providers.matchAll(/^\s{2}([a-z_]+):require\(/gm)].map(match=>match[1]);
+  assert.ok(implemented.length>0); for(const provider of implemented) assert.ok(covered.includes(provider),`implemented provider ${provider} must have adapter coverage`);
 });
 
 test('canonical architecture modules exist', () => {
-  const required=['lib/address/suggestions.js','lib/integrations/router.js','lib/integrations/sync-lock.js','lib/integrations/providers/iiko.js','lib/integrations/providers/pos.js','lib/integrations/providers/saby-presto.js','lib/integrations/providers/poster.js','lib/integrations/providers/syrve.js','lib/integrations/providers/evotor.js','lib/integrations/providers/frontpad.js','lib/import/site.js','lib/import/ai.js','lib/import/site-menu-analyzer-v3.js','lib/import/site-browser-renderer-v2.js','lib/shared/manager-auth.js','lib/jobs/integration-sync.js','lib/payments/yookassa/core.js'];
+  const required=['lib/address/suggestions.js','lib/integrations/router.js','lib/integrations/sync-lock.js','lib/integrations/providers/index.js','lib/integrations/providers/iiko.js','lib/integrations/providers/pos.js','lib/integrations/providers/saby-presto.js','lib/integrations/providers/poster.js','lib/integrations/providers/syrve.js','lib/integrations/providers/evotor.js','lib/integrations/providers/frontpad.js','lib/import/site.js','lib/import/ai.js','lib/import/site-menu-analyzer-v3.js','lib/import/site-browser-renderer-v2.js','lib/shared/manager-auth.js','lib/jobs/integration-sync.js','lib/payments/yookassa/core.js'];
   for(const relative of required) assert.equal(fs.existsSync(path.join(root,relative)),true,`${relative} must exist`);
 });
 
