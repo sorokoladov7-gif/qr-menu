@@ -146,12 +146,16 @@ test('manager browser mutation bridge routes legacy ingredient/recipe writes thr
   assert.ok(source.includes("name==='manager_recipe_auto_sync'"));
 });
 
-test('manager browser product import writes cross the canonical action boundary', () => {
+test('manager browser product mutations cross the canonical action boundary', () => {
   const source = readAsset('js/manager/manager-core.js');
-  assert.ok(source.includes('function installProductInsertBridge()'));
+  assert.ok(source.includes('function installProductMutationBridge()'));
   assert.ok(source.includes("table!=='products'"));
   assert.ok(source.includes("type:'create_product'"));
-  assert.ok(source.includes('Promise.all(rows.map'));
+  assert.ok(source.includes("builder.update=function(values)"));
+  assert.ok(source.includes("builder.delete=function()"));
+  assert.ok(source.includes("type==='update_product'"));
+  assert.ok(source.includes("type==='delete_product'"));
+  assert.ok(source.includes("canonicalVenue"));
 });
 
 test('revoked manager ingredient compatibility mutations are removed from hall bootstrap', () => {
