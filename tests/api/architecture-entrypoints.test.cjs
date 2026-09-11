@@ -8,6 +8,7 @@ const fs = require('node:fs');
 const root = path.resolve(__dirname, '../..');
 function readEntry(name) { return fs.readFileSync(path.join(root, 'api', name), 'utf8'); }
 function readLib(relative) { return fs.readFileSync(path.join(root, 'lib', relative), 'utf8'); }
+function readAsset(relative) { return fs.readFileSync(path.join(root, 'src', 'assets', relative), 'utf8'); }
 function sqlFiles(dir = path.join(root, 'supabase', 'migrations')) {
   const out = [];
   for (const name of fs.readdirSync(dir)) {
@@ -81,7 +82,7 @@ test('manager AI dispatcher contains one canonical mutation boundary', () => {
     "if(ingredients.TYPES.has(type))return ingredients.run(type,c,vid,p);",
     "if(staff.TYPES.has(type))return staff.run(type,c,vid,p);",
     "if(recipes.TYPES.has(type))return recipes.run(type,c,vid,p);",
-    "if(venueSettings.TYPES.has(type))return venueSettings.run(type,c,vid,p);",
+    "if(venueSettings.TYPES.has(type))return venueSettings.run(type,c,vid,p,e);",
     "if(delivery.TYPES.has(type))return delivery.run(type,c,vid,p);",
     "if(orders.TYPES.has(type))return orders.run(type,c,vid,p);",
     "if(hall.TYPES.has(type))return hall.run(type,c,vid,p);"
@@ -132,6 +133,34 @@ test('manager mutation resolver calls never trust payload venue_id', () => {
   assert.ok(menu.includes("resolveProduct(c,Object.assign({},p,{venue_id:vid})"));
   assert.ok(ingredients.includes("resolveIngredient(c,Object.assign({},p,{venue_id:vid})"));
   assert.ok(staff.includes("resolveStaff(c,Object.assign({},p,{venue_id:vid})"));
+});
+
+test('manager browser mutation bridge routes legacy ingredient/recipe writes through canonical action API', () => {
+  const source = readAsset('js/manager/manager-core.js');
+  assert.ok(source.includes("name==='manager_ingredient_upsert'"));
+  assert.ok(source.includes("type=args.p_id?'update_ingredient':'create_ingredient'"));
+  assert.ok(source.includes("name==='manager_ingredient_delete'"));
+  assert.ok(source.includes("name==='manager_product_recipe_save'"));
+  assert.ok(source.includes("type:'save_recipe'"));
+  assert.ok(source.includes("fetch('/api/manager-ai-action'"));
+  assert.ok(source.includes("name==='manager_recipe_auto_sync'"));
+});
+
+test('manager browser product import writes cross the canonical action boundary', () => {
+  const source = readAsset('js/manager/manager-core.js');
+  assert.ok(source.includes('function installProductInsertBridge()'));
+  assert.ok(source.includes("table!=='products'"));
+  assert.ok(source.includes("type:'create_product'"));
+  assert.ok(source.includes('Promise.all(rows.map'));
+});
+
+test('revoked manager ingredient compatibility mutations are removed from hall bootstrap', () => {
+  const source = readAsset('js/manager/manager-hall-ai.js');
+  for (const marker of ['manager_global_ingredient_update','manager_global_ingredient_delete','function ingredientControls','__QR_MANAGER_INGREDIENT_CONTROLS_V5__']) {
+    assert.equal(source.includes(marker), false, `${marker} must not remain in manager hall compatibility layer`);
+  }
+  assert.ok(source.includes('create_venue_for_manager'));
+  assert.ok(source.includes('create_venue_from_template'));
 });
 
 test('manager AI action endpoint remains a thin dispatcher', () => {
