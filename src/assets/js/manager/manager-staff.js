@@ -118,21 +118,27 @@
         });
       },
 
-      delCook: function(c) {
-        if (!confirm('Удалить повара ' + c.name + '?')) return;
+      deleteStaffViaAction: function(staff, type, label) {
         var self = this;
-        db.from('cooks').delete().eq('id', c.id).then(function() { self.loadCooks(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
+        if (!staff || !staff.id || (type !== 'cook' && type !== 'courier' && type !== 'waiter')) return;
+        if (!confirm('Удалить ' + label + ' ' + staff.name + '?')) return;
+        self.busy = true;
+        var runner = window.__QR_RUN_MANAGER_ACTION__;
+        if (typeof runner !== 'function') {
+          self.busy = false;
+          self.showToast('Канонический API действий недоступен', 'error');
+          return;
+        }
+        runner({type:'delete_staff',payload:{venue_id:self.venue.id,id:staff.id,type:type}}).then(function(){
+          self.showToast('Удалено');
+          if(type==='cook')return self.loadCooks();
+          if(type==='courier')return self.loadCouriers();
+          return self.loadWaiters();
+        }).then(function(){self.loadStaffAnalytics();}).catch(function(e){self.showToast('Ошибка: '+(e.message||String(e)),'error');}).finally(function(){self.busy=false;});
       },
-      delCourier: function(c) {
-        if (!confirm('Удалить курьера ' + c.name + '?')) return;
-        var self = this;
-        db.from('couriers').delete().eq('id', c.id).then(function() { self.loadCouriers(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
-      },
-      delWaiter: function(w) {
-        if (!confirm('Удалить официанта ' + w.name + '?')) return;
-        var self = this;
-        db.from('waiters').delete().eq('id', w.id).then(function() { self.loadWaiters(); self.loadStaffAnalytics(); self.showToast('Удалено'); });
-      },
+      delCook: function(c) { this.deleteStaffViaAction(c,'cook','повара'); },
+      delCourier: function(c) { this.deleteStaffViaAction(c,'courier','курьера'); },
+      delWaiter: function(w) { this.deleteStaffViaAction(w,'waiter','официанта'); },
       copyCookAccess: function(c) { this.copyText('Вход для повара ' + c.name + ':\nСайт: ' + location.origin + '/cook.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
       copyCourierAccess: function(c) { this.copyText('Вход для курьера ' + c.name + ':\nСайт: ' + location.origin + '/courier.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); },
       copyWaiterAccess: function(w) { this.copyText('Вход для официанта ' + w.name + ':\nСайт: ' + location.origin + '/waiter.html\nКод заведения: ' + this.venue.slug + '\nНажмите «🔄 PIN» чтобы сгенерировать новый PIN.'); }
