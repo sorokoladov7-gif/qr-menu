@@ -19,6 +19,13 @@ function sqlFiles(dir = path.join(root, 'supabase', 'migrations')) {
   return out;
 }
 function readSql() { return sqlFiles().map(file => fs.readFileSync(file, 'utf8')).join('\n'); }
+function lastFunctionBody(sql, name, span = 12000) {
+  const re = new RegExp(`(?:CREATE|CREATE OR REPLACE)\\s+FUNCTION\\s+public\\.${name}\\s*\\(`, 'ig');
+  let match;
+  let start = -1;
+  while ((match = re.exec(sql))) start = match.index;
+  return start < 0 ? '' : sql.slice(start, start + span);
+}
 
 const families = {
   menu: ['create_product','update_product','update_product_price','delete_product'],
@@ -205,9 +212,8 @@ test('manager RPC SQL definitions retain an authorization predicate', () => {
     'manager_save_hall_plan','manager_delete_hall_plan','manager_change_trial_plan','manager_import_venue'
   ];
   for (const name of rpcNames) {
-    const start = sql.search(new RegExp(`(?:CREATE|CREATE OR REPLACE)\\s+FUNCTION\\s+public\\.${name}\\s*\\(`, 'i'));
-    assert.ok(start >= 0, `${name} definition must exist in migrations`);
-    const body = sql.slice(start, start + 12000);
+    const body = lastFunctionBody(sql, name);
+    assert.ok(body, `${name} definition must exist in migrations`);
     assert.match(body, /auth\.uid\(\)|is_manager_of\(|manager_can_manage_venue\(|manager_has_permission\(|is_admin\(\)/i, `${name} must retain an authorization predicate`);
   }
 });
@@ -216,4 +222,5 @@ test('legacy manager RPC overloads are not authenticated client contracts', () =
   const sql = readSql();
   assert.match(sql, /REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.manager_reset_staff_pin\(text,\s*uuid\)\s+FROM\s+public,\s*anon,\s*authenticated/i);
   assert.match(sql, /REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.manager_set_table_status\(uuid,\s*text\)\s+FROM\s+public,\s*anon,\s*authenticated/i);
+  assert.match(sql, /REVOKE\s+EXECUTE\s+ON\s+FUNCTION\s+public\.manager_upsert_table\(uuid,\s*uuid,\s*integer,\s*text,\s*integer,\s*text,\s*integer,\s*integer\)\s+FROM\s+public,\s*anon,\s*authenticated/i);
 });
