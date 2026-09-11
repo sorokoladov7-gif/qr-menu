@@ -14,7 +14,7 @@ module.exports = defineConfig({
     video: 'retain-on-failure',
   },
   webServer: {
-    command: 'node tests/static-server.cjs',
+    command: 'node tests/support/static-server.cjs',
     url: baseURL,
     reuseExistingServer: true,
     timeout: 30_000,
