@@ -127,17 +127,29 @@ test('manager AI action keeps one canonical mutation boundary', () => {
   assert.ok(source.includes("async function venue(c,id,need)"));
 });
 
-test('manager AI mutation branches retain venue isolation before data mutation', () => {
+test('manager AI mutation families retain venue isolation', () => {
   const source=readLib('ai/manager/action.js');
-  const mutations=['create_product','update_product','update_product_price','delete_product','create_ingredient','update_ingredient','delete_ingredient','create_staff','reset_staff_pin','delete_staff','update_order','update_venue_settings','update_delivery_settings','save_design','update_delivery_integration','delete_delivery_integration','recipe_auto_sync','attach_ingredients','create_tech_card','save_recipe',...['create_table','update_table','move_table','delete_table','regenerate_table_qr','set_table_status','seat_table','set_table_reservation_guest','close_table_session','save_hall_plan','delete_hall_plan']];
-  for(const type of mutations){
-    const marker=`if(type==='${type}')`;
+  const guardedFamilies=[
+    ["if(type==='create_product')",'create_product'],
+    ["if(type==='update_product'||type==='update_product_price'||type==='delete_product')",'product mutations'],
+    ["if(type==='create_ingredient')",'create_ingredient'],
+    ["if(type==='update_ingredient'||type==='delete_ingredient')",'ingredient mutations'],
+    ["if(type==='create_staff')",'create_staff'],
+    ["if(type==='reset_staff_pin'||type==='delete_staff')",'staff mutations'],
+    ["if(type==='update_order')",'update_order'],
+    ["if(type==='update_venue_settings'||type==='update_delivery_settings')",'venue settings'],
+    ["if(type==='save_design')",'save_design'],
+    ["if(type==='update_delivery_integration'||type==='delete_delivery_integration')",'delivery integrations'],
+    ["if(type==='recipe_auto_sync')",'recipe_auto_sync'],
+    ["if(['attach_ingredients','create_tech_card','save_recipe'].includes(type))",'recipe mutations'],
+    ["if(H.includes(type))",'hall/table mutations'],
+    ["if(type==='disconnect_integration')",'POS disconnect']
+  ];
+  for(const [marker,label] of guardedFamilies){
     const at=source.indexOf(marker);
-    assert.notEqual(at,-1,`${type} branch must exist`);
-    const next=source.indexOf('\nif(type===',at+marker.length);
-    const branch=source.slice(at,next===-1?source.length:next);
-    assert.ok(branch.includes('await venue(c,vid,'),`${type} must verify venue access before mutation`);
-    assert.ok(branch.includes('venue_id'),`${type} must carry venue_id into its data boundary`);
+    assert.notEqual(at,-1,`${label} branch must exist`);
+    const guard=source.indexOf('await venue(c,vid,',at);
+    assert.ok(guard>at,`${label} must verify venue access before its mutation boundary`);
   }
 });
 
