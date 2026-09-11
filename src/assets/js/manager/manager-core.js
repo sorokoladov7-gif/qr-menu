@@ -20,6 +20,20 @@
   window.__QR_MANAGER_CORE_MIXIN__=coreMixin;
   window.__QR_MANAGER_AI_FEATURES__=AI_FEATURES.slice();
 
+  async function runManagerAction(action){
+    if(!action||typeof action!=='object')throw new Error('Некорректное действие');
+    if(!window.db||!window.db.auth)throw new Error('Supabase клиент не найден');
+    var sessionResult=await window.db.auth.getSession();
+    var session=sessionResult&&sessionResult.data&&sessionResult.data.session;
+    var token=session&&session.access_token;
+    if(!token)throw new Error('Сессия управляющего не найдена');
+    var response=await fetch('/api/manager-ai-action',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({feature:'assistant',action:action})});
+    var data=await response.json().catch(function(){return{};});
+    if(!response.ok||!data.ok)throw new Error(data.error||'Не удалось выполнить действие');
+    return data.result;
+  }
+  window.__QR_RUN_MANAGER_ACTION__=runManagerAction;
+
   function addIntegrationsLink(){if(!/\/manager\.html$/i.test(location.pathname))return;var tabs=document.querySelector('.tabs');if(!tabs||tabs.querySelector('[data-qr-integrations-link]'))return;var link=document.createElement('a');link.href='/integrations.html';link.textContent='🔗 Интеграции';link.setAttribute('data-qr-integrations-link','1');link.className='qr-integrations-tab';link.style.cssText='display:inline-flex;align-items:center;justify-content:center;cursor:pointer;text-decoration:none;';tabs.appendChild(link);}
   function initIntegrationsLink(){addIntegrationsLink();var attempts=0,timer=setInterval(function(){addIntegrationsLink();attempts++;if(document.querySelector('[data-qr-integrations-link]')||attempts>=40)clearInterval(timer);},250);}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initIntegrationsLink,{once:true});else initIntegrationsLink();
@@ -34,78 +48,35 @@
     var cards=root.querySelectorAll('.glass.card');
     for(var i=0;i<cards.length;i++){
       var text=(cards[i].textContent||'').replace(/\s+/g,' ');
-      if(text.indexOf('Фактический адрес заведения')!==-1){
-        cards[i].setAttribute('v-if',"tab==='settings'");
-        cards[i].setAttribute('data-qr-settings-panel','1');
-        return;
-      }
+      if(text.indexOf('Фактический адрес заведения')!==-1){cards[i].setAttribute('v-if',"tab==='settings'");cards[i].setAttribute('data-qr-settings-panel','1');return;}
     }
   }
-  function watchDeliverySettingsMount(){
-    var attempts=0;
-    var timer=setInterval(function(){
-      restoreDeliverySettingsMount();
-      attempts++;
-      if(document.querySelector('[data-qr-delivery-settings]')||attempts>=120)clearInterval(timer);
-    },250);
-    setTimeout(function(){clearInterval(timer);},30000);
-  }
-
-  function normalizeDeliveryCards(vm){
-    var ids=['yandex','delivery','samokat','custom'];
-    var cards=vm.deliveryProviderCards||[];
-    cards.forEach(function(p,i){if(ids[i]){p.id=ids[i];p.provider=ids[i];}});
-    return cards;
-  }
+  function watchDeliverySettingsMount(){var attempts=0,timer=setInterval(function(){restoreDeliverySettingsMount();attempts++;if(document.querySelector('[data-qr-delivery-settings]')||attempts>=120)clearInterval(timer);},250);setTimeout(function(){clearInterval(timer);},30000);}
+  function normalizeDeliveryCards(vm){var ids=['yandex','delivery','samokat','custom'];var cards=vm.deliveryProviderCards||[];cards.forEach(function(p,i){if(ids[i]){p.id=ids[i];p.provider=ids[i];}});return cards;}
 
   function installSettingsPersistencePatch(vm){
     if(!vm||vm.__qrSettingsPersistencePatch)return;
     vm.__qrSettingsPersistencePatch=true;
     var originalLoad=vm.loadDeliverySettings;
     if(typeof originalLoad==='function'){
-      vm.loadDeliverySettings=function(){
-        var self=this;
-        return Promise.resolve(originalLoad.apply(this,arguments)).then(function(result){
-          var cards=normalizeDeliveryCards(self);
-          var enabled=cards.filter(function(p){return p.enabled;}).sort(function(a,b){return Number(a.priority||100)-Number(b.priority||100);});
-          self.deliveryPrimaryProvider=enabled.length?enabled[0].id:'';
-          return result;
-        });
-      };
+      vm.loadDeliverySettings=function(){var self=this;return Promise.resolve(originalLoad.apply(this,arguments)).then(function(result){var cards=normalizeDeliveryCards(self);var enabled=cards.filter(function(p){return p.enabled;}).sort(function(a,b){return Number(a.priority||100)-Number(b.priority||100);});self.deliveryPrimaryProvider=enabled.length?enabled[0].id:'';return result;});};
     }
-
     var originalSaveVenue=vm.saveVenue;
     if(typeof originalSaveVenue==='function'){
       vm.saveVenue=function(){
         var self=this,venueId=self.venue&&self.venue.id;
-        if(!venueId){return originalSaveVenue.apply(this,arguments);}
-        var f=self.vform||{},lat=Number(f.latitude),lng=Number(f.longitude);
-        var hasLat=Number.isFinite(lat),hasLng=Number.isFinite(lng);
-        var patch={
-          address:String(f.address==null?'':f.address).trim()||null,
-          latitude:hasLat?lat:null,
-          longitude:hasLng?lng:null,
-          delivery_enabled:typeof f.delivery_enabled==='boolean'?f.delivery_enabled:null,
-          delivery_min_order:Math.max(0,Number(f.delivery_min_order)||0),
-          delivery_min_order_free:Math.max(0,Number(f.delivery_min_order_free)||0),
-          delivery_base_fee:Math.max(0,Number(f.delivery_base_fee)||0),
-          delivery_rate_per_km:Math.max(0,Number(f.delivery_rate_per_km)||0),
-          delivery_max_km:Math.max(0,Number(f.delivery_max_km)||0)
-        };
-        return db.from('venues').update(patch).eq('id',venueId).then(function(r){
-          if(r.error)throw r.error;
-          self.venue=Object.assign({},self.venue,{address:patch.address,latitude:patch.latitude,longitude:patch.longitude,delivery_enabled:patch.delivery_enabled,delivery_min_order:patch.delivery_min_order,delivery_min_order_free:patch.delivery_min_order_free,delivery_base_fee:patch.delivery_base_fee,delivery_rate_per_km:patch.delivery_rate_per_km,delivery_max_km:patch.delivery_max_km});
-          self.vform=Object.assign({},self.vform,{address:patch.address||'',latitude:patch.latitude,longitude:patch.longitude,delivery_enabled:patch.delivery_enabled,delivery_min_order:patch.delivery_min_order,delivery_min_order_free:patch.delivery_min_order_free,delivery_base_fee:patch.delivery_base_fee,delivery_rate_per_km:patch.delivery_rate_per_km,delivery_max_km:patch.delivery_max_km});
-          return originalSaveVenue.apply(self,arguments);
-        }).catch(function(e){
-          console.error('[Manager] venue settings:',e);
-          self.showToast('Ошибка сохранения настроек заведения: '+(e.message||String(e)),'error');
-          throw e;
-        });
+        if(!venueId)return originalSaveVenue.apply(this,arguments);
+        var f=self.vform||{},lat=Number(f.latitude),lng=Number(f.longitude),hasLat=Number.isFinite(lat),hasLng=Number.isFinite(lng);
+        var patch={address:String(f.address==null?'':f.address).trim()||null,latitude:hasLat?lat:null,longitude:hasLng?lng:null,delivery_enabled:typeof f.delivery_enabled==='boolean'?f.delivery_enabled:null,delivery_min_order:Math.max(0,Number(f.delivery_min_order)||0),delivery_min_order_free:Math.max(0,Number(f.delivery_min_order_free)||0),delivery_base_fee:Math.max(0,Number(f.delivery_base_fee)||0),delivery_rate_per_km:Math.max(0,Number(f.delivery_rate_per_km)||0),delivery_max_km:Math.max(0,Number(f.delivery_max_km)||0)};
+        return runManagerAction({type:'update_delivery_settings',payload:Object.assign({venue_id:venueId},patch)}).then(function(){
+          self.venue=Object.assign({},self.venue,patch);
+          self.vform=Object.assign({},self.vform,Object.assign({},patch,{address:patch.address||''}));
+          self.showToast('Настройки доставки сохранены.');
+          return self.venue;
+        }).catch(function(e){console.error('[Manager] venue settings:',e);self.showToast('Ошибка сохранения настроек заведения: '+(e.message||String(e)),'error');throw e;});
       };
     }
   }
-
   function watchSettingsPersistence(){var attempts=0,timer=setInterval(function(){var vm=window.__managerVue;if(vm){installSettingsPersistencePatch(vm);watchDeliverySettingsMount();if(vm.__qrSettingsPersistencePatch||attempts>120)clearInterval(timer);}attempts++;if(attempts>180)clearInterval(timer);},250);}
   window.addEventListener('qr-manager-vue-ready',function(){watchSettingsPersistence();watchDeliverySettingsMount();},{once:true});
   if(window.__managerVue){watchSettingsPersistence();watchDeliverySettingsMount();}
