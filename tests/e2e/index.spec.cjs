@@ -1,5 +1,30 @@
 const { test, expect } = require('@playwright/test');
+
 async function expectAsset(page,url,contentType=/^text\/(?:javascript|css)|^image\//i){const response=await page.request.get(url);expect(response.status(),url).toBe(200);expect(response.headers()['content-type'],url).toMatch(contentType);expect((await response.body()).length,url).toBeGreaterThan(0);}
+
+async function installConsoleGuard(page){
+  const errors=[];
+  page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
+  page.on('pageerror',error=>errors.push(error.message));
+  return ()=>expect(errors,`browser console/page errors: ${errors.join(' | ')}`).toEqual([]);
+}
+
+async function authenticatedSmoke(page,{email,password,path,role}){
+  test.skip(!email||!password,`${role} authenticated smoke requires PLAYWRIGHT_${role.toUpperCase()}_EMAIL and PLAYWRIGHT_${role.toUpperCase()}_PASSWORD`);
+  const assertNoErrors=await installConsoleGuard(page);
+  await page.goto('/src/pages/auth/login.html');
+  await page.locator('input[type="email"]').fill(email);
+  await page.locator('input[type="password"]').fill(password);
+  await page.locator('#loginButton').click();
+  await expect(page.locator('#loginButton')).not.toContainText('Входим...',{timeout:15000});
+  await page.waitForURL(/\/src\/pages\/(?:manager\/manager|admin\/admin)\.html(?:\?|$)/,{timeout:15000});
+  expect(page.url()).toMatch(path);
+  await expect(page.locator('#app')).toBeVisible();
+  await page.waitForFunction(()=>window.__QR_MANAGER_APP__===true||window.__QR_ADMIN_APP__===true,{timeout:15000});
+  await page.waitForFunction(()=>{const app=window.__QR_MANAGER_VUE_APP__||window.__QR_ADMIN_VUE_APP__;return !!(app&&app._instance&&app._instance.proxy);},{timeout:15000});
+  await assertNoErrors();
+}
+
 test('legacy homepage redirects and canonical role links remain reachable',async({page})=>{await page.goto('/index.html');await expect(page).toHaveURL(/\/src\/pages\/guest\/index\.html(?:$|\?)/);await page.locator('a[href="/src/pages/manager/manager-demo.html"]').click();await expect(page).toHaveURL(/\/src\/pages\/manager\/manager(?:-demo\.html|\.html\?demo=1&role=manager)(?:$|\?)/);await page.goto('/index.html');await page.locator('a[href="/src/pages/staff/demo-staff.html"]').click();await expect(page).toHaveURL(/\/src\/pages\/staff\/(?:demo-staff\.html|cook\.html)(?:$|\?)/);await page.goto('/index.html');await page.locator('a[href="/src/pages/auth/login.html"]').click();await expect(page).toHaveURL(/\/src\/pages\/auth\/login\.html(?:$|\?)/);});
 test('legacy staff demo URL remains available through compatibility routing',async({page})=>{const response=await page.request.get('/demo-staff.html');expect(response.status()).toBe(200);expect(response.url()).toMatch(/\/src\/pages\/staff\/demo-staff\.html$/);});
 test('legacy manifest URL resolves to the canonical PWA asset',async({page})=>{const response=await page.request.get('/manifest.webmanifest');expect(response.status()).toBe(200);expect(response.url()).toMatch(/\/src\/assets\/pwa\/manifest\.webmanifest$/);expect(response.headers()['content-type']).toMatch(/application\/manifest\+json/i);});
@@ -13,3 +38,6 @@ test('canonical guest runtime modules are reachable',async({page})=>{for(const f
 test('canonical PWA runtime remains reachable',async({page})=>{await expectAsset(page,'/src/assets/js/pwa/pwa-install.js');await expectAsset(page,'/js/pwa-install.js');});
 test('canonical page routes remain directly addressable',async({page})=>{for(const url of ['/src/pages/guest/index.html','/src/pages/guest/menu.html','/src/pages/auth/login.html','/src/pages/auth/register.html','/src/pages/staff/cook.html','/src/pages/staff/courier.html','/src/pages/staff/waiter.html','/src/pages/manager/manager.html','/src/pages/manager/manager-demo.html','/src/pages/staff/demo-staff.html','/src/pages/admin/admin.html']){const response=await page.request.get(url);expect(response.status(),url).toBe(200);expect(response.headers()['content-type'],url).toMatch(/^text\/html/i);}});
 test('login clears busy state when authentication returns an error',async({page})=>{await page.route('**/auth/v1/token?grant_type=password',async route=>{await route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'invalid_grant',error_description:'Invalid login credentials'})});});await page.goto('/src/pages/auth/login.html');await page.locator('input[type="email"]').fill('e2e-invalid@example.invalid');await page.locator('input[type="password"]').fill('invalid-password');await page.locator('#loginButton').click();await expect(page.locator('#loginButton')).toContainText('Войти',{timeout:10000});await expect(page.locator('#loginButton')).not.toContainText('Входим...');await expect(page.locator('.msg.error')).toBeVisible();});
+
+test('authenticated manager dashboard smoke',async({page})=>authenticatedSmoke(page,{email:process.env.PLAYWRIGHT_MANAGER_EMAIL,password:process.env.PLAYWRIGHT_MANAGER_PASSWORD,path:/\/src\/pages\/manager\/manager\.html/,role:'manager'}));
+test('authenticated admin dashboard smoke',async({page})=>authenticatedSmoke(page,{email:process.env.PLAYWRIGHT_ADMIN_EMAIL,password:process.env.PLAYWRIGHT_ADMIN_PASSWORD,path:/\/src\/pages\/admin\/admin\.html/,role:'admin'}));
