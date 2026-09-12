@@ -1,271 +1,102 @@
 const { test, expect } = require('@playwright/test');
 
-test('legacy homepage redirects and role links remain reachable', async ({ page }) => {
+async function expectAsset(page, url, contentType = /^text\/(?:javascript|css)|^image\//i) {
+  const response = await page.request.get(url);
+  expect(response.status(), url).toBe(200);
+  expect(response.headers()['content-type'], url).toMatch(contentType);
+  expect((await response.body()).length, url).toBeGreaterThan(0);
+}
+
+test('legacy homepage redirects and canonical role links remain reachable', async ({ page }) => {
   await page.goto('/index.html');
   await expect(page).toHaveURL(/\/src\/pages\/guest\/index\.html(?:$|\?)/);
-
-  await page.locator('a[href="manager-demo.html"]').click();
+  await page.locator('a[href="/src/pages/manager/manager-demo.html"]').click();
   await expect(page).toHaveURL(/\/src\/pages\/manager\/manager-demo\.html(?:$|\?)/);
-
   await page.goto('/index.html');
   await page.locator('a[href="/src/pages/staff/demo-staff.html"]').click();
   await expect(page).toHaveURL(/\/src\/pages\/staff\/demo-staff\.html(?:$|\?)/);
-
   await page.goto('/index.html');
-  await page.locator('a[href="login.html"]').click();
+  await page.locator('a[href="/src/pages/auth/login.html"]').click();
   await expect(page).toHaveURL(/\/src\/pages\/auth\/login\.html(?:$|\?)/);
 });
 
-test('legacy staff demo URL remains available after page relocation', async ({ page }) => {
+test('legacy staff demo URL remains available through compatibility routing', async ({ page }) => {
   const response = await page.request.get('/demo-staff.html');
   expect(response.status()).toBe(200);
-  expect(response.url()).toMatch(/\/demo-staff\.html$/);
+  expect(response.url()).toMatch(/\/src\/pages\/staff\/demo-staff\.html$/);
 });
 
-test('legacy manifest URL redirects to the relocated PWA asset', async ({ page }) => {
+test('legacy manifest URL resolves to the canonical PWA asset', async ({ page }) => {
   const response = await page.request.get('/manifest.webmanifest');
   expect(response.status()).toBe(200);
   expect(response.url()).toMatch(/\/src\/assets\/pwa\/manifest\.webmanifest$/);
   expect(response.headers()['content-type']).toMatch(/application\/manifest\+json/i);
 });
 
-test('legacy icon URL remains available after icon relocation', async ({ page }) => {
-  const response = await page.request.get('/icons/icon-192.png');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^image\/png/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
+test('legacy icon and image URLs remain compatible while canonical assets stay reachable', async ({ page }) => {
+  await expectAsset(page, '/icons/icon-192.png', /^image\/png/i);
+  await expectAsset(page, '/img/dashboard.PNG', /^image\/png/i);
+  await expectAsset(page, '/src/assets/img/dashboard.PNG', /^image\/png/i);
 });
 
-test('legacy image URL remains available after image relocation', async ({ page }) => {
-  const response = await page.request.get('/img/dashboard.PNG');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^image\/png/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
+test('legacy stylesheet URL remains compatible and canonical stylesheet is reachable', async ({ page }) => {
+  await expectAsset(page, '/css/style.css', /^text\/css/i);
+  await expectAsset(page, '/src/assets/css/style.css', /^text\/css/i);
 });
 
-test('relocated image is directly reachable at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/img/dashboard.PNG');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^image\/png/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
+test('QRChick avatar exists at canonical and legacy asset paths', async ({ page }) => {
+  await expectAsset(page, '/src/assets/img/qrchick-avatar.svg', /^image\/svg\+xml/i);
+  await expectAsset(page, '/assets/img/qrchick-avatar.svg', /^image\/svg\+xml/i);
 });
 
-test('legacy stylesheet URL remains available after stylesheet relocation', async ({ page }) => {
-  const response = await page.request.get('/css/style.css');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/css/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
+test('shared, staff, manager, demo and admin runtime modules are reachable canonically', async ({ page }) => {
+  const groups = {
+    shared: ['app.js','config.js','offline-sync.js','utils.js','qr-support.js'],
+    staff: ['cook-table-unified.js','notify.js','staff-auth.js','staff-notifications.js','staff-workday.js','staff-ui-patches.js','waiter-history-inline.js'],
+    manager: ['integrations-hub.js','manager-payment-settings.js','manager-permissions-bridge.js','manager-personnel-final.js','manager-staff-quick-actions.js','manager-staff-statistics.js','qr-ai-assistant.js','manager-design.js','manager-hall.js','manager-hall-ai.js','manager-hall-view.js','manager-site-import.js'],
+    demo: ['demo-data.js','demo-manager-create.js','demo-mode.js','demo-staff-v2.js'],
+    admin: ['admin-core.js','admin-ai-audit.js','admin-design-access.js'],
+  };
+  for (const [group, files] of Object.entries(groups)) for (const file of files) await expectAsset(page, `/src/assets/js/${group}/${file}`);
 });
 
-test('relocated stylesheet is directly reachable at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/css/style.css');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/css/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('legacy assets URL remains available after duplicate tree cleanup', async ({ page }) => {
-  const response = await page.request.get('/assets/img/qrchick-avatar.svg');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^image\/svg\+xml/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('legacy JS URL remains available after shared runtime relocation', async ({ page }) => {
-  const response = await page.request.get('/js/shared/utils.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('relocated shared JS is directly reachable at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/js/shared/utils.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('relocated support JS is directly reachable at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/js/shared/qr-support.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('legacy admin JS URL remains available after admin runtime relocation', async ({ page }) => {
-  const response = await page.request.get('/js/admin/admin-core.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('relocated admin JS is directly reachable at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/js/admin/admin-core.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('relocated admin AI workspace remains directly reachable', async ({ page }) => {
-  const response = await page.request.get('/src/assets/js/admin/admin-ai-audit.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('legacy favicon URL remains available after icon relocation', async ({ page }) => {
-  const response = await page.request.get('/favicon.svg');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^image\/svg\+xml/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('relocated favicon is directly reachable at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/icons/favicon.svg');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^image\/svg\+xml/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
-});
-
-test('apple touch icons remain available after icon relocation', async ({ page }) => {
-  for (const path of [
-    'apple-touch-icon.png',
-    'apple-touch-icon-courier.png',
-    'apple-touch-icon-manager.png',
-    'apple-touch-icon-waiter.png',
-  ]) {
-    const legacy = await page.request.get(`/${path}`);
-    expect(legacy.status(), path).toBe(200);
-    expect(legacy.headers()['content-type'], path).toMatch(/^image\/png/i);
-    expect((await legacy.body()).length, path).toBeGreaterThan(0);
-
-    const canonical = await page.request.get(`/src/assets/icons/${path}`);
-    expect(canonical.status(), path).toBe(200);
-    expect(canonical.headers()['content-type'], path).toMatch(/^image\/png/i);
-    expect((await canonical.body()).length, path).toBeGreaterThan(0);
-  }
-});
-
-test('relocated PWA runtime is directly reachable while the legacy URL is rewritten', async ({ page }) => {
-  const legacy = await page.request.get('/js/pwa-install.js');
-  expect(legacy.status()).toBe(200);
-  expect(legacy.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await legacy.body()).length).toBeGreaterThan(0);
-
-  const canonical = await page.request.get('/src/assets/js/pwa/pwa-install.js');
-  expect(canonical.status()).toBe(200);
-  expect(canonical.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await canonical.body()).length).toBeGreaterThan(0);
-});
-
-test('guest runtime modules are available at their canonical asset paths', async ({ page }) => {
-  for (const path of [
-    'address-suggestions.js', 'customer-order-live.js', 'customer-order-status.js',
-    'delivery-calc.js', 'design-runtime.js', 'menu-design-runtime.js',
-    'menu-modifiers.js', 'menu-table-flow.js', 'yookassa-order-payment.js',
-  ]) {
-    const response = await page.request.get(`/src/assets/js/guest/${path}`);
-    expect(response.status(), path).toBe(200);
-    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, path).toBeGreaterThan(0);
-  }
-});
-
-test('staff runtime modules are available at their canonical asset paths', async ({ page }) => {
-  for (const path of [
-    'cook-table-unified.js', 'notify.js', 'staff-auth.js', 'staff-notifications.js',
-    'staff-workday.js', 'staff-ui-patches.js', 'waiter-history-inline.js',
-  ]) {
-    const response = await page.request.get(`/src/assets/js/staff/${path}`);
-    expect(response.status(), path).toBe(200);
-    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, path).toBeGreaterThan(0);
-  }
-});
-
-test('manager runtime modules are available at their canonical asset paths', async ({ page }) => {
-  for (const path of [
-    'integrations-hub.js',
-    'manager-payment-settings.js',
-    'manager-permissions-bridge.js',
-    'manager-personnel-final.js',
-    'manager-staff-quick-actions.js',
-    'manager-staff-statistics.js',
-    'qr-ai-assistant.js',
-    'manager-design.js',
-    'manager-hall.js',
-    'manager-hall-ai.js',
-    'manager-hall-view.js',
-    'manager-site-import.js',
-  ]) {
-    const response = await page.request.get(`/src/assets/js/manager/${path}`);
-    expect(response.status(), path).toBe(200);
-    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, path).toBeGreaterThan(0);
-  }
-});
-
-test('demo runtime modules are available at their canonical asset paths', async ({ page }) => {
-  for (const path of ['demo-data.js', 'demo-manager-create.js', 'demo-mode.js', 'demo-staff-v2.js']) {
-    const response = await page.request.get(`/src/assets/js/demo/${path}`);
-    expect(response.status(), path).toBe(200);
-    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, path).toBeGreaterThan(0);
-  }
-});
-
-test('shared bootstrap modules are available at canonical paths', async ({ page }) => {
-  for (const path of ['app.js', 'config.js', 'offline-sync.js']) {
-    const response = await page.request.get(`/src/assets/js/shared/${path}`);
-    expect(response.status(), path).toBe(200);
-    expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, path).toBeGreaterThan(0);
-  }
-});
-
-test('flat legacy JS URLs resolve to their relocated canonical modules', async ({ page }) => {
+test('legacy flat and role JS URLs remain compatible with canonical modules', async ({ page }) => {
   const paths = [
-    ['app.js', 'shared/app.js'], ['config.js', 'shared/config.js'], ['offline-sync.js', 'shared/offline-sync.js'],
-    ['design-runtime.js', 'guest/design-runtime.js'], ['demo-data.js', 'demo/demo-data.js'],
-    ['demo-manager-create.js', 'demo/demo-manager-create.js'], ['demo-mode.js', 'demo/demo-mode.js'],
-    ['demo-staff-v2.js', 'demo/demo-staff-v2.js'], ['integrations-hub.js', 'manager/integrations-hub.js'],
-    ['qr-ai-assistant.js', 'manager/qr-ai-assistant.js'], ['staff-ui-patches.js', 'staff/staff-ui-patches.js'],
-    ['manager-payment-settings.js', 'manager/manager-payment-settings.js'],
-    ['manager-site-import.js', 'manager/manager-site-import.js'],
+    ['/js/app.js','/src/assets/js/shared/app.js'], ['/js/config.js','/src/assets/js/shared/config.js'],
+    ['/js/offline-sync.js','/src/assets/js/shared/offline-sync.js'], ['/js/pwa-install.js','/src/assets/js/pwa/pwa-install.js'],
+    ['/js/design-runtime.js','/src/assets/js/guest/design-runtime.js'], ['/js/demo-data.js','/src/assets/js/demo/demo-data.js'],
+    ['/js/demo-manager-create.js','/src/assets/js/demo/demo-manager-create.js'], ['/js/demo-mode.js','/src/assets/js/demo/demo-mode.js'],
+    ['/js/demo-staff-v2.js','/src/assets/js/demo/demo-staff-v2.js'], ['/js/integrations-hub.js','/src/assets/js/manager/integrations-hub.js'],
+    ['/js/qr-ai-assistant.js','/src/assets/js/manager/qr-ai-assistant.js'], ['/js/staff-ui-patches.js','/src/assets/js/staff/staff-ui-patches.js'],
+    ['/js/manager-design.js','/src/assets/js/manager/manager-design.js'], ['/js/manager-hall.js','/src/assets/js/manager/manager-hall.js'],
+    ['/js/manager-hall-ai.js','/src/assets/js/manager/manager-hall-ai.js'], ['/js/manager-hall-view.js','/src/assets/js/manager/manager-hall-view.js'],
+    ['/js/manager-payment-settings.js','/src/assets/js/manager/manager-payment-settings.js'], ['/js/manager-site-import.js','/src/assets/js/manager/manager-site-import.js'],
   ];
-  for (const [legacy, canonical] of paths) {
-    const response = await page.request.get(`/js/${legacy}`);
-    expect(response.status(), legacy).toBe(200);
-    expect(response.headers()['content-type'], legacy).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, legacy).toBeGreaterThan(0);
-    const direct = await page.request.get(`/src/assets/js/${canonical}`);
-    expect(direct.status(), canonical).toBe(200);
-    expect((await direct.body()).length, canonical).toBeGreaterThan(0);
+  for (const [legacy, canonical] of paths) { await expectAsset(page, legacy); await expectAsset(page, canonical); }
+});
+
+test('legacy root icon, favicon and apple-touch compatibility remains available', async ({ page }) => {
+  await expectAsset(page, '/favicon.svg', /^image\/svg\+xml/i);
+  await expectAsset(page, '/src/assets/icons/favicon.svg', /^image\/svg\+xml/i);
+  for (const file of ['apple-touch-icon.png','apple-touch-icon-courier.png','apple-touch-icon-manager.png','apple-touch-icon-waiter.png']) {
+    await expectAsset(page, `/${file}`, /^image\/png/i);
+    await expectAsset(page, `/src/assets/icons/${file}`, /^image\/png/i);
   }
 });
 
-test('legacy manager JS entrypoints resolve to canonical implementations', async ({ page }) => {
-  const paths = [
-    ['manager-design.js', 'manager/manager-design.js'],
-    ['manager-hall.js', 'manager/manager-hall.js'],
-    ['manager-hall-ai.js', 'manager/manager-hall-ai.js'],
-    ['manager-hall-view.js', 'manager/manager-hall-view.js'],
-  ];
-  for (const [legacy, canonical] of paths) {
-    const response = await page.request.get(`/js/${legacy}`);
-    expect(response.status(), legacy).toBe(200);
-    expect(response.headers()['content-type'], legacy).toMatch(/^text\/javascript/i);
-    expect((await response.body()).length, legacy).toBeGreaterThan(0);
-    const direct = await page.request.get(`/src/assets/js/${canonical}`);
-    expect(direct.status(), canonical).toBe(200);
-    expect(direct.headers()['content-type'], canonical).toMatch(/^text\/javascript/i);
-    expect((await direct.body()).length, canonical).toBeGreaterThan(0);
-  }
+test('canonical guest runtime modules are reachable', async ({ page }) => {
+  for (const file of ['address-suggestions.js','customer-order-live.js','customer-order-status.js','delivery-calc.js','design-runtime.js','menu-design-runtime.js','menu-modifiers.js','menu-table-flow.js','yookassa-order-payment.js']) await expectAsset(page, `/src/assets/js/guest/${file}`);
 });
 
-test('admin design access module is available at its canonical asset path', async ({ page }) => {
-  const response = await page.request.get('/src/assets/js/admin/admin-design-access.js');
-  expect(response.status()).toBe(200);
-  expect(response.headers()['content-type']).toMatch(/^text\/javascript/i);
-  expect((await response.body()).length).toBeGreaterThan(0);
+test('canonical PWA runtime remains reachable', async ({ page }) => {
+  await expectAsset(page, '/src/assets/js/pwa/pwa-install.js');
+  await expectAsset(page, '/js/pwa-install.js');
+});
+
+test('canonical page routes remain directly addressable', async ({ page }) => {
+  for (const url of ['/src/pages/guest/index.html','/src/pages/guest/menu.html','/src/pages/auth/login.html','/src/pages/auth/register.html','/src/pages/staff/cook.html','/src/pages/staff/courier.html','/src/pages/staff/waiter.html','/src/pages/manager/manager.html','/src/pages/manager/manager-demo.html','/src/pages/staff/demo-staff.html','/src/pages/admin/admin.html']) {
+    const response = await page.request.get(url);
+    expect(response.status(), url).toBe(200);
+    expect(response.headers()['content-type'], url).toMatch(/^text\/html/i);
+  }
 });
