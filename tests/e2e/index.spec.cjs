@@ -10,7 +10,8 @@ async function installConsoleGuard(page){
 }
 
 async function authenticatedSmoke(page,{email,password,path,role}){
-  test.skip(!email||!password,`${role} authenticated smoke requires PLAYWRIGHT_${role.toUpperCase()}_EMAIL and PLAYWRIGHT_${role.toUpperCase()}_PASSWORD`);
+  const envPrefix=`PLAYWRIGHT_${role.toUpperCase()}`;
+  test.skip(!email||!password,`${role} authenticated smoke requires ${envPrefix}_EMAIL and ${envPrefix}_PASSWORD`);
   const assertNoErrors=await installConsoleGuard(page);
   await page.goto('/src/pages/auth/login.html');
   await page.locator('input[type="email"]').fill(email);
