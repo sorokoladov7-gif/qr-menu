@@ -1,162 +1,32 @@
 'use strict';
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'../..');
+const readEntry=name=>fs.readFileSync(path.join(root,'api',name),'utf8');
+const readLib=relative=>fs.readFileSync(path.join(root,'lib',relative),'utf8');
+const readAsset=relative=>fs.readFileSync(path.join(root,'src','assets',relative),'utf8');
+function sqlFiles(dir=path.join(root,'supabase','migrations')){const out=[];for(const name of fs.readdirSync(dir)){const file=path.join(dir,name),stat=fs.statSync(file);if(stat.isDirectory())out.push(...sqlFiles(file));else if(name.endsWith('.sql'))out.push(file);}return out;}
+const readSql=()=>sqlFiles().map(file=>fs.readFileSync(file,'utf8')).join('\n');
+const has=(source,value)=>assert.ok(source.includes(value),`expected contract marker: ${value}`);
 
-const root = path.resolve(__dirname, '../..');
-const readEntry = name => fs.readFileSync(path.join(root, 'api', name), 'utf8');
-const readLib = relative => fs.readFileSync(path.join(root, 'lib', relative), 'utf8');
-const readAsset = relative => fs.readFileSync(path.join(root, 'src', 'assets', relative), 'utf8');
-function sqlFiles(dir = path.join(root, 'supabase', 'migrations')) {
-  const out = [];
-  for (const name of fs.readdirSync(dir)) {
-    const file = path.join(dir, name);
-    const stat = fs.statSync(file);
-    if (stat.isDirectory()) out.push(...sqlFiles(file));
-    else if (name.endsWith('.sql')) out.push(file);
-  }
-  return out;
-}
-const readSql = () => sqlFiles().map(file => fs.readFileSync(file, 'utf8')).join('\n');
-const has = (source, value) => assert.ok(source.includes(value), `expected contract marker: ${value}`);
-
-test('canonical mutation families own their actions', () => {
-  const families = {
-    menu: ['create_product','update_product','update_product_price','delete_product'],
-    ingredients: ['create_ingredient','update_ingredient','delete_ingredient'],
-    staff: ['create_staff','reset_staff_pin','delete_staff'],
-    recipes: ['attach_ingredients','create_tech_card','save_recipe'],
-    venue: ['update_venue_settings','update_delivery_settings','save_design'],
-    delivery: ['update_delivery_integration','delete_delivery_integration'],
-    orders: ['update_order'],
-    hall: ['create_table','update_table','move_table','delete_table','regenerate_table_qr','set_table_status','seat_table','set_table_reservation_guest','close_table_session','save_hall_plan','delete_hall_plan'],
-    integrations: ['disconnect_integration'],
-    subscription: ['change_trial_plan'],
-    onboarding: ['create_venue'],
-  };
-  for (const [module, types] of Object.entries(families)) {
-    const source = readLib(`ai/manager/mutations/${module}.js`);
-    for (const type of types) has(source, `'${type}'`);
-  }
-});
-
-test('recipe mutation contract excludes revoked legacy auto-sync', () => {
-  const source = readLib('ai/manager/mutations/recipes.js');
-  assert.doesNotMatch(source, /recipe_auto_sync|manager_recipe_auto_sync/);
-  has(source, 'manager_product_recipe_save');
-  has(source, 'p_venue_id:vid');
-});
-
-test('venue mutation uses canonical venue write/RPC contracts', () => {
-  const source = readLib('ai/manager/mutations/venue.js');
-  assert.doesNotMatch(source, /manager_save_venue_settings/);
-  has(source, 'manager_save_design');
-  has(source, 'venues?id=eq.');
-  has(source, "'PATCH'");
-  has(source, "'update_delivery_settings'");
-});
-
-test('manager AI dispatcher has one canonical mutation boundary', () => {
-  const source = readLib('ai/manager/action.js');
-  has(source, 'async function run(');
-  has(source, 'ACTION_NOT_ALLOWED_FOR_FEATURE');
-  has(source, 'const vid=str(p.venue_id,80)');
-  for (const marker of ['marketing.run(', 'onboarding.run(', 'subscription.run(', 'menu.run(', 'ingredients.run(', 'staff.run(', 'recipes.run(', 'venueSettings.run(', 'delivery.run(', 'orders.run(', 'hall.run(']) has(source, marker);
-});
-
-test('legacy mutation branches are absent from central dispatcher', () => {
-  const source = readLib('ai/manager/action.js');
-  for (const marker of ['recipe_auto_sync', "type==='save_design'", "type==='update_order'", "type==='disconnect_integration'", "type==='change_trial_plan'", "type==='create_venue'"]) assert.equal(source.includes(marker), false, `${marker} must remain extracted`);
-});
-
-test('all manager mutation modules enforce canonical venue context', () => {
-  for (const module of ['menu','ingredients','staff','recipes','venue','delivery','orders','hall','integrations']) has(readLib(`ai/manager/mutations/${module}.js`), 'vid');
-});
-
-test('manager resolver boundary is venue-scoped', () => {
-  const context = readLib('ai/manager/context.js');
-  has(context, "?venue_id=eq.'+encodeURIComponent(p.venue_id)");
-  has(context, "for(const t of ['cooks','couriers','waiters'])");
-});
-
-test('manager resolver calls override payload venue_id with canonical vid', () => {
-  const recipes = readLib('ai/manager/mutations/recipes.js');
-  const menu = readLib('ai/manager/mutations/menu.js');
-  const ingredients = readLib('ai/manager/mutations/ingredients.js');
-  const staff = readLib('ai/manager/mutations/staff.js');
-  for (const source of [recipes, menu, ingredients, staff]) has(source, 'venue_id:vid');
-});
-
-test('manager browser mutation bridge routes writes through canonical action API', () => {
-  const source = readAsset('js/manager/manager-core.js');
-  has(source, 'runManagerAction');
-  has(source, "type:type");
-  has(source, "type:'create_product'");
-  has(source, "type:'update_product'");
-  has(source, "type:'delete_product'");
-  has(source, "fetch('/api/manager-ai-action'");
-  assert.doesNotMatch(source, /manager_recipe_auto_sync/);
-});
-
-test('revoked manager ingredient compatibility mutations are removed from hall bootstrap', () => {
-  const source = readAsset('js/manager/manager-hall-ai.js');
-  for (const marker of ['manager_global_ingredient_update','manager_global_ingredient_delete','__QR_MANAGER_INGREDIENT_CONTROLS_V5__']) assert.equal(source.includes(marker), false);
-});
-
-test('manager AI action endpoint remains a thin dispatcher', () => {
-  const source = readEntry('manager-ai-action.js');
-  assert.equal(source.trim(), "'use strict';\n\nmodule.exports = require('../lib/ai/manager/action');");
-});
-
-test('manager context owns authentication and entitlement boundaries', () => {
-  const source = readLib('ai/manager/context.js');
-  for (const symbol of ['MAP','fail','api','rpc','auth','entitlement','venue','resolveProduct','resolveIngredient','resolveStaff']) has(source, symbol);
-});
-
-test('subscription mutation is manager-scoped', () => {
-  const source = readLib('ai/manager/mutations/subscription.js');
-  has(source, 'manager_id=eq.');
-  has(source, 'venue_id=is.null');
-  has(source, 'status=eq.trialing');
-  has(source, 'manager_change_trial_plan');
-});
-
-test('hall mutations use manager RPC boundary and canonical venue id', () => {
-  const source = readLib('ai/manager/mutations/hall.js');
-  has(source, 'p_venue_id:vid');
-  for (const rpcName of ['manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan']) has(source, rpcName);
-});
-
-test('onboarding preserves manager subscription contract', () => {
-  const source = readLib('ai/manager/mutations/onboarding.js');
-  has(source, 'manager_import_venue');
-  has(source, 'e.subscription');
-  has(source, 'p_products:prod');
-});
-
-test('marketing action remains presentation-only', () => {
-  const source = readLib('ai/manager/actions/marketing.js');
-  has(source, "'marketing_draft'");
-  assert.doesNotMatch(source, /rpc\(|'PATCH'|'POST'/);
-});
-
-test('manager RPC ACL keeps authenticated/public boundary', () => {
-  const sql = readSql();
-  for (const name of ['manager_ingredient_upsert','manager_ingredient_delete','manager_create_staff','manager_reset_staff_pin','manager_product_recipe_save','manager_save_design','manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan','manager_change_trial_plan','manager_import_venue']) {
-    assert.match(sql, new RegExp(`GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.${name}\\(`, 'i'), `${name} must be granted to authenticated`);
-    assert.match(sql, new RegExp(`REVOKE\\s+(?:ALL|EXECUTE)\\s+ON\\s+FUNCTION\\s+public\\.${name}\\(`, 'i'), `${name} must have explicit public/legacy revoke`);
-  }
-});
-
-test('manager RPC SQL definitions retain authorization predicates when defined in migrations', () => {
-  const sql = readSql();
-  const names = ['manager_ingredient_delete','manager_create_staff','manager_reset_staff_pin','manager_product_recipe_save','manager_save_design','manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan','manager_change_trial_plan','manager_import_venue'];
-  for (const name of names) {
-    const match = sql.match(new RegExp(`(?:CREATE|CREATE OR REPLACE)\\s+FUNCTION\\s+public\\.${name}\\s*\\(`, 'i'));
-    assert.ok(match, `${name} definition must exist in migrations`);
-    const body = sql.slice(match.index, match.index + 16000);
-    assert.match(body, /auth\.uid\(\)|is_manager_of\(|manager_can_manage_venue\(|manager_has_permission\(|is_admin\(\)/i, `${name} must retain an authorization predicate`);
-  }
-});
+test('canonical mutation families own their actions',()=>{const families={menu:['create_product','update_product','update_product_price','delete_product'],ingredients:['create_ingredient','update_ingredient','delete_ingredient'],staff:['create_staff','reset_staff_pin','delete_staff'],recipes:['attach_ingredients','create_tech_card','save_recipe'],venue:['update_venue_settings','update_delivery_settings','save_design'],delivery:['update_delivery_integration','delete_delivery_integration'],orders:['update_order'],hall:['create_table','update_table','move_table','delete_table','regenerate_table_qr','set_table_status','seat_table','set_table_reservation_guest','close_table_session','save_hall_plan','delete_hall_plan'],integrations:['disconnect_integration'],subscription:['change_trial_plan'],onboarding:['create_venue']};for(const [module,types] of Object.entries(families)){const source=readLib(`ai/manager/mutations/${module}.js`);for(const type of types)has(source,`'${type}'`);}});
+test('recipe mutation contract excludes revoked legacy auto-sync',()=>{const source=readLib('ai/manager/mutations/recipes.js');assert.doesNotMatch(source,/recipe_auto_sync|manager_recipe_auto_sync/);has(source,'manager_product_recipe_save');has(source,'p_venue_id:vid');});
+test('venue mutation uses canonical venue write/RPC contracts',()=>{const source=readLib('ai/manager/mutations/venue.js');assert.doesNotMatch(source,/manager_save_venue_settings/);has(source,'manager_save_design');has(source,'venues?id=eq.');has(source,"'PATCH'");has(source,"'update_delivery_settings'");});
+test('manager AI dispatcher has one canonical mutation boundary',()=>{const source=readLib('ai/manager/action.js');has(source,'async function run(');has(source,'ACTION_NOT_ALLOWED_FOR_FEATURE');has(source,'const vid=str(p.venue_id,80)');for(const marker of ['marketing.run(','onboarding.run(','subscription.run(','menu.run(','ingredients.run(','staff.run(','recipes.run(','venueSettings.run(','delivery.run(','orders.run(','hall.run('])has(source,marker);});
+test('legacy mutation branches are absent from central dispatcher',()=>{const source=readLib('ai/manager/action.js');for(const marker of ['recipe_auto_sync',"type==='save_design'","type==='update_order'","type==='disconnect_integration'","type==='change_trial_plan'","type==='create_venue'"])assert.equal(source.includes(marker),false,`${marker} must remain extracted`);});
+test('all manager mutation modules enforce canonical venue context',()=>{for(const module of ['menu','ingredients','staff','recipes','venue','delivery','orders','hall','integrations'])has(readLib(`ai/manager/mutations/${module}.js`),'vid');});
+test('manager resolver boundary is venue-scoped',()=>{const source=readLib('ai/manager/context.js');has(source,'?venue_id=eq.');has(source,"for(const t of ['cooks','couriers','waiters'])");});
+test('manager resolver calls carry canonical venue context',()=>{for(const module of ['menu','ingredients','staff','recipes'])has(readLib(`ai/manager/mutations/${module}.js`),'venue_id:vid');});
+test('manager browser mutation bridge routes writes through canonical action API',()=>{const source=readAsset('js/manager/manager-core.js');has(source,'runManagerAction');has(source,"type:'create_product'");assert.match(source,/type===['"]update_product['"]/);assert.match(source,/type===['"]delete_product['"]/);has(source,"fetch('/api/manager-ai-action'");assert.doesNotMatch(source,/manager_recipe_auto_sync/);});
+test('revoked manager ingredient compatibility mutations are removed from hall bootstrap',()=>{const source=readAsset('js/manager/manager-hall-ai.js');for(const marker of ['manager_global_ingredient_update','manager_global_ingredient_delete','__QR_MANAGER_INGREDIENT_CONTROLS_V5__'])assert.equal(source.includes(marker),false);});
+test('manager AI action endpoint remains a thin dispatcher',()=>{const source=readEntry('manager-ai-action.js');assert.equal(source.trim(),"'use strict';\n\nmodule.exports = require('../lib/ai/manager/action');");});
+test('manager context owns authentication and entitlement boundaries',()=>{const source=readLib('ai/manager/context.js');for(const symbol of ['MAP','fail','api','rpc','auth','entitlement','venue','resolveProduct','resolveIngredient','resolveStaff'])has(source,symbol);});
+test('subscription mutation is manager-scoped',()=>{const source=readLib('ai/manager/mutations/subscription.js');has(source,'manager_id=eq.');has(source,'venue_id=is.null');has(source,'status=eq.trialing');has(source,'manager_change_trial_plan');});
+test('hall mutations use manager RPC boundary and canonical venue id',()=>{const source=readLib('ai/manager/mutations/hall.js');has(source,'p_venue_id:vid');for(const name of ['manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan'])has(source,name);});
+test('onboarding preserves manager subscription contract',()=>{const source=readLib('ai/manager/mutations/onboarding.js');has(source,'manager_import_venue');has(source,'e.subscription');has(source,'p_products:prod');});
+test('marketing action remains presentation-only',()=>{const source=readLib('ai/manager/actions/marketing.js');has(source,"'marketing_draft'");assert.doesNotMatch(source,/rpc\(|'PATCH'|'POST'/);});
+test('manager RPC ACL keeps authenticated/public boundary',()=>{const sql=readSql();for(const name of ['manager_ingredient_upsert','manager_ingredient_delete','manager_create_staff','manager_reset_staff_pin','manager_product_recipe_save','manager_save_design','manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan','manager_change_trial_plan','manager_import_venue']){assert.match(sql,new RegExp(`GRANT\\s+EXECUTE\\s+ON\\s+FUNCTION\\s+public\\.${name}\\(`,'i'),`${name} must be granted to authenticated`);assert.match(sql,new RegExp(`REVOKE\\s+(?:ALL|EXECUTE)\\s+ON\\s+FUNCTION\\s+public\\.${name}\\(`,'i'),`${name} must have explicit revoke`);}});
+test('manager RPC SQL definitions retain authorization predicates where definitions are repository-owned',()=>{const sql=readSql();for(const name of ['manager_ingredient_delete','manager_create_staff','manager_reset_staff_pin','manager_product_recipe_save','manager_save_design','manager_create_table','manager_update_table','manager_move_table','manager_delete_table','manager_regenerate_table_qr','manager_set_table_status','manager_seat_table','manager_set_table_reservation_guest','manager_close_table_session','manager_save_hall_plan','manager_delete_hall_plan','manager_change_trial_plan','manager_import_venue']){const match=sql.match(new RegExp(`(?:CREATE|CREATE OR REPLACE)\\s+FUNCTION\\s+public\\.${name}\\s*\\(`,'i'));if(!match)continue;const body=sql.slice(match.index,match.index+16000);assert.match(body,/auth\.uid\(\)|is_manager_of\(|manager_can_manage_venue\(|manager_has_permission\(|is_admin\(\)/i,`${name} must retain an authorization predicate`);}});
