@@ -21,5 +21,5 @@
 (function(){
   'use strict';
   function load(src,attr){if(document.querySelector('script['+attr+']'))return;var s=document.createElement('script');s.src=src;s.async=false;s.setAttribute(attr,'1');(document.head||document.documentElement).appendChild(s);}
-  if(/(?:^|\/)menu\.html$/i.test(location.pathname)){load('/js/menu-design-runtime.js?v=1','data-qr-menu-design-runtime');load('/js/yookassa-order-payment.js?v=1','data-qr-yookassa-order-payment');}
+  if(/(?:^|\/)menu\.html$/i.test(location.pathname)){load('/src/assets/js/guest/menu-design-runtime.js?v=1','data-qr-menu-design-runtime');load('/src/assets/js/guest/yookassa-order-payment.js?v=1','data-qr-yookassa-order-payment');}
 })();

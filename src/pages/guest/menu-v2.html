@@ -262,7 +262,7 @@ iframe.visible{opacity:1;transform:scale(1)}
   /* ── Parse role ── */
   var p = new URLSearchParams(location.search);
   var role = (p.get('role') || '').toLowerCase();
-  var pages = {cook:'cook.html', courier:'courier.html', waiter:'waiter.html'};
+  var pages = {cook:'/src/pages/staff/cook.html', courier:'/src/pages/staff/courier.html', waiter:'/src/pages/staff/waiter.html'};
   var roleInfo = {
     cook:    {icon:'👨‍🍳', title:'Рабочее место повара',   subtitle:'Заказы, готовка, выдача',       color:'#f59e0b', gradient:'linear-gradient(135deg,#f59e0b,#ef4444)'},
     courier: {icon:'🚗',  title:'Рабочее место курьера',  subtitle:'Доставки, маршруты, навигация',  color:'#a78bfa', gradient:'linear-gradient(135deg,#a78bfa,#6366f1)'},
@@ -425,8 +425,8 @@ iframe.visible{opacity:1;transform:scale(1)}
           d.head.appendChild(s);
         });
       }
-      add('/js/demo-data.js')
-        .then(function(){ return add('/js/demo-staff-v2.js'); })
+      add('/src/assets/js/demo/demo-data.js')
+        .then(function(){ return add('/src/assets/js/demo/demo-staff-v2.js'); })
         .catch(function(e){ console.error('Demo staff bootstrap failed', e); });
     }catch(e){ console.error('Demo staff frame error', e); }
   });

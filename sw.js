@@ -17,44 +17,44 @@ const CORE = [
   '/src/pages/admin/venue-analytics.html',
   '/src/pages/auth/login.html',
   '/src/pages/auth/register.html',
-  '/venues.html',
-  '/staff-table.html',
-  '/staff-history.html',
-  '/admin_templates.html',
+  '/src/pages/guest/venues.html',
+  '/src/pages/staff/staff-table.html',
+  '/src/pages/staff/staff-history.html',
+  '/src/pages/admin/admin_templates.html',
   '/demo-staff.html',
-  '/integrations.html',
-  '/staff-guide.html',
+  '/src/pages/manager/integrations.html',
+  '/src/pages/manager/staff-guide.html',
   '/robots.txt',
   '/sitemap.xml',
-  '/css/style.css',
-  '/js/config.js',
-  '/js/app.js',
-  '/js/staff-auth.js',
-  '/js/manager/manager-hall.js',
+  '/src/assets/css/style.css',
+  '/src/assets/js/shared/config.js',
+  '/src/assets/js/shared/app.js',
+  '/src/assets/js/staff/staff-auth.js',
+  '/src/assets/js/manager/manager-hall.js',
   '/js/staff-table-flow.js',
-  '/js/menu-table-flow.js',
-  '/js/admin-design-access.js',
-  '/js/design-runtime.js',
-  '/js/pwa-install.js',
-  '/js/offline-sync.js',
-  '/js/delivery-calc.js',
+  '/src/assets/js/guest/menu-table-flow.js',
+  '/src/assets/js/admin/admin-design-access.js',
+  '/src/assets/js/guest/design-runtime.js',
+  '/src/assets/js/pwa/pwa-install.js',
+  '/src/assets/js/shared/offline-sync.js',
+  '/src/assets/js/guest/delivery-calc.js',
   '/js/manager/manager-instruction-tab-v2.js',
-  '/js/shared/qr-support.js',
-  '/js/manager/manager-app.js',
-  '/js/manager/manager-core.js',
-  '/js/manager/manager-venues.js',
-  '/js/manager/manager-billing.js',
+  '/src/assets/js/shared/qr-support.js',
+  '/src/assets/js/manager/manager-app.js',
+  '/src/assets/js/manager/manager-core.js',
+  '/src/assets/js/manager/manager-venues.js',
+  '/src/assets/js/manager/manager-billing.js',
   '/js/manager/manager-create-venue-flow.js',
-  '/js/manager/manager-site-import.js',
-  '/js/manager/manager-ai.js',
+  '/src/assets/js/manager/manager-site-import.js',
+  '/src/assets/js/manager/manager-ai.js',
   '/js/manager/manager-chef-full.js',
-  '/js/manager/manager-hall-view.js',
-  '/manifest.webmanifest',
-  '/manifest-admin.webmanifest',
-  '/manifest-manager.webmanifest',
-  '/manifest-cook.webmanifest',
-  '/manifest-courier.webmanifest',
-  '/manifest-waiter.webmanifest',
+  '/src/assets/js/manager/manager-hall-view.js',
+  '/src/assets/pwa/manifest.webmanifest',
+  '/src/assets/pwa/manifest-admin.webmanifest',
+  '/src/assets/pwa/manifest-manager.webmanifest',
+  '/src/assets/pwa/manifest-cook.webmanifest',
+  '/src/assets/pwa/manifest-courier.webmanifest',
+  '/src/assets/pwa/manifest-waiter.webmanifest',
   '/src/assets/icons/icon-192.png',
   '/src/assets/icons/icon-512.png',
   '/src/assets/icons/icon-manager-192.png',
@@ -90,13 +90,13 @@ async function enhanceHtml(response) {
   }
 
   let extra = '';
-  if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/js/pwa-install.js"></script><script src="/js/offline-sync.js"></script>';
+  if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
   const pathname = new URL(response.url).pathname;
-  if ((pathname === '/src/pages/guest/menu.html' || pathname === '/menu.html') && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/js/delivery-calc.js?v=24"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-ai.js?v=4"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/js\\/manager\\/manager-chef-full\\.js/i.test(text)) extra += '<script src="/js/manager/manager-chef-full.js?v=1"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html' || pathname === '/src/pages/admin/admin.html' || pathname === '/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/js/shared/qr-support.js?v=1"></script>';
+  if ((pathname === '/src/pages/guest/menu.html' || pathname === '/src/pages/guest/menu.html') && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html') && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html') && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html') && !/js\\/manager\\/manager-chef-full\\.js/i.test(text)) extra += '<script src="/js/manager/manager-chef-full.js?v=1"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html' || pathname === '/src/pages/admin/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
 
   return new Response(text.replace(/<\\/body>/i, extra + '</body>'), {
     status: response.status,
@@ -111,24 +111,24 @@ self.addEventListener('fetch', (event) => {
   if (/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(url.hostname)) return;
 
   const noStore = [
-    '/manager.html',
     '/src/pages/manager/manager.html',
-    '/admin.html',
+    '/src/pages/manager/manager.html',
     '/src/pages/admin/admin.html',
-    '/js/manager/manager-app.js',
-    '/js/manager/manager-ai.js',
+    '/src/pages/admin/admin.html',
+    '/src/assets/js/manager/manager-app.js',
+    '/src/assets/js/manager/manager-ai.js',
     '/js/manager/manager-chef-full.js',
-    '/js/shared/qr-support.js',
-    '/js/manager/manager-site-import.js',
-    '/js/manager/manager-billing.js',
-    '/js/manager/manager-recipes.js',
-    '/js/manager/manager-recept-ai.js',
+    '/src/assets/js/shared/qr-support.js',
+    '/src/assets/js/manager/manager-site-import.js',
+    '/src/assets/js/manager/manager-billing.js',
+    '/src/assets/js/manager/manager-recipes.js',
+    '/src/assets/js/manager/manager-recept-ai.js',
   ].includes(url.pathname);
 
   if (noStore) {
     event.respondWith(
       fetch(event.request, { cache: 'no-store' }).then(async (response) => {
-        if ((url.pathname === '/manager.html' || url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/admin.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) {
+        if ((url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/src/pages/admin/admin.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) {
           return enhanceHtml(response.clone());
         }
         return response;
