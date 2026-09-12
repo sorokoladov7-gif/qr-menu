@@ -47,9 +47,6 @@
                 .order('created_at',{ascending:false});
               if(r.error) throw r.error;
               var rows=r.data||[];
-              // A manager's subscription may be attached to a venue. Do not require venue_id IS NULL.
-              // Prefer the plan with the largest venue allowance; this prevents a lower-tier venue
-              // subscription from masking the manager's actual multi-venue entitlement.
               var planIds=Array.from(new Set(rows.map(function(s){return s.plan_id;}).filter(Boolean)));
               var plans=[];
               if(planIds.length){
@@ -84,37 +81,6 @@
                   .then(function(){return originalLoadMyVenues.apply(self,arguments);});
               };
             }
-            options.methods.subscribeFree=async function(p){
-              if(!p || Number(p.price)!==0) return;
-              this.busy=true;
-              try{
-                var managerId=await getManagerId(this);
-                if(!managerId) throw new Error('Не удалось определить управляющего');
-                var e=new Date(); e.setMonth(e.getMonth()+1);
-                var r=await db.from('subscriptions').upsert({manager_id:managerId,venue_id:null,plan_id:p.id,status:'active',current_period_end:e.toISOString()},{onConflict:'manager_id'}).select().single();
-                if(r.error) throw r.error;
-                this.managerSubscription=r.data; this.subscriptionEnd=r.data.current_period_end; this.payPlan=null;
-                this.showToast('Тариф управляющего изменен');
-                if(typeof this.loadMyVenues==='function') await this.loadMyVenues();
-              }catch(e){
-                console.error('[QR Billing] subscribeFree:',e); this.showToast('Ошибка: '+(e.message||'не удалось изменить тариф'),'error');
-              }finally{this.busy=false;}
-            };
-            options.methods.markPaid=async function(){
-              this.busy=true;
-              try{
-                var managerId=await getManagerId(this);
-                if(!managerId) throw new Error('Не удалось определить управляющего');
-                if(!this.payPlan) throw new Error('Тариф не выбран');
-                var r=await db.from('payments').insert({manager_id:managerId,venue_id:null,plan_id:this.payPlan.id,amount:Number(this.payPlan.price)||0,status:'pending'}).select().single();
-                if(r.error) throw r.error;
-                this.payPlan=null; if(typeof this.loadPayments==='function') await this.loadPayments(); this.showToast('Заявка на оплату отправлена!');
-              }catch(e){console.error('[QR Billing] markPaid:',e);this.showToast('Ошибка: '+(e.message||'не удалось отправить оплату'),'error');}
-              finally{this.busy=false;}
-            };
-            options.methods.loadPayments=async function(){
-              try{var managerId=await getManagerId(this);if(!managerId){this.myPayments=[];return;}var r=await db.from('payments').select('*').eq('manager_id',managerId).order('created_at',{ascending:false});if(r.error)throw r.error;this.myPayments=r.data||[];}catch(e){console.warn('[QR Billing] load payments:',e);this.myPayments=[];}
-            };
             options.computed=options.computed||{};
             options.computed.managerPlan=function(){
               var self=this;
