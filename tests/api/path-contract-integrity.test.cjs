@@ -26,6 +26,10 @@ function isExternal(value) {
   return !value || value.startsWith('#') || value.startsWith('data:') || value.startsWith('blob:') || value.startsWith('mailto:') || value.startsWith('tel:') || value.startsWith('javascript:') || /^[a-z][a-z\d+.-]*:/i.test(value);
 }
 
+function hasWildcard(value) {
+  return /:[A-Za-z][A-Za-z\d]*\*/.test(value);
+}
+
 function routePattern(source) {
   const token = '__WILDCARD__';
   let pattern = source.replace(/:path\*/g, token).replace(/:role/g, '__ROLE__');
@@ -137,11 +141,24 @@ test('canonical CSS url() assets resolve to files or declared Vercel routes', ()
 test('service worker precache URLs resolve to files or declared Vercel routes', () => {
   const routes = getRoutes();
   const source = read('sw.js');
-  const arrayMatch = source.match(/(?:CORE|PRECACHE|ASSETS)\s*=\s*\[([\s\S]*?)\]/);
-  if (!arrayMatch) return;
+  const arrays = [...source.matchAll(/(?:CORE|PRECACHE|ASSETS)\s*=\s*\[([\s\S]*?)\]/g)];
+  const refs = arrays.flatMap(array => [...array[1].matchAll(/["']([^"']+)["']/g)].map(match => match[1]));
 
-  const refs = [...arrayMatch[1].matchAll(/["']([^"']+)["']/g)].map(match => match[1]);
   for (const ref of refs) assertResolvable(ref, '/sw.js', routes, 'Service worker path contract');
+});
+
+test('declared Vercel redirects and rewrites do not point at missing static destinations', () => {
+  const routes = getRoutes();
+  for (const route of routes) {
+    if (!route || typeof route.destination !== 'string') continue;
+    const destination = route.destination;
+    if (isExternal(destination) || hasWildcard(destination)) continue;
+
+    assert.ok(
+      localPathExists(destination) || coveredByVercelRoute(destination, routes),
+      `Vercel route destination is not backed by a file or another route: ${route.source} -> ${destination}`
+    );
+  }
 });
 
 test('canonical manifests and root service worker are physically present', () => {
@@ -151,6 +168,7 @@ test('canonical manifests and root service worker are physically present', () =>
     'src/assets/pwa/manifest-admin.webmanifest',
     'src/assets/pwa/manifest-cook.webmanifest',
     'src/assets/pwa/manifest-courier.webmanifest',
+    'src/assets/pwa/manifest-manager.webmanifest',
     'src/assets/pwa/manifest-waiter.webmanifest'
   ];
   for (const file of required) assert.ok(fs.existsSync(path.join(root, file)), `required runtime file is missing: ${file}`);
