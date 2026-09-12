@@ -1,8 +1,8 @@
 {
   "name": "QR Menu — Управляющий",
   "short_name": "Управляющий",
-  "start_url": "/manager.html?pwa=manager",
-  "id": "/manager.html?pwa=manager",
+  "start_url": "/src/pages/manager/manager.html?pwa=manager",
+  "id": "/src/pages/manager/manager.html?pwa=manager",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",

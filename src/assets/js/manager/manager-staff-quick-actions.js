@@ -1,7 +1,7 @@
 (function(){
   'use strict';
   var path = location.pathname.toLowerCase();
-  if (!/\/manager\.html$/i.test(path)) return;
+  if (!/(?:^|\/)manager\.html$/i.test(path)) return;
 
   function getVm(){
     var app = document.getElementById('app');
