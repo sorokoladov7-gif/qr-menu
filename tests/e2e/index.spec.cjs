@@ -8,12 +8,18 @@ test('legacy homepage redirects and role links remain reachable', async ({ page 
   await expect(page).toHaveURL(/\/src\/pages\/manager\/manager-demo\.html(?:$|\?)/);
 
   await page.goto('/index.html');
-  await page.locator('a[href="demo-staff.html"]').click();
-  await expect(page).toHaveURL(/\/demo-staff\.html(?:$|\?)/);
+  await page.locator('a[href="/src/pages/staff/demo-staff.html"]').click();
+  await expect(page).toHaveURL(/\/src\/pages\/staff\/demo-staff\.html(?:$|\?)/);
 
   await page.goto('/index.html');
   await page.locator('a[href="login.html"]').click();
   await expect(page).toHaveURL(/\/src\/pages\/auth\/login\.html(?:$|\?)/);
+});
+
+test('legacy staff demo URL remains available after page relocation', async ({ page }) => {
+  const response = await page.request.get('/demo-staff.html');
+  expect(response.status()).toBe(200);
+  expect(response.url()).toMatch(/\/demo-staff\.html$/);
 });
 
 test('legacy manifest URL redirects to the relocated PWA asset', async ({ page }) => {
