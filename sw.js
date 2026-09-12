@@ -4,6 +4,7 @@ const CORE = [
   '/src/pages/guest/index.html',
   '/src/pages/guest/menu.html',
   '/src/pages/guest/menu-v2.html',
+  '/src/pages/staff/demo-staff.html',
   '/src/pages/staff/hall.html',
   '/src/pages/staff/cook.html',
   '/src/pages/staff/courier.html',
@@ -21,7 +22,6 @@ const CORE = [
   '/src/pages/staff/staff-table.html',
   '/src/pages/staff/staff-history.html',
   '/src/pages/admin/admin_templates.html',
-  '/demo-staff.html',
   '/src/pages/manager/integrations.html',
   '/src/pages/manager/staff-guide.html',
   '/robots.txt',
@@ -63,52 +63,35 @@ const CORE = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => Promise.all(CORE.map((url) => cache.add(url).catch(() => undefined))))
-      .then(() => self.skipWaiting()),
+    caches.open(CACHE).then((cache) => Promise.all(CORE.map((url) => cache.add(url).catch(() => undefined)))).then(() => self.skipWaiting()),
   );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
-      .then(() => self.clients.claim()),
+    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)))).then(() => self.clients.claim()),
   );
 });
 
 async function enhanceHtml(response) {
   const text = await response.text();
-  if (!/<\\/body>/i.test(text)) {
-    return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
-  }
-
+  if (!/<\\/body>/i.test(text)) return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
   let extra = '';
   if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
   const pathname = new URL(response.url).pathname;
-  if ((pathname === '/src/pages/guest/menu.html' || pathname === '/src/pages/guest/menu.html') && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html') && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html') && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html' || pathname === '/src/pages/admin/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
-
-  return new Response(text.replace(/<\\/body>/i, extra + '</body>'), {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-  });
+  if (pathname === '/src/pages/guest/menu.html' && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
+  if (pathname === '/src/pages/manager/manager.html' && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
+  if (pathname === '/src/pages/manager/manager.html' && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
+  return new Response(text.replace(/<\\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== location.origin) return;
   if (/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(url.hostname)) return;
-
   const noStore = [
     '/src/pages/manager/manager.html',
-    '/src/pages/manager/manager.html',
-    '/src/pages/admin/admin.html',
     '/src/pages/admin/admin.html',
     '/src/assets/js/manager/manager-app.js',
     '/src/assets/js/manager/manager-ai.js',
@@ -118,30 +101,22 @@ self.addEventListener('fetch', (event) => {
     '/src/assets/js/manager/manager-recipes.js',
     '/src/assets/js/manager/manager-recept-ai.js',
   ].includes(url.pathname);
-
   if (noStore) {
-    event.respondWith(
-      fetch(event.request, { cache: 'no-store' }).then(async (response) => {
-        if ((url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/src/pages/admin/admin.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) {
-          return enhanceHtml(response.clone());
-        }
-        return response;
-      }),
-    );
+    event.respondWith(fetch(event.request, { cache: 'no-store' }).then((response) => {
+      if ((url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) return enhanceHtml(response.clone());
+      return response;
+    }));
     return;
   }
-
   event.respondWith(
-    fetch(event.request, { cache: 'no-store' })
-      .then(async (response) => {
-        const out = response.headers.get('content-type')?.includes('text/html') ? await enhanceHtml(response.clone()) : response.clone();
-        if (response.ok) caches.open(CACHE).then((cache) => cache.put(event.request, out.clone())).catch(() => undefined);
-        return out;
-      })
-      .catch(async () => {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
-        throw new Error(`Offline resource unavailable: ${url.pathname}`);
-      }),
+    fetch(event.request, { cache: 'no-store' }).then(async (response) => {
+      const out = response.headers.get('content-type')?.includes('text/html') ? await enhanceHtml(response.clone()) : response.clone();
+      if (response.ok) caches.open(CACHE).then((cache) => cache.put(event.request, out.clone())).catch(() => undefined);
+      return out;
+    }).catch(async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      throw new Error(`Offline resource unavailable: ${url.pathname}`);
+    }),
   );
 });
