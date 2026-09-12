@@ -15,7 +15,7 @@ window.copyText=function(text,showToast){try{navigator.clipboard.writeText(text)
 function injectCabinetVisualLayer(){
  if(document.getElementById('qr-unified-cabinet-ui'))return;
  var style=document.createElement('style');style.id='qr-unified-cabinet-ui';
- style.textContent='''
+ style.textContent=`
 /* QR-Menu — единый визуальный слой кабинетов. Не меняет DOM или бизнес-логику. */
 .qr-corp-shell{--qr-ui-bg:#070b14;--qr-ui-surface:rgba(15,23,42,.78);--qr-ui-surface-2:rgba(30,41,59,.58);--qr-ui-border:rgba(148,163,184,.16);--qr-ui-border-strong:rgba(129,140,248,.34);--qr-ui-text:#f8fafc;--qr-ui-muted:#94a3b8;--qr-ui-accent:#6366f1;--qr-ui-accent-2:#8b5cf6;--qr-ui-success:#10b981;--qr-ui-danger:#ef4444;background:radial-gradient(circle at 12% -8%,rgba(99,102,241,.10),transparent 32%),radial-gradient(circle at 92% 105%,rgba(52,211,153,.055),transparent 30%),var(--qr-ui-bg)!important;color:var(--qr-ui-text)!important;font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,"Roboto","Helvetica Neue",Arial,sans-serif!important;font-synthesis:none;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .qr-corp-shell #app{color:inherit}
@@ -58,7 +58,7 @@ function injectCabinetVisualLayer(){
  .qr-corp-shell .btn{min-height:36px!important}
 }
 @media(prefers-reduced-motion:reduce){.qr-corp-shell *,.qr-corp-shell *:before,.qr-corp-shell *:after{animation-duration:.001ms!important;transition-duration:.001ms!important}}
-''';
+`;
  document.head.appendChild(style);
 }
 
