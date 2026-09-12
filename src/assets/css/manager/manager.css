@@ -108,3 +108,54 @@
 @media (prefers-reduced-motion:reduce) {
   .qr-corp-shell .tabs,.qr-corp-shell .tabs button,.qr-corp-shell .tabs button::before,.qr-corp-shell .tabs button::after { animation:none !important; transition:none !important; }
 }
+
+/* Mobile manager navigation: the toggle/overlay are injected by utils.js. */
+.qr-corp-nav-toggle,
+.qr-corp-nav-overlay { display:none; }
+@media (max-width:900px) {
+  .qr-corp-nav-toggle {
+    display:flex !important;
+    position:fixed !important;
+    top:max(10px, env(safe-area-inset-top)) !important;
+    left:10px !important;
+    width:42px !important;
+    height:42px !important;
+    padding:0 !important;
+    margin:0 !important;
+    align-items:center !important;
+    justify-content:center !important;
+    box-sizing:border-box !important;
+    border:1px solid rgba(148,163,184,.24) !important;
+    border-radius:12px !important;
+    background:rgba(7,12,24,.94) !important;
+    color:#f8fafc !important;
+    font:700 25px/1 system-ui,sans-serif !important;
+    box-shadow:0 8px 24px rgba(0,0,0,.34) !important;
+    cursor:pointer !important;
+    -webkit-tap-highlight-color:transparent !important;
+    touch-action:manipulation !important;
+  }
+  .qr-corp-nav-toggle:active { transform:scale(.96) !important; }
+  .qr-corp-nav-overlay {
+    display:block !important;
+    position:fixed !important;
+    inset:0 !important;
+    width:100% !important;
+    height:100% !important;
+    padding:0 !important;
+    margin:0 !important;
+    border:0 !important;
+    background:rgba(0,0,0,.52) !important;
+    opacity:0 !important;
+    visibility:hidden !important;
+    pointer-events:none !important;
+    transition:opacity .2s ease,visibility .2s ease !important;
+    -webkit-tap-highlight-color:transparent !important;
+  }
+  .qr-corp-shell.nav-open .qr-corp-nav-overlay {
+    opacity:1 !important;
+    visibility:visible !important;
+    pointer-events:auto !important;
+  }
+  .qr-corp-shell.nav-open .qr-corp-nav-toggle { background:rgba(17,24,39,.98) !important; }
+}
