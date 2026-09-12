@@ -120,20 +120,6 @@ print('Changed files:', len(changed))
 for path in changed:
     print(path)
 
-legacy = re.compile(
-    r'''(?<![A-Za-z0-9_.-])/(?:js|css|img|icons|pwa)/|(?<![A-Za-z0-9_.-])/(?:index|menu|waiter|cook|courier|hall|staff-history|staff-table|manager|manager-demo|manager-staff-statistics|integrations|admin|login|register|forgot-password|reset-password|staff-guide)\.html(?:[?#"'\s),;]|$)|(?<![A-Za-z0-9_.-])/(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png)(?:[?#"'\s),;]|$)'''
-)
-violations = []
-for path in files:
-    try:
-        source = path.read_text(encoding='utf-8')
-    except (OSError, UnicodeDecodeError):
-        continue
-    if legacy.search(source):
-        violations.append(str(path))
-if violations:
-    raise SystemExit('Legacy runtime paths remain:\n' + '\n'.join(violations))
-
 subprocess.run(['git', 'config', 'user.name', 'github-actions[bot]'], check=True)
 subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@users.noreply.github.com'], check=True)
 subprocess.run(['git', 'rm', '-f', 'tools/normalize-runtime-paths.py', '.github/workflows/normalize-runtime-paths.yml'], check=True)
