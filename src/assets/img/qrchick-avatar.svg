@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">QRChick</title>
+  <desc id="desc">QRChick AI assistant avatar</desc>
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7dd3fc"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+  <rect width="128" height="128" rx="32" fill="#0b1020"/>
+  <circle cx="64" cy="64" r="44" fill="url(#g)" opacity=".18"/>
+  <path d="M38 52c0-13 10-23 23-23h7c13 0 23 10 23 23v20c0 13-10 23-23 23h-7c-13 0-23-10-23-23V52Z" fill="#f8fafc"/>
+  <circle cx="53" cy="62" r="6" fill="#0b1020"/><circle cx="75" cy="62" r="6" fill="#0b1020"/>
+  <path d="M50 78c8 7 20 7 28 0" fill="none" stroke="#0b1020" stroke-width="5" stroke-linecap="round"/>
+  <path d="M64 29V20M45 34l-6-7M83 34l6-7" stroke="#7dd3fc" stroke-width="5" stroke-linecap="round"/>
+</svg>
