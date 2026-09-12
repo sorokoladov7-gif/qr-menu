@@ -1,0 +1,96 @@
+/* Специфичные для manager.html стили */
+[v-cloak]{display:none!important}
+.menu-compact { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-top:14px; }
+.menu-item-compact { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:10px; cursor:pointer; transition:all .2s ease; display:flex; flex-direction:column; align-items:center; text-align:center; }
+.menu-item-compact:hover { transform:translateY(-3px); border-color:rgba(99,102,241,.5); box-shadow:0 8px 24px rgba(0,0,0,.2); }
+.menu-item-compact .thumb { width:80px; height:80px; object-fit:cover; border-radius:12px; margin-bottom:8px; background:#1f2937; }
+.menu-item-compact .name { font-weight:700; font-size:14px; }
+.menu-item-compact .price { font-weight:700; color:#a5b4fc; font-size:14px; }
+.menu-item-compact .actions { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+.menu-item-compact .actions .btn { font-size:11px; padding:4px 10px; }
+.recipe-wrap { max-width:1250px; margin:0 auto; padding:20px 18px 40px; }
+.recipe-grid { display:grid; grid-template-columns:300px minmax(0,1fr); gap:16px; }
+.recipe-row { display:grid; grid-template-columns:minmax(180px,1fr) 110px 75px minmax(130px,1fr) auto; gap:8px; align-items:center; margin-bottom:8px; }
+.cost-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0; }
+.cost-card { padding:12px; border:1px solid #ffffff12; border-radius:12px; background:#ffffff06; }
+.cost-card .n { font-size:20px; font-weight:800; }
+.ingredient-row { display:flex; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid #ffffff12; }
+.tech-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:10px; }
+#qr-manager-hall-final { position:fixed; inset:0; z-index:99990; background:#0b1424; color:#eef2ff; overflow:auto; padding:16px; box-sizing:border-box; }
+
+.manager-template-catalog { display:grid; grid-template-columns:280px minmax(0,1fr); gap:18px; margin:14px 0 16px; min-height:330px; }
+.manager-template-list { max-height:52vh; overflow-y:auto; padding-right:2px; }
+.manager-template-search { width:100%; box-sizing:border-box; margin-bottom:12px; background:#0e1219; color:#fff; border:1px solid #303746; border-radius:10px; padding:10px; outline:none; }
+.manager-template-search:focus { border-color:#6366f1; }
+.manager-template-list .template-item { padding:10px 12px; border-radius:12px; cursor:pointer; border:1px solid transparent; margin-bottom:4px; transition:background .15s ease,border-color .15s ease,transform .15s ease; }
+.manager-template-list .template-item:hover { background:rgba(255,255,255,.035); transform:translateX(2px); }
+.manager-template-list .template-item.active { border-color:#6366f1; background:rgba(99,102,241,.08); }
+.manager-template-list .template-item .name { font-weight:700; font-size:13px; }
+.manager-template-list .template-item .meta { margin-top:4px; color:#94a3b8; font-size:11px; }
+.manager-template-list .template-item .manager-template-status { color:#64748b; }
+.manager-template-list .template-item.active .manager-template-status { color:#a5b4fc; font-weight:700; }
+.manager-template-detail { min-width:0; border:1px solid rgba(148,163,184,.14); border-radius:14px; background:rgba(255,255,255,.025); padding:12px; overflow:auto; max-height:52vh; }
+.manager-template-detail-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.manager-template-title { display:flex; align-items:center; gap:7px; font-size:15px; }
+.manager-template-emoji { font-size:22px; }
+.manager-template-description { margin-top:4px; font-size:11px; line-height:1.35; }
+.manager-template-selected { flex:0 0 auto; padding:4px 8px; border-radius:999px; background:rgba(99,102,241,.12); color:#a5b4fc; font-size:10px; font-weight:700; }
+.manager-template-meta-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin:10px 0; }
+.manager-template-meta-grid > div { padding:7px 8px; border:1px solid rgba(148,163,184,.1); border-radius:9px; background:rgba(255,255,255,.025); }
+.manager-template-meta-grid span { display:block; color:#64748b; font-size:9px; margin-bottom:2px; }
+.manager-template-meta-grid b { font-size:11px; }
+.manager-template-products-head { display:flex; justify-content:space-between; gap:8px; margin:8px 0 6px; font-size:12px; }
+.manager-template-products-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(125px,1fr)); gap:7px; }
+.manager-template-product-card { min-width:0; padding:7px; border-radius:10px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); cursor:default; transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease; }
+.manager-template-product-card:hover { transform:translateY(-1px); box-shadow:0 6px 16px rgba(0,0,0,.18); border-color:rgba(129,140,248,.45); }
+.manager-template-product-card-top { display:flex; align-items:center; justify-content:space-between; min-height:18px; }
+.manager-template-product-emoji { font-size:18px; line-height:1; }
+.manager-template-product-number { color:#64748b; font-size:9px; font-weight:700; }
+.manager-template-product-image { display:block; width:100%; height:64px; object-fit:contain; border-radius:7px; background:#0e1219; margin:5px 0; }
+.manager-template-product-name { margin-top:4px; font-size:11px; line-height:1.25; font-weight:700; display:block; }
+.manager-template-product-desc { margin-top:3px; color:#94a3b8; font-size:9px; line-height:1.3; display:block; }
+.manager-template-product-bottom { display:flex; align-items:flex-end; justify-content:space-between; gap:4px; margin-top:5px; }
+.manager-template-product-bottom b { font-size:11px; white-space:nowrap; }
+.manager-template-product-category { color:#64748b; font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.manager-template-select-btn { width:100%; margin-top:8px; }
+.manager-template-empty { min-height:180px; display:flex; align-items:center; justify-content:center; color:#64748b; font-size:12px; }
+
+@media (max-width:760px) {
+  .manager-template-catalog { grid-template-columns:1fr; gap:10px; }
+  .manager-template-list,.manager-template-detail { max-height:none; }
+  .manager-template-meta-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .manager-template-products-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+
+.qr-corp-shell .modal { z-index:11050 !important; }
+.qr-corp-shell .modal .box { position:relative; z-index:11051; }
+.qr-corp-shell .toast { z-index:12000 !important; }
+.qr-corp-shell .tabs { isolation:isolate; transform:translateZ(0); will-change:transform; }
+.qr-corp-shell .tabs button { position:relative; overflow:hidden; transform:translateZ(0); transition:transform .22s cubic-bezier(.2,.8,.2,1),background-color .22s ease,border-color .22s ease,box-shadow .22s ease,color .18s ease,opacity .18s ease; }
+.qr-corp-shell .tabs button::before { content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;border-radius:999px;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(1);background:rgba(255,255,255,.28); }
+.qr-corp-shell .tabs button:active::before { opacity:1;animation:qr-manager-nav-ripple .48s ease-out; }
+.qr-corp-shell .tabs button:hover { transform:translateX(3px) scale(1.01); }
+.qr-corp-shell .tabs button.on { transform:translateX(4px);animation:qr-manager-nav-active .42s cubic-bezier(.2,.8,.2,1);box-shadow:0 8px 24px rgba(99,102,241,.12); }
+.qr-corp-shell .tabs button.on::after { content:"";position:absolute;left:10px;right:10px;bottom:3px;height:2px;border-radius:999px;background:linear-gradient(90deg,transparent,rgba(129,140,248,.95),transparent);box-shadow:0 0 12px rgba(99,102,241,.65);transform-origin:center;animation:qr-manager-nav-indicator .38s cubic-bezier(.2,.8,.2,1); }
+.qr-corp-shell .tabs button:focus-visible { outline:2px solid rgba(129,140,248,.8);outline-offset:2px; }
+.qr-corp-shell.nav-open .tabs { animation:qr-manager-sidebar-open .34s cubic-bezier(.2,.8,.2,1); }
+.qr-corp-shell.nav-open .tabs button { animation:qr-manager-nav-item-in .34s cubic-bezier(.2,.8,.2,1) both; }
+.qr-corp-shell.nav-open .tabs button:nth-of-type(1){animation-delay:.03s}.qr-corp-shell.nav-open .tabs button:nth-of-type(2){animation-delay:.06s}.qr-corp-shell.nav-open .tabs button:nth-of-type(3){animation-delay:.09s}.qr-corp-shell.nav-open .tabs button:nth-of-type(4){animation-delay:.12s}.qr-corp-shell.nav-open .tabs button:nth-of-type(5){animation-delay:.15s}.qr-corp-shell.nav-open .tabs button:nth-of-type(6){animation-delay:.18s}.qr-corp-shell.nav-open .tabs button:nth-of-type(7){animation-delay:.21s}.qr-corp-shell.nav-open .tabs button:nth-of-type(8){animation-delay:.24s}.qr-corp-shell.nav-open .tabs button:nth-of-type(9){animation-delay:.27s}
+@keyframes qr-manager-nav-ripple{0%{opacity:.42;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(34)}}
+@keyframes qr-manager-nav-active{0%{transform:translateX(0) scale(.98)}60%{transform:translateX(5px) scale(1.015)}100%{transform:translateX(4px) scale(1)}}
+@keyframes qr-manager-nav-indicator{0%{opacity:0;transform:scaleX(.15)}100%{opacity:1;transform:scaleX(1)}}
+@keyframes qr-manager-sidebar-open{0%{opacity:.7;transform:translateX(-14px)}100%{opacity:1;transform:translateX(0)}}
+@keyframes qr-manager-nav-item-in{0%{opacity:0;transform:translateX(-14px) scale(.97)}100%{opacity:1;transform:translateX(0) scale(1)}}
+
+@media (max-width:900px) {
+  #app { position:static !important; z-index:auto !important; }
+  .qr-corp-nav-overlay { z-index:9998 !important; }
+  .qr-corp-shell .tabs { z-index:9999 !important; }
+  .qr-corp-nav-toggle { z-index:10000 !important; }
+  .qr-corp-shell .tabs button:hover { transform:none; }
+  .qr-corp-shell .tabs button.on { transform:translateX(2px); }
+  .qr-corp-shell .tabs button.on::after { left:14px; right:14px; bottom:4px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .qr-corp-shell .tabs,.qr-corp-shell .tabs button,.qr-corp-shell .tabs button::before,.qr-corp-shell .tabs button::after { animation:none !important; transition:none !important; }
+}

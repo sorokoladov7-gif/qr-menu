@@ -1,7 +1,153 @@
-const CACHE = 'qr-platform-v49';
-const CORE = ['/', '/index.html', '/login.html', '/register.html', '/menu.html', '/menu-v2.html', '/venues.html', '/hall.html', '/staff-table.html', '/staff-history.html', '/admin-analytics.html', '/admin-permissions.html', '/venue-analytics.html', '/tables.html', '/cook.html', '/courier.html', '/waiter.html', '/admin.html', '/admin_templates.html', '/manager_templates_v2.html', '/manager-demo.html', '/demo-staff.html', '/robots.txt', '/sitemap.xml', '/css/style.css', '/js/config.js', '/js/app.js', '/js/auth.js', '/js/staff-auth.js', '/js/manager/manager-hall.js', '/js/manager/manager-tables.js', '/js/staff-table-flow.js', '/js/menu-table-flow.js', '/js/admin-design-access.js', '/js/design-runtime.js', '/js/pwa-install.js', '/js/offline-sync.js', '/js/delivery-calc.js', '/js/manager/manager-instruction-tab-v2.js', '/js/shared/qr-support.js', '/js/manager/manager-recept-ai.js', '/js/manager/manager-app.js', '/js/manager/manager-core.js', '/js/manager/manager-venues.js', '/js/manager/manager-billing.js', '/js/manager/manager-create-venue-flow.js', '/js/manager/manager-site-import.js', '/js/manager/manager-ai.js', '/js/manager/manager-chef-full.js', '/js/manager/manager-hall-view.js', '/manifest.webmanifest', '/manifest-admin.webmanifest', '/manifest-manager.webmanifest', '/manifest-cook.webmanifest', '/manifest-courier.webmanifest', '/manifest-waiter.webmanifest', '/icon-192.png', '/icon-512.png', '/icon-manager-192.png', '/icon-manager-512.png', '/icon-cook-192.png', '/icon-courier-192.png', '/icon-waiter-192.png', '/icons/icon-192.png', '/icons/icon-512.png'];
-self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>Promise.all(CORE.map(url=>c.add(url).catch(()=>{})))).then(()=>self.skipWaiting())));
-self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))).then(()=>self.clients.claim()))));
-function sanitizeImportSource(text){var s=String(text||'');if(!/manager-site-import\\.js/i.test(s))return s;return s.replace(/var safe=clean\\(file\\.name\\|\\|['\"]menu['\"]\\)[^;]*;/i,"var safe=clean(file.name||'menu').replace(/[^A-Za-z0-9._-]/g,'-').replace(/-+/g,'-').replace(/^-|-$/g,'').slice(-120)||'menu';");}
-async function enhanceHtml(r){const text=await r.text();if(!/<\\/body>/i.test(text))return new Response(text,{status:r.status,statusText:r.statusText,headers:r.headers});let extra='';if(!/pwa-install\\.js/i.test(text))extra+='<script src="/js/pwa-install.js"></script><script src="/js/offline-sync.js"></script>';const pathname=new URL(r.url).pathname;if(pathname==='/menu.html'&&!/delivery-calc\\.js/i.test(text))extra+='<script src="/js/delivery-calc.js?v=24"></script>';if(pathname==='/manager.html'&&!/manager-hall-ai\\.js/i.test(text))extra+='<script src="/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';if(pathname==='/manager.html'&&!/js\\/manager\\/manager-ai\\.js/i.test(text))extra+='<script src="/js/manager/manager-ai.js?v=4"></script>';if(pathname==='/manager.html'&&!/js\\/manager\\/manager-chef-full\\.js/i.test(text))extra+='<script src="/js/manager/manager-chef-full.js?v=1"></script>';if((pathname==='/manager.html'||pathname==='/admin.html')&&!/js\\/shared\\/qr-support\\.js/i.test(text))extra+='<script src="/js/shared/qr-support.js?v=1"></script>';return new Response(text.replace(/<\\/body>/i,extra+'</body>'),{status:r.status,statusText:r.statusText,headers:r.headers});}
-self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin)return;if(/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(u.hostname))return;const noStore=['/manager.html','/admin.html','/js/manager/manager-app.js','/js/manager/manager-ai.js','/js/manager/manager-chef-full.js','/js/shared/qr-support.js','/js/manager/manager-site-import.js','/js/manager/manager-billing.js','/js/manager/manager-recipes.js','/js/manager/manager-recept-ai.js'].includes(u.pathname);if(noStore){e.respondWith(fetch(e.request,{cache:'no-store'}).then(async r=>{if((u.pathname==='/manager.html'||u.pathname==='/admin.html')&&r.ok&&r.headers.get('content-type')?.includes('text/html'))return enhanceHtml(r.clone());return r;}));return;}e.respondWith(fetch(e.request).then(async r=>{const out=r.headers.get('content-type')?.includes('text/html')?await enhanceHtml(r.clone()):r.clone();if(r.ok)caches.open(CACHE).then(c=>c.put(e.request,out.clone())).catch(()=>{});return out;}).catch(async()=>{const cached=await caches.match(e.request);if(cached)return cached;throw new Error('Offline resource unavailable: '+u.pathname);}));});
+const CACHE = 'qr-platform-v51';
+const CORE = [
+  '/',
+  '/src/pages/guest/index.html',
+  '/src/pages/guest/menu.html',
+  '/src/pages/guest/menu-v2.html',
+  '/src/pages/staff/hall.html',
+  '/src/pages/staff/cook.html',
+  '/src/pages/staff/courier.html',
+  '/src/pages/staff/waiter.html',
+  '/src/pages/manager/manager.html',
+  '/src/pages/manager/manager-demo.html',
+  '/src/pages/manager/manager-staff-statistics.html',
+  '/src/pages/admin/admin.html',
+  '/src/pages/admin/admin-analytics.html',
+  '/src/pages/admin/admin-permissions.html',
+  '/src/pages/admin/venue-analytics.html',
+  '/src/pages/auth/login.html',
+  '/src/pages/auth/register.html',
+  '/venues.html',
+  '/staff-table.html',
+  '/staff-history.html',
+  '/admin_templates.html',
+  '/demo-staff.html',
+  '/integrations.html',
+  '/staff-guide.html',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/css/style.css',
+  '/js/config.js',
+  '/js/app.js',
+  '/js/staff-auth.js',
+  '/js/manager/manager-hall.js',
+  '/js/staff-table-flow.js',
+  '/js/menu-table-flow.js',
+  '/js/admin-design-access.js',
+  '/js/design-runtime.js',
+  '/js/pwa-install.js',
+  '/js/offline-sync.js',
+  '/js/delivery-calc.js',
+  '/js/manager/manager-instruction-tab-v2.js',
+  '/js/shared/qr-support.js',
+  '/js/manager/manager-app.js',
+  '/js/manager/manager-core.js',
+  '/js/manager/manager-venues.js',
+  '/js/manager/manager-billing.js',
+  '/js/manager/manager-create-venue-flow.js',
+  '/js/manager/manager-site-import.js',
+  '/js/manager/manager-ai.js',
+  '/js/manager/manager-chef-full.js',
+  '/js/manager/manager-hall-view.js',
+  '/manifest.webmanifest',
+  '/manifest-admin.webmanifest',
+  '/manifest-manager.webmanifest',
+  '/manifest-cook.webmanifest',
+  '/manifest-courier.webmanifest',
+  '/manifest-waiter.webmanifest',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+  '/icons/icon-manager-192.png',
+  '/icons/icon-manager-512.png',
+  '/icons/icon-courier-192.png',
+  '/icons/icon-courier-512.png',
+  '/icons/icon-waiter-192.png',
+  '/icons/icon-waiter-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) => Promise.all(CORE.map((url) => cache.add(url).catch(() => undefined))))
+      .then(() => self.skipWaiting()),
+  );
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim()),
+  );
+});
+
+async function enhanceHtml(response) {
+  const text = await response.text();
+  if (!/<\\/body>/i.test(text)) {
+    return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
+  }
+
+  let extra = '';
+  if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/js/pwa-install.js"></script><script src="/js/offline-sync.js"></script>';
+  const pathname = new URL(response.url).pathname;
+  if ((pathname === '/src/pages/guest/menu.html' || pathname === '/menu.html') && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/js/delivery-calc.js?v=24"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/js/manager/manager-ai.js?v=4"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html') && !/js\\/manager\\/manager-chef-full\\.js/i.test(text)) extra += '<script src="/js/manager/manager-chef-full.js?v=1"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/manager.html' || pathname === '/src/pages/admin/admin.html' || pathname === '/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/js/shared/qr-support.js?v=1"></script>';
+
+  return new Response(text.replace(/<\\/body>/i, extra + '</body>'), {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers,
+  });
+}
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || url.origin !== location.origin) return;
+  if (/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(url.hostname)) return;
+
+  const noStore = [
+    '/manager.html',
+    '/src/pages/manager/manager.html',
+    '/admin.html',
+    '/src/pages/admin/admin.html',
+    '/js/manager/manager-app.js',
+    '/js/manager/manager-ai.js',
+    '/js/manager/manager-chef-full.js',
+    '/js/shared/qr-support.js',
+    '/js/manager/manager-site-import.js',
+    '/js/manager/manager-billing.js',
+    '/js/manager/manager-recipes.js',
+    '/js/manager/manager-recept-ai.js',
+  ].includes(url.pathname);
+
+  if (noStore) {
+    event.respondWith(
+      fetch(event.request, { cache: 'no-store' }).then(async (response) => {
+        if ((url.pathname === '/manager.html' || url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/admin.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) {
+          return enhanceHtml(response.clone());
+        }
+        return response;
+      }),
+    );
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request, { cache: 'no-store' })
+      .then(async (response) => {
+        const out = response.headers.get('content-type')?.includes('text/html') ? await enhanceHtml(response.clone()) : response.clone();
+        if (response.ok) caches.open(CACHE).then((cache) => cache.put(event.request, out.clone())).catch(() => undefined);
+        return out;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        throw new Error(`Offline resource unavailable: ${url.pathname}`);
+      }),
+  );
+});
