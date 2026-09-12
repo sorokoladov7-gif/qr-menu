@@ -32,4 +32,25 @@ test('manager product browser mutations remain behind the central bridge', () =>
   assert.ok(source.includes("type:'create_product'"));
   assert.ok(source.includes("type==='update_product'"));
   assert.ok(source.includes("type==='delete_product'"));
+  assert.ok(source.includes("var rows=Array.isArray(values)?values.slice():[values]"));
+  assert.ok(source.includes("if(!rows[0]||typeof rows[0]!=='object')return Promise.reject(new Error('PRODUCT_PAYLOAD_INVALID'))"));
+  assert.equal(source.includes('return originalInsert(values,options)'), false);
+});
+
+test('hall compatibility bridge does not own billing mutations', () => {
+  const source = readAsset('manager-hall-view.js');
+  assert.ok(source.includes('loadManagerSubscription'));
+  assert.ok(source.includes('canCreateVenue'));
+  assert.equal(source.includes("subscriptions').upsert"), false);
+  assert.equal(source.includes("payments').insert"), false);
+  assert.equal(source.includes('options.methods.markPaid=async'), false);
+  assert.equal(source.includes('options.methods.subscribeFree=async'), false);
+  assert.equal(source.includes('options.methods.loadPayments=async'), false);
+});
+
+test('canonical billing module remains the single browser billing implementation', () => {
+  const source = readAsset('manager-billing.js');
+  assert.ok(source.includes('window.__QR_MANAGER_BILLING_MIXIN__ = billingMixin'));
+  assert.ok(source.includes('markPaid: function()'));
+  assert.ok(source.includes('loadPayments: function()'));
 });
