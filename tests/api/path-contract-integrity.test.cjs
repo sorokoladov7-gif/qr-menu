@@ -186,7 +186,7 @@ test('no canonical runtime source embeds a legacy resource URL in an HTML/JS/CSS
     ...walk(path.join(root, 'src/pages')).filter(file => file.endsWith('.html')),
     ...walk(path.join(root, 'src/assets/js')).filter(file => /\.(?:js|cjs|mjs)$/.test(file)),
     ...walk(path.join(root, 'src/assets/css')).filter(file => file.endsWith('.css')),
-    root / 'sw.js'
+    path.join(root, 'sw.js')
   ];
   const legacyResource = /(?:src|href)\s*[:=]\s*["'`]((?:\/?(?:js|css|img|icons|pwa)\/|\/?(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png))[^"'`]*)["'`]/gi;
 
