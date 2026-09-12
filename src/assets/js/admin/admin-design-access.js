@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-if(!/\/admin\.html$/i.test(location.pathname))return;
+if(!/(?:^|\/)admin\.html$/i.test(location.pathname))return;
 if(window.__QR_ADMIN_UNIFIED_V5__)return;
 window.__QR_ADMIN_UNIFIED_V5__=true;
 var STYLE_ID='qr-admin-unified-v5-style';

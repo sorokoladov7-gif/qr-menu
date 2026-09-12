@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-if(!/\/menu\.html$/i.test(location.pathname)) return;
+if(!/(?:^|\/)menu\.html$/i.test(location.pathname)) return;
 if(window.__customerOrderLiveV4Loaded) return;
 window.__customerOrderLiveV4Loaded=true;
 

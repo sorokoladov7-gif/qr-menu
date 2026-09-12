@@ -3,7 +3,7 @@
 var params=new URLSearchParams(location.search);
 var path=location.pathname.toLowerCase();
 var isStaff=/(cook|courier|waiter)\.html$/i.test(path);
-var isManager=/manager\.html$/i.test(path);
+var isManager=/(?:^|\/)manager\.html$/i.test(path);
 var isManagerDemo=/manager-demo\.html$/i.test(path);
 var isPublicMenu=/menu\.html$/i.test(path);
 var demoPage=isStaff||isManager||isManagerDemo;

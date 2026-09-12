@@ -41,7 +41,7 @@ Vue.createApp({
       var r=await this.withTimeout(window.db.from('profiles').select('id,role').eq('id',userId).maybeSingle(),'Загрузка профиля',10000);
       if(r.error)throw new Error('Ошибка профиля: '+r.error.message);
       if(!r.data)throw new Error('Профиль пользователя не найден');
-      var target=r.data.role==='admin'?'/admin.html':'/manager.html';
+      var target=r.data.role==='admin'?'/admin.html':'/src/pages/manager/manager.html';
       this.redirecting=true;
       window.location.replace(target);
     },

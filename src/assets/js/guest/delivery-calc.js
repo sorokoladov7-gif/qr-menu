@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-if(!/\/menu\.html$/i.test(location.pathname)) return;
+if(!/(?:^|\/)menu\.html$/i.test(location.pathname)) return;
 
 window.geocodeAddress = async function(address){
   try{

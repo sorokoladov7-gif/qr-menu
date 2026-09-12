@@ -1,9 +1,9 @@
 (function(){
   'use strict';
   var path=location.pathname.toLowerCase();
-  var isCourier=/\/courier\.html$/i.test(path);
-  var isWaiter=/\/waiter\.html$/i.test(path);
-  var isCook=/\/cook\.html$/i.test(path);
+  var isCourier=/(?:^|\/)courier\.html$/i.test(path);
+  var isWaiter=/(?:^|\/)(admin|manager|cook|courier|waiter)\.html$/i.test(path);
+  var isCook=/(?:^|\/)cook\.html$/i.test(path);
   var role=isCourier?'courier':(isWaiter?'waiter':(isCook?'cook':null));
 
   function tokenKey(){return role?role+'_token':'staff_token';}

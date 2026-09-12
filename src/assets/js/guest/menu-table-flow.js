@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-if(!/\/menu\.html$/i.test(location.pathname))return;
+if(!/(?:^|\/)menu\.html$/i.test(location.pathname))return;
 var root=document.getElementById('app');var currentTable=null;
 function getVM(){if(!root)return null;try{if(root.__vueParentComponent&&root.__vueParentComponent.proxy)return root.__vueParentComponent.proxy;if(root.__vue_app__&&root.__vue_app__._instance&&root.__vue_app__._instance.proxy)return root.__vue_app__._instance.proxy;}catch(e){}return null;}
 function token(){return new URLSearchParams(location.search).get('token')||'';}

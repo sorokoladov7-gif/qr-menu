@@ -111,7 +111,7 @@
 
       logout: function() {
         try { db.auth.signOut(); } catch(e) {}
-        location.href = '/login.html';
+        location.href = '/src/pages/auth/login.html';
       },
 
       switchTab: function(t) {

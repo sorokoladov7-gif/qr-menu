@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-var role=(location.pathname.toLowerCase().match(/\/(cook|courier|waiter)\.html$/i)||[])[1]||'staff';
+var role=(location.pathname.toLowerCase().match(/(?:^|\/)(cook|courier|waiter)\.html$/i)||[])[1]||'staff';
 var STORAGE_KEY='qr_staff_session_'+role;
 
 function get(){

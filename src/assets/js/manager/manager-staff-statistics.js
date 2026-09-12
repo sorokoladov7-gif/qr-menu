@@ -1,7 +1,7 @@
 /* Manager personnel analytics: standalone tab bridge. */
 (function () {
   'use strict';
-  if (!/\/manager\.html$/i.test(location.pathname)) return;
+  if (!/(?:^|\/)manager\.html$/i.test(location.pathname)) return;
 
   var panelId = 'qr-manager-personnel-panel';
   var installed = false;

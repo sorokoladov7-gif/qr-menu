@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 var path = location.pathname.toLowerCase();
-var isStaff = /\/(cook|courier|waiter)\.html$/i.test(path);
+var isStaff = /(?:^|\/)(cook|courier|waiter)\.html$/i.test(path);
 if(!isStaff) return;
 if(window.__staffNotifications) return;
 window.__staffNotifications = true;

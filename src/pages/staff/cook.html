@@ -338,7 +338,7 @@ createApp({
      setTimeout(()=>{this.refreshing=false;if(btn)btn.classList.remove('refresh-spin')},600);
    },
    async login(){this.busy=true;this.err='';const slug=this.form.slug.trim(),pin=this.form.pin.trim();if(!slug||!/^[0-9]{4}$/.test(pin)){this.err='Введите код и 4-значный PIN';this.busy=false;return}try{const r=await db.rpc('staff_login',{p_type:'cook',p_slug:slug,p_pin:pin});if(r.error||!r.data||r.data.error){this.err=r.error?.message||r.data?.error||'Неверные данные';return}this.token=r.data.token;this.session={cookName:r.data.staffName,venueId:r.data.venueId,venueName:r.data.venueName};sessionStorage.setItem('cook_token',this.token);sessionStorage.setItem('cook_session',JSON.stringify(this.session));await this.load()}catch(e){this.err=e.message||'Ошибка входа'}finally{this.busy=false}},
-   logout(){sessionStorage.removeItem('cook_session');sessionStorage.removeItem('cook_token');location.href='/login.html'},
+   logout(){sessionStorage.removeItem('cook_session');sessionStorage.removeItem('cook_token');location.href='/src/pages/auth/login.html'},
    async load(){
      if(!this.token)return;
      const [r, calls] = await Promise.all([

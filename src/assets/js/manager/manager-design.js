@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  if (!/\/manager\.html$/i.test(location.pathname)) return;
+  if (!/(?:^|\/)manager\.html$/i.test(location.pathname)) return;
 
   /*
    * ВАЖНО:

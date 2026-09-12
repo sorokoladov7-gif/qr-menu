@@ -1,6 +1,6 @@
 (function(){
 'use strict';
-if(!window.__isDemoMode || !location.pathname.toLowerCase().match(/manager\.html$/)) return;
+if(!window.__isDemoMode || !location.pathname.toLowerCase().match(/(?:^|\/)manager\.html$/)) return;
 function install(){
   var root=document.getElementById('app');
   var app=root&&root.__vue_app__;

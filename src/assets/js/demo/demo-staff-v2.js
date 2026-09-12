@@ -2,7 +2,7 @@
 (function(){
 'use strict';
 var qs=new URLSearchParams(location.search),role=(qs.get('role')||'').toLowerCase();
-if(!role){var m=location.pathname.toLowerCase().match(/\/(cook|courier|waiter)\.html$/i);if(m)role=m[1].toLowerCase();}
+if(!role){var m=location.pathname.toLowerCase().match(/(?:^|\/)(cook|courier|waiter)\.html$/i);if(m)role=m[1].toLowerCase();}
 var D=window.QR_DEMO_DATA||{};
 if(!D.venue||['cook','courier','waiter'].indexOf(role)<0)return;
 var names={cook:D.session.cookName,courier:D.session.courierName,waiter:D.session.waiterName};

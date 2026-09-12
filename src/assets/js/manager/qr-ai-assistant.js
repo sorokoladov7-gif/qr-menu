@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   if(window.__QR_AI_ASSISTANT__) return;
-  if(!/\/manager\.html$/i.test(location.pathname)) return;
+  if(!/(?:^|\/)manager\.html$/i.test(location.pathname)) return;
   window.__QR_AI_ASSISTANT__=true;
 
   var state={open:false,busy:false,allowed:false,plan:'',status:'',end:'',history:[]};

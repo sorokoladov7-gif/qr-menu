@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  if(!/\/menu\.html$/i.test(location.pathname)) return;
+  if(!/(?:^|\/)menu\.html$/i.test(location.pathname)) return;
   var applied=null;
   var styleId='qr-menu-design-runtime';
   function hex(v,f){return /^#[0-9a-f]{6}$/i.test(String(v||''))?v:f;}

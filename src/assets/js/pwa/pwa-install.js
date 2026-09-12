@@ -50,7 +50,7 @@
   }
 
   function installWaiterLoginRecovery() {
-    if (!/\/waiter\.html$/i.test(location.pathname)) return;
+    if (!/(?:^|\/)waiter\.html$/i.test(location.pathname)) return;
     let lastSlug = '', lastPin = '';
     document.addEventListener('input', e => {
       const t = e.target;
@@ -95,7 +95,7 @@
       if (db.__qrCanonicalOrderRpcPatch) return true;
       const rpc = db.rpc.bind(db);
       const orderKey = (params) => {
-        if (!params || !/\/menu\.html$/i.test(location.pathname)) return params;
+        if (!params || !/(?:^|\/)menu\.html$/i.test(location.pathname)) return params;
         const stable = {
           venue: params.p_venue_id || '', type: params.p_order_type || '', phone: params.p_customer_phone || '',
           address: params.p_delivery_address || '', payment: params.p_payment_method || '', table: params.p_table_token || '',
@@ -158,7 +158,7 @@
   }
 
   function installCookRecipeUi() {
-    if (!/\/cook\.html$/i.test(location.pathname)) return;
+    if (!/(?:^|\/)cook\.html$/i.test(location.pathname)) return;
     if (window.__qrCookRecipeUiInstalled) return;
     window.__qrCookRecipeUiInstalled = true;
 

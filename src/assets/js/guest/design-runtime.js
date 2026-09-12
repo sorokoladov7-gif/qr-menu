@@ -1,6 +1,6 @@
 (function(){
   'use strict';
-  if(!/\/menu\.html$/i.test(location.pathname)) return;
+  if(!/(?:^|\/)menu\.html$/i.test(location.pathname)) return;
   if(window.__designRuntimeLoaded) return;
   window.__designRuntimeLoaded=true;
 

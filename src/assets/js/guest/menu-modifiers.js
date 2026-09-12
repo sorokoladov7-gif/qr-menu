@@ -1,7 +1,7 @@
 /* QR Menu — public modifier selector and order persistence. */
 (function(){
   'use strict';
-  if(!/\/menu\.html$/i.test(location.pathname)) return;
+  if(!/(?:^|\/)menu\.html$/i.test(location.pathname)) return;
   if(window.__QR_MENU_MODIFIERS__) return;
   window.__QR_MENU_MODIFIERS__=true;
   var state={product:null,groups:[],selected:{},busy:false};

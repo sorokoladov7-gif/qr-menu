@@ -78,7 +78,7 @@
   };
 
   if(!appMethods.openStaffGuide){
-    appMethods.openStaffGuide=function(){window.location.href='/staff-guide.html';};
+    appMethods.openStaffGuide=function(){window.location.href='/src/pages/manager/staff-guide.html';};
   }
 
   if(!appMethods.renderHall){
