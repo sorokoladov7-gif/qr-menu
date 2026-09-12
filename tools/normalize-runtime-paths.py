@@ -83,22 +83,22 @@ def canonical_page(token, role):
 def normalize(token, role):
     if not token or token.startswith(('http:', 'https:', 'data:', 'blob:', 'mailto:', 'tel:', 'javascript:', '#', '/src/pages/', '/src/assets/')):
         return token
-    if re.fullmatch(r"/?(?:js|css|img|icons|pwa)/[^\\s\"'`<>]+", token):
+    if token.lstrip('./').startswith(('js/', 'css/', 'img/', 'icons/', 'pwa/')):
         return canonical_asset(token, role)
-    if re.fullmatch(r"/?manifest(?:-[\\w-]+)?\\.webmanifest(?:\\?[^\\s\"'`<>]+)?", token):
-        parts = token.split('?', 1)
-        base = parts[0].lstrip('/')
-        tail = token[len(parts[0]):]
-        return '/src/assets/pwa/' + base + tail if (assets / 'pwa' / base).is_file() else token
+    base = token.split('?', 1)[0]
+    if base.lstrip('/').startswith('manifest') and base.endswith('.webmanifest'):
+        name = base.lstrip('/')
+        tail = token[len(base):]
+        return '/src/assets/pwa/' + name + tail if (assets / 'pwa' / name).is_file() else token
     if token in ('/favicon.svg', 'favicon.svg') and (assets / 'icons' / 'favicon.svg').is_file():
         return '/src/assets/icons/favicon.svg'
     if token in ('/apple-touch-icon.png', 'apple-touch-icon.png') and (assets / 'icons' / 'apple-touch-icon.png').is_file():
         return '/src/assets/icons/apple-touch-icon.png'
-    if re.fullmatch(r"/?[A-Za-z0-9_-]+\\.html(?:\\?[^\\s\"'`<>]+)?", token):
+    if re.fullmatch(r'/?[A-Za-z0-9_.-]+\.html(?:\?[^\s]+)?', token):
         return canonical_page(token, role)
     return token
 
-quoted = re.compile(r'''(["'`])((?:/?(?:js|css|img|icons|pwa)/[^\s"'`<>]+)|(?:/?manifest(?:-[\w-]+)?\.webmanifest(?:\?[^\s"'`<>]+)?)|(?:/?[A-Za-z0-9_-]+\.html(?:\?[^\s"'`<>]+)?)|(?:/?(?:favicon\.svg|apple-touch-icon\.png)))(["'`])''')
+quoted = re.compile(r'''(["'`])([^"'`<>\r\n]+)(["'`])''')
 css_url = re.compile(r'''url\(\s*(["']?)([^"')\s]+)\1\s*\)''', re.I)
 
 changed = []
@@ -124,15 +124,5 @@ subprocess.run(['git', 'config', 'user.email', '41898282+github-actions[bot]@use
 subprocess.run(['git', 'rm', '-f', 'tools/normalize-runtime-paths.py', '.github/workflows/normalize-runtime-paths.yml'], check=True)
 subprocess.run(['git', 'add', '-A'], check=True)
 subprocess.run(['git', 'commit', '-m', 'chore: canonicalize all runtime file paths'], check=True)
-
 branch = 'tmp/canonical-runtime-paths'
 subprocess.run(['git', 'push', '--force', 'origin', f'HEAD:{branch}'], check=True)
-
-env = dict(os.environ)
-env['GH_TOKEN'] = os.environ.get('GITHUB_TOKEN', '')
-subprocess.run([
-    'gh', 'pr', 'create', '--repo', os.environ['GITHUB_REPOSITORY'],
-    '--head', branch, '--base', 'main',
-    '--title', 'chore: canonicalize all runtime file paths',
-    '--body', 'One-pass filesystem contract repair: every internal runtime file reference is changed to its physical src/pages or src/assets path. Compatibility rewrites are not used as runtime dependencies.'
-], check=True, env=env)
