@@ -56,7 +56,7 @@ const rootFlatJsCompatibility = new Map([
 ]);
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'], ['/src/pages/guest/register.html', '/src/pages/auth/register.html'],
-  ['/src/pages/guest/manager-demo.html', '/src/pages/manager/manager-demo.html'], ['/src/pages/guest/demo-staff.html', '/demo-staff.html'],
+  ['/src/pages/guest/manager-demo.html', '/src/pages/manager/manager-demo.html'], ['/src/pages/guest/demo-staff.html', '/src/pages/staff/demo-staff.html'],
   ['/src/pages/auth/menu.html', '/src/pages/guest/menu.html'], ['/src/pages/guest/cook.html', '/src/pages/staff/cook.html'],
   ['/src/pages/guest/courier.html', '/src/pages/staff/courier.html'], ['/src/pages/guest/waiter.html', '/src/pages/staff/waiter.html'],
 ]);
