@@ -75,21 +75,21 @@ self.addEventListener('activate', (event) => {
 
 async function enhanceHtml(response) {
   const text = await response.text();
-  if (!/<\\/body>/i.test(text)) return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
+  if (!/<\/body>/i.test(text)) return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
   let extra = '';
-  if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
+  if (!/pwa-install\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
   const pathname = new URL(response.url).pathname;
-  if (pathname === '/src/pages/guest/menu.html' && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
-  if (pathname === '/src/pages/manager/manager.html' && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
-  if (pathname === '/src/pages/manager/manager.html' && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
-  return new Response(text.replace(/<\\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
+  if (pathname === '/src/pages/guest/menu.html' && !/delivery-calc\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
+  if (pathname === '/src/pages/manager/manager.html' && !/manager-hall-ai\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
+  if (pathname === '/src/pages/manager/manager.html' && !/js\/manager\/manager-ai\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html') && !/js\/shared\/qr-support\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
+  return new Response(text.replace(/<\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== location.origin) return;
-  if (/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(url.hostname)) return;
+  if (/supabase|qrserver|fonts\.googleapis|fonts\.gstatic/.test(url.hostname)) return;
   const noStore = [
     '/src/pages/manager/manager.html',
     '/src/pages/admin/admin.html',
