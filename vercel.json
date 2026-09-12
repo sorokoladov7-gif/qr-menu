@@ -44,6 +44,7 @@
     {"source":"/src/pages/guest/register.html","destination":"/src/pages/auth/register.html"},
     {"source":"/src/pages/guest/manager.html","destination":"/src/pages/manager/manager.html"},
     {"source":"/src/pages/guest/manager-demo.html","destination":"/src/pages/manager/manager-demo.html"},
+    {"source":"/src/pages/guest/demo-staff.html","destination":"/demo-staff.html"},
     {"source":"/src/pages/auth/menu.html","destination":"/src/pages/guest/menu.html"},
     {"source":"/src/pages/guest/cook.html","destination":"/src/pages/staff/cook.html"},
     {"source":"/src/pages/guest/courier.html","destination":"/src/pages/staff/courier.html"},
