@@ -17,6 +17,7 @@ const legacyRedirects = new Map([
   ['/waiter.html', '/src/pages/staff/waiter.html'], ['/cook.html', '/src/pages/staff/cook.html'],
   ['/courier.html', '/src/pages/staff/courier.html'], ['/hall.html', '/src/pages/staff/hall.html'],
   ['/staff-history.html', '/src/pages/staff/staff-history.html'], ['/staff-table.html', '/src/pages/staff/staff-table.html'],
+  ['/demo-staff.html', '/src/pages/staff/demo-staff.html'],
   ['/manager.html', '/src/pages/manager/manager.html'], ['/manager-demo.html', '/src/pages/manager/manager-demo.html'],
   ['/manager-staff-statistics.html', '/src/pages/manager/manager-staff-statistics.html'],
   ['/integrations.html', '/src/pages/manager/integrations.html'], ['/staff-guide.html', '/src/pages/manager/staff-guide.html'],
@@ -82,9 +83,7 @@ const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://${req.headers.host || '127.0.0.1'}`);
   const requestPath = decodeURIComponent(url.pathname);
   const legacyTarget = legacyRedirects.get(requestPath);
-  if (legacyTarget) {
-    res.writeHead(308, { Location: `${legacyTarget}${url.search || ''}` }); res.end(); return;
-  }
+  if (legacyTarget) { res.writeHead(308, { Location: `${legacyTarget}${url.search || ''}` }); res.end(); return; }
   const resolvedPath = resolveRequestPath(requestPath);
   const relative = resolvedPath.replace(/^\/+/, '') || 'index.html';
   const target = path.resolve(root, relative);
