@@ -78,10 +78,11 @@ const rootFlatJsCompatibility = new Map([
   ['/js/integrations-hub.js', '/src/assets/js/manager/integrations-hub.js'],
   ['/js/qr-ai-assistant.js', '/src/assets/js/manager/qr-ai-assistant.js'],
   ['/js/staff-ui-patches.js', '/src/assets/js/staff/staff-ui-patches.js'],
-  ['/js/manager-design.js', '/src/assets/js/manager/legacy/manager-design.js'],
-  ['/js/manager-hall.js', '/src/assets/js/manager/legacy/manager-hall.js'],
-  ['/js/manager-hall-ai.js', '/src/assets/js/manager/legacy/manager-hall-ai.js'],
-  ['/js/manager-hall-view.js', '/src/assets/js/manager/legacy/manager-hall-view.js'],
+  ['/js/manager-design.js', '/src/assets/js/manager/manager-design.js'],
+  ['/js/manager-hall.js', '/src/assets/js/manager/manager-hall.js'],
+  ['/js/manager-hall-ai.js', '/src/assets/js/manager/manager-hall-ai.js'],
+  ['/js/manager-hall-view.js', '/src/assets/js/manager/manager-hall-view.js'],
+  ['/js/manager-payment-settings.js', '/src/assets/js/manager/manager-payment-settings.js'],
 ]);
 const rolePageRewrites = new Map([
   ['/src/pages/guest/login.html', '/src/pages/auth/login.html'],
@@ -111,7 +112,7 @@ function resolveRequestPath(requestPath) {
 
   const assetMatch = requestPath.match(roleAssetRewrites);
   if (assetMatch) {
-    return `/${assetMatch[2]}/${assetMatch[3]}`;
+    return `/src/assets/${assetMatch[2]}/${assetMatch[3]}`;
   }
 
   const assetsMatch = requestPath.match(rootAssetsRewrite);

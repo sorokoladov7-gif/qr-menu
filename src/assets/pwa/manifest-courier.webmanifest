@@ -1,8 +1,8 @@
 {
   "name": "QR Menu — Курьер",
   "short_name": "Курьер",
-  "start_url": "/src/pages/staff/courier.html?pwa=courier",
-  "id": "/src/pages/staff/courier.html?pwa=courier",
+  "start_url": "/courier.html?pwa=courier",
+  "id": "/courier.html?pwa=courier",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0b1120",
