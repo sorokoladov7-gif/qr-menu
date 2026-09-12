@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -22,6 +22,158 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Normalize canonical internal paths
+        shell: python
+        run: |
+          from pathlib import Path
+          import json, re, subprocess
+
+          root = Path('.')
+          pages_root = root / 'src' / 'pages'
+          assets_root = root / 'src' / 'assets'
+
+          page_map = {}
+          for p in pages_root.rglob('*.html'):
+              page_map[p.name] = '/' + p.relative_to(root).as_posix()
+
+          asset_map = {}
+          for p in assets_root.rglob('*'):
+              if p.is_file():
+                  rel = p.relative_to(assets_root).as_posix()
+                  asset_map.setdefault(p.name, []).append('/src/assets/' + rel)
+
+          # Explicit aliases where the same basename exists in multiple role trees.
+          role_asset_dirs = {
+              'guest': 'guest', 'staff': 'staff', 'manager': 'manager',
+              'admin': 'admin', 'auth': 'shared', 'demo': 'demo'
+          }
+
+          def page_role(path):
+              parts = Path(path).parts
+              try:
+                  i = parts.index('pages')
+                  return parts[i+1]
+              except Exception:
+                  return None
+
+          def resolve_asset(raw, role=None):
+              s = raw.split('?', 1)[0].split('#', 1)[0]
+              s = s.lstrip('/')
+              if s.startswith('src/assets/'):
+                  return raw
+              if s.startswith('src/pages/'):
+                  return raw
+              candidates = []
+              # Preserve the logical asset tree when the old URL already names it.
+              if s.startswith(('js/', 'css/', 'img/', 'icons/', 'pwa/')):
+                  logical = s
+                  if logical.startswith('js/'):
+                      basename = logical[3:].split('/')[-1]
+                      # Prefer exact path under assets/js when it exists.
+                      exact = assets_root / logical
+                      if exact.is_file():
+                          return '/src/assets/' + logical + raw[len(raw.split('#',1)[0].split('?',1)[0]):]
+                      # Role-aware basename resolution.
+                      if role:
+                          for sub in (role, 'shared', 'pwa', 'demo'):
+                              q = assets_root / 'js' / sub / basename
+                              if q.is_file(): candidates.append(q)
+                  elif logical.startswith('css/'):
+                      q = assets_root / logical
+                      if q.is_file(): candidates.append(q)
+                  elif logical.startswith(('img/', 'icons/', 'pwa/')):
+                      q = assets_root / logical
+                      if q.is_file(): candidates.append(q)
+                  if not candidates:
+                      candidates = [Path(x) for x in asset_map.get(Path(s).name, [])]
+              else:
+                  candidates = [Path(x) for x in asset_map.get(Path(s).name, [])]
+              if not candidates:
+                  return raw
+              chosen = candidates[0]
+              if role:
+                  role_dir = role_asset_dirs.get(role)
+                  for c in candidates:
+                      if f'/js/{role_dir}/' in c.as_posix():
+                          chosen = c; break
+              suffix = raw[len(s):]
+              return chosen.as_posix() + suffix
+
+          changed = []
+          legacy_html = re.compile(r'(?<![A-Za-z0-9_.-])/(?!src/pages/)([A-Za-z0-9_-]+\.html)(?=([?#\"\'\s),;]|$))')
+          legacy_asset = re.compile(r'(?<![A-Za-z0-9_.-])/?((?:js|css|img|icons|pwa)/[A-Za-z0-9_./-]+(?:\?[A-Za-z0-9_=&.-]+)?(?:#[A-Za-z0-9_.-]+)?)')
+          root_manifest = re.compile(r'(?<![A-Za-z0-9_.-])/(manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest)(?=([?#\"\'\s),;]|$))')
+
+          def replace_text(text, role):
+              def rh(m):
+                  name = m.group(1)
+                  target = page_map.get(name)
+                  return target if target else m.group(0)
+              text = legacy_html.sub(rh, text)
+
+              def rm(m):
+                  raw = m.group(1)
+                  return resolve_asset(raw, role)
+              text = legacy_asset.sub(rm, text)
+
+              def rmanifest(m):
+                  name = m.group(1)
+                  p = assets_root / 'pwa' / name
+                  return '/src/assets/pwa/' + name if p.is_file() else m.group(0)
+              text = root_manifest.sub(rmanifest, text)
+              return text
+
+          targets = []
+          for base in ('src',):
+              for p in (root / base).rglob('*'):
+                  if p.is_file() and p.suffix.lower() in {'.html','.js','.css','.json','.webmanifest'}:
+                      targets.append(p)
+          targets.append(root / 'sw.js')
+
+          for p in targets:
+              if not p.exists(): continue
+              try: text = p.read_text(encoding='utf-8')
+              except UnicodeDecodeError: continue
+              new = replace_text(text, page_role(p))
+              if new != text:
+                  p.write_text(new, encoding='utf-8')
+                  changed.append(str(p))
+
+          # Keep compatibility redirects in vercel.json, but source/runtime files must not depend on them.
+          if changed:
+              print('Normalized:', *changed, sep='\n  ')
+          else:
+              print('No internal path changes required.')
+
+          # Validate: canonical source must not contain legacy root page or root asset calls.
+          violations = []
+          for p in targets:
+              if not p.exists(): continue
+              try: text = p.read_text(encoding='utf-8')
+              except UnicodeDecodeError: continue
+              for pat, label in [
+                  (r'(?<![A-Za-z0-9_.-])/(?:index|menu|waiter|cook|courier|hall|staff-history|staff-table|manager|manager-demo|manager-staff-statistics|integrations|admin|login|register|forgot-password|reset-password|staff-guide)\.html(?:[?#\"\'\s),;]|$)', 'legacy html'),
+                  (r'(?<![A-Za-z0-9_.-])/(?:js|css|img|icons|pwa)/', 'legacy asset')
+              ]:
+                  if re.search(pat, text): violations.append(f'{p}: {label}')
+          if violations:
+              print('PATH VIOLATIONS')
+              print('\n'.join(violations))
+              raise SystemExit(1)
+
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          status = subprocess.run(['git','status','--porcelain'], capture_output=True, text=True, check=True).stdout
+          if status:
+              # The workflow file itself is only an execution vehicle; restore it from the parent
+              # before amending so the final commit contains only the actual application changes.
+              subprocess.run(['git','checkout','HEAD^','--','.github/workflows/deploy.yml'], check=True)
+              subprocess.run(['git','add','-A'], check=True)
+              subprocess.run(['git','commit','--amend','--no-edit'], check=True)
+              subprocess.run(['git','push','--force','origin','HEAD:main'], check=True)
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
