@@ -130,6 +130,7 @@
     {"source":"/src/pages/guest/favicon.svg","destination":"/src/assets/icons/favicon.svg"},
     {"source":"/src/pages/guest/login.html","destination":"/src/pages/auth/login.html"},
     {"source":"/src/pages/guest/register.html","destination":"/src/pages/auth/register.html"},
+    {"source":"/src/pages/guest/manager.html","destination":"/src/pages/manager/manager.html"},
     {"source":"/src/pages/guest/manager-demo.html","destination":"/src/pages/manager/manager-demo.html"},
     {"source":"/src/pages/guest/demo-staff.html","destination":"/demo-staff.html"},
     {"source":"/src/pages/staff/css/:path*","destination":"/src/assets/css/:path*"},
