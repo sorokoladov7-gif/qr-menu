@@ -154,15 +154,9 @@ test('relocated PWA runtime is directly reachable while the legacy URL is rewrit
 
 test('guest runtime modules are available at their canonical asset paths', async ({ page }) => {
   for (const path of [
-    'address-suggestions.js',
-    'customer-order-live.js',
-    'customer-order-status.js',
-    'delivery-calc.js',
-    'design-runtime.js',
-    'menu-design-runtime.js',
-    'menu-modifiers.js',
-    'menu-table-flow.js',
-    'yookassa-order-payment.js',
+    'address-suggestions.js', 'customer-order-live.js', 'customer-order-status.js',
+    'delivery-calc.js', 'design-runtime.js', 'menu-design-runtime.js',
+    'menu-modifiers.js', 'menu-table-flow.js', 'yookassa-order-payment.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/guest/${path}`);
     expect(response.status(), path).toBe(200);
@@ -173,13 +167,8 @@ test('guest runtime modules are available at their canonical asset paths', async
 
 test('staff runtime modules are available at their canonical asset paths', async ({ page }) => {
   for (const path of [
-    'cook-table-unified.js',
-    'notify.js',
-    'staff-auth.js',
-    'staff-notifications.js',
-    'staff-workday.js',
-    'staff-ui-patches.js',
-    'waiter-history-inline.js',
+    'cook-table-unified.js', 'notify.js', 'staff-auth.js', 'staff-notifications.js',
+    'staff-workday.js', 'staff-ui-patches.js', 'waiter-history-inline.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/staff/${path}`);
     expect(response.status(), path).toBe(200);
@@ -190,14 +179,10 @@ test('staff runtime modules are available at their canonical asset paths', async
 
 test('manager runtime modules are available at their canonical asset paths', async ({ page }) => {
   for (const path of [
-    'integrations-hub.js',
-    'manager-instruction-tab-v2.js',
-    'manager-payment-settings.js',
-    'manager-permissions-bridge.js',
-    'manager-personnel-final.js',
-    'manager-staff-quick-actions.js',
-    'manager-staff-statistics.js',
-    'qr-ai-assistant.js',
+    'integrations-hub.js', 'manager-instruction-tab-v2.js', 'manager-payment-settings.js',
+    'manager-permissions-bridge.js', 'manager-personnel-final.js', 'manager-staff-quick-actions.js',
+    'manager-staff-statistics.js', 'qr-ai-assistant.js', 'manager-design.js', 'manager-hall.js',
+    'manager-hall-ai.js', 'manager-hall-view.js', 'manager-site-import.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/manager/${path}`);
     expect(response.status(), path).toBe(200);
@@ -207,12 +192,7 @@ test('manager runtime modules are available at their canonical asset paths', asy
 });
 
 test('demo runtime modules are available at their canonical asset paths', async ({ page }) => {
-  for (const path of [
-    'demo-data.js',
-    'demo-manager-create.js',
-    'demo-mode.js',
-    'demo-staff-v2.js',
-  ]) {
+  for (const path of ['demo-data.js', 'demo-manager-create.js', 'demo-mode.js', 'demo-staff-v2.js']) {
     const response = await page.request.get(`/src/assets/js/demo/${path}`);
     expect(response.status(), path).toBe(200);
     expect(response.headers()['content-type'], path).toMatch(/^text\/javascript/i);
@@ -231,17 +211,13 @@ test('shared bootstrap modules are available at canonical paths', async ({ page 
 
 test('flat legacy JS URLs resolve to their relocated canonical modules', async ({ page }) => {
   const paths = [
-    ['app.js', 'shared/app.js'],
-    ['config.js', 'shared/config.js'],
-    ['offline-sync.js', 'shared/offline-sync.js'],
-    ['design-runtime.js', 'guest/design-runtime.js'],
-    ['demo-data.js', 'demo/demo-data.js'],
-    ['demo-manager-create.js', 'demo/demo-manager-create.js'],
-    ['demo-mode.js', 'demo/demo-mode.js'],
-    ['demo-staff-v2.js', 'demo/demo-staff-v2.js'],
-    ['integrations-hub.js', 'manager/integrations-hub.js'],
-    ['qr-ai-assistant.js', 'manager/qr-ai-assistant.js'],
-    ['staff-ui-patches.js', 'staff/staff-ui-patches.js'],
+    ['app.js', 'shared/app.js'], ['config.js', 'shared/config.js'], ['offline-sync.js', 'shared/offline-sync.js'],
+    ['design-runtime.js', 'guest/design-runtime.js'], ['demo-data.js', 'demo/demo-data.js'],
+    ['demo-manager-create.js', 'demo/demo-manager-create.js'], ['demo-mode.js', 'demo/demo-mode.js'],
+    ['demo-staff-v2.js', 'demo/demo-staff-v2.js'], ['integrations-hub.js', 'manager/integrations-hub.js'],
+    ['qr-ai-assistant.js', 'manager/qr-ai-assistant.js'], ['staff-ui-patches.js', 'staff/staff-ui-patches.js'],
+    ['manager-payment-settings.js', 'manager/manager-payment-settings.js'],
+    ['manager-site-import.js', 'manager/manager-site-import.js'],
   ];
   for (const [legacy, canonical] of paths) {
     const response = await page.request.get(`/js/${legacy}`);
@@ -254,24 +230,22 @@ test('flat legacy JS URLs resolve to their relocated canonical modules', async (
   }
 });
 
-test('legacy manager JS entrypoints resolve to isolated implementations', async ({ page }) => {
+test('legacy manager JS entrypoints resolve to canonical implementations', async ({ page }) => {
   const paths = [
-    ['manager-design.js', 'manager/manager-design.js', 'manager/legacy/manager-design.js'],
-    ['manager-hall.js', 'manager/manager-hall.js', 'manager/legacy/manager-hall.js'],
-    ['manager-hall-ai.js', 'manager/manager-hall-ai.js', 'manager/legacy/manager-hall-ai.js'],
-    ['manager-hall-view.js', 'manager/manager-hall-view.js', 'manager/legacy/manager-hall-view.js'],
+    ['manager-design.js', 'manager/manager-design.js'],
+    ['manager-hall.js', 'manager/manager-hall.js'],
+    ['manager-hall-ai.js', 'manager/manager-hall-ai.js'],
+    ['manager-hall-view.js', 'manager/manager-hall-view.js'],
   ];
-  for (const [legacy, entrypoint, implementation] of paths) {
+  for (const [legacy, canonical] of paths) {
     const response = await page.request.get(`/js/${legacy}`);
     expect(response.status(), legacy).toBe(200);
     expect(response.headers()['content-type'], legacy).toMatch(/^text\/javascript/i);
     expect((await response.body()).length, legacy).toBeGreaterThan(0);
-    for (const canonical of [entrypoint, implementation]) {
-      const direct = await page.request.get(`/src/assets/js/${canonical}`);
-      expect(direct.status(), canonical).toBe(200);
-      expect(direct.headers()['content-type'], canonical).toMatch(/^text\/javascript/i);
-      expect((await direct.body()).length, canonical).toBeGreaterThan(0);
-    }
+    const direct = await page.request.get(`/src/assets/js/${canonical}`);
+    expect(direct.status(), canonical).toBe(200);
+    expect(direct.headers()['content-type'], canonical).toMatch(/^text\/javascript/i);
+    expect((await direct.body()).length, canonical).toBeGreaterThan(0);
   }
 });
 
