@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v53';
+const CACHE = 'qr-platform-v54';
 const CORE = [
   '/', '/src/pages/guest/index.html', '/src/pages/guest/menu.html', '/src/pages/guest/menu-v2.html',
   '/src/pages/staff/demo-staff.html', '/src/pages/staff/hall.html', '/src/pages/staff/cook.html', '/src/pages/staff/courier.html', '/src/pages/staff/waiter.html',
