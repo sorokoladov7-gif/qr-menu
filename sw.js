@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v51';
+const CACHE = 'qr-platform-v52';
 const CORE = [
   '/',
   '/src/pages/guest/index.html',
@@ -75,21 +75,112 @@ self.addEventListener('activate', (event) => {
 
 async function enhanceHtml(response) {
   const text = await response.text();
-  if (!/<\/body>/i.test(text)) return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
+  if (!/<\\/body>/i.test(text)) return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
   let extra = '';
-  if (!/pwa-install\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
+  if (!/pwa-install\\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
   const pathname = new URL(response.url).pathname;
-  if (pathname === '/src/pages/guest/menu.html' && !/delivery-calc\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
-  if (pathname === '/src/pages/manager/manager.html' && !/manager-hall-ai\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
-  if (pathname === '/src/pages/manager/manager.html' && !/js\/manager\/manager-ai\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
-  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html') && !/js\/shared\/qr-support\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
-  return new Response(text.replace(/<\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
+  if (pathname === '/src/pages/guest/menu.html' && !/delivery-calc\\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
+  if (pathname === '/src/pages/manager/manager.html' && !/manager-hall-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
+  if (pathname === '/src/pages/manager/manager.html' && !/js\\/manager\\/manager-ai\\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
+  if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html') && !/js\\/shared\\/qr-support\\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
+
+  /*
+   * Manager mobile navigation hardening.
+   * The normal implementation lives in shared/utils.js + manager.css, but the
+   * manager page has several runtime layers that can replace/recreate .tabs.
+   * Inject a final, page-local controller after the complete HTML so mobile
+   * navigation remains functional even if another layer overrides its styles.
+   */
+  if (pathname === '/src/pages/manager/manager.html' && !/qr-manager-mobile-nav-hardening/i.test(text)) {
+    extra += `<style id="qr-manager-mobile-nav-hardening">
+@media (max-width:900px){
+  #qr-manager-mobile-nav-toggle{display:flex!important;position:fixed!important;left:10px!important;top:max(10px,env(safe-area-inset-top))!important;width:44px!important;height:44px!important;z-index:2147483000!important;align-items:center!important;justify-content:center!important;padding:0!important;margin:0!important;border:1px solid rgba(148,163,184,.3)!important;border-radius:12px!important;background:rgba(7,12,24,.96)!important;color:#fff!important;font:700 25px/1 system-ui,sans-serif!important;box-shadow:0 8px 28px rgba(0,0,0,.45)!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important}
+  #qr-manager-mobile-nav-overlay{display:block!important;position:fixed!important;inset:0!important;z-index:2147482990!important;border:0!important;padding:0!important;margin:0!important;background:rgba(0,0,0,.55)!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important}
+  body.qr-manager-mobile-nav-open #qr-manager-mobile-nav-overlay{opacity:1!important;visibility:visible!important;pointer-events:auto!important}
+}
+@media(min-width:901px){#qr-manager-mobile-nav-toggle,#qr-manager-mobile-nav-overlay{display:none!important}}
+</style><script id="qr-manager-mobile-nav-hardening">(function(){
+'use strict';
+function boot(){
+  if(!document.body)return;
+  var body=document.body;
+  var toggle=document.getElementById('qr-manager-mobile-nav-toggle');
+  if(!toggle){
+    toggle=document.createElement('button');
+    toggle.id='qr-manager-mobile-nav-toggle';
+    toggle.type='button';
+    toggle.setAttribute('aria-label','Открыть меню');
+    toggle.setAttribute('aria-expanded','false');
+    toggle.textContent='☰';
+    body.appendChild(toggle);
+  }
+  var overlay=document.getElementById('qr-manager-mobile-nav-overlay');
+  if(!overlay){
+    overlay=document.createElement('button');
+    overlay.id='qr-manager-mobile-nav-overlay';
+    overlay.type='button';
+    overlay.setAttribute('aria-label','Закрыть меню');
+    body.appendChild(overlay);
+  }
+  function nav(){return document.querySelector('#app .tabs')||document.querySelector('.qr-corp-shell .tabs')||document.querySelector('.tabs');}
+  function apply(open){
+    var tabs=nav();
+    body.classList.toggle('qr-manager-mobile-nav-open',open);
+    toggle.setAttribute('aria-expanded',String(open));
+    toggle.setAttribute('aria-label',open?'Закрыть меню':'Открыть меню');
+    toggle.textContent=open?'×':'☰';
+    if(!tabs)return;
+    var mobile=window.innerWidth<=900;
+    if(mobile){
+      tabs.style.setProperty('position','fixed','important');
+      tabs.style.setProperty('left','0','important');
+      tabs.style.setProperty('top','0','important');
+      tabs.style.setProperty('bottom','0','important');
+      tabs.style.setProperty('width','min(82vw,300px)','important');
+      tabs.style.setProperty('height','100dvh','important');
+      tabs.style.setProperty('max-height','100dvh','important');
+      tabs.style.setProperty('box-sizing','border-box','important');
+      tabs.style.setProperty('display','flex','important');
+      tabs.style.setProperty('flex-direction','column','important');
+      tabs.style.setProperty('flex-wrap','nowrap','important');
+      tabs.style.setProperty('align-items','stretch','important');
+      tabs.style.setProperty('overflow-y','auto','important');
+      tabs.style.setProperty('overflow-x','hidden','important');
+      tabs.style.setProperty('padding','74px 12px 20px','important');
+      tabs.style.setProperty('margin','0','important');
+      tabs.style.setProperty('z-index','2147482995','important');
+      tabs.style.setProperty('transform',open?'translateX(0)':'translateX(-105%)','important');
+      tabs.style.setProperty('visibility',open?'visible':'hidden','important');
+      tabs.style.setProperty('opacity',open?'1':'0','important');
+      tabs.style.setProperty('pointer-events',open?'auto':'none','important');
+      tabs.style.setProperty('transition','transform .24s ease,opacity .18s ease','important');
+    }else{
+      tabs.style.removeProperty('position');tabs.style.removeProperty('left');tabs.style.removeProperty('top');tabs.style.removeProperty('bottom');tabs.style.removeProperty('width');tabs.style.removeProperty('height');tabs.style.removeProperty('max-height');tabs.style.removeProperty('box-sizing');tabs.style.removeProperty('display');tabs.style.removeProperty('flex-direction');tabs.style.removeProperty('flex-wrap');tabs.style.removeProperty('align-items');tabs.style.removeProperty('overflow-y');tabs.style.removeProperty('overflow-x');tabs.style.removeProperty('padding');tabs.style.removeProperty('margin');tabs.style.removeProperty('z-index');tabs.style.removeProperty('transform');tabs.style.removeProperty('visibility');tabs.style.removeProperty('opacity');tabs.style.removeProperty('pointer-events');tabs.style.removeProperty('transition');
+      body.classList.remove('qr-manager-mobile-nav-open');
+    }
+  }
+  function toggleNav(e){e.preventDefault();e.stopPropagation();apply(!body.classList.contains('qr-manager-mobile-nav-open'));}
+  if(!toggle.__bound){toggle.addEventListener('click',toggleNav);toggle.__bound=true;}
+  if(!overlay.__bound){overlay.addEventListener('click',function(e){e.preventDefault();apply(false);});overlay.__bound=true;}
+  if(!body.__qrManagerMobileNavEvents){
+    document.addEventListener('keydown',function(e){if(e.key==='Escape')apply(false);});
+    window.addEventListener('resize',function(){apply(body.classList.contains('qr-manager-mobile-nav-open'));});
+    body.__qrManagerMobileNavEvents=true;
+  }
+  apply(body.classList.contains('qr-manager-mobile-nav-open'));
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+new MutationObserver(function(){if(document.getElementById('app'))boot();}).observe(document.documentElement,{childList:true,subtree:true});
+})();</script>`;
+  }
+
+  return new Response(text.replace(/<\\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== location.origin) return;
-  if (/supabase|qrserver|fonts\.googleapis|fonts\.gstatic/.test(url.hostname)) return;
+  if (/supabase|qrserver|fonts\\.googleapis|fonts\\.gstatic/.test(url.hostname)) return;
   const noStore = [
     '/src/pages/manager/manager.html',
     '/src/pages/admin/admin.html',
