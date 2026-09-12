@@ -70,15 +70,17 @@ function initCorporateShell(){
  function closeNav(){body.classList.remove('nav-open');if(toggle){toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Открыть меню');toggle.innerHTML='<span aria-hidden="true">☰</span>';}root.style.overflow='';}
  function setupNav(){
   var next=document.querySelector('.qr-corp-shell .tabs');if(!next||next===nav)return;nav=next;
+  nav.style.setProperty('z-index','10070','important');
   document.querySelectorAll('.qr-corp-nav-toggle,.qr-corp-nav-overlay').forEach(function(el){el.remove();});
   overlay=document.createElement('button');
   overlay.type='button';
   overlay.className='qr-corp-nav-overlay';
   overlay.setAttribute('aria-label','Закрыть меню');
   overlay.setAttribute('tabindex','-1');
+  overlay.style.setProperty('z-index','10050','important');
   body.appendChild(overlay);
   overlay.addEventListener('click',function(e){e.preventDefault();closeNav();});
-  toggle=document.createElement('button');toggle.type='button';toggle.className='qr-corp-nav-toggle';toggle.setAttribute('aria-label','Открыть меню');toggle.setAttribute('aria-expanded','false');toggle.innerHTML='<span aria-hidden="true">☰</span>';body.appendChild(toggle);
+  toggle=document.createElement('button');toggle.type='button';toggle.className='qr-corp-nav-toggle';toggle.setAttribute('aria-label','Открыть меню');toggle.setAttribute('aria-expanded','false');toggle.innerHTML='<span aria-hidden="true">☰</span>';toggle.style.setProperty('z-index','10080','important');body.appendChild(toggle);
   function toggleNav(e){e.preventDefault();e.stopPropagation();var open=!body.classList.contains('nav-open');body.classList.toggle('nav-open',open);toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Закрыть меню':'Открыть меню');toggle.innerHTML=open?'<span aria-hidden="true">×</span>':'<span aria-hidden="true">☰</span>';root.style.overflow=open?'hidden':'';}
   toggle.addEventListener('click',toggleNav);
   toggle.addEventListener('pointerup',function(e){if(e.pointerType==='touch'){e.preventDefault();}});
