@@ -90,6 +90,20 @@
   .qr-corp-shell .tabs button:hover { transform:none; }
   .qr-corp-shell .tabs button.on { transform:translateX(2px); }
   .qr-corp-shell .tabs button.on::after { left:14px; right:14px; bottom:4px; }
+
+  /* Mobile navigation must win over the manager desktop transform/animation. */
+  .qr-corp-shell:not(.nav-open) .tabs {
+    transform:translateX(calc(-100% - 24px)) !important;
+    visibility:hidden !important;
+    opacity:0 !important;
+    pointer-events:none !important;
+  }
+  .qr-corp-shell.nav-open .tabs {
+    transform:translateX(0) !important;
+    visibility:visible !important;
+    opacity:1 !important;
+    pointer-events:auto !important;
+  }
 }
 @media (prefers-reduced-motion:reduce) {
   .qr-corp-shell .tabs,.qr-corp-shell .tabs button,.qr-corp-shell .tabs button::before,.qr-corp-shell .tabs button::after { animation:none !important; transition:none !important; }
