@@ -62,10 +62,9 @@
         var builder=originalFrom(table);
         if(table!=='products'||!builder)return builder;
         if(typeof builder.insert==='function'){
-          var originalInsert=builder.insert.bind(builder);
-          builder.insert=function(values,options){
-            if(!Array.isArray(values))return originalInsert(values,options);
-            var rows=values.slice();
+          builder.insert=function(values){
+            var rows=Array.isArray(values)?values.slice():[values];
+            if(!rows[0]||typeof rows[0]!=='object')return Promise.reject(new Error('PRODUCT_PAYLOAD_INVALID'));
             return Promise.all(rows.map(function(row){return runManagerAction({type:'create_product',payload:Object.assign({},row)});})).then(function(result){return{data:result,error:null};}).catch(function(error){return{data:null,error:error};});
           };
         }
