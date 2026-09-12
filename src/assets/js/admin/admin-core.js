@@ -145,12 +145,12 @@
     if(document.getElementById('qr-admin-console-enhancer-loader')) return;
     var s=document.createElement('script');
     s.id='qr-admin-console-enhancer-loader';
-    s.src='/js/admin/admin-console-enhancer.js';
+    s.src='/src/assets/js/admin/admin-console-enhancer.js';
     s.async=true;
     document.head.appendChild(s);
     var usage=document.createElement('script');
     usage.id='qr-admin-ai-usage-loader';
-    usage.src='/js/admin/admin-ai-usage.js';
+    usage.src='/src/assets/js/admin/admin-ai-usage.js';
     usage.async=true;
     document.head.appendChild(usage);
   })();

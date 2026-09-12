@@ -229,7 +229,7 @@
     window.__QR_ADMIN_VUE_APP__=app;
     window.__QR_ADMIN_APP__=true;
     setupAdminNavigationMotion();
-    var ai=document.createElement('script'); ai.src='/js/admin/admin-ai-audit.js'; ai.async=true; document.head.appendChild(ai);
+    var ai=document.createElement('script'); ai.src='/src/assets/js/admin/admin-ai-audit.js'; ai.async=true; document.head.appendChild(ai);
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',mountApp,{once:true});
   else mountApp();
