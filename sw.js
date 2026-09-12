@@ -55,14 +55,14 @@ const CORE = [
   '/manifest-cook.webmanifest',
   '/manifest-courier.webmanifest',
   '/manifest-waiter.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
-  '/icons/icon-manager-192.png',
-  '/icons/icon-manager-512.png',
-  '/icons/icon-courier-192.png',
-  '/icons/icon-courier-512.png',
-  '/icons/icon-waiter-192.png',
-  '/icons/icon-waiter-512.png'
+  '/src/assets/icons/icon-192.png',
+  '/src/assets/icons/icon-512.png',
+  '/src/assets/icons/icon-manager-192.png',
+  '/src/assets/icons/icon-manager-512.png',
+  '/src/assets/icons/icon-courier-192.png',
+  '/src/assets/icons/icon-courier-512.png',
+  '/src/assets/icons/icon-waiter-192.png',
+  '/src/assets/icons/icon-waiter-512.png'
 ];
 
 self.addEventListener('install', (event) => {
