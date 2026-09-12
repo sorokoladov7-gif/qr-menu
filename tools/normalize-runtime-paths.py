@@ -34,8 +34,8 @@ def role_of(path):
     return parts[parts.index('pages') + 1] if 'pages' in parts else None
 
 def canonical_asset(token, role):
-    q = token.split('?', 1)
-    base = q[0]
+    parts = token.split('?', 1)
+    base = parts[0]
     tail = token[len(base):]
     logical = base.lstrip('./').lstrip('/')
     kind, sep, rest = logical.partition('/')
@@ -50,17 +50,15 @@ def canonical_asset(token, role):
             preferred = [value for value in candidates if f'/js/{sub}/' in value]
             if preferred:
                 return preferred[0] + tail
-    return (candidates[0] + tail) if candidates else token
+    return candidates[0] + tail if candidates else token
 
 def canonical_page(token, role):
-    q = token.split('?', 1)
-    base = q[0]
+    parts = token.split('?', 1)
+    base = parts[0]
     tail = token[len(base):]
     if base.startswith('/src/pages/') or base.startswith('src/pages/'):
         return token
     name = Path(base).name
-    if not name.endswith('.html'):
-        return token
     candidates = page_names.get(name, [])
     if not candidates:
         return token
@@ -84,23 +82,25 @@ def canonical_page(token, role):
 def normalize(token, role):
     if not token or token.startswith(('http:', 'https:', 'data:', 'blob:', 'mailto:', 'tel:', 'javascript:', '#', '/src/pages/', '/src/assets/')):
         return token
-    if re.fullmatch(r'/?(?:js|css|img|icons|pwa)/[^\s"\'`<>]+', token):
+    if re.fullmatch(r"/?(?:js|css|img|icons|pwa)/[^\\s\"'`<>]+", token):
         return canonical_asset(token, role)
-    if re.fullmatch(r'/?manifest(?:-[\w-]+)?\.webmanifest(?:\?[^\s"\'`<>]+)?', token):
-        q = token.split('?', 1)
-        base = q[0].lstrip('/')
-        tail = token[len(q[0]):]
+    if re.fullmatch(r"/?manifest(?:-[\\w-]+)?\\.webmanifest(?:\\?[^\\s\"'`<>]+)?", token):
+        parts = token.split('?', 1)
+        base = parts[0].lstrip('/')
+        tail = token[len(parts[0]):]
         return '/src/assets/pwa/' + base + tail if (assets / 'pwa' / base).is_file() else token
     if token in ('/favicon.svg', 'favicon.svg') and (assets / 'icons' / 'favicon.svg').is_file():
         return '/src/assets/icons/favicon.svg'
     if token in ('/apple-touch-icon.png', 'apple-touch-icon.png') and (assets / 'icons' / 'apple-touch-icon.png').is_file():
         return '/src/assets/icons/apple-touch-icon.png'
-    if re.fullmatch(r'/?[A-Za-z0-9_-]+\.html(?:\?[^\s"\'`<>]+)?', token):
+    if re.fullmatch(r"/?[A-Za-z0-9_-]+\\.html(?:\\?[^\\s\"'`<>]+)?", token):
         return canonical_page(token, role)
     return token
 
-quoted = re.compile(r'(["\'`])((?:/?(?:js|css|img|icons|pwa)/[^\s"\'`<>]+)|(?:/?manifest(?:-[\w-]+)?\.webmanifest(?:\?[^\s"\'`<>]+)?)|(?:/?[A-Za-z0-9_-]+\.html(?:\?[^\s"\'`<>]+)?)|(?:/?(?:favicon\.svg|apple-touch-icon\.png)))(["\'`])')
-css_url = re.compile(r'url\(\s*(["\']?)([^"\')\s]+)\1\s*\)', re.I)
+quoted = re.compile(
+    r'''(["'`])((?:/?(?:js|css|img|icons|pwa)/[^\s"'`<>]+)|(?:/?manifest(?:-[\w-]+)?\.webmanifest(?:\?[^\s"'`<>]+)?)|(?:/?[A-Za-z0-9_-]+\.html(?:\?[^\s"'`<>]+)?)|(?:/?(?:favicon\.svg|apple-touch-icon\.png)))(["'`])'''
+)
+css_url = re.compile(r'''url\(\s*(["']?)([^"')\s]+)\1\s*\)''', re.I)
 
 changed = []
 for path in files:
@@ -120,7 +120,9 @@ print('Changed files:', len(changed))
 for path in changed:
     print(path)
 
-legacy = re.compile(r'(?<![A-Za-z0-9_.-])/(?:js|css|img|icons|pwa)/|(?<![A-Za-z0-9_.-])/(?:index|menu|waiter|cook|courier|hall|staff-history|staff-table|manager|manager-demo|manager-staff-statistics|integrations|admin|login|register|forgot-password|reset-password|staff-guide)\.html(?:[?#"\'\s),;]|$)|(?<![A-Za-z0-9_.-])/(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png)(?:[?#"\'\s),;]|$)')
+legacy = re.compile(
+    r'''(?<![A-Za-z0-9_.-])/(?:js|css|img|icons|pwa)/|(?<![A-Za-z0-9_.-])/(?:index|menu|waiter|cook|courier|hall|staff-history|staff-table|manager|manager-demo|manager-staff-statistics|integrations|admin|login|register|forgot-password|reset-password|staff-guide)\.html(?:[?#"'\s),;]|$)|(?<![A-Za-z0-9_.-])/(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png)(?:[?#"'\s),;]|$)'''
+)
 violations = []
 for path in files:
     try:
