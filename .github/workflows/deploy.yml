@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: deploy-${{ github.ref }}
@@ -22,124 +22,28 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
-
-      - name: Normalize canonical internal paths
-        shell: python {0}
-        run: |
-          from pathlib import Path
-          import re, subprocess
-
-          root=Path('.')
-          pages=root/'src/pages'
-          assets=root/'src/assets'
-          files=[p for base in [root/'src', root/'sw.js'] for p in ([base] if base.is_file() else base.rglob('*')) if p.is_file() and p.suffix.lower() in {'.html','.js','.css','.json','.webmanifest'}]
-          pages_by_name={p.name: p for p in pages.rglob('*.html')}
-          assets_by_kind={k:{} for k in ('js','css','img','icons','pwa')}
-          for kind in assets_by_kind:
-            for p in (assets/kind).rglob('*') if (assets/kind).exists() else []:
-              if p.is_file(): assets_by_kind[kind].setdefault(p.name,[]).append('/src/assets/'+p.relative_to(assets).as_posix())
-
-          def role_of(p):
-            parts=p.parts
-            try: return parts[parts.index('pages')+1]
-            except ValueError: return None
-
-          def canonical_asset(token, role):
-            q=token.split('?',1); base=q[0]; suffix=token[len(base):]
-            lead=base.startswith('/')
-            logical=base.lstrip('./').lstrip('/')
-            kind,sep,rest=logical.partition('/')
-            if kind not in assets_by_kind or not sep: return token
-            if logical.startswith('src/assets/'): return token
-            exact=assets/kind/rest
-            if exact.is_file(): return '/src/assets/'+kind+'/'+rest+suffix
-            name=Path(rest).name
-            candidates=assets_by_kind[kind].get(name,[])
-            if not candidates: return token
-            if kind=='js' and role:
-              preferred=[x for x in candidates if f'/js/{role}/' in x]
-              if preferred: return preferred[0]+suffix
-              preferred=[x for x in candidates if '/js/shared/' in x]
-              if preferred: return preferred[0]+suffix
-              preferred=[x for x in candidates if '/js/pwa/' in x]
-              if preferred: return preferred[0]+suffix
-              preferred=[x for x in candidates if '/js/demo/' in x]
-              if preferred: return preferred[0]+suffix
-            return candidates[0]+suffix
-
-          def canonical_page(token, role):
-            q=token.split('?',1); base=q[0]; suffix=token[len(base):]
-            name=Path(base).name
-            if not name.lower().endswith('.html'): return token
-            if base.startswith('/src/pages/') or base.startswith('src/pages/'): return token
-            candidates=[p for p in pages.rglob(name)]
-            if not candidates: return token
-            if role:
-              same=[p for p in candidates if role in p.parts]
-              if same: return '/'+same[0].relative_to(root).as_posix()+suffix
-            preferred={'menu.html':'guest','index.html':'guest','login.html':'auth','register.html':'auth','forgot-password.html':'auth','reset-password.html':'auth','admin.html':'admin','manager.html':'manager','cook.html':'staff','courier.html':'staff','waiter.html':'staff'}.get(name.lower())
-            if preferred:
-              same=[p for p in candidates if preferred in p.parts]
-              if same: return '/'+same[0].relative_to(root).as_posix()+suffix
-            return '/'+candidates[0].relative_to(root).as_posix()+suffix
-
-          def replace_token(m, role):
-            token=m.group(2)
-            if token.startswith(('/src/assets/','/src/pages/','http:','https:','data:','blob:','#','mailto:','tel:','javascript:')): return m.group(0)
-            if re.fullmatch(r'/?(?:js|css|img|icons|pwa)/[^\s"\'`<>]+', token): new=canonical_asset(token,role)
-            elif re.fullmatch(r'/?(?:manifest(?:-[\w-]+)?|[\w-]+)\.webmanifest(?:\?[^\s"\'`<>]+)?',token):
-              base=token.split('?',1)[0].lstrip('/')
-              candidate=assets/'pwa'/base
-              new='/src/assets/pwa/'+base+token[len(token.split('?',1)[0]):] if candidate.is_file() else token
-            elif re.fullmatch(r'/?[A-Za-z0-9_-]+\.html(?:\?[^\s"\'`<>]+)?',token): new=canonical_page(token,role)
-            elif token in ('/favicon.svg','favicon.svg'): new='/src/assets/icons/favicon.svg'+token[len(token.split('?',1)[0]):] if (assets/'icons'/'favicon.svg').is_file() else token
-            elif token in ('/apple-touch-icon.png','apple-touch-icon.png'): new='/src/assets/icons/apple-touch-icon.png'+token[len(token.split('?',1)[0]):] if (assets/'icons'/'apple-touch-icon.png').is_file() else token
-            else: return m.group(0)
-            return m.group(1)+new+m.group(3)
-
-          changed=[]
-          for p in files:
-            text=p.read_text(encoding='utf-8')
-            role=role_of(p)
-            pattern=re.compile(r'(["\'`])((?:/?(?:js|css|img|icons|pwa)/[^\s"\'`<>]+)|(?:/?[A-Za-z0-9_-]+\.html(?:\?[^\s"\'`<>]+)?)|(?:/?manifest(?:-[\w-]+)?\.webmanifest(?:\?[^\s"\'`<>]+)?)|(?:/?(?:favicon\.svg|apple-touch-icon\.png)))(["\'`])')
-            new=pattern.sub(lambda m: replace_token(m,role),text)
-            if new!=text:
-              p.write_text(new,encoding='utf-8'); changed.append(str(p))
-          print('Canonicalized',len(changed),'files')
-          for p in changed: print(p)
-
-          legacy=re.compile(r'(?<![A-Za-z0-9_.-])/(?:js|css|img|icons|pwa)/|(?<![A-Za-z0-9_.-])/(?:index|menu|waiter|cook|courier|hall|staff-history|staff-table|manager|manager-demo|manager-staff-statistics|integrations|admin|login|register|forgot-password|reset-password|staff-guide)\.html(?:[?#"\'\s),;]|$)|(?<![A-Za-z0-9_.-])/(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png)(?:[?#"\'\s),;]|$)')
-          violations=[]
-          for p in files:
-            text=p.read_text(encoding='utf-8')
-            if legacy.search(text): violations.append(str(p))
-          if violations: raise SystemExit('Legacy runtime paths remain:\n'+'\n'.join(violations))
-
-          if changed:
-            subprocess.run(['git','config','user.name','github-actions[bot]'],check=True)
-            subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'],check=True)
-            subprocess.run(['git','checkout','HEAD^','--','.github/workflows/deploy.yml'],check=True)
-            subprocess.run(['git','add','-A'],check=True)
-            subprocess.run(['git','commit','--amend','--no-edit'],check=True)
-            subprocess.run(['git','push','--force','origin','HEAD:main'],check=True)
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
       - name: Install dependencies
         run: npm install
+
       - name: Lint
         run: npm run lint
+
       - name: API tests
         run: npm test
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
       - name: Playwright smoke tests
         run: npm run test:e2e
+
       - name: Vercel build
         if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_TEAM_ID != '' }}
         env:
