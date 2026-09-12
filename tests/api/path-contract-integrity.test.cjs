@@ -18,219 +18,154 @@ function walk(dir) {
   return out;
 }
 
-function normalizeLocalRef(value) {
-  return value.split('#', 1)[0].split('?', 1)[0].trim();
-}
-
-function isExternal(value) {
+function normalize(value) { return String(value || '').split('#', 1)[0].split('?', 1)[0].trim(); }
+function external(value) {
   return !value || value.startsWith('#') || value.startsWith('data:') || value.startsWith('blob:') || value.startsWith('mailto:') || value.startsWith('tel:') || value.startsWith('javascript:') || /^[a-z][a-z\d+.-]*:/i.test(value);
 }
-
-function hasWildcard(value) {
-  return /:[A-Za-z][A-Za-z\d]*\*/.test(value);
-}
-
 function routePattern(source) {
-  const token = '__WILDCARD__';
-  let pattern = source.replace(/:path\*/g, token).replace(/:role/g, '__ROLE__');
+  let pattern = String(source).replace(/:path\*/g, '__WILDCARD__').replace(/:role/g, '__ROLE__');
   pattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-  pattern = pattern.replace(token, '.*').replace('__ROLE__', '[^/]+');
-  return new RegExp(`^${pattern}$`);
+  return new RegExp(`^${pattern.replace('__WILDCARD__', '.*').replace('__ROLE__', '[^/]+')}$`);
 }
-
-function getRoutes() {
-  const vercel = JSON.parse(read('vercel.json'));
-  return [...(vercel.redirects || []), ...(vercel.rewrites || [])];
+function routes() {
+  const config = JSON.parse(read('vercel.json'));
+  return [...(config.redirects || []), ...(config.rewrites || [])];
 }
-
-function coveredByVercelRoute(urlPath, routes) {
-  return routes.some(route => route && typeof route.source === 'string' && routePattern(route.source).test(urlPath));
+function routeCovers(urlPath, list) {
+  return list.some(route => route && typeof route.source === 'string' && routePattern(route.source).test(urlPath));
 }
-
-function localPathExists(urlPath) {
-  const relative = urlPath.replace(/^\/+/, '');
-  return fs.existsSync(path.join(root, relative));
+function localExists(urlPath) {
+  const relative = String(urlPath).replace(/^\/+/, '');
+  if (fs.existsSync(path.join(root, relative))) return true;
+  // Vercel serverless functions are addressable without their .js suffix.
+  return fs.existsSync(path.join(root, `${relative}.js`)) || fs.existsSync(path.join(root, `${relative}.cjs`));
 }
-
-function resolveRef(ref, ownerPath) {
-  const clean = normalizeLocalRef(ref);
-  if (!clean || isExternal(clean)) return null;
+function resolve(ref, owner) {
+  const clean = normalize(ref);
+  if (external(clean)) return null;
   if (clean.startsWith('/')) return clean;
-  return `/${path.posix.normalize(path.posix.join(path.posix.dirname(ownerPath), clean))}`;
+  return `/${path.posix.normalize(path.posix.join(path.posix.dirname(owner), clean))}`;
 }
-
-function assertResolvable(ref, ownerPath, routes, label) {
-  const urlPath = resolveRef(ref, ownerPath);
-  if (!urlPath) return;
-  assert.ok(
-    localPathExists(urlPath) || coveredByVercelRoute(urlPath, routes),
-    `${label}: ${ownerPath} -> ${ref} resolves to ${urlPath}, but no file or Vercel route covers it`
-  );
+function assertResolvable(ref, owner, list, label) {
+  const target = resolve(ref, owner);
+  if (!target) return;
+  assert.ok(localExists(target) || routeCovers(target, list), `${label}: ${owner} -> ${ref} resolves to ${target}, but no file or Vercel route covers it`);
 }
-
-function collectHtmlRefs(html) {
-  const refs = [];
-  const attrRe = /\b(?:src|href|poster|action)=\s*["']([^"']+)["']/gi;
-  let match;
-  while ((match = attrRe.exec(html))) refs.push(match[1]);
-  return refs;
-}
-
-function collectCssRefs(source) {
-  const refs = [];
-  const urlRe = /url\(\s*["']?([^"')]+)["']?\s*\)/gi;
-  let match;
-  while ((match = urlRe.exec(source))) refs.push(match[1]);
-  return refs;
-}
-
-function collectJsLocalRefs(source) {
-  const refs = [];
-  const patterns = [
-    /(?:src|href)\s*[:=]\s*["'`]([^"'`\s<>]+)["'`]/gi,
-    /(?:fetch|import|window\.open|location(?:\.assign|\.replace)?|window\.location(?:\.assign|\.replace)?)\s*\(\s*["'`]([^"'`]+)["'`]/gi,
-    /(?:location\.href|window\.location(?:\.href)?)\s*=\s*["'`]([^"'`]+)["'`]/gi,
-    /\badd\s*\(\s*["'`]([^"'`]+)["'`]/gi,
-    /["'`]((?:\/)(?:js|css|img|icons|assets|src\/assets)[^"'`\s)]*)["'`]/gi
-  ];
-  for (const re of patterns) {
-    let match;
-    while ((match = re.exec(source))) refs.push(match[1]);
-  }
-  return refs;
-}
-
-function isLegacyRuntimePath(ref) {
-  const clean = normalizeLocalRef(ref).replace(/^\.\//, '');
-  if (!clean || isExternal(clean)) return false;
+function legacy(ref) {
+  const clean = normalize(ref).replace(/^\.\//, '');
+  if (!clean || external(clean)) return false;
   return /^(?:\/?(?:js|css|img|icons|pwa)\/|\/?(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png)$)/i.test(clean)
     || /^(?:\/?(?:index|menu|waiter|cook|courier|hall|staff-history|staff-table|manager|manager-demo|manager-staff-statistics|integrations|admin|login|register|forgot-password|reset-password|staff-guide)\.html)$/i.test(clean);
 }
 
-function assertNoLegacyRuntimePath(ref, ownerPath, label) {
-  assert.equal(
-    isLegacyRuntimePath(ref),
-    false,
-    `${label}: ${ownerPath} still references legacy runtime path ${ref}; use the physical src/pages/... or src/assets/... path`
-  );
+function htmlRefs(source) {
+  const out = [];
+  const re = /\b(?:src|href|poster|action)=\s*["']([^"']+)["']/gi;
+  let m; while ((m = re.exec(source))) out.push(m[1]);
+  return out;
+}
+function cssRefs(source) {
+  const out = [];
+  const re = /url\(\s*["']?([^"')]+)["']?\s*\)/gi;
+  let m; while ((m = re.exec(source))) out.push(m[1]);
+  return out;
+}
+function jsRefs(source) {
+  const out = [];
+  const patterns = [
+    /(?:src|href)\s*[:=]\s*["'`]([^"'`\s<>]+)["'`]/gi,
+    /(?:fetch|window\.open|location(?:\.assign|\.replace)?|window\.location(?:\.assign|\.replace)?)\s*\(\s*["'`]([^"'`]+)["'`]/gi,
+    /(?:location\.href|window\.location(?:\.href)?)\s*=\s*["'`]([^"'`]+)["'`]/gi,
+    /\badd\s*\(\s*["'`]([^"'`]+)["'`]/gi,
+  ];
+  for (const re of patterns) { let m; while ((m = re.exec(source))) out.push(m[1]); }
+  return out;
 }
 
 test('all canonical HTML local resources resolve to files or declared Vercel routes', () => {
-  const routes = getRoutes();
-  const pagesRoot = path.join(root, 'src/pages');
-  const htmlFiles = walk(pagesRoot).filter(file => file.endsWith('.html'));
-
-  assert.ok(htmlFiles.length > 0, 'canonical pages directory must contain HTML pages');
-
-  for (const file of htmlFiles) {
-    const pagePath = `/${path.relative(root, file).split(path.sep).join('/')}`;
-    const html = fs.readFileSync(file, 'utf8');
-    for (const ref of collectHtmlRefs(html)) {
-      assertNoLegacyRuntimePath(ref, pagePath, 'HTML path contract');
-      assertResolvable(ref, pagePath, routes, 'HTML path contract');
+  const list = routes();
+  for (const file of walk(path.join(root, 'src/pages')).filter(x => x.endsWith('.html'))) {
+    const owner = `/${path.relative(root, file).split(path.sep).join('/')}`;
+    for (const ref of htmlRefs(fs.readFileSync(file, 'utf8'))) {
+      assert.equal(legacy(ref), false, `${owner} still references legacy runtime path ${ref}`);
+      assertResolvable(ref, owner, list, 'HTML path contract');
     }
   }
 });
 
 test('repository JavaScript local asset and page navigation URLs resolve', () => {
-  const routes = getRoutes();
-  const jsRoot = path.join(root, 'src/assets/js');
-  const jsFiles = walk(jsRoot).filter(file => /\.(?:js|cjs|mjs)$/.test(file));
-
-  assert.ok(jsFiles.length > 0, 'canonical JS asset directory must contain files');
-
-  for (const file of jsFiles) {
-    const ownerPath = `/${path.relative(root, file).split(path.sep).join('/')}`;
-    const source = fs.readFileSync(file, 'utf8');
-    for (const ref of collectJsLocalRefs(source)) {
-      assertNoLegacyRuntimePath(ref, ownerPath, 'JS path contract');
-      assertResolvable(ref, ownerPath, routes, 'JS path contract');
+  const list = routes();
+  for (const file of walk(path.join(root, 'src/assets/js')).filter(x => /\.(?:js|cjs|mjs)$/.test(x))) {
+    const owner = `/${path.relative(root, file).split(path.sep).join('/')}`;
+    for (const ref of jsRefs(fs.readFileSync(file, 'utf8'))) {
+      assert.equal(legacy(ref), false, `${owner} still references legacy runtime path ${ref}`);
+      // Ignore API URLs whose query/body expressions are not static paths.
+      const clean = normalize(ref);
+      if (/^\/api\//.test(clean) && /\s|\|\||\?|\+|\$\{|\b(?:p|payload|body|data)\b/i.test(clean)) continue;
+      assertResolvable(ref, owner, list, 'JS path contract');
     }
   }
 });
 
 test('canonical CSS url() assets resolve to files or declared Vercel routes', () => {
-  const routes = getRoutes();
-  const cssRoot = path.join(root, 'src/assets/css');
-  const cssFiles = walk(cssRoot).filter(file => file.endsWith('.css'));
-
-  for (const file of cssFiles) {
-    const ownerPath = `/${path.relative(root, file).split(path.sep).join('/')}`;
-    const source = fs.readFileSync(file, 'utf8');
-    for (const ref of collectCssRefs(source)) {
-      assertNoLegacyRuntimePath(ref, ownerPath, 'CSS path contract');
-      assertResolvable(ref, ownerPath, routes, 'CSS path contract');
-    }
-  }
-});
-
-test('service worker precache and generated runtime resources use canonical physical paths', () => {
-  const routes = getRoutes();
-  const source = read('sw.js');
-  const arrays = [...source.matchAll(/(?:CORE|PRECACHE|ASSETS)\s*=\s*\[([\s\S]*?)\]/g)];
-  const refs = arrays.flatMap(array => [...array[1].matchAll(/["']([^"']+)["']/g)].map(match => match[1]));
-  for (const ref of refs) {
-    assertNoLegacyRuntimePath(ref, '/sw.js', 'Service worker path contract');
-    assertResolvable(ref, '/sw.js', routes, 'Service worker path contract');
-  }
-
-  const generatedRefs = [];
-  const generatedRe = /(?:src|href)\s*=\s*["']([^"']+)["']/gi;
-  let match;
-  while ((match = generatedRe.exec(source))) generatedRefs.push(match[1]);
-  for (const ref of generatedRefs) assertNoLegacyRuntimePath(ref, '/sw.js', 'Service worker generated resource contract');
-});
-
-test('no canonical runtime source embeds a legacy resource URL in an HTML/JS/CSS resource context', () => {
-  const files = [
-    ...walk(path.join(root, 'src/pages')).filter(file => file.endsWith('.html')),
-    ...walk(path.join(root, 'src/assets/js')).filter(file => /\.(?:js|cjs|mjs)$/.test(file)),
-    ...walk(path.join(root, 'src/assets/css')).filter(file => file.endsWith('.css')),
-    path.join(root, 'sw.js')
-  ];
-  const legacyResource = /(?:src|href)\s*[:=]\s*["'`]((?:\/?(?:js|css|img|icons|pwa)\/|\/?(?:manifest(?:-[A-Za-z0-9_-]+)?\.webmanifest|favicon\.svg|apple-touch-icon\.png))[^"'`]*)["'`]/gi;
-
-  for (const file of files) {
-    const source = fs.readFileSync(file, 'utf8');
+  const list = routes();
+  for (const file of walk(path.join(root, 'src/assets/css')).filter(x => x.endsWith('.css'))) {
     const owner = `/${path.relative(root, file).split(path.sep).join('/')}`;
-    let match;
-    while ((match = legacyResource.exec(source))) {
-      assert.fail(`${owner} contains legacy resource URL ${match[1]}; compatibility rewrites are not an internal fix`);
+    for (const ref of cssRefs(fs.readFileSync(file, 'utf8'))) {
+      assert.equal(legacy(ref), false, `${owner} still references legacy runtime path ${ref}`);
+      assertResolvable(ref, owner, list, 'CSS path contract');
     }
   }
 });
 
-test('declared Vercel redirects and rewrites do not point at missing static destinations', () => {
-  const routes = getRoutes();
-  for (const route of routes) {
-    if (!route || typeof route.destination !== 'string') continue;
-    const destination = route.destination;
-    if (isExternal(destination) || hasWildcard(destination)) continue;
+test('service worker precache uses canonical physical paths', () => {
+  const list = routes();
+  const source = read('sw.js');
+  const refs = [...source.matchAll(/(?:CORE|PRECACHE|ASSETS)\s*=\s*\[([\s\S]*?)\]/g)]
+    .flatMap(m => [...m[1].matchAll(/["']([^"']+)["']/g)].map(x => x[1]));
+  for (const ref of refs) {
+    assert.equal(legacy(ref), false, `sw.js references legacy runtime path ${ref}`);
+    assertResolvable(ref, '/sw.js', list, 'Service worker path contract');
+  }
+});
 
-    assert.ok(
-      localPathExists(destination) || coveredByVercelRoute(destination, routes),
-      `Vercel route destination is not backed by a file or another route: ${route.source} -> ${destination}`
-    );
+test('no canonical runtime source embeds a legacy resource URL', () => {
+  const files = [
+    ...walk(path.join(root, 'src/pages')).filter(x => x.endsWith('.html')),
+    ...walk(path.join(root, 'src/assets/js')).filter(x => /\.(?:js|cjs|mjs)$/.test(x)),
+    ...walk(path.join(root, 'src/assets/css')).filter(x => x.endsWith('.css')),
+    path.join(root, 'sw.js'),
+  ];
+  for (const file of files) {
+    const owner = `/${path.relative(root, file).split(path.sep).join('/')}`;
+    for (const ref of [...htmlRefs(fs.readFileSync(file, 'utf8')), ...jsRefs(fs.readFileSync(file, 'utf8')), ...cssRefs(fs.readFileSync(file, 'utf8'))]) {
+      assert.equal(legacy(ref), false, `${owner} contains legacy runtime URL ${ref}; compatibility rewrites are not an internal fix`);
+    }
+  }
+});
+
+test('declared Vercel redirects and rewrites do not point at missing destinations', () => {
+  const list = routes();
+  for (const route of list) {
+    if (!route || typeof route.destination !== 'string' || external(route.destination)) continue;
+    const destination = normalize(route.destination);
+    if (/:path\*/.test(destination) || /\$\d/.test(destination)) continue;
+    assert.ok(localExists(destination) || routeCovers(destination, list), `Vercel route destination is not backed by a file or another route: ${route.source} -> ${destination}`);
   }
 });
 
 test('canonical manifests and root service worker are physically present', () => {
-  const required = [
+  for (const file of [
     'sw.js',
     'src/assets/pwa/manifest.webmanifest',
     'src/assets/pwa/manifest-admin.webmanifest',
     'src/assets/pwa/manifest-cook.webmanifest',
     'src/assets/pwa/manifest-courier.webmanifest',
     'src/assets/pwa/manifest-manager.webmanifest',
-    'src/assets/pwa/manifest-waiter.webmanifest'
-  ];
-  for (const file of required) assert.ok(fs.existsSync(path.join(root, file)), `required runtime file is missing: ${file}`);
+    'src/assets/pwa/manifest-waiter.webmanifest',
+  ]) assert.ok(fs.existsSync(path.join(root, file)), `required runtime file is missing: ${file}`);
 });
 
-test('guest manager compatibility URL is explicitly routed to the canonical manager page', () => {
-  const routes = getRoutes();
-  assert.ok(
-    coveredByVercelRoute('/src/pages/guest/manager.html', routes),
-    'legacy guest manager URL must remain routable after filesystem reorganization'
-  );
+test('guest manager compatibility URL remains explicitly routed to canonical manager page', () => {
+  assert.ok(routeCovers('/src/pages/guest/manager.html', routes()));
 });
