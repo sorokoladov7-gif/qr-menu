@@ -1,2 +1,18 @@
-<!doctype html>
-<!-- canonical copy is committed from the legacy demo-staff.html blob -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OS QR-Меню — Демо сотрудника</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+<script>
+(function(){
+  const role = new URLSearchParams(location.search).get('role') || 'cook';
+  const map = {cook:'/src/pages/staff/cook.html',courier:'/src/pages/staff/courier.html',waiter:'/src/pages/staff/waiter.html'};
+  location.replace(map[role] || map.cook);
+})();
+</script>
+</body>
+</html>
