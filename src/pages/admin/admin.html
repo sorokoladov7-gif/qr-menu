@@ -2,33 +2,33 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<link rel="manifest" href="/manifest-admin.webmanifest">
+<link rel="manifest" href="/src/assets/pwa/manifest-admin.webmanifest">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>АДМИН OS QR-Меню</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/src/assets/icons/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/shared/common.css">
-<link rel="stylesheet" href="css/admin/admin.css">
+<link rel="stylesheet" href="/src/assets/css/style.css">
+<link rel="stylesheet" href="/src/assets/css/shared/common.css">
+<link rel="stylesheet" href="/src/assets/css/admin/admin.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script src="js/pwa-install.js"></script>
-<script src="js/config.js"></script>
-<script src="js/app.js"></script>
-<script src="js/shared/utils.js"></script>
-<script src="js/admin/admin-core.js"></script>
-<script src="js/admin/admin-venues.js"></script>
-<script src="js/admin/admin-managers.js"></script>
-<script src="js/admin/admin-staff.js"></script>
-<script src="js/admin/admin-subscriptions.js"></script>
-<script src="js/admin/admin-payments.js"></script>
-<script src="js/admin/admin-menu.js"></script>
-<script src="js/admin/admin-settings.js"></script>
-<script src="js/admin/admin-templates.js"></script>
-<script src="js/admin/admin-statistics.js"></script>
-<script src="js/admin/admin-app.js"></script>
+<script src="/src/assets/js/pwa/pwa-install.js"></script>
+<script src="/src/assets/js/shared/config.js"></script>
+<script src="/src/assets/js/shared/app.js"></script>
+<script src="/src/assets/js/shared/utils.js"></script>
+<script src="/src/assets/js/admin/admin-core.js"></script>
+<script src="/src/assets/js/admin/admin-venues.js"></script>
+<script src="/src/assets/js/admin/admin-managers.js"></script>
+<script src="/src/assets/js/admin/admin-staff.js"></script>
+<script src="/src/assets/js/admin/admin-subscriptions.js"></script>
+<script src="/src/assets/js/admin/admin-payments.js"></script>
+<script src="/src/assets/js/admin/admin-menu.js"></script>
+<script src="/src/assets/js/admin/admin-settings.js"></script>
+<script src="/src/assets/js/admin/admin-templates.js"></script>
+<script src="/src/assets/js/admin/admin-statistics.js"></script>
+<script src="/src/assets/js/admin/admin-app.js"></script>
 
 <style>
 /* ══════════════════════════════════════
@@ -750,7 +750,7 @@ body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opac
 <td style="white-space:nowrap">
 <button class="btn btn-ghost btn-sm" v-on:click="openVenueEdit(v)" title="Настройки, логотип, права">⚙️</button>
 <button class="btn btn-ghost btn-sm" v-on:click="openVenueMenu(v)" title="Меню и фото">🍔</button>
-<a class="btn btn-ghost btn-sm" v-bind:href="'menu.html?venue='+v.slug" target="_blank">🔗</a>
+<a class="btn btn-ghost btn-sm" v-bind:href="'/src/pages/guest/menu.html?venue='+v.slug" target="_blank">🔗</a>
 <button class="btn btn-ghost btn-sm" v-on:click="toggleStatus(v)">{{ v.status==='active'?'⏸':'▶️' }}</button>
 <button class="btn btn-danger btn-sm" v-on:click="delVenue(v)">🗑</button></td>
 </tr></table>

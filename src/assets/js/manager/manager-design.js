@@ -1210,7 +1210,7 @@
     if (frame) {
 
       frame.src =
-        '/menu.html?venue=' +
+        '/src/pages/guest/menu.html?venue=' +
         encodeURIComponent(
           venue.slug
         ) +
@@ -1427,7 +1427,7 @@
         if (frame) {
 
           frame.src =
-            '/menu.html?venue=' +
+            '/src/pages/guest/menu.html?venue=' +
             encodeURIComponent(
               venue.slug
             ) +
