@@ -179,10 +179,18 @@ test('staff runtime modules are available at their canonical asset paths', async
 
 test('manager runtime modules are available at their canonical asset paths', async ({ page }) => {
   for (const path of [
-    'integrations-hub.js', 'manager-instruction-tab-v2.js', 'manager-payment-settings.js',
-    'manager-permissions-bridge.js', 'manager-personnel-final.js', 'manager-staff-quick-actions.js',
-    'manager-staff-statistics.js', 'qr-ai-assistant.js', 'manager-design.js', 'manager-hall.js',
-    'manager-hall-ai.js', 'manager-hall-view.js', 'manager-site-import.js',
+    'integrations-hub.js',
+    'manager-payment-settings.js',
+    'manager-permissions-bridge.js',
+    'manager-personnel-final.js',
+    'manager-staff-quick-actions.js',
+    'manager-staff-statistics.js',
+    'qr-ai-assistant.js',
+    'manager-design.js',
+    'manager-hall.js',
+    'manager-hall-ai.js',
+    'manager-hall-view.js',
+    'manager-site-import.js',
   ]) {
     const response = await page.request.get(`/src/assets/js/manager/${path}`);
     expect(response.status(), path).toBe(200);
