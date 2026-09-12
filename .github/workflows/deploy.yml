@@ -19,6 +19,10 @@ jobs:
     name: Quality and smoke tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -45,11 +49,7 @@ jobs:
         run: npm run test:e2e
 
       - name: Vercel build
-        if: ${{ secrets.VERCEL_TOKEN != '' && secrets.VERCEL_PROJECT_ID != '' && secrets.VERCEL_TEAM_ID != '' }}
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_TEAM_ID: ${{ secrets.VERCEL_TEAM_ID }}
+        if: ${{ env.VERCEL_TOKEN != '' && env.VERCEL_PROJECT_ID != '' && env.VERCEL_TEAM_ID != '' }}
         run: |
           npx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_ID"
           npx vercel@latest build --token="$VERCEL_TOKEN"
