@@ -58,7 +58,7 @@ test('manager entitlement RPCs serialize per-manager mutations', () => {
 
 test('manager AI action gateway keeps feature and venue checks before mutations', () => {
   const source = fs.readFileSync(path.join(root, 'api', 'manager-ai-action.js'), 'utf8');
-  assert.match(source, /if\(!(MAP\[f\]\|\|\[\]\)\.includes\(type\)\)throw fail\('ACTION_NOT_ALLOWED_FOR_FEATURE'/);
+  assert.match(source, /if\(!\(MAP\[f\]\|\|\[\]\)\.includes\(type\)\)throw fail\('ACTION_NOT_ALLOWED_FOR_FEATURE'/);
   assert.match(source, /const e=await entitlement\(c,f\),r=await run\(c,f,action,e\)/);
   assert.match(source, /if\(type==='create_product'\)\{await venue\(c,vid,'menu'\)/);
   assert.match(source, /if\(type==='update_product_price'\)\{await venue\(c,vid,'price'\)/);
