@@ -14,6 +14,7 @@
 | `/hall.html` | `/src/pages/staff/hall.html` |
 | `/staff-history.html` | `/src/pages/staff/staff-history.html` |
 | `/staff-table.html` | `/src/pages/staff/staff-table.html` |
+| `/demo-staff.html` | `/src/pages/staff/demo-staff.html` |
 | `/manager.html` | `/src/pages/manager/manager.html` |
 | `/manager-demo.html` | `/src/pages/manager/manager-demo.html` |
 | `/manager-staff-statistics.html` | `/src/pages/manager/manager-staff-statistics.html` |
@@ -171,6 +172,8 @@ Legacy production/deep links remain available through Vercel redirects. Relocate
 
 Root `/assets/*`, `/icons/*`, `/img/*`, `/css/*`, and `/js/*` are public compatibility URL spaces backed by `/src/assets/*`. Flat root JavaScript modules and historical manager URLs use explicit rewrites before the generic `/js/:path*` rule. Legacy root role-icon and Apple touch icon URLs likewise use explicit rewrites to canonical icon files.
 
+The legacy `/demo-staff.html` URL remains a compatibility entry point, while all internal references use `/src/pages/staff/demo-staff.html`.
+
 `/api`, `/lib`, `/supabase`, and `/docs` remain root-level infrastructure boundaries.
 
 ## Validation
@@ -185,6 +188,6 @@ The application runtime is not claimed as fully browser-tested in this environme
 
 ## Remaining root files
 
-Root files that remain intentionally include Vercel/serverless entrypoints, the root service worker (`sw.js`, whose scope depends on root placement), repository configuration, robots/sitemap metadata, and the standalone `demo-staff.html` shell. `demo-staff.html` is not relocated yet because its current iframe and error-state links are relative to the root role URLs; moving it would require coordinated URL changes rather than a pure filesystem move.
+Root files that remain intentionally include Vercel/serverless entrypoints, the root service worker (`sw.js`, whose scope depends on root placement), repository configuration, robots/sitemap metadata, and other explicitly retained infrastructure files. The standalone `demo-staff.html` shell is no longer a root file; its canonical implementation is `/src/pages/staff/demo-staff.html`.
 
 The browser-asset migration is structurally complete for the audited JS/assets boundary. Further cleanup targets dependency-driven server/runtime layout and runtime-contract hardening rather than another blanket file move.
