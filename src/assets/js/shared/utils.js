@@ -69,6 +69,15 @@ function initCorporateShell(){
  injectCabinetVisualLayer();
  function closeNav(){body.classList.remove('nav-open');if(toggle){toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Открыть меню');toggle.innerHTML='<span aria-hidden="true">☰</span>';}root.style.overflow='';}
  function setupNav(){
+  /* Админ-кабинет имеет собственную premium-навигацию #qr-admin-shell. Общая
+     mobile-навигация .tabs здесь не должна создавать второй overlay/toggle. */
+  var adminShell=document.getElementById('qr-admin-shell');
+  if(adminShell){
+   closeNav();
+   document.querySelectorAll('.qr-corp-nav-toggle,.qr-corp-nav-overlay').forEach(function(el){el.remove();});
+   nav=null;toggle=null;overlay=null;
+   return;
+  }
   var next=document.querySelector('.qr-corp-shell .tabs');if(!next||next===nav)return;nav=next;
   nav.style.setProperty('z-index','10070','important');
   document.querySelectorAll('.qr-corp-nav-toggle,.qr-corp-nav-overlay').forEach(function(el){el.remove();});
