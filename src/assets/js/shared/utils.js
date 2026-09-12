@@ -16,7 +16,6 @@ function injectCabinetVisualLayer(){
  if(document.getElementById('qr-unified-cabinet-ui'))return;
  var style=document.createElement('style');style.id='qr-unified-cabinet-ui';
  style.textContent=`
-/* QR-Menu — единый визуальный слой кабинетов. Не меняет DOM или бизнес-логику. */
 .qr-corp-shell{--qr-ui-bg:#070b14;--qr-ui-surface:rgba(15,23,42,.78);--qr-ui-surface-2:rgba(30,41,59,.58);--qr-ui-border:rgba(148,163,184,.16);--qr-ui-border-strong:rgba(129,140,248,.34);--qr-ui-text:#f8fafc;--qr-ui-muted:#94a3b8;--qr-ui-accent:#6366f1;--qr-ui-accent-2:#8b5cf6;--qr-ui-success:#10b981;--qr-ui-danger:#ef4444;background:radial-gradient(circle at 12% -8%,rgba(99,102,241,.10),transparent 32%),radial-gradient(circle at 92% 105%,rgba(52,211,153,.055),transparent 30%),var(--qr-ui-bg)!important;color:var(--qr-ui-text)!important;font-family:"Segoe UI",system-ui,-apple-system,BlinkMacSystemFont,"Roboto","Helvetica Neue",Arial,sans-serif!important;font-synthesis:none;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .qr-corp-shell #app{color:inherit}
 .qr-corp-shell .topbar{background:rgba(7,12,24,.94)!important;border-color:var(--qr-ui-border)!important;box-shadow:0 12px 36px rgba(0,0,0,.28)!important;backdrop-filter:blur(20px) saturate(135%)!important;-webkit-backdrop-filter:blur(20px) saturate(135%)!important}
@@ -47,16 +46,8 @@ function injectCabinetVisualLayer(){
 .qr-corp-shell .menu-grid>.card,.qr-corp-shell .menu-item-compact,.qr-corp-shell .manager-template-product-card,.qr-corp-shell .analytics-mini-card{background:rgba(255,255,255,.035)!important;border-color:rgba(148,163,184,.13)!important;box-shadow:none!important}
 .qr-corp-shell .menu-grid>.card:hover,.qr-corp-shell .menu-item-compact:hover,.qr-corp-shell .manager-template-product-card:hover{border-color:rgba(129,140,248,.42)!important;box-shadow:0 12px 30px rgba(0,0,0,.20)!important}
 .qr-corp-shell .progress>div{background:linear-gradient(90deg,#6366f1,#10b981)!important}
-@media(max-width:900px){
- .qr-corp-shell .topbar{padding-left:60px!important}
- .qr-corp-shell>.wrap,.qr-corp-shell .wrap{padding:16px 12px 28px!important}
- .qr-corp-shell .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}
- .qr-corp-shell .glass.card{border-radius:14px!important}
-}
-@media(max-width:520px){
- .qr-corp-shell .stats{grid-template-columns:1fr 1fr!important}
- .qr-corp-shell .btn{min-height:36px!important}
-}
+@media(max-width:900px){.qr-corp-shell .topbar{padding-left:60px!important}.qr-corp-shell>.wrap,.qr-corp-shell .wrap{padding:16px 12px 28px!important}.qr-corp-shell .stats{grid-template-columns:repeat(2,minmax(0,1fr))!important}.qr-corp-shell .glass.card{border-radius:14px!important}}
+@media(max-width:520px){.qr-corp-shell .stats{grid-template-columns:1fr 1fr!important}.qr-corp-shell .btn{min-height:36px!important}}
 @media(prefers-reduced-motion:reduce){.qr-corp-shell *,.qr-corp-shell *:before,.qr-corp-shell *:after{animation-duration:.001ms!important;transition-duration:.001ms!important}}
 `;
  document.head.appendChild(style);
@@ -69,8 +60,6 @@ function initCorporateShell(){
  injectCabinetVisualLayer();
  function closeNav(){body.classList.remove('nav-open');if(toggle){toggle.setAttribute('aria-expanded','false');toggle.setAttribute('aria-label','Открыть меню');toggle.innerHTML='<span aria-hidden="true">☰</span>';}root.style.overflow='';}
  function setupNav(){
-  /* Админ-кабинет имеет собственную premium-навигацию #qr-admin-shell. Общая
-     mobile-навигация .tabs здесь не должна создавать второй overlay/toggle. */
   var adminShell=document.getElementById('qr-admin-shell');
   if(adminShell){
    closeNav();
@@ -87,14 +76,16 @@ function initCorporateShell(){
   overlay.setAttribute('aria-label','Закрыть меню');
   overlay.setAttribute('tabindex','-1');
   overlay.style.setProperty('z-index','10050','important');
-  body.appendChild(overlay);
+  (nav.parentNode||body).appendChild(overlay);
   overlay.addEventListener('click',function(e){e.preventDefault();closeNav();});
   toggle=document.createElement('button');toggle.type='button';toggle.className='qr-corp-nav-toggle';toggle.setAttribute('aria-label','Открыть меню');toggle.setAttribute('aria-expanded','false');toggle.innerHTML='<span aria-hidden="true">☰</span>';toggle.style.setProperty('z-index','10080','important');body.appendChild(toggle);
   function toggleNav(e){e.preventDefault();e.stopPropagation();var open=!body.classList.contains('nav-open');body.classList.toggle('nav-open',open);toggle.setAttribute('aria-expanded',String(open));toggle.setAttribute('aria-label',open?'Закрыть меню':'Открыть меню');toggle.innerHTML=open?'<span aria-hidden="true">×</span>':'<span aria-hidden="true">☰</span>';root.style.overflow=open?'hidden':'';}
   toggle.addEventListener('click',toggleNav);
   nav.addEventListener('click',function(ev){var btn=ev.target.closest&&ev.target.closest('button');if(btn&&window.matchMedia('(max-width:900px)').matches)setTimeout(closeNav,120);});
  }
- setupNav();new MutationObserver(setupNav).observe(app,{childList:true,subtree:true});
+ setupNav();
+ new MutationObserver(setupNav).observe(app,{childList:true,subtree:true});
+ new MutationObserver(function(){if(document.getElementById('qr-admin-shell'))setupNav();}).observe(document.body,{childList:true,subtree:true});
  window.addEventListener('resize',function(){if(!window.matchMedia('(max-width:900px)').matches)closeNav();});window.addEventListener('keydown',function(e){if(e.key==='Escape')closeNav();});
 }
 
