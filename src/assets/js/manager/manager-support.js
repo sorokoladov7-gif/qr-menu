@@ -9,6 +9,28 @@
   var fmt=function(v){try{return window.fmtDate?window.fmtDate(v):new Date(v).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
   var vm=function(){return window.__managerVue||null;};
 
+  function installCanonicalNav(){
+    if(!window.Vue||typeof window.Vue.createApp!=='function'||window.Vue.__QR_MANAGER_SUPPORT_NAV__)return;
+    window.Vue.__QR_MANAGER_SUPPORT_NAV__=true;
+    var original=window.Vue.createApp;
+    window.Vue.createApp=function(){
+      try{
+        var root=document.getElementById('app'),tabs=root&&root.querySelector('.tabs');
+        if(tabs&&!tabs.querySelector('[data-qr-support-nav]')){
+          var b=document.createElement('button');
+          b.type='button';
+          b.setAttribute('data-qr-support-nav','1');
+          b.setAttribute('v-bind:class',"{on:tab==='support'}");
+          b.setAttribute('v-on:click',"tab='support'");
+          b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
+          tabs.appendChild(b);
+        }
+      }catch(e){console.warn('[QR Manager Support] canonical nav:',e);}
+      return original.apply(this,arguments);
+    };
+  }
+  installCanonicalNav();
+
   function styles(){
     if(document.getElementById('qr-manager-support-style'))return;
     var s=document.createElement('style');s.id='qr-manager-support-style';s.textContent=''+
@@ -75,12 +97,7 @@
   function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
   function navButton(){
     var tabs=document.querySelector('#app .tabs');if(!tabs)return;
-    var b=tabs.querySelector('[data-qr-support-nav]');
-    if(!b){
-      b=document.createElement('button');b.type='button';b.setAttribute('data-qr-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
-      b.addEventListener('click',function(){var v=vm();if(v)v.tab='support';setTimeout(function(){syncMode();open();},0);});
-      tabs.appendChild(b);
-    }
+    var b=tabs.querySelector('[data-qr-support-nav]');if(!b)return;
     state.button=b;
     b.classList.toggle('on',!!(vm()&&vm().tab==='support'));
   }
