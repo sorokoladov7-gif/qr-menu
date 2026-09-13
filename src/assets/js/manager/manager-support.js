@@ -18,9 +18,15 @@
     try{
       var id=state.threadId;
       if(!id){
-        var r=await db.rpc('manager_support_get_or_create_thread');
-        if(r.error)throw r.error;
-        id=r.data;
+        var existing=await db.from('manager_support_threads')
+          .select('id')
+          .eq('manager_id', (await db.auth.getUser()).data.user.id)
+          .order('created_at',{ascending:false})
+          .limit(1)
+          .maybeSingle();
+        if(existing.error)throw existing.error;
+        id=existing.data&&existing.data.id;
+        if(!id){setUnreadBadge(0);return;}
         state.threadId=id;
       }
       var m=await db.from('manager_support_messages')
