@@ -7,6 +7,29 @@
   var esc=function(v){return window.esc?window.esc(v):String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});};
   var fmt=function(v){try{return window.fmtDate?window.fmtDate(v):new Date(v).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
   var vm=function(){var app=window.__QR_ADMIN_VUE_APP__;return app&&app._instance&&app._instance.proxy?app._instance.proxy:null;};
+
+  function installCanonicalNav(){
+    if(!window.Vue||typeof window.Vue.createApp!=='function'||window.Vue.__QR_ADMIN_SUPPORT_NAV__)return;
+    window.Vue.__QR_ADMIN_SUPPORT_NAV__=true;
+    var original=window.Vue.createApp;
+    window.Vue.createApp=function(){
+      try{
+        var root=document.getElementById('app'),tabs=root&&root.querySelector('.tabs');
+        if(tabs&&!tabs.querySelector('[data-qr-admin-support-nav]')){
+          var b=document.createElement('button');
+          b.type='button';
+          b.setAttribute('data-qr-admin-support-nav','1');
+          b.setAttribute('v-bind:class',"{on:tab==='support'}");
+          b.setAttribute('v-on:click',"switchTab('support')");
+          b.innerHTML='🛟 Поддержка<span class="qr-admin-support-badge" data-admin-support-badge style="display:none">0</span>';
+          tabs.appendChild(b);
+        }
+      }catch(e){console.warn('[QR Admin Support] canonical nav:',e);}
+      return original.apply(this,arguments);
+    };
+  }
+  installCanonicalNav();
+
   function styles(){if(document.getElementById('qr-admin-support-style'))return;var s=document.createElement('style');s.id='qr-admin-support-style';s.textContent=''+
     '.qr-admin-support-panel{display:grid;grid-template-columns:320px minmax(0,1fr);min-height:620px;overflow:hidden!important;padding:0!important}'+
     '.qr-admin-support-list{border-right:1px solid rgba(255,255,255,.08);overflow:auto}.qr-admin-support-list-head{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08);font-weight:800;display:flex;align-items:center;gap:8px}.qr-admin-support-item{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#eef2f7;padding:13px 15px;cursor:pointer}.qr-admin-support-item:hover,.qr-admin-support-item.active{background:rgba(99,102,241,.1)}.qr-admin-support-item .name{font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}.qr-admin-support-item .meta{margin-top:4px;color:#94a3b8;font-size:11px}.qr-admin-support-item .preview{margin-top:7px;color:#cbd5e1;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qr-admin-support-unread{display:inline-flex;min-width:18px;height:18px;padding:0 5px;align-items:center;justify-content:center;border-radius:999px;background:#f87171;color:#fff;font:800 10px/1 system-ui}.qr-admin-support-chat{min-width:0;display:flex;flex-direction:column}.qr-admin-support-head{padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)}.qr-admin-support-head .title{font-size:17px;font-weight:800}.qr-admin-support-head .sub{margin-top:3px;color:#94a3b8;font-size:11px}.qr-admin-support-messages{flex:1;min-height:420px;max-height:620px;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px}.qr-admin-support-msg{max-width:82%;padding:10px 13px;border-radius:13px;border:1px solid rgba(255,255,255,.07);white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.45}.qr-admin-support-msg.manager{align-self:flex-start;background:rgba(248,113,113,.08)}.qr-admin-support-msg.admin{align-self:flex-end;background:rgba(99,102,241,.12)}.qr-admin-support-meta{display:block;margin-top:5px;color:#94a3b8;font-size:10px}.qr-admin-support-compose{display:flex;gap:10px;padding:13px 16px;border-top:1px solid rgba(255,255,255,.08)}.qr-admin-support-compose textarea{flex:1;min-height:52px;resize:vertical;max-height:140px;border-radius:11px;padding:10px 12px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);color:#eef2f7;font:inherit;outline:none}.qr-admin-support-empty{margin:auto;text-align:center;color:#94a3b8;padding:30px}.qr-admin-support-badge{display:inline-flex;min-width:18px;height:18px;padding:0 5px;align-items:center;justify-content:center;border-radius:999px;background:#f87171;color:#fff;font:800 10px/1 system-ui;margin-left:6px}'+
@@ -26,20 +49,20 @@
   function renderChat(scroll){if(!state.panel)return;var t=state.threads.find(function(x){return x.id===state.selected;}),head=state.panel.querySelector('[data-admin-support-head]'),box=state.panel.querySelector('[data-admin-support-messages]');if(!head||!box)return;if(!t){head.innerHTML='<div class="title">Поддержка</div><div class="sub">Выберите обращение слева</div>';box.innerHTML='<div class="qr-admin-support-empty">Выберите вопрос управляющего.</div>';return;}var name=t.manager.display_name||t.manager.email||'Управляющий';head.innerHTML='<div class="title">'+esc(name)+'</div><div class="sub">'+esc(t.manager.email||'')+' · '+esc(t.subject||'Поддержка')+'</div>';box.innerHTML=state.messages.length?state.messages.map(function(m){return '<div class="qr-admin-support-msg '+(m.sender_role==='manager'?'manager':'admin')+'">'+esc(m.message)+'<span class="qr-admin-support-meta">'+(m.sender_role==='manager'?esc(name):'Вы')+' · '+esc(fmt(m.created_at))+'</span></div>';}).join(''):'<div class="qr-admin-support-empty">Сообщений пока нет.</div>';if(scroll)box.scrollTop=box.scrollHeight;}
   function renderError(e){if(!state.panel)return;var box=state.panel.querySelector('[data-admin-support-messages]');if(box)box.innerHTML='<div class="qr-admin-support-empty">Ошибка загрузки поддержки.<br><small>'+esc(e&&e.message||e)+'</small></div>';}
   async function send(){if(state.sending||!state.selected)return;var ta=state.panel.querySelector('textarea'),text=String(ta&&ta.value||'').trim();if(!text)return;state.sending=true;ta.disabled=true;try{var r=await db.rpc('manager_support_send',{p_thread_id:state.selected,p_message:text});if(r.error)throw r.error;ta.value='';await selectThread(state.selected);await loadThreads();}catch(e){alert('Не удалось отправить ответ: '+(e.message||e));}finally{state.sending=false;ta.disabled=false;ta.focus();}}
-  function open(){styles();var root=document.querySelector('#app .wrap')||document.getElementById('app');if(!root)return;if(state.panel)state.panel.remove();state.panel=document.createElement('div');state.panel.className='glass card qr-admin-support-panel';state.panel.innerHTML='<div class="qr-admin-support-list" data-admin-support-list></div><div class="qr-admin-support-chat"><div class="qr-admin-support-head" data-admin-support-head></div><div class="qr-admin-support-messages" data-admin-support-messages></div><div class="qr-admin-support-compose"><textarea maxlength="8000" placeholder="Ответ управляющему…"></textarea><button class="btn btn-primary" type="button" data-admin-support-send>Ответить</button></div></div>';root.appendChild(state.panel);state.panel.querySelector('[data-admin-support-send]').addEventListener('click',send);state.panel.querySelector('textarea').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});loadThreads();if(state.timer)clearInterval(state.timer);state.timer=setInterval(function(){if(state.panel&&vm()&&vm().tab==='support'){loadThreads();if(state.selected)selectThread(state.selected);}},10000);}
-  function syncMode(){var p=vm();if(p&&p.tab!=='support'&&state.panel){state.panel.remove();state.panel=null;}}
+  function open(){styles();var root=document.querySelector('#app .wrap')||document.getElementById('app');if(!root)return;if(state.panel)state.panel.remove();state.panel=document.createElement('div');state.panel.className='glass card qr-admin-support-panel';state.panel.innerHTML='<div class="qr-admin-support-list" data-admin-support-list></div><div class="qr-admin-support-chat"><div class="qr-admin-support-head" data-admin-support-head></div><div class="qr-admin-support-messages" data-admin-support-messages></div><div class="qr-admin-support-compose"><textarea maxlength="8000" placeholder="Ответ управляющему…"></textarea><button class="btn btn-primary" type="button" data-admin-support-send>Ответить</button></div></div>';root.appendChild(state.panel);state.panel.querySelector('[data-admin-support-send]').addEventListener('click',send);state.panel.querySelector('textarea').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send;}});loadThreads();if(state.timer)clearInterval(state.timer);state.timer=setInterval(function(){if(state.panel&&vm()&&vm().tab==='support'){loadThreads();if(state.selected)selectThread(state.selected);}},10000);}
+  function syncMode(){var p=vm();if(p&&p.tab==='support'){if(!state.panel)open();return;}if(state.panel){state.panel.remove();state.panel=null;}}
   function nav(){
-    var nav=document.querySelector('#qr-admin-shell .qr-nav');if(!nav)return;
-    var b=nav.querySelector('[data-qr-admin-support-nav]');
+    var tabs=document.querySelector('#app .tabs');if(!tabs)return;
+    var b=tabs.querySelector('[data-qr-admin-support-nav]');
     if(!b){
       b=document.createElement('button');b.type='button';b.setAttribute('data-qr-admin-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-admin-support-badge" data-admin-support-badge style="display:none">0</span>';
       b.addEventListener('click',function(){var a=window.__QR_ADMIN_VUE_APP__,p=a&&a._instance&&a._instance.proxy;if(p)p.tab='support';setTimeout(function(){open();},0);});
-      nav.appendChild(b);
+      tabs.appendChild(b);
     }
     state.button=b;
     b.classList.toggle('on',!!(vm()&&vm().tab==='support'));
     refreshUnreadBadge();
   }
-  function boot(){styles();var tries=0,t=setInterval(function(){nav();syncMode();tries++;if(tries>120)clearInterval(t);},300);if(!state.navObserver){state.navObserver=new MutationObserver(function(){nav();});state.navObserver.observe(document.getElementById('qr-admin-shell')||document.body,{childList:true,subtree:true});}setInterval(function(){refreshUnreadBadge();},10000);setInterval(syncMode,1000);}
+  function boot(){styles();var tries=0,t=setInterval(function(){nav();syncMode();tries++;if(tries>120)clearInterval(t);},300);if(!state.navObserver){state.navObserver=new MutationObserver(function(){nav();});state.navObserver.observe(document.getElementById('app')||document.body,{childList:true,subtree:true});}setInterval(function(){refreshUnreadBadge();},10000);setInterval(syncMode,1000);}
   boot();
 })();
