@@ -20,12 +20,35 @@
   window.__QR_MANAGER_CORE_MIXIN__=coreMixin;
   window.__QR_MANAGER_AI_FEATURES__=AI_FEATURES.slice();
 
+  async function getManagerActionToken(){
+    var sessionResult=await window.db.auth.getSession();
+    var session=sessionResult&&sessionResult.data&&sessionResult.data.session;
+    var token=session&&session.access_token;
+    var expiresAt=session&&Number(session.expires_at||0);
+    if(!token||!expiresAt||expiresAt*1000<=Date.now()+60000){
+      var refreshResult=await window.db.auth.refreshSession();
+      if(refreshResult&&refreshResult.error)throw refreshResult.error;
+      session=refreshResult&&refreshResult.data&&refreshResult.data.session;
+      token=session&&session.access_token;
+    }
+    if(!token)throw new Error('Сессия управляющего не найдена');
+    return token;
+  }
+
   async function runManagerAction(action){
     if(!action||typeof action!=='object')throw new Error('Некорректное действие');
     if(!window.db||!window.db.auth)throw new Error('Supabase клиент не найден');
-    var sessionResult=await window.db.auth.getSession(),session=sessionResult&&sessionResult.data&&sessionResult.data.session,token=session&&session.access_token;
-    if(!token)throw new Error('Сессия управляющего не найдена');
-    var response=await fetch('/api/manager-ai-action',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({feature:'assistant',action:action})});
+    var token=await getManagerActionToken();
+    var body=JSON.stringify({feature:'assistant',action:action});
+    var response=await fetch('/api/manager-ai-action',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:body});
+    if(response.status===401){
+      var refreshResult=await window.db.auth.refreshSession();
+      if(refreshResult&&refreshResult.error)throw refreshResult.error;
+      var retrySession=refreshResult&&refreshResult.data&&refreshResult.data.session;
+      var retryToken=retrySession&&retrySession.access_token;
+      if(!retryToken)throw new Error('Сессия управляющего не найдена');
+      response=await fetch('/api/manager-ai-action',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+retryToken},body:body});
+    }
     var data=await response.json().catch(function(){return{};});
     if(!response.ok||!data.ok)throw new Error(data.error||'Не удалось выполнить действие');
     return data.result;
