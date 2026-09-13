@@ -13,7 +13,7 @@
     if(document.getElementById('qr-manager-support-style'))return;
     var s=document.createElement('style');s.id='qr-manager-support-style';s.textContent=''+
       '.qr-support-badge{display:inline-flex;min-width:18px;height:18px;padding:0 5px;align-items:center;justify-content:center;border-radius:999px;background:#f87171;color:#fff;font:800 10px/1 system-ui;margin-left:6px}'+
-      '.qr-support-panel{position:relative;min-height:520px;padding:0!important;overflow:hidden}'+
+      '.qr-support-mode > *:not(.tabs):not(.qr-support-panel){display:none!important}.qr-support-panel{position:relative;min-height:520px;padding:0!important;overflow:hidden}'+
       '.qr-support-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08)}'+
       '.qr-support-title{font-size:18px;font-weight:800}.qr-support-sub{margin-top:3px;color:#94a3b8;font-size:12px}'+
       '.qr-support-body{display:flex;flex-direction:column;height:calc(100vh - 260px);min-height:420px;max-height:700px}'+
@@ -67,11 +67,12 @@
     var v=vm();if(!v||!v.profile||v.profile.role!=='manager')return;
     if(state.panel)state.panel.remove();
     state.panel=document.createElement('div');state.panel.className='glass card qr-support-panel';state.panel.innerHTML='<div class="qr-support-head"><div><div class="qr-support-title">Поддержка</div><div class="qr-support-sub">Связь с администратором платформы</div></div><span class="badge">Онлайн</span></div><div class="qr-support-body"><div class="qr-support-messages" data-support-messages><div class="qr-support-empty">Загрузка…</div></div><div class="qr-support-compose"><textarea maxlength="8000" placeholder="Опишите вопрос или проблему…"></textarea><button class="btn btn-primary" type="button" data-support-send>Отправить</button></div></div>';
-    var wrap=document.querySelector('#app .wrap');if(!wrap){state.panel=null;return;}wrap.appendChild(state.panel);
+    var wrap=document.querySelector('#app .wrap');if(!wrap){state.panel=null;return;}wrap.classList.add('qr-support-mode');wrap.appendChild(state.panel);
     loadMessages(true);
     var ta=state.panel.querySelector('textarea');state.panel.querySelector('[data-support-send]').addEventListener('click',send);ta.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});
     if(state.pollTimer)clearInterval(state.pollTimer);state.pollTimer=setInterval(function(){if(vm()&&vm().tab==='support')loadMessages(false);},10000);
   }
+  function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
   function navButton(){
     var tabs=document.querySelector('#app .tabs');if(!tabs)return;
     if(tabs.querySelector('[data-qr-support-nav]'))return;
@@ -83,7 +84,7 @@
     try{var r=await db.from('manager_support_threads').select('id,status,last_message_at').eq('manager_id',v.profile.id).neq('status','closed').order('last_message_at',{ascending:false}).limit(1).maybeSingle();if(r.error)throw r.error;var id=r.data&&r.data.id;if(!id){setBadge(0);return;}var m=await db.from('manager_support_messages').select('sender_role').eq('thread_id',id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(m.error)throw m.error;setBadge(m.data&&m.data.sender_role==='admin'?1:0);}catch(e){console.warn('[QR Manager Support] badge:',e);}}
   function setBadge(n){if(!state.button)return;var b=state.button.querySelector('[data-support-badge]');if(!b)return;b.textContent=String(n);b.style.display=n?'inline-flex':'none';}
   function boot(){
-    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}navButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});setInterval(function(){navButton();badge();},10000);};
+    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}navButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});setInterval(function(){navButton();badge();syncMode();},1000);};
     start();
   }
   window.addEventListener('qr-manager-vue-ready',boot,{once:true});
