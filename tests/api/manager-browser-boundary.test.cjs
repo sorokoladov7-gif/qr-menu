@@ -30,6 +30,14 @@ test('manager staff deletion mutations use canonical action API and scoped delet
   assert.equal(source.includes("db.from('waiters').delete()"),false);
 });
 
+test('manager staff action backend does not depend on RLS-visible staff table reads',()=>{
+  const source=fs.readFileSync(path.join(root,'lib','ai','manager','mutations','staff.js'),'utf8');
+  assert.ok(source.includes("rpc('manager_delete_staff'"));
+  assert.ok(source.includes("rpc('manager_reset_staff_pin'"));
+  assert.ok(source.includes('STAFF_ID_REQUIRED'));
+  assert.equal(source.includes('resolveStaff(c'),false);
+});
+
 test('manager product browser mutations remain behind the central bridge',()=>{
   const source=readAsset('manager-core.js');
   assert.ok(source.includes('function installProductMutationBridge()'));
