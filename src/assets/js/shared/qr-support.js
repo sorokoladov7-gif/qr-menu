@@ -1,6 +1,9 @@
 /* QR Menu — manager/admin support inbox. */
 (function(){
   'use strict';
+  /* Manager and admin now have native Support tabs. The legacy floating widget
+     must not be mounted there because it duplicates the native UI. */
+  if(/\/(?:manager|admin)\.html$/i.test(location.pathname))return;
   if(window.__QR_SUPPORT_LOADED__)return; window.__QR_SUPPORT_LOADED__=true;
   var role='', user=null, threadId=null, timer=null;
   function esc(v){return String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[c];});}
