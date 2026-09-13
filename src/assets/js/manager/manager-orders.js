@@ -13,32 +13,21 @@
     methods: {
       loadOrders: function() {
         var self=this, venueId=this.venue&&this.venue.id;
-        if(!venueId) return Promise.resolve([]);
-        return db.from('orders').select('*')
-          .eq('venue_id',venueId).order('created_at',{ascending:false}).limit(50)
+        if(!venueId) { self.orders=[]; return Promise.resolve([]); }
+        return db.rpc('manager_get_orders', { p_venue_id: venueId, p_limit: 50 })
           .then(function(r){
             if(r&&r.error) throw r.error;
-            var rows=(r&&r.data)||[];
-            var ids=rows.map(function(o){return o.id;}).filter(Boolean);
-            if(!ids.length){self.orders=[];return self.orders;}
-            return Promise.all([
-              db.from('order_items').select('*').in('order_id',ids),
-              db.from('order_addons').select('*').in('order_id',ids)
-            ]).then(function(parts){
-              var itemResult=parts[0],addonResult=parts[1];
-              if(itemResult&&itemResult.error)throw itemResult.error;
-              if(addonResult&&addonResult.error)throw addonResult.error;
-              var items=(itemResult&&itemResult.data)||[],addons=(addonResult&&addonResult.data)||[];
-              var itemMap={},addonMap={};
-              items.forEach(function(x){(itemMap[x.order_id]||(itemMap[x.order_id]=[])).push(x);});
-              addons.forEach(function(x){(addonMap[x.order_id]||(addonMap[x.order_id]=[])).push(x);});
-              rows.forEach(function(o){o.items=itemMap[o.id]||[];o.addons=addonMap[o.id]||[];});
-              self.orders=rows;
-              return self.orders;
+            var rows=Array.isArray(r&&r.data)?r.data:[];
+            rows.forEach(function(o){
+              o.items=Array.isArray(o.items)?o.items:[];
+              o.addons=Array.isArray(o.addons)?o.addons:[];
             });
+            self.orders=rows;
+            return self.orders;
           })
           .catch(function(e){
             console.error('[Manager] orders:',e);
+            self.orders=[];
             self.showToast&&self.showToast('Не удалось загрузить заказы: '+(e&&e.message||'ошибка'),'error');
             return [];
           });
