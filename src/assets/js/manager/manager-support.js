@@ -4,8 +4,8 @@
   if(window.__QR_MANAGER_SUPPORT__) return;
   window.__QR_MANAGER_SUPPORT__=true;
 
-  var state={threadId:null,messages:[],loading:false,sending:false,pollTimer:null,button:null,panel:null};
-  var esc=function(v){return window.esc?window.esc(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
+  var state={threadId:null,messages:[],loading:false,sending:false,pollTimer:null,button:null,panel:null,navObserver:null};
+  var esc=function(v){return window.esc?window.esc(v):String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});};
   var fmt=function(v){try{return window.fmtDate?window.fmtDate(v):new Date(v).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
   var vm=function(){return window.__managerVue||null;};
 
@@ -75,16 +75,25 @@
   function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
   function navButton(){
     var tabs=document.querySelector('#app .tabs');if(!tabs)return;
-    if(tabs.querySelector('[data-qr-support-nav]'))return;
-    var b=document.createElement('button');b.type='button';b.setAttribute('data-qr-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
-    b.addEventListener('click',function(){var v=vm();if(v)v.tab='support';Array.prototype.forEach.call(tabs.querySelectorAll('button'),function(x){x.classList.remove('on');});b.classList.add('on');open();});tabs.appendChild(b);state.button=b;
+    var b=tabs.querySelector('[data-qr-support-nav]');
+    if(!b){
+      b=document.createElement('button');b.type='button';b.setAttribute('data-qr-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
+      b.addEventListener('click',function(){var v=vm();if(v)v.tab='support';setTimeout(function(){syncMode();open();},0);});
+      tabs.appendChild(b);
+    }
+    state.button=b;
+    b.classList.toggle('on',!!(vm()&&vm().tab==='support'));
   }
   async function badge(){
     var v=vm();if(!v||!v.profile||v.profile.role!=='manager')return;
     try{var r=await db.from('manager_support_threads').select('id,status,last_message_at').eq('manager_id',v.profile.id).neq('status','closed').order('last_message_at',{ascending:false}).limit(1).maybeSingle();if(r.error)throw r.error;var id=r.data&&r.data.id;if(!id){setBadge(0);return;}var m=await db.from('manager_support_messages').select('sender_role').eq('thread_id',id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(m.error)throw m.error;setBadge(m.data&&m.data.sender_role==='admin'?1:0);}catch(e){console.warn('[QR Manager Support] badge:',e);}}
   function setBadge(n){if(!state.button)return;var b=state.button.querySelector('[data-support-badge]');if(!b)return;b.textContent=String(n);b.style.display=n?'inline-flex':'none';}
   function boot(){
-    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}navButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});setInterval(function(){navButton();badge();syncMode();},1000);};
+    styles();
+    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}navButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});
+      if(!state.navObserver){state.navObserver=new MutationObserver(function(){navButton();});state.navObserver.observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});}
+      setInterval(function(){navButton();badge();syncMode();},1000);
+    };
     start();
   }
   window.addEventListener('qr-manager-vue-ready',boot,{once:true});
