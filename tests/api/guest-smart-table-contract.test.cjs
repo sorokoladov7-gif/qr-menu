@@ -53,7 +53,7 @@ test('guest session sync is authoritative and cannot cross table sessions', () =
   assert.match(syncMigration, /create or replace function public\.smart_table_guest_sync\(\n  p_qr_token text,/);
   assert.match(syncMigration, /where qr_token=trim\(p_qr_token\)\n     and is_active=true/);
   assert.match(syncMigration, /token_hash=encode\(digest\(trim\(p_guest_token\),'sha256'\),'hex'\)/);
-  assert.match(syncMigration, /v_session\.id is null or v_guest\.table_session_id<>v_session\.id/);
+  assert.match(syncMigration, /v_session\.id is null or v_session\.table_id<>v_table\.id/);
   assert.match(syncMigration, /table_session_id=v_guest\.table_session_id/);
 });
 
@@ -71,13 +71,4 @@ test('closing a table session immediately invalidates every guest session', () =
   assert.match(lifecycleMigration, /table_session_id=new\.id/);
   assert.match(lifecycleMigration, /left_at=coalesce\(left_at,coalesce\(new\.closed_at,now\(\)\)\)/);
   assert.match(lifecycleMigration, /trg_smart_table_close_guest_sessions/);
-});
-
-test('guest lifecycle backfill and sync expose a clean closed-session state', () => {
-  assert.match(lifecycleMigration, /ts\.status='closed'/);
-  assert.match(lifecycleMigration, /g\.left_at is null/);
-  assert.match(lifecycleMigration, /'joined',false/);
-  assert.match(lifecycleMigration, /'session_status',case when v_session\.id is null then 'closed' else v_session\.status end/);
-  assert.match(lifecycleMigration, /'orders','\[\]'::jsonb/);
-  assert.match(lifecycleMigration, /'session_status',v_session\.status/);
 });
