@@ -46,27 +46,23 @@
       setStatus: function(id,status) {
         var self=this, venueId=this.venue&&this.venue.id;
         if(!venueId||!id)return Promise.resolve();
-        var u={status:status};
-        if(status==='cooking')u.cooking_started_at=new Date().toISOString();
-        if(status==='ready')u.ready_at=new Date().toISOString();
+        var payload={venue_id:venueId,order_id:id,status:status};
+        if(status==='cooking')payload.cooking_started_at=new Date().toISOString();
+        if(status==='ready')payload.ready_at=new Date().toISOString();
 
         if(!navigator.onLine && window.OfflineSync){
-          return window.OfflineSync.add({operation:'update',table:'orders',payload:u,filters:{id:id,venue_id:venueId},venue_id:venueId})
+          return window.OfflineSync.add({operation:'update',table:'orders',payload:{status:status},filters:{id:id,venue_id:venueId},venue_id:venueId})
             .then(function(){
               var local=self.orders.find(function(o){return o.id===id;});
-              if(local)Object.keys(u).forEach(function(k){local[k]=u[k];});
+              if(local){local.status=status;if(payload.cooking_started_at)local.cooking_started_at=payload.cooking_started_at;if(payload.ready_at)local.ready_at=payload.ready_at;}
               self.$forceUpdate&&self.$forceUpdate();
             });
         }
 
-        /* Operational order changes go through Supabase RLS directly.
-           This avoids routing a normal CRUD mutation through the AI action endpoint. */
-        return db.from('orders').update(u).eq('id',id).eq('venue_id',venueId).select('*').maybeSingle()
-          .then(function(r){
-            if(r&&r.error)throw r.error;
-            if(!r||!r.data)throw new Error('Заказ не найден или нет доступа к заведению');
-            return self.loadOrders();
-          })
+        var runner=window.__QR_RUN_MANAGER_ACTION__;
+        if(typeof runner!=='function')return Promise.reject(new Error('Канонический API действий менеджера недоступен'));
+        return runner({type:'update_order',payload:payload})
+          .then(function(){return self.loadOrders();})
           .catch(function(e){
             console.error('[Manager] order status:',e);
             self.showToast&&self.showToast('Ошибка изменения статуса: '+(e&&e.message||'ошибка'),'error');
@@ -81,7 +77,6 @@
   };
   window.__QR_MANAGER_ORDERS_MIXIN__=ordersMixin;
 
-  /* Load the selected venue's orders when the tab becomes visible. */
   (function installOrdersTabLoader(){
     var lastKey='';
     var timer=setInterval(function(){
