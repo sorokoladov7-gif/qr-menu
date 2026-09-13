@@ -15,6 +15,16 @@
     ]);
   }
 
+  function hideInitialLoader() {
+    var loader = document.getElementById('appLoader');
+    if (!loader) return;
+    loader.style.opacity = '0';
+    loader.style.pointerEvents = 'none';
+    window.setTimeout(function() {
+      if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+    }, 220);
+  }
+
   var coreMixin = {
     data: function() {
       return {
@@ -50,7 +60,7 @@
         if (typeof requireAuth === 'function') {
           withTimeout(requireAuth(['admin']), 12000, 'admin auth').then(function(profile) {
             self.profile = profile;
-            if (!profile) { self.ready = true; return; }
+            if (!profile) { self.ready = true; hideInitialLoader(); return; }
             return self.loadBaseData();
           }).then(function() {
             if (!self.profile) return;
@@ -60,12 +70,15 @@
             self.loadTemplates();
             self.loadUISettings();
             self.ready = true;
+            hideInitialLoader();
           }).catch(function(error) {
             console.error('[QR Admin] initialization failed:', error);
             self.ready = true;
+            hideInitialLoader();
           });
         } else {
           self.ready = true;
+          hideInitialLoader();
           console.warn('requireAuth не найдена');
         }
       },
