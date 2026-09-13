@@ -27,15 +27,27 @@
     methods: {
       loadCooks: function() {
         var self = this;
-        return db.from('cooks').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) { self.cooks = r.data || []; });
+        if(!this.venue||!this.venue.id) return Promise.resolve([]);
+        return db.from('cooks').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) {
+          if(r&&r.error){console.error('[Manager] cooks:',r.error);self.showToast&&self.showToast('Не удалось загрузить поваров: '+(r.error.message||'ошибка'),'error');return [];} 
+          self.cooks = r.data || []; return self.cooks;
+        });
       },
       loadCouriers: function() {
         var self = this;
-        return db.from('couriers').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) { self.couriers = r.data || []; });
+        if(!this.venue||!this.venue.id) return Promise.resolve([]);
+        return db.from('couriers').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) {
+          if(r&&r.error){console.error('[Manager] couriers:',r.error);self.showToast&&self.showToast('Не удалось загрузить курьеров: '+(r.error.message||'ошибка'),'error');return [];} 
+          self.couriers = r.data || []; return self.couriers;
+        });
       },
       loadWaiters: function() {
         var self = this;
-        return db.from('waiters').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) { self.waiters = r.data || []; });
+        if(!this.venue||!this.venue.id) return Promise.resolve([]);
+        return db.from('waiters').select('id,name,phone,venue_id,created_at').eq('venue_id', this.venue.id).order('created_at').then(function(r) {
+          if(r&&r.error){console.error('[Manager] waiters:',r.error);self.showToast&&self.showToast('Не удалось загрузить официантов: '+(r.error.message||'ошибка'),'error');return [];} 
+          self.waiters = r.data || []; return self.waiters;
+        });
       },
       loadStaffAnalytics: function() {
         var self = this;
@@ -146,4 +158,21 @@
   };
 
   window.__QR_MANAGER_STAFF_MIXIN__ = staffMixin;
+
+  /* The personnel tab had no lifecycle load after the manager refactor.
+     Fetch all three staff lists when a venue's personnel tab becomes visible. */
+  (function installStaffTabLoader(){
+    var lastKey='';
+    var timer=setInterval(function(){
+      var vm=window.__managerVue;
+      if(!vm)return;
+      if(vm.tab!=='staff'){lastKey='';return;}
+      if(!vm.venue||!vm.venue.id)return;
+      var key=String(vm.venue.id);
+      if(key===lastKey)return;
+      lastKey=key;
+      Promise.all([vm.loadCooks(),vm.loadCouriers(),vm.loadWaiters(),vm.loadStaffAnalytics()]).catch(function(e){console.error('[Manager] staff tab loader:',e);});
+    },250);
+    window.addEventListener('beforeunload',function(){clearInterval(timer);},{once:true});
+  })();
 })();
