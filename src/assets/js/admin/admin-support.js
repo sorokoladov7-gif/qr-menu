@@ -3,7 +3,7 @@
   'use strict';
   if(window.__QR_ADMIN_SUPPORT__) return;
   window.__QR_ADMIN_SUPPORT__=true;
-  var state={threads:[],selected:null,messages:[],loading:false,sending:false,timer:null,button:null,panel:null,unreadTotal:0,unreadByThread:{}};
+  var state={threads:[],selected:null,messages:[],loading:false,sending:false,timer:null,button:null,panel:null,unreadTotal:0,unreadByThread:{},navObserver:null};
   var esc=function(v){return window.esc?window.esc(v):String(v==null?'':v).replace(/[&<>\"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c];});};
   var fmt=function(v){try{return window.fmtDate?window.fmtDate(v):new Date(v).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
   var vm=function(){var app=window.__QR_ADMIN_VUE_APP__;return app&&app._instance&&app._instance.proxy?app._instance.proxy:null;};
@@ -28,7 +28,18 @@
   async function send(){if(state.sending||!state.selected)return;var ta=state.panel.querySelector('textarea'),text=String(ta&&ta.value||'').trim();if(!text)return;state.sending=true;ta.disabled=true;try{var r=await db.rpc('manager_support_send',{p_thread_id:state.selected,p_message:text});if(r.error)throw r.error;ta.value='';await selectThread(state.selected);await loadThreads();}catch(e){alert('Не удалось отправить ответ: '+(e.message||e));}finally{state.sending=false;ta.disabled=false;ta.focus();}}
   function open(){styles();var root=document.querySelector('#app .wrap')||document.getElementById('app');if(!root)return;if(state.panel)state.panel.remove();state.panel=document.createElement('div');state.panel.className='glass card qr-admin-support-panel';state.panel.innerHTML='<div class="qr-admin-support-list" data-admin-support-list></div><div class="qr-admin-support-chat"><div class="qr-admin-support-head" data-admin-support-head></div><div class="qr-admin-support-messages" data-admin-support-messages></div><div class="qr-admin-support-compose"><textarea maxlength="8000" placeholder="Ответ управляющему…"></textarea><button class="btn btn-primary" type="button" data-admin-support-send>Ответить</button></div></div>';root.appendChild(state.panel);state.panel.querySelector('[data-admin-support-send]').addEventListener('click',send);state.panel.querySelector('textarea').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});loadThreads();if(state.timer)clearInterval(state.timer);state.timer=setInterval(function(){if(state.panel&&vm()&&vm().tab==='support'){loadThreads();if(state.selected)selectThread(state.selected);}},10000);}
   function syncMode(){var p=vm();if(p&&p.tab!=='support'&&state.panel){state.panel.remove();state.panel=null;}}
-  function nav(){var nav=document.querySelector('#qr-admin-shell .qr-nav');if(!nav)return;if(nav.querySelector('[data-qr-admin-support-nav]'))return;var b=document.createElement('button');b.type='button';b.setAttribute('data-qr-admin-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-admin-support-badge" data-admin-support-badge style="display:none">0</span>';b.addEventListener('click',function(){var a=window.__QR_ADMIN_VUE_APP__,p=a&&a._instance&&a._instance.proxy;if(p)p.tab='support';Array.prototype.forEach.call(nav.querySelectorAll('button'),function(x){x.classList.remove('on');});b.classList.add('on');open();});nav.appendChild(b);state.button=b;refreshUnreadBadge();}
-  function boot(){styles();var tries=0,t=setInterval(function(){nav();syncMode();tries++;if(tries>120)clearInterval(t);},300);setInterval(function(){refreshUnreadBadge();},10000);setInterval(syncMode,1000);}
+  function nav(){
+    var nav=document.querySelector('#qr-admin-shell .qr-nav');if(!nav)return;
+    var b=nav.querySelector('[data-qr-admin-support-nav]');
+    if(!b){
+      b=document.createElement('button');b.type='button';b.setAttribute('data-qr-admin-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-admin-support-badge" data-admin-support-badge style="display:none">0</span>';
+      b.addEventListener('click',function(){var a=window.__QR_ADMIN_VUE_APP__,p=a&&a._instance&&a._instance.proxy;if(p)p.tab='support';setTimeout(function(){open();},0);});
+      nav.appendChild(b);
+    }
+    state.button=b;
+    b.classList.toggle('on',!!(vm()&&vm().tab==='support'));
+    refreshUnreadBadge();
+  }
+  function boot(){styles();var tries=0,t=setInterval(function(){nav();syncMode();tries++;if(tries>120)clearInterval(t);},300);if(!state.navObserver){state.navObserver=new MutationObserver(function(){nav();});state.navObserver.observe(document.getElementById('qr-admin-shell')||document.body,{childList:true,subtree:true});}setInterval(function(){refreshUnreadBadge();},10000);setInterval(syncMode,1000);}
   boot();
 })();
