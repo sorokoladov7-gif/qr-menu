@@ -6,7 +6,7 @@ const cors = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Content-Type': 'application/json'
 }
-function json(data: unknown, status = 200) { return new Response(JSON.stringify(data), { status, headers: cors }) }
+function json(data: unknown, status = 200, extra: Record<string,string> = {}) { return new Response(JSON.stringify(data), { status, headers: { ...cors, ...extra } }) }
 function customerPrice(providerFee: number, mode: string, markup: number, fixed: number) {
   if (mode === 'fixed') return Math.max(0, Math.round(fixed))
   if (mode === 'provider_plus_percent') return Math.max(0, Math.round(providerFee * (1 + Math.max(0, markup) / 100)))
@@ -23,6 +23,16 @@ Deno.serve(async (req) => {
   try{
     const body=await req.json(),venueId=String(body?.venue_id||'').trim(),address=String(body?.customer_address||'').trim(),lat=Number(body?.customer_lat),lng=Number(body?.customer_lng),cartTotal=Number(body?.cart_total||0)
     if(!venueId||!address||!Number.isFinite(lat)||!Number.isFinite(lng)||lat<-90||lat>90||lng<-180||lng>180)return json({ok:false,error:'invalid_request'},400)
+
+    const forwardedFor=req.headers.get('x-forwarded-for')||req.headers.get('x-real-ip')||''
+    const clientIp=(forwardedFor.split(',')[0]||'unknown').trim().slice(0,128)||'unknown'
+    const {data:rate,error:rateError}=await admin.rpc('delivery_quote_rate_limit',{p_venue_id:venueId,p_ip_key:clientIp,p_limit:20,p_window_seconds:60})
+    if(rateError)throw rateError
+    if(rate?.allowed===false){
+      const retryAfter=Math.max(1,Number(rate.retry_after_seconds)||60)
+      return json({ok:false,error:'rate_limited',retry_after_seconds:retryAfter},429,{'Retry-After':String(retryAfter)})
+    }
+
     const {data:venue,error:ve}=await admin.from('venues').select('id,status,address,latitude,longitude,lat,lng,delivery_enabled,delivery_min_order,delivery_min_order_free,delivery_base_price,delivery_base_fee,delivery_fee,delivery_per_km,delivery_rate_per_km,delivery_max_km').eq('id',venueId).maybeSingle()
     if(ve||!venue||venue.status!=='active')return json({ok:false,error:'venue_not_found'},404)
     if(venue.delivery_enabled===false)return json({ok:false,error:'delivery_disabled'},409)
