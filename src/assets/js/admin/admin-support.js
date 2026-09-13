@@ -1,4 +1,4 @@
-/* QR-Menu — администратор: мессенджер поддержки управляющих */
+/* QR-Menu — администратор: полноценный мессенджер поддержки */
 (function(){
   'use strict';
   if(window.__QR_ADMIN_SUPPORT__)return;
@@ -16,10 +16,13 @@
     s.textContent='\
 .qr-admin-support-panel{position:fixed;inset:0;z-index:99990;display:grid;grid-template-columns:340px minmax(0,1fr);min-height:100dvh;width:100vw;overflow:hidden!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;background:#0b1220;color:#eef2f7}\
 .qr-admin-support-sidebar{display:flex;flex-direction:column;min-width:0;border-right:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.96)}\
-.qr-admin-support-sidebar-head{padding:20px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}\
+.qr-admin-support-sidebar-head{padding:16px 18px 14px;border-bottom:1px solid rgba(255,255,255,.08)}\
 .qr-admin-support-sidebar-title{font-size:18px;font-weight:800;display:flex;align-items:center;justify-content:space-between;gap:8px}\
 .qr-admin-support-sidebar-sub{margin-top:5px;color:#94a3b8;font-size:11px}\
-.qr-admin-support-search{margin-top:13px;width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:#eef2f7;outline:none}\
+.qr-admin-support-actions{display:flex;gap:8px;margin-top:12px}\
+.qr-admin-support-actions button{flex:1;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.045);color:#eef2f7;border-radius:9px;padding:9px 8px;cursor:pointer;font:inherit;font-size:12px}\
+.qr-admin-support-actions button:hover{background:rgba(99,102,241,.16)}\
+.qr-admin-support-search{margin-top:10px;width:100%;box-sizing:border-box;padding:9px 11px;border-radius:9px;border:1px solid rgba(255,255,255,.09);background:rgba(255,255,255,.04);color:#eef2f7;outline:none}\
 .qr-admin-support-list{flex:1;min-height:0;overflow:auto}\
 .qr-admin-support-item{display:block;width:100%;box-sizing:border-box;text-align:left;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#eef2f7;padding:14px 15px;cursor:pointer}\
 .qr-admin-support-item:hover,.qr-admin-support-item.active{background:rgba(99,102,241,.12)}\
@@ -47,7 +50,19 @@
 .qr-admin-support-compose button{min-width:105px}\
 .qr-admin-support-empty{margin:auto;text-align:center;color:#94a3b8;padding:30px}\
 .qr-admin-support-error{color:#fca5a5}\
-@media(max-width:760px){.qr-admin-support-panel{grid-template-columns:1fr}.qr-admin-support-sidebar{max-height:40dvh;border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.qr-admin-support-messages{padding:14px}.qr-admin-support-msg{max-width:94%}.qr-admin-support-compose{padding:10px}.qr-admin-support-compose button{min-width:88px}}';
+.qr-admin-support-modal{position:fixed;inset:0;z-index:100010;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.62);backdrop-filter:blur(5px)}\
+.qr-admin-support-modal-card{width:min(620px,100%);background:#111827;border:1px solid rgba(255,255,255,.1);border-radius:16px;box-shadow:0 25px 80px rgba(0,0,0,.45);padding:20px}\
+.qr-admin-support-modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}\
+.qr-admin-support-modal-title{font-size:18px;font-weight:800}\
+.qr-admin-support-modal-close{border:0;background:transparent;color:#94a3b8;font-size:22px;cursor:pointer}\
+.qr-admin-support-modal-label{display:block;color:#cbd5e1;font-size:12px;font-weight:700;margin:12px 0 6px}\
+.qr-admin-support-modal-input,.qr-admin-support-modal-textarea{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.045);color:#eef2f7;padding:10px 12px;font:inherit;outline:none}\
+.qr-admin-support-modal-textarea{min-height:150px;resize:vertical}\
+.qr-admin-support-modal-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:15px}\
+.qr-admin-support-modal-note{color:#94a3b8;font-size:11px}\
+.qr-admin-support-modal-send{border:0;border-radius:10px;padding:10px 16px;background:#4f46e5;color:#fff;font-weight:800;cursor:pointer}\
+.qr-admin-support-modal-send:disabled{opacity:.55;cursor:not-allowed}\
+@media(max-width:760px){.qr-admin-support-panel{grid-template-columns:1fr}.qr-admin-support-sidebar{max-height:40dvh;border-right:0;border-bottom:1px solid rgba(255,255,255,.08)}.qr-admin-support-messages{padding:14px}.qr-admin-support-msg{max-width:94%}.qr-admin-support-compose{padding:10px}.qr-admin-support-compose button{min-width:88px}.qr-admin-support-modal{align-items:flex-end;padding:10px}.qr-admin-support-modal-card{border-radius:16px 16px 10px 10px}}';
     document.head.appendChild(s);
   }
 
@@ -65,12 +80,8 @@
   }
 
   async function unread(){
-    try{
-      var r=await db.from('manager_support_messages').select('id,thread_id').eq('sender_role','manager').is('read_at',null);
-      if(r.error)throw r.error;state.unreadByThread={};
-      (r.data||[]).forEach(function(x){state.unreadByThread[x.thread_id]=(state.unreadByThread[x.thread_id]||0)+1;});
-      setBadge((r.data||[]).length);renderList();
-    }catch(e){console.warn('[QR Admin Support] unread:',e);}
+    try{var r=await db.from('manager_support_messages').select('id,thread_id').eq('sender_role','manager').is('read_at',null);if(r.error)throw r.error;state.unreadByThread={};(r.data||[]).forEach(function(x){state.unreadByThread[x.thread_id]=(state.unreadByThread[x.thread_id]||0)+1;});setBadge((r.data||[]).length);renderList();}
+    catch(e){console.warn('[QR Admin Support] unread:',e);}
   }
 
   async function loadThreads(){
@@ -80,9 +91,7 @@
       if(r.error)throw r.error;
       var rows=r.data||[],ids=rows.map(function(x){return x.manager_id;}),profiles={};
       if(ids.length){var p=await db.from('profiles').select('id,display_name,email').in('id',ids);if(p.error)throw p.error;(p.data||[]).forEach(function(x){profiles[x.id]=x;});}
-      rows.forEach(function(x){x.manager=profiles[x.manager_id]||{};});state.threads=rows;
-      await unread();
-      renderList();
+      rows.forEach(function(x){x.manager=profiles[x.manager_id]||{};});state.threads=rows;await unread();renderList();
       if(!state.selected&&rows.length)await selectThread(rows[0].id);
       else if(state.selected&&!rows.some(function(x){return x.id===state.selected;})){state.selected=null;state.messages=[];renderChat(false);}
       else if(state.selected)renderChat(false);
@@ -91,29 +100,20 @@
 
   async function selectThread(id){
     if(!id)return;state.selected=id;renderList();
-    try{
-      var r=await db.from('manager_support_messages').select('id,thread_id,sender_role,message,created_at,read_at').eq('thread_id',id).order('created_at',{ascending:true});
-      if(r.error)throw r.error;state.messages=r.data||[];
-      var m=await db.from('manager_support_messages').update({read_at:new Date().toISOString()}).eq('thread_id',id).eq('sender_role','manager').is('read_at',null);
-      if(m.error)throw m.error;
-      await unread();renderChat(true);
-    }catch(e){renderError(e);}
+    try{var r=await db.from('manager_support_messages').select('id,thread_id,sender_role,message,created_at,read_at').eq('thread_id',id).order('created_at',{ascending:true});if(r.error)throw r.error;state.messages=r.data||[];var m=await db.from('manager_support_messages').update({read_at:new Date().toISOString()}).eq('thread_id',id).eq('sender_role','manager').is('read_at',null);if(m.error)throw m.error;await unread();renderChat(true);}
+    catch(e){renderError(e);}
   }
 
   function renderList(){
     var box=state.panel&&state.panel.querySelector('[data-admin-support-list]');if(!box)return;
     var q=String(state.panel.querySelector('[data-admin-support-search]')&&state.panel.querySelector('[data-admin-support-search]').value||'').trim().toLowerCase();
     var rows=state.threads.filter(function(t){var n=(t.manager.display_name||t.manager.email||'Управляющий')+' '+(t.subject||'');return !q||n.toLowerCase().indexOf(q)!==-1;});
-    box.innerHTML=rows.length?rows.map(function(t){
-      var n=t.manager.display_name||t.manager.email||'Управляющий',u=Number(state.unreadByThread[t.id]||0);
-      return '<button class="qr-admin-support-item '+(state.selected===t.id?'active':'')+'" data-thread="'+esc(t.id)+'"><div class="name"><span class="name-text">'+esc(n)+'</span>'+(u?' <span class="qr-admin-support-unread">'+u+'</span>':'')+'</div><div class="meta">'+esc(t.status==='in_progress'?'В работе':'Открыто')+' · '+esc(fmt(t.last_message_at))+'</div><div class="preview">'+esc(t.subject||'Поддержка')+'</div></button>';
-    }).join(''):'<div class="qr-admin-support-empty">'+(q?'Ничего не найдено.':'Обращений пока нет.')+'</div>';
+    box.innerHTML=rows.length?rows.map(function(t){var n=t.manager.display_name||t.manager.email||'Управляющий',u=Number(state.unreadByThread[t.id]||0);return '<button class="qr-admin-support-item '+(state.selected===t.id?'active':'')+'" data-thread="'+esc(t.id)+'"><div class="name"><span class="name-text">'+esc(n)+'</span>'+(u?' <span class="qr-admin-support-unread">'+u+'</span>':'')+'</div><div class="meta">'+esc(t.status==='in_progress'?'В работе':'Открыто')+' · '+esc(fmt(t.last_message_at))+'</div><div class="preview">'+esc(t.subject||'Поддержка')+'</div></button>';}).join(''):'<div class="qr-admin-support-empty">'+(q?'Ничего не найдено.':'Обращений пока нет.')+'</div>';
     Array.prototype.forEach.call(box.querySelectorAll('[data-thread]'),function(b){b.onclick=function(){selectThread(b.getAttribute('data-thread'));};});
   }
 
   function renderChat(scroll){
-    var t=state.threads.find(function(x){return x.id===state.selected;}),h=state.panel&&state.panel.querySelector('[data-admin-support-head]'),box=state.panel&&state.panel.querySelector('[data-admin-support-messages]');
-    if(!h||!box)return;
+    var t=state.threads.find(function(x){return x.id===state.selected;}),h=state.panel&&state.panel.querySelector('[data-admin-support-head]'),box=state.panel&&state.panel.querySelector('[data-admin-support-messages]');if(!h||!box)return;
     if(!t){h.innerHTML='<div><div class="title">Поддержка</div><div class="sub">Выберите обращение управляющего слева</div></div><button type="button" class="qr-admin-support-close" data-admin-support-close>✕ Закрыть</button>';box.innerHTML='<div class="qr-admin-support-empty">Выберите вопрос управляющего.</div>';bindClose();return;}
     var n=t.manager.display_name||t.manager.email||'Управляющий';
     h.innerHTML='<div><div class="title">'+esc(n)+'</div><div class="sub">'+esc(t.manager.email||'')+' · '+esc(t.subject||'Поддержка')+'</div><div class="status"><span class="dot"></span>'+esc(t.status==='in_progress'?'В работе':'Открыто')+'</div></div><button type="button" class="qr-admin-support-close" data-admin-support-close>✕ Закрыть</button>';
@@ -125,22 +125,52 @@
   function renderError(e){var box=state.panel&&state.panel.querySelector('[data-admin-support-messages]');if(box)box.innerHTML='<div class="qr-admin-support-empty qr-admin-support-error">Ошибка загрузки поддержки.<br><small>'+esc(e.message||e)+'</small></div>';}
 
   async function send(){
-    var ta=state.panel&&state.panel.querySelector('textarea'),btn=state.panel&&state.panel.querySelector('[data-admin-support-send]'),text=String(ta&&ta.value||'').trim();
+    var ta=state.panel&&state.panel.querySelector('[data-admin-support-compose-text]'),btn=state.panel&&state.panel.querySelector('[data-admin-support-send]'),text=String(ta&&ta.value||'').trim();
     if(!text||!state.selected)return;ta.disabled=true;btn.disabled=true;
     try{var r=await db.rpc('manager_support_send',{p_thread_id:state.selected,p_message:text});if(r.error)throw r.error;ta.value='';await loadThreads();await selectThread(state.selected);}
     catch(e){alert('Не удалось отправить ответ: '+(e.message||e));}
     finally{ta.disabled=false;btn.disabled=false;ta.focus();}
   }
 
+  function closeBroadcast(){var m=state.panel&&state.panel.querySelector('[data-admin-support-broadcast-modal]');if(m)m.remove();}
+
+  function openBroadcast(){
+    if(!state.panel)return;
+    closeBroadcast();
+    var m=document.createElement('div');m.className='qr-admin-support-modal';m.setAttribute('data-admin-support-broadcast-modal','1');
+    m.innerHTML='<div class="qr-admin-support-modal-card"><div class="qr-admin-support-modal-head"><div class="qr-admin-support-modal-title">📢 Новая рассылка</div><button type="button" class="qr-admin-support-modal-close" data-broadcast-close>×</button></div><div style="color:#94a3b8;font-size:12px;line-height:1.5">Сообщение будет отправлено всем управляющим в их чат с поддержкой. Новое обращение создавать не нужно.</div><label class="qr-admin-support-modal-label">Тема</label><input class="qr-admin-support-modal-input" data-broadcast-subject maxlength="180" value="Объявление платформы"><label class="qr-admin-support-modal-label">Сообщение</label><textarea class="qr-admin-support-modal-textarea" data-broadcast-message maxlength="8000" placeholder="Например: Сегодня с 02:00 до 03:00 будут проводиться плановые технические работы..."></textarea><div class="qr-admin-support-modal-foot"><span class="qr-admin-support-modal-note">Получатели: все активные профили с ролью «менеджер»</span><button type="button" class="qr-admin-support-modal-send" data-broadcast-send>Отправить всем</button></div></div>';
+    state.panel.appendChild(m);
+    m.querySelector('[data-broadcast-close]').onclick=closeBroadcast;
+    m.addEventListener('click',function(e){if(e.target===m)closeBroadcast();});
+    m.querySelector('[data-broadcast-message]').focus();
+    m.querySelector('[data-broadcast-message]').onkeydown=function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();broadcast();}};
+    m.querySelector('[data-broadcast-send]').onclick=broadcast;
+  }
+
+  async function broadcast(){
+    var m=state.panel&&state.panel.querySelector('[data-admin-support-broadcast-modal]');if(!m)return;
+    var subject=String(m.querySelector('[data-broadcast-subject]').value||'').trim()||'Объявление платформы',message=String(m.querySelector('[data-broadcast-message]').value||'').trim(),btn=m.querySelector('[data-broadcast-send]');
+    if(!message){alert('Введите текст рассылки.');return;}
+    if(!confirm('Отправить это сообщение всем менеджерам?'))return;
+    btn.disabled=true;btn.textContent='Отправляем…';
+    try{
+      var r=await db.rpc('manager_support_broadcast',{p_subject:subject,p_message:message});if(r.error)throw r.error;
+      var count=Number(r.data)||0;closeBroadcast();await loadThreads();alert('Рассылка отправлена. Получателей: '+count+'.');
+    }catch(e){alert('Не удалось выполнить рассылку: '+(e.message||e));}
+    finally{if(m.isConnected){btn.disabled=false;btn.textContent='Отправить всем';}}
+  }
+
   function makePanel(){
     if(state.panel&&document.body.contains(state.panel))return state.panel;
     var p=document.createElement('section');p.className='qr-admin-support-panel';
-    p.innerHTML='<aside class="qr-admin-support-sidebar"><div class="qr-admin-support-sidebar-head"><div class="qr-admin-support-sidebar-title"><span>Поддержка</span><span class="qr-admin-support-unread" data-admin-support-total style="display:none">0</span></div><div class="qr-admin-support-sidebar-sub">Чат с управляющими</div><input class="qr-admin-support-search" data-admin-support-search type="search" placeholder="Поиск управляющего..."></div><div class="qr-admin-support-list" data-admin-support-list></div></aside><main class="qr-admin-support-chat"><div class="qr-admin-support-head" data-admin-support-head></div><div class="qr-admin-support-messages" data-admin-support-messages></div><div class="qr-admin-support-compose"><textarea maxlength="8000" placeholder="Напишите ответ управляющему..."></textarea><button class="btn btn-primary" type="button" data-admin-support-send>Ответить</button></div></main>';
+    p.innerHTML='<aside class="qr-admin-support-sidebar"><div class="qr-admin-support-sidebar-head"><div class="qr-admin-support-sidebar-title"><span>Поддержка</span><span class="qr-admin-support-unread" data-admin-support-total style="display:none">0</span></div><div class="qr-admin-support-sidebar-sub">Мессенджер с управляющими</div><div class="qr-admin-support-actions"><button type="button" data-admin-support-broadcast>📢 Рассылка</button><button type="button" data-admin-support-refresh>↻ Обновить</button></div><input class="qr-admin-support-search" data-admin-support-search type="search" placeholder="Поиск управляющего..."></div><div class="qr-admin-support-list" data-admin-support-list></div></aside><main class="qr-admin-support-chat"><div class="qr-admin-support-head" data-admin-support-head></div><div class="qr-admin-support-messages" data-admin-support-messages></div><div class="qr-admin-support-compose"><textarea data-admin-support-compose-text maxlength="8000" placeholder="Напишите ответ управляющему..."></textarea><button class="btn btn-primary" type="button" data-admin-support-send>Ответить</button></div></main>';
     document.body.appendChild(p);state.panel=p;
     p.querySelector('[data-admin-support-send]').onclick=send;
-    p.querySelector('textarea').onkeydown=function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}};
+    p.querySelector('[data-admin-support-compose-text]').onkeydown=function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}};
     p.querySelector('[data-admin-support-search]').oninput=renderList;
     p.querySelector('[data-admin-support-total]').onclick=function(){var i=p.querySelector('[data-admin-support-search]');if(i){i.value='';i.focus();renderList();}};
+    p.querySelector('[data-admin-support-broadcast]').onclick=openBroadcast;
+    p.querySelector('[data-admin-support-refresh]').onclick=function(){loadThreads();};
     return p;
   }
 
@@ -151,13 +181,9 @@
     renderList();renderChat(false);
   }
 
-  function closeSupport(){
-    state.open=false;if(state.panel)state.panel.style.display='none';if(state.timer){clearInterval(state.timer);state.timer=null;}
-  }
+  function closeSupport(){state.open=false;closeBroadcast();if(state.panel)state.panel.style.display='none';if(state.timer){clearInterval(state.timer);state.timer=null;}}
 
-  function sync(){
-    var p=vm();if(!p)return;nav();if(p.tab==='support')openSupport();else closeSupport();
-  }
+  function sync(){var p=vm();if(!p)return;nav();if(p.tab==='support')openSupport();else closeSupport();}
 
   function boot(){
     styles();var tries=0,t=setInterval(function(){nav();sync();if(++tries>240)clearInterval(t);},250);
