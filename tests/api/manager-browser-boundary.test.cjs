@@ -42,6 +42,14 @@ test('hall view helper is presentation-only and never wraps Vue or db.rpc',()=>{
   assert.equal(source.includes('canCreateVenue'),false);
 });
 
+test('personnel analytics module never installs a competing Vue compatibility bridge',()=>{
+  const source=readAsset('manager-staff-statistics.js');
+  assert.ok(source.includes("manager_staff_performance"));
+  assert.equal(source.includes('installManagerPlanLimits'),false);
+  assert.equal(source.includes('window.Vue.createApp ='),false);
+  assert.equal(source.includes('options.computed.canCreateVenue'),false);
+});
+
 test('canonical hall compatibility bridge owns the venue RPC and subscription helpers',()=>{
   const source=readAsset('manager-hall-ai.js');
   assert.ok(source.includes('window.db.rpc=function(fn,args,options)'));
