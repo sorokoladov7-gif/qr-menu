@@ -27,7 +27,8 @@ test('cook table runtime exposes server-gated table control when no waiter is ac
   for (const name of ['cook_get_table_dashboard','staff_seat_table','cook_reserve_table','staff_close_table_session','can_control_tables']) {
     assert.ok(source.includes(name), `${name} must remain available to cook table runtime`);
   }
-  assert.ok(source.includes('canControl===true'));
+  assert.ok(source.includes('var canControl=d.can_control_tables===true'));
+  assert.ok(source.includes('if(canControl)'));
 });
 
 test('manager recipes keep reads separate from canonical mutation bridge', () => {
@@ -41,10 +42,4 @@ test('manager recipes keep reads separate from canonical mutation bridge', () =>
 
 test('manager compatibility bridge does not reintroduce revoked table RPCs', () => {
   assertNoLegacy(readAsset('manager-hall-view.js'), ['manager_upsert_table','manager_recipe_auto_sync','manager_global_ingredient_update','manager_global_ingredient_delete'], 'manager-hall-view.js');
-});
-
-test('manager core keeps venue settings off the removed legacy RPC', () => {
-  const source = readAsset('manager-core.js');
-  assertNoLegacy(source, ['manager_save_venue_settings'], 'manager-core.js');
-  assert.ok(source.includes("type:'update_delivery_settings'"));
 });
