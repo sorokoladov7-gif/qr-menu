@@ -16,11 +16,18 @@
   }
   async function refreshUnread(){
     try{
-      var r=await db.from('manager_support_threads').select('id').limit(1);
-      if(r.error)throw r.error;
-      var ids=(r.data||[]).map(function(x){return x.id;});
-      if(!ids.length){setUnreadBadge(0);return;}
-      var m=await db.from('manager_support_messages').select('id').in('thread_id',ids).eq('sender_role','admin').is('read_at',null);
+      var id=state.threadId;
+      if(!id){
+        var r=await db.rpc('manager_support_get_or_create_thread');
+        if(r.error)throw r.error;
+        id=r.data;
+        state.threadId=id;
+      }
+      var m=await db.from('manager_support_messages')
+        .select('id')
+        .eq('thread_id',id)
+        .eq('sender_role','admin')
+        .is('read_at',null);
       if(m.error)throw m.error;
       setUnreadBadge((m.data||[]).length);
     }catch(e){console.warn('[QR Manager Support] unread',e);}
