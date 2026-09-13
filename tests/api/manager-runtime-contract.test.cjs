@@ -31,6 +31,16 @@ test('cook table runtime exposes server-gated table control when no waiter is ac
   assert.ok(source.includes('if(canControl)'));
 });
 
+test('cook runtime keeps live synchronization enabled without background writes', () => {
+  const source = readStaff('cook-table-unified.js');
+  assert.ok(source.includes('function refreshPanelSilently()'));
+  assert.ok(source.includes('setInterval(refreshPanelSilently,5000)'));
+  assert.ok(source.includes("if(document.hidden"));
+  assert.ok(source.includes("currentPanel==='reset'"));
+  assert.ok(source.includes("rpc('cook_get_table_dashboard'"));
+  assert.ok(source.includes("rpc('staff_orders_json'"));
+});
+
 test('manager recipes keep reads separate from canonical mutation bridge', () => {
   const source = readAsset('manager-recipes.js');
   for (const name of ['manager_ingredient_list', 'manager_recipe_list']) assert.ok(source.includes(`rpc('${name}'`), `${name} must remain a read contract`);
