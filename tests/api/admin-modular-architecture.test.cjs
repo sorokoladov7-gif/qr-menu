@@ -1,0 +1,21 @@
+'use strict';
+const test=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'../..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const exists=p=>fs.existsSync(path.join(root,p));
+test('admin cabinet is genuinely modular',()=>{
+  const modules=['settings','templates','stats','subscriptions','analytics','analytics-expanded','activity','venues','menu','managers','plans','modals'];
+  assert.equal(exists('src/pages/admin/admin.html'),true);
+  assert.equal(exists('src/pages/admin/admin-layout.html'),true);
+  assert.equal(exists('src/pages/admin/admin-module-manifest.json'),true);
+  for(const name of modules) assert.equal(exists(`src/pages/admin/modules/${name}.html`),true,`${name}.html missing`);
+  assert.equal(exists('src/pages/admin/admin-shell.html'),false,'admin-shell.html must not remain as a monolith');
+  const entry=read('src/pages/admin/admin.html');
+  assert.equal(entry.includes('admin-shell.html'),false);
+  assert.ok(entry.length<2500,'admin.html must remain a thin entrypoint');
+  const layout=read('src/pages/admin/admin-layout.html');
+  for(const name of modules) assert.ok(layout.includes(`ADMIN_MODULE:${name}`),`${name} placeholder missing`);
+});
