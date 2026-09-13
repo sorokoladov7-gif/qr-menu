@@ -4,6 +4,9 @@
   if(window.__QR_COOK_TABLE_UNIFIED__) return;
   window.__QR_COOK_TABLE_UNIFIED__ = true;
 
+  var currentPanel='new';
+  var syncTimer=null;
+
   function tok(){ return new URLSearchParams(location.search).get('token')||''; }
   function fmt(v){ return Number(v||0).toLocaleString('ru-RU'); }
   function esc(s){ var d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
@@ -56,33 +59,50 @@
       (canControl?'<div class="qr-cook-muted" style="margin-top:7px">👨‍🍳 Управление столами доступно: в заведении нет активного официанта.</div>':'')+actions+'</div>';
   }
 
+  async function panelHtml(k){
+    if(k==='tables'){
+      var d = await rpc('cook_get_table_dashboard',{p_token:tok()});
+      var rows = d.tables||[];
+      var canControl=d.can_control_tables===true;
+      return '<div class="qr-cook-card" style="margin-bottom:10px"><b>'+(canControl?'👨‍🍳 Повар управляет залом':'👤 Управление столами выполняет официант')+'</b><div class="qr-cook-muted" style="margin-top:6px">'+
+        (canControl?'В заведении нет активных официантов. Повар может посадить гостей, поставить резерв и освободить стол.':'При наличии активного официанта управление столами у повара отключено.')+
+        '</div></div><div class="qr-cook-grid">'+(rows.length?rows.map(function(t){return tableCard(t,canControl);}).join(''):'<div class="qr-cook-empty">Столы не настроены</div>')+'</div>';
+    }
+    if(k==='history'){
+      var hs = await rpc('staff_history_json',{p_token:tok()});
+      return '<div class="qr-cook-grid">'+(hs.length?hs.map(card).join(''):'<div class="qr-cook-empty">История заказов пуста</div>')+'</div>';
+    }
+    var os = await rpc('staff_orders_json',{p_token:tok()});
+    var rows = os.filter(function(o){return k==='new'?(o.status==='new'||o.status==='changed'):k==='cooking'?o.status==='cooking':o.status==='ready';});
+    return '<div class="qr-cook-grid">'+(rows.length?rows.map(card).join(''):'<div class="qr-cook-empty">Нет заказов</div>')+'</div>';
+  }
+
   async function openPanel(k){
+    currentPanel=k;
     var title = {new:'🆕 Новые заказы',cooking:'🔥 Готовятся',ready:'✅ Выдача',tables:'🪑 Столы',history:'📜 История заказов',reset:'🧹 Закрыть рабочий день'}[k];
     try {
       if(k==='reset'){
         return modal(title, Promise.resolve('<div class="qr-cook-card"><b>Закрыть рабочий день?</b><div class="qr-cook-muted" style="margin-top:8px">История не удаляется из базы. Она будет скрыта у персонала, а все текущие счётчики начнутся заново.</div><div class="qr-cook-actions"><button id="qr-reset-confirm" class="qr-cook-btn reset">Закрыть день и обнулить</button></div></div>'));
       }
-      if(k==='tables'){
-        var d = await rpc('cook_get_table_dashboard',{p_token:tok()});
-        var rows = d.tables||[];
-        var canControl=d.can_control_tables===true;
-        return modal(title, Promise.resolve(
-          '<div class="qr-cook-card" style="margin-bottom:10px"><b>'+(canControl?'👨‍🍳 Повар управляет залом':'👤 Управление столами выполняет официант')+'</b><div class="qr-cook-muted" style="margin-top:6px">'+
-          (canControl?'В заведении нет активных официантов. Повар может посадить гостей, поставить резерв и освободить стол.':'При наличии активного официанта управление столами у повара отключено.')+
-          '</div></div><div class="qr-cook-grid">'+(rows.length?rows.map(function(t){return tableCard(t,canControl);}).join(''):'<div class="qr-cook-empty">Столы не настроены</div>')+'</div>'
-        ));
-      }
-      if(k==='history'){
-        var hs = await rpc('staff_history_json',{p_token:tok()});
-        return modal(title, Promise.resolve('<div class="qr-cook-grid">'+(hs.length?hs.map(card).join(''):'<div class="qr-cook-empty">История заказов пуста</div>')+'</div>'));
-      }
-      var os = await rpc('staff_orders_json',{p_token:tok()});
-      var rows = os.filter(function(o){return k==='new'?(o.status==='new'||o.status==='changed'):k==='cooking'?o.status==='cooking':o.status==='ready';});
-      return modal(title, Promise.resolve('<div class="qr-cook-grid">'+(rows.length?rows.map(card).join(''):'<div class="qr-cook-empty">Нет заказов</div>')+'</div>'));
+      return modal(title, panelHtml(k));
     } catch (e) {
       console.error('Ошибка при открытии вкладки повара:', e);
       return modal(title, Promise.resolve('<div class="qr-cook-empty">Ошибка загрузки данных: ' + esc(e.message || e) + '</div>'));
     }
+  }
+
+  async function refreshPanelSilently(){
+    if(document.hidden || !document.getElementById('qr-cook-modal') || currentPanel==='reset') return;
+    try{
+      var html=await panelHtml(currentPanel);
+      var c=document.getElementById('qr-cook-modal-content');
+      if(c && document.getElementById('qr-cook-modal')) c.innerHTML=html;
+    }catch(e){ console.warn('[QR Cook] live sync:',e); }
+  }
+
+  function startLiveSync(){
+    if(syncTimer) clearInterval(syncTimer);
+    syncTimer=setInterval(refreshPanelSilently,5000);
   }
 
   window.openCookPanel = openPanel;
@@ -137,6 +157,7 @@
       return '<button class="qr-cook-tab" data-k="'+k+'" onclick="openCookPanel(\''+k+'\')">'+{new:'🆕 Новые',cooking:'🔥 Готовятся',ready:'✅ Выдача',tables:'🪑 Столы',history:'📜 История',reset:'🧹 Сброс'}[k]+'</button>';
     }).join('');
     openPanel('new');
+    startLiveSync();
 
     document.addEventListener('click', function(e){
       if(e.target && e.target.id === 'qr-reset-confirm'){
