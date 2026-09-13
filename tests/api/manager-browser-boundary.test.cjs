@@ -6,12 +6,19 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'../..');
 const readAsset=name=>fs.readFileSync(path.join(root,'src','assets','js','manager',name),'utf8');
 
-test('manager orders loading uses scoped RPC and status mutations use canonical action API',()=>{
+test('manager orders loading uses scoped RPC and status mutations use canonical scoped order RPC',()=>{
   const source=readAsset('manager-orders.js');
   assert.ok(source.includes("db.rpc('manager_get_orders'"));
   assert.ok(source.includes("runner({type:'update_order'"));
   assert.ok(source.includes('venue_id:venueId'));
   assert.equal(source.includes("db.from('orders').update(u)"),false);
+});
+
+test('manager order action backend uses manager_update_order RPC instead of direct REST PATCH',()=>{
+  const source=fs.readFileSync(path.join(root,'lib','ai','manager','mutations','orders.js'),'utf8');
+  assert.ok(source.includes("rpc('manager_update_order'"));
+  assert.equal(source.includes("api('orders?id="),false);
+  assert.ok(source.includes('p_venue_id:vid'));
 });
 
 test('manager staff deletion mutations use canonical action API and scoped delete RPC',()=>{
