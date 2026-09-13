@@ -130,11 +130,14 @@
         if (!staff || !staff.id || !venueId || (type !== 'cook' && type !== 'courier' && type !== 'waiter')) return;
         if (!confirm('Удалить ' + label + ' ' + staff.name + '?')) return;
         self.busy = true;
-        var table=type==='cook'?'cooks':(type==='courier'?'couriers':'waiters');
-        db.from(table).delete().eq('id',staff.id).eq('venue_id',venueId).select('id').maybeSingle()
-          .then(function(r){
-            if(r&&r.error)throw r.error;
-            if(!r||!r.data)throw new Error('Сотрудник не найден или нет доступа к заведению');
+        var runner=window.__QR_RUN_MANAGER_ACTION__;
+        if(typeof runner!=='function'){
+          self.busy=false;
+          self.showToast('Канонический API действий менеджера недоступен','error');
+          return;
+        }
+        runner({type:'delete_staff',payload:{venue_id:venueId,staff_id:staff.id,type:type}})
+          .then(function(){
             self.showToast('Удалено');
             if(type==='cook')return self.loadCooks();
             if(type==='courier')return self.loadCouriers();
