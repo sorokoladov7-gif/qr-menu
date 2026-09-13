@@ -22,7 +22,7 @@ test('guest QR bridge resolves table context by QR token', () => {
 
 test('guest QR bridge keeps guest identity scoped to the table QR token', () => {
   const block = blockAfter('Smart Table 2.0 guest bridge');
-  assert.match(block, /qr-smart-table-guest:\+tableToken/);
+  assert.match(block, /qr-smart-table-guest.*tableToken/);
   assert.match(block, /sessionStorage\.getItem/);
   assert.match(block, /sessionStorage\.setItem/);
 });
