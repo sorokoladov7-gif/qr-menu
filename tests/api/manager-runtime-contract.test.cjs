@@ -8,6 +8,7 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '../..');
 const readAsset = name => fs.readFileSync(path.join(root, 'src', 'assets', 'js', 'manager', name), 'utf8');
 const readLib = name => fs.readFileSync(path.join(root, 'lib', 'ai', 'manager', 'mutations', name), 'utf8');
+const readStaff = name => fs.readFileSync(path.join(root, 'src', 'assets', 'js', 'staff', name), 'utf8');
 
 function assertNoLegacy(source, markers, file) {
   for (const marker of markers) assert.equal(source.includes(marker), false, `${file} must not reference revoked/legacy mutation contract: ${marker}`);
@@ -19,6 +20,14 @@ test('manager hall browser runtime stays on the canonical table RPC family', () 
     assert.ok(source.includes(name) || readLib('hall.js').includes(name), `${name} must remain available to hall runtime`);
   }
   assertNoLegacy(source, ['manager_upsert_table'], 'manager-hall.js');
+});
+
+test('cook table runtime exposes server-gated table control when no waiter is active', () => {
+  const source = readStaff('cook-table-unified.js');
+  for (const name of ['cook_get_table_dashboard','staff_seat_table','cook_reserve_table','staff_close_table_session','can_control_tables']) {
+    assert.ok(source.includes(name), `${name} must remain available to cook table runtime`);
+  }
+  assert.ok(source.includes('canControl===true'));
 });
 
 test('manager recipes keep reads separate from canonical mutation bridge', () => {
