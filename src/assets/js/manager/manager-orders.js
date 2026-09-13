@@ -13,11 +13,17 @@
     methods: {
       loadOrders: function() {
         var self=this;
+        if(!this.venue||!this.venue.id) return Promise.resolve([]);
         return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
           .eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50)
           .then(function(r){
-            if(r&&r.data) self.orders=r.data;
-            else if(!self.orders.length) self.orders=[];
+            if(r&&r.error){
+              console.error('[Manager] orders:',r.error);
+              self.showToast&&self.showToast('Не удалось загрузить заказы: '+(r.error.message||'ошибка'),'error');
+              return [];
+            }
+            self.orders=(r&&r.data)||[];
+            return self.orders;
           });
       },
       setStatus: function(id,status) {
@@ -57,4 +63,21 @@
     }
   };
   window.__QR_MANAGER_ORDERS_MIXIN__=ordersMixin;
+
+  /* The orders tab used to have no lifecycle hook after the manager refactor.
+     Load the selected venue's orders exactly when the tab becomes visible. */
+  (function installOrdersTabLoader(){
+    var lastKey='';
+    var timer=setInterval(function(){
+      var vm=window.__managerVue;
+      if(!vm)return;
+      if(vm.tab!=='orders'){lastKey='';return;}
+      if(!vm.venue||!vm.venue.id)return;
+      var key=String(vm.venue.id);
+      if(key===lastKey)return;
+      lastKey=key;
+      vm.loadOrders().catch(function(e){console.error('[Manager] orders tab loader:',e);});
+    },250);
+    window.addEventListener('beforeunload',function(){clearInterval(timer);},{once:true});
+  })();
 })();
