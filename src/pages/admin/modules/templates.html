@@ -1,0 +1,157 @@
+<div v-if="tab==='templates'" style="animation:cardFadeUp .4s ease-out">
+  <div class="spread" style="margin-bottom:14px">
+    <div>
+      <h3 style="margin:0">🍽️ Шаблоны заведений</h3>
+      <div class="muted" style="margin-top:4px;font-size:13px">
+        Управление шаблонами меню для новых заведений
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" @click="newTemplate">+ Создать шаблон</button>
+      <button class="btn btn-sm" @click="duplicateTemplate" v-if="selectedTemplate">⧉ Дублировать шаблон</button>
+      <button class="btn btn-sm" @click="previewTemplate" v-if="selectedTemplate">👁 Предпросмотр</button>
+    </div>
+  </div>
+  <div class="glass card template-grid">
+    <div class="template-list">
+      <input class="search" style="width:100%;box-sizing:border-box;margin-bottom:12px;background:#0e1219;color:#fff;border:1px solid #303746;border-radius:10px;padding:10px"
+             v-model.trim="searchQuery" placeholder="Поиск шаблона...">
+      <div v-for="t in filteredTemplates" :key="t.id"
+           class="template-item" :class="{active: selectedTemplate && selectedTemplate.id === t.id}"
+           @click="selectTemplate(t)">
+        <div class="name">{{ t.emoji || '🍽️' }} {{ t.name }}</div>
+        <div class="meta">{{ t.scale_code || 'M' }} · {{ t.niche || 'other' }} · {{ (t.products || []).length }} позиций</div>
+        <div class="meta" style="font-size:11px;color:#6b7a8f;">{{ t.is_active ? 'Опубликован' : 'Скрыт' }}</div>
+      </div>
+      <div v-if="!filteredTemplates.length" class="muted" style="padding:16px;text-align:center;">Нет шаблонов</div>
+    </div>
+    <div class="template-editor" v-if="selectedTemplate">
+      <div class="spread" style="margin-bottom:12px">
+        <div>
+          <h4 style="margin:0">{{ templateForm.emoji || '🍽️' }} {{ templateForm.name }}</h4>
+          <div class="muted" style="font-size:13px;">{{ (templateForm.products || []).length }} позиций</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" @click="saveTemplate" :disabled="templateBusy">
+            {{ templateBusy ? 'Сохранение…' : '💾 Сохранить' }}
+          </button>
+          <button class="btn btn-danger btn-sm" @click="deleteTemplate">🗑 Удалить</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <div class="field full">
+          <label>Название <span class="muted" style="font-size:11px;color:#f87171;">*</span></label>
+          <input v-model.trim="templateForm.name" placeholder="Введите название">
+        </div>
+        <div class="field full">
+          <label>Slug (уникальный код) <span class="muted" style="font-size:11px;color:#f87171;">*</span></label>
+          <input v-model.trim="templateForm.slug" placeholder="автоматически из названия">
+        </div>
+        <div class="field">
+          <label>Эмодзи</label>
+          <input v-model.trim="templateForm.emoji" placeholder="🍽️">
+        </div>
+        <div class="field">
+          <label>Ниша</label>
+          <select v-model="templateForm.niche">
+            <option value="fastfood">Fast food</option>
+            <option value="bakery">Пекарня</option>
+            <option value="coffee">Кофейня</option>
+            <option value="confectionery">Кондитерская</option>
+            <option value="cafe">Кафе</option>
+            <option value="shawarma_canteen">Шаурма-столовая</option>
+            <option value="cafe_bar">Кафе-бар</option>
+            <option value="sushi">Суши-бар</option>
+            <option value="pizzeria">Пиццерия</option>
+            <option value="restaurant">Ресторан</option>
+            <option value="other">Другое</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Масштаб</label>
+          <select v-model="templateForm.scale_code">
+            <option>S</option><option>M</option><option>L</option><option>XL</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Целевое число позиций</label>
+          <input v-model.number="templateForm.target_product_count" type="number" min="1">
+        </div>
+        <div class="field">
+          <label>Порядок сортировки</label>
+          <input v-model.number="templateForm.sort_order" type="number">
+        </div>
+        <div class="field full">
+          <label>Описание</label>
+          <input v-model.trim="templateForm.description" placeholder="Краткое описание шаблона">
+        </div>
+        <div class="field full" style="display:flex;align-items:center;gap:12px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:14px;">
+            <input type="checkbox" v-model="templateForm.is_active"> Опубликован
+          </label>
+        </div>
+      </div>
+      <hr style="border-color:#29303d;margin:16px 0;">
+      <div class="spread" style="margin-bottom:10px">
+        <h4 style="margin:0">Позиции меню <span class="count">({{ (templateForm.products || []).length }})</span></h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-sm" @click="addProduct">+ Добавить</button>
+          <button class="btn btn-sm" @click="sortProducts">Сортировать</button>
+          <button class="btn btn-sm" @click="fillTarget" v-if="templateForm.target_product_count > (templateForm.products || []).length">
+            Дополнить до {{ templateForm.target_product_count }}
+          </button>
+        </div>
+      </div>
+      <div v-for="(p, idx) in templateForm.products" :key="idx" class="product-row">
+        <div style="position:relative; width:44px; height:44px; flex-shrink:0;">
+          <img class="thumb" :src="p.image_url || placeholder" @error="p.image_url = placeholder">
+          <label class="btn btn-ghost btn-sm" style="position:absolute;top:-8px;right:-8px;padding:0;width:20px;height:20px;font-size:14px;border-radius:50%;background:#0e1219;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Загрузить фото">
+            📷
+            <input type="file" accept="image/*" @change="uploadTemplatePhoto($event, p)" style="display:none">
+          </label>
+        </div>
+        <input v-model.trim="p.name" placeholder="Название *" style="min-width:80px;">
+        <input v-model.number="p.price" type="number" min="0" step="0.5" placeholder="Цена" style="width:100px;">
+        <select v-model="p.category" style="width:130px;">
+          <option value="main">🍽 Блюдо</option>
+          <option value="drink">🥤 Напиток</option>
+          <option value="addon">🧂 Доп</option>
+          <option value="breakfast">🍳 Завтрак</option>
+          <option value="salad">🥗 Салат</option>
+          <option value="soup">🍲 Суп</option>
+          <option value="dessert">🍰 Десерт</option>
+          <option value="sauce">🌶 Соус</option>
+          <option value="snack">🥨 Закуска</option>
+          <option value="hot">🔥 Горячее</option>
+          <option value="bbq">🥩 Гриль</option>
+        </select>
+        <select v-model="p.applies_to" style="width:130px;" v-if="p.category === 'addon'">
+          <option value="all">Все блюда</option>
+          <option value="main">Блюда</option>
+          <option value="drink">Напитки</option>
+          <option value="breakfast">Завтраки</option>
+          <option value="salad">Салаты</option>
+          <option value="soup">Супы</option>
+          <option value="dessert">Десерты</option>
+          <option value="sauce">Соусы</option>
+          <option value="snack">Закуски</option>
+          <option value="hot">Горячее</option>
+          <option value="bbq">Гриль</option>
+        </select>
+        <span v-else style="font-size:12px;color:#64748b;width:130px;">—</span>
+        <input v-model.trim="p.description" placeholder="Описание" style="min-width:120px;">
+        <label style="display:flex;align-items:center;gap:4px;font-size:12px;white-space:nowrap;cursor:pointer;">
+          <input type="checkbox" v-model="p.is_available"> {{ p.is_available ? 'Вкл' : 'Выкл' }}
+        </label>
+        <button class="btn btn-ghost btn-sm" @click="duplicateProduct(idx)" title="Дублировать">⧉</button>
+        <button class="btn btn-danger btn-sm" @click="removeProduct(idx)" title="Удалить">✕</button>
+      </div>
+      <div v-if="!templateForm.products || !templateForm.products.length" class="muted" style="padding:12px;text-align:center;">
+        Меню пустое. Добавьте позиции.
+      </div>
+    </div>
+    <div v-else class="template-editor" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;min-height:200px;">
+      Выберите шаблон из списка или создайте новый
+    </div>
+  </div>
+</div>

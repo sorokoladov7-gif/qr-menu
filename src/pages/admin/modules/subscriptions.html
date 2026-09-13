@@ -1,0 +1,25 @@
+<div v-if="tab==='subs'" style="animation:cardFadeUp .4s ease-out">
+<h3 style="margin:0 0 14px">📈 Аналитика по подпискам</h3>
+<div class="analytics-grid">
+<div class="glass stat"><div class="num">{{ subStats.total }}</div><div class="lbl">Всего подписок</div></div>
+<div class="glass stat" style="border-color:#34d399"><div class="num">{{ subStats.active }}</div><div class="lbl">Активных</div></div>
+<div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ subStats.trial }}</div><div class="lbl">На триале</div></div>
+<div class="glass stat" style="border-color:#f87171"><div class="num">{{ subStats.expired }}</div><div class="lbl">Истекло</div></div>
+<div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ fmt(mrr) }} ₽</div><div class="lbl">MRR / мес</div></div>
+</div>
+<div class="glass card tblwrap" style="margin-bottom:14px"><h4 style="margin:0 0 14px">💳 Распределение по тарифам</h4>
+<table class="tbl"><tr><th>Тариф</th><th>Цена</th><th>Заведений</th><th>Активных</th><th>MRR</th></tr>
+<tr v-for="p in planStats" v-bind:key="p.id"><td><b>{{ p.name }}</b></td>
+<td>{{ fmt(p.price) }} ₽</td><td>{{ p.count }}</td><td>{{ p.active }}</td>
+<td style="color:#34d399"><b>{{ fmt(p.mrr) }} ₽</b></td></tr>
+<tr v-if="!planStats.length"><td colspan="5" class="muted" style="text-align:center;padding:20px">Нет тарифов</td></tr></table></div>
+<div class="glass card tblwrap"><h4 style="margin:0 0 14px">🏢 Подписки по заведениям</h4>
+<div v-if="ordersLoading" class="loading-orders"><div class="spinner"></div> Загрузка данных заказов…</div>
+<table v-else class="tbl"><tr><th>Заведение</th><th>Тариф</th><th>Статус</th><th>Действует до</th><th>Заказов всего</th><th>Выручка всего</th></tr>
+<tr v-for="s in venueSubs" v-bind:key="s.id"><td><b>{{ s.name }}</b><div class="muted" style="font-size:12px">/{{ s.slug }}</div></td>
+<td>{{ s.planName }}</td>
+<td><span class="badge" v-bind:class="subClass(s)">{{ subLabel(s) }}</span></td>
+<td>{{ fmtDate(s.subscription_end) }}</td>
+<td>{{ s.totalOrders }}</td><td style="color:#34d399">{{ fmt(s.totalRevenue) }} ₽</td></tr>
+<tr v-if="!venueSubs.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет заведений</td></tr></table></div>
+</div>

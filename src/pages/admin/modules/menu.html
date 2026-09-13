@@ -1,0 +1,35 @@
+<div v-if="tab==='menu'" style="animation:cardFadeUp .4s ease-out">
+  <div class="spread" style="margin-bottom:14px">
+    <h3 style="margin:0">🍔 Меню заведения</h3>
+    <div class="field" style="margin-bottom:12px;">
+  <label>Описание блюда</label>
+  <textarea
+    v-if="prodModal.list.length"
+    v-model="prodModal.list[0].description"
+    rows="4"
+    placeholder="Введите описание блюда..."
+    style="width:100%;box-sizing:border-box;resize:vertical;"
+  ></textarea>
+</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <select v-model="menuVenueId" v-on:change="loadMenuVenue" style="flex:1;min-width:180px;padding:8px;border-radius:8px;background:#0e1219;color:#fff;border:1px solid #303746;">
+        <option value="">— Выберите заведение —</option>
+        <option v-for="v in venues" v-bind:key="v.id" v-bind:value="v.id">{{ v.name }}</option>
+      </select>
+      <button class="btn btn-primary btn-sm" v-on:click="openVenueMenuById(menuVenueId)" v-bind:disabled="!menuVenueId">✏️ Редактировать</button>
+      <button class="btn btn-ghost btn-sm" v-on:click="loadMenuVenue" v-bind:disabled="!menuVenueId">🔄 Обновить</button>
+    </div>
+  </div>
+  <div v-if="menuVenueProducts.length === 0 && menuVenueId" class="muted" style="padding:20px;text-align:center;">Меню пустое</div>
+  <div v-if="!menuVenueId" class="muted" style="padding:20px;text-align:center;">Выберите заведение</div>
+  <div class="menu-grid">
+    <div v-for="p in menuVenueProducts" v-bind:key="p.id" class="glass card">
+      <img v-bind:src="p.image_url||DEFAULT_IMG" alt="">
+      <div class="name">{{ p.name }}</div>
+      <div class="desc">{{ p.description || 'Без описания' }}</div>
+      <div class="price">{{ fmt(p.price) }} ₽</div>
+      <div class="status">{{ p.is_available ? '✅ В наличии' : '❌ Скрыто' }}</div>
+      <div class="category">{{ categoryLabel(p.category) }}</div>
+    </div>
+  </div>
+</div>

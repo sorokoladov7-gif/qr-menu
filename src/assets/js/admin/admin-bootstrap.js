@@ -1,44 +1,8 @@
-const SHELL_URL='/src/pages/admin/admin-shell.html';
-const MANIFEST_URL='/src/assets/js/admin/admin-module-manifest.js';
-
-function loadScript(src){
-  return new Promise((resolve,reject)=>{
-    const script=document.createElement('script');
-    script.src=src;
-    script.async=false;
-    script.onload=resolve;
-    script.onerror=()=>reject(new Error(`Admin module load failed: ${src}`));
-    document.head.appendChild(script);
-  });
-}
-
-async function loadManifest(){
-  await loadScript(MANIFEST_URL);
-  const modules=window.QR_ADMIN_MODULES;
-  if(!Array.isArray(modules)||!modules.length) throw new Error('QR_ADMIN_MODULES is empty');
-  return modules;
-}
-
-async function boot(){
-  const [response,modules]=await Promise.all([
-    fetch(SHELL_URL,{cache:'no-store'}),
-    loadManifest()
-  ]);
-  if(!response.ok) throw new Error(`Admin shell load failed: ${response.status}`);
-
-  // Keep the existing shell/template byte-for-byte compatible, but move script ownership
-  // out of the HTML document. The manifest is now the single runtime dependency graph.
-  const html=await response.text();
-  const doc=new DOMParser().parseFromString(html,'text/html');
-  doc.querySelectorAll('script[src]').forEach(node=>node.remove());
-
-  document.documentElement.replaceWith(doc.documentElement);
-  document.querySelectorAll('script[src]').forEach(node=>node.remove());
-
-  for(const src of modules) await loadScript(src);
-}
-
-boot().catch(err=>{
-  console.error('[admin-bootstrap] fatal:',err);
-  document.body.innerHTML='<div style="min-height:100vh;display:grid;place-items:center;background:#0a0f1a;color:#f87171;font:600 14px system-ui,sans-serif;padding:24px;text-align:center">Не удалось загрузить админ-панель.<br>Откройте консоль для диагностики.</div>';
-});
+const SCRIPT_MANIFEST='/src/assets/js/admin/admin-module-manifest.js';
+const LAYOUT_URL='/src/pages/admin/admin-layout.html';
+const TEMPLATE_MANIFEST='/src/pages/admin/admin-module-manifest.json';
+function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.async=false;s.onload=resolve;s.onerror=()=>reject(new Error('Admin module load failed: '+src));document.head.appendChild(s);});}
+async function fetchText(url){const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw new Error('Admin asset load failed: '+r.status+' '+url);return r.text();}
+async function assemble(){const [layout,manifestText]=await Promise.all([fetchText(LAYOUT_URL),fetchText(TEMPLATE_MANIFEST)]);const modules=JSON.parse(manifestText);if(!Array.isArray(modules)||!modules.length)throw new Error('Admin template manifest is empty');const html=await Promise.all(modules.map(n=>fetchText('/src/pages/admin/modules/'+n+'.html')));const doc=new DOMParser().parseFromString(layout,'text/html');let assembled=doc.body.innerHTML;modules.forEach((name,i)=>{const token='<!-- ADMIN_MODULE:'+name+' -->';if(!assembled.includes(token))throw new Error('Missing admin placeholder: '+name);assembled=assembled.replace(token,html[i]);});document.body.innerHTML=assembled;}
+async function boot(){await assemble();await loadScript(SCRIPT_MANIFEST);const scripts=window.QR_ADMIN_MODULES;if(!Array.isArray(scripts)||!scripts.length)throw new Error('QR_ADMIN_MODULES is empty');for(const src of scripts)await loadScript(src);document.getElementById('admin-bootstrap-loader')?.remove();}
+boot().catch(err=>{console.error('[admin-bootstrap] fatal:',err);document.body.innerHTML='<div style="min-height:100vh;display:grid;place-items:center;background:#0a0f1a;color:#f87171;font:600 14px system-ui,sans-serif;padding:24px;text-align:center">Не удалось загрузить админ-панель.<br>Откройте консоль для диагностики.</div>';});

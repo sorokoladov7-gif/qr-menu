@@ -1,0 +1,71 @@
+<!-- LOADER -->
+<div class="app-loader" id="appLoader">
+  <div class="loader-inner">
+    <div class="loader-ring"></div>
+    <div class="loader-text">Загрузка админ-панели...</div>
+    <div class="loader-bar"></div>
+  </div>
+</div>
+
+<!-- BG ORBS -->
+<div class="bg-orbs"><div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div></div>
+
+<div class="glow" style="width:40vw;height:40vw;background:rgba(99,102,241,.12);top:-100px;left:-100px"></div>
+<div id="app" v-cloak>
+<div class="topbar">
+  <div class="brand" style="display:flex;align-items:center;gap:8px;">
+    <div class="logo">⚙️</div>
+    <span>Админ-панель</span>
+    <button v-if="profile && profile.role === 'admin'"
+            class="btn btn-ghost btn-sm"
+            style="padding:4px 8px; font-size:16px; opacity:0.5; transition:opacity 0.2s;"
+            @click="openDesignPanel"
+            title="Настройки дизайна (только для администраторов)">
+      ⚙️
+    </button>
+  </div>
+  <div class="row">
+    <span class="muted" style="font-size:13px">{{ profile?profile.email:'' }}</span>
+    <button class="btn btn-ghost btn-sm" v-on:click="logout">Выйти</button>
+  </div>
+</div>
+<div class="wrap">
+<div v-if="!ready" class="muted" style="text-align:center;padding:60px">
+  <div class="spinner" style="margin:0 auto 12px;width:32px;height:32px"></div>
+  Загрузка…
+</div>
+<template v-else>
+<div class="stats" style="margin-bottom:18px">
+<div class="glass stat"><div class="num">{{ venues.length }}</div><div class="lbl">Заведений</div></div>
+<div class="glass stat" style="border-color:#34d399"><div class="num">{{ fmt(mrr) }} ₽</div><div class="lbl">MRR / мес</div></div>
+<div class="glass stat" style="border-color:#fbbf24"><div class="num">{{ pendingPayments.length }}</div><div class="lbl">Ждут оплаты</div></div>
+<div class="glass stat" style="border-color:#60a5fa"><div class="num">{{ managers.length }}</div><div class="lbl">Управляющих</div></div>
+<div class="glass stat" style="border-color:#a78bfa"><div class="num">{{ cooksAll.length }}</div><div class="lbl">Поваров</div></div>
+<div class="glass stat" style="border-color:#c4b5fd"><div class="num">{{ couriersAll.length }}</div><div class="lbl">Курьеров</div></div>
+<div class="glass stat" style="border-color:#67e8f9"><div class="num">{{ waitersAll.length }}</div><div class="lbl">Официантов</div></div>
+</div>
+<div class="tabs" style="margin-bottom:18px">
+<button v-bind:class="{on:tab==='stats'}" v-on:click="switchTab('stats')">📊 Статистика</button>
+<button v-bind:class="{on:tab==='subs'}" v-on:click="switchTab('subs')">📈 Подписки</button>
+<button v-bind:class="{on:tab==='analytics'}" v-on:click="switchTab('analytics')">📈 Аналитика</button>
+<button v-bind:class="{on:tab==='venues'}" v-on:click="switchTab('venues')">🏢 Заведения</button>
+<button v-bind:class="{on:tab==='menu'}" v-on:click="switchTab('menu')">🍔 Меню</button>
+<button v-bind:class="{on:tab==='activity'}" v-on:click="switchTab('activity')">👥 Активность</button>
+<button v-bind:class="{on:tab==='managers'}" v-on:click="switchTab('managers')">👤 Управляющие</button>
+<button v-bind:class="{on:tab==='plans'}" v-on:click="switchTab('plans')">💳 Тарифы и оплаты</button>
+<button v-bind:class="{on:tab==='templates'}" v-on:click="switchTab('templates')">🍽️ Шаблоны заведений</button>
+<button v-bind:class="{on:tab==='settings'}" v-on:click="switchTab('settings')">⚙️ Настройки</button>
+</div>
+<!-- ADMIN_MODULE:settings -->
+<!-- ADMIN_MODULE:templates -->
+<!-- ADMIN_MODULE:stats -->
+<!-- ADMIN_MODULE:subscriptions -->
+<!-- ADMIN_MODULE:analytics -->
+<!-- ADMIN_MODULE:analytics-expanded -->
+<!-- ADMIN_MODULE:activity -->
+<!-- ADMIN_MODULE:venues -->
+<!-- ADMIN_MODULE:menu -->
+<!-- ADMIN_MODULE:managers -->
+<!-- ADMIN_MODULE:plans -->
+<!-- ADMIN_MODULE:modals -->
+</div>

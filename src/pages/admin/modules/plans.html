@@ -1,0 +1,47 @@
+<div v-if="tab==='plans'" style="animation:cardFadeUp .4s ease-out">
+<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">⚙️ Конструктор тарифов</h3>
+<button class="btn btn-primary btn-sm" v-on:click="createPlan">+ Создать тариф</button></div>
+<p class="muted" style="font-size:12px;margin-bottom:14px">Персональные тарифы назначаются в «🏢 Управляющие» → «Тариф».</p>
+<div class="plans-grid" style="margin-bottom:24px">
+<div v-for="p in plans" v-bind:key="p.id" class="glass card">
+<div class="spread" style="margin-bottom:8px"><b>{{ p.id }}</b>
+<button class="btn btn-danger btn-sm" v-on:click="delPlan(p)">🗑</button></div>
+<div class="field"><label>Название</label><input v-model="p.name"></div>
+<div class="field"><label>Цена ₽/мес</label><input v-model.number="p.price" type="number" min="0"></div>
+<div class="row" style="margin-bottom:10px">
+<div class="field" style="flex:1"><label>Заведений</label><input class="num-in" v-model.number="p.max_venues" type="number" min="1"></div>
+<div class="field" style="flex:1"><label>Поваров</label><input class="num-in" v-model.number="p.max_cooks" type="number" min="1"></div></div>
+<div class="row" style="margin-bottom:10px">
+<div class="field" style="flex:1"><label>Курьеров</label><input class="num-in" v-model.number="p.max_couriers" type="number" min="1"></div>
+<div class="field" style="flex:1"><label>Официантов</label><input class="num-in" v-model.number="p.max_waiters" type="number" min="1"></div></div>
+<div class="field"><label>Позиций меню</label><input class="num-in" v-model.number="p.max_products" type="number" min="1"></div>
+<div class="plan-visibility" style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:8px 0;padding:8px 10px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:rgba(255,255,255,.025)">
+  <span class="muted" style="font-size:11px">
+    {{ p.is_public === false ? 'Тариф скрыт от управляющих' : 'Тариф видим управляющим' }}
+  </span>
+  <button type="button" class="btn btn-ghost btn-sm" style="padding:5px 9px;font-size:11px" v-on:click="togglePlanVisibility(p)" v-bind:disabled="busy">
+    {{ p.is_public === false ? '🙈 Скрыт' : '👁 Видим' }}
+  </button>
+</div>
+<button class="btn btn-primary btn-sm" style="width:100%" v-on:click="savePlan(p)">💾 Сохранить тариф</button>
+</div></div>
+<div class="glass card" style="margin-bottom:24px;border-color:#34d399">
+💳 <b>Приём оплат по СБП:</b> номер <b style="color:#6ee7b7">8 905 320-43-50</b>. Когда управляющий нажимает «Я оплатил», заявка появляется ниже — подтвердите её вручную.</div>
+<h3 style="margin:0 0 14px">🕒 Заявки на оплату (СБП)</h3>
+<div class="glass card tblwrap"><table class="tbl">
+<tr><th>Дата</th><th>Заведение</th><th>Управляющий</th><th>Тариф</th><th>Сумма</th><th>Статус</th><th></th></tr>
+<tr v-for="pay in payments" v-bind:key="pay.id">
+<td class="muted">{{ fmtDate(pay.created_at) }}</td>
+<td><b>{{ pay.venues?pay.venues.name:'—' }}</b></td>
+<td>{{ pay.profiles?pay.profiles.display_name:'—' }}</td>
+<td>{{ pay.plan_id }}</td><td><b>{{ fmt(pay.amount) }} ₽</b></td>
+<td><span class="badge" v-bind:class="pay.status==='confirmed'?'b-on':pay.status==='rejected'?'b-off':'b-pend'">
+{{ pay.status==='confirmed'?'Подтверждена':pay.status==='rejected'?'Отклонена':'Ожидает' }}</span></td>
+<td style="white-space:nowrap" v-if="pay.status==='pending'">
+<button class="btn btn-green btn-sm" v-on:click="confirmPayment(pay)">✓ Оплачено</button>
+<button class="btn btn-danger btn-sm" v-on:click="rejectPayment(pay)">✗</button></td>
+</tr></table>
+<p v-if="!payments.length" class="muted" style="padding:14px">Заявок нет.</p></div>
+</div>
+</template>
+</div>

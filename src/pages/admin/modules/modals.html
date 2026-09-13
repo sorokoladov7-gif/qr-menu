@@ -1,0 +1,237 @@
+<div v-if="showModal" class="modal" v-on:click.self="showModal=false"><div class="glass box">
+<h3 style="margin-top:0">Новое заведение</h3>
+<div class="field"><label>Название</label><input v-model.trim="nform.name"></div>
+<div class="field"><label>Код (slug)</label><input v-model.trim="nform.slug" placeholder="my-cafe"></div>
+<div class="field"><label>Тариф</label><select v-model="nform.plan"><option v-for="p in plans" v-bind:key="p.id" v-bind:value="p.id">{{ p.name }}</option></select></div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="createVenue" v-bind:disabled="busy">Создать (3 дня триал)</button>
+<button class="btn btn-ghost" v-on:click="showModal=false">Отмена</button></div>
+<div v-if="msg" class="msg error" style="margin-top:10px">{{ msg }}</div>
+</div></div>
+<div v-if="venueEditModal.show" class="modal" v-on:click.self="venueEditModal.show=false"><div class="glass box">
+<h3 style="margin-top:0">⚙️ Заведение: {{ venueEditModal.name }}</h3>
+<div class="field"><label>Логотип</label>
+<div v-if="venueEditModal.logo_url" style="margin-bottom:10px;position:relative;display:inline-block">
+<img v-bind:src="venueEditModal.logo_url" style="width:90px;height:90px;object-fit:cover;border-radius:16px" alt="">
+<button class="btn btn-danger btn-sm" style="position:absolute;top:-8px;right:-8px" v-on:click="venueEditModal.logo_url=''">×</button></div><br>
+<label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex">🖼 Загрузить логотип
+<input type="file" accept="image/*" v-on:change="uploadVenueLogo" style="display:none"></label></div>
+<div class="field"><label>Название</label><input v-model.trim="venueEditModal.name"></div>
+<div class="field"><label>Описание</label><textarea v-model="venueEditModal.description" rows="2"></textarea></div>
+<div class="field"><label>Фирменный цвет</label><input v-model="venueEditModal.brand_color" type="color" style="height:44px;padding:4px"></div>
+<div class="field"><label>🔐 Права управляющего</label>
+<div class="checkbox-group">
+<label class="checkbox-label"><input type="checkbox" v-model="venueEditModal.perms.addons"> Добавлять дополнения</label>
+<label class="checkbox-label"><input type="checkbox" v-model="venueEditModal.perms.products"> Добавлять блюда и напитки</label>
+<label class="checkbox-label"><input type="checkbox" v-model="venueEditModal.perms.prices"> Менять цены</label>
+</div></div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveVenueEdit">Сохранить</button>
+<button class="btn btn-ghost" v-on:click="venueEditModal.show=false">Отмена</button></div>
+</div></div>
+<div v-if="prodModal.show" class="modal" v-on:click.self="prodModal.show=false"><div class="glass box" style="max-width:700px">
+<h3 style="margin-top:0">🍔 Меню: {{ prodModal.venueName }}</h3>
+<div v-for="p in prodModal.list" v-bind:key="p.id" class="row" style="margin-bottom:10px;align-items:stretch">
+  <label class="btn btn-ghost btn-sm" style="flex-shrink:0;cursor:pointer;width:50px;height:50px;display:flex;align-items:center;justify-content:center;border-radius:10px;overflow:hidden;position:relative;padding:0;background:rgba(255,255,255,.05)">
+    <img v-if="p.image_url" v-bind:src="p.image_url" style="width:100%;height:100%;object-fit:cover;position:absolute" alt="">
+    <span v-else style="font-size:18px">📸</span>
+    <input type="file" accept="image/*" v-on:change="uploadProdPhoto($event,p)" style="display:none">
+  </label>
+  <input v-model="p.name" style="flex:2" v-on:change="saveProductRow(p)">
+  <input v-model.number="p.price" type="number" min="0" style="flex:1" v-on:change="saveProductRow(p)">
+  <select v-model="p.category" style="flex:1" v-on:change="saveProductRow(p)">
+    <option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option>
+    <option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
+    <option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+    <option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
+  </select>
+  <button class="btn btn-ghost btn-sm" v-on:click="toggleAvailRow(p)">{{ p.is_available?'Вкл':'Выкл' }}</button>
+  <button class="btn btn-danger btn-sm" v-on:click="delProductRow(p)">🗑</button>
+</div>
+<p v-if="!prodModal.list.length" class="muted">Меню пустое.</p>
+<div class="row" style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08)">
+  <input v-model="prodModal.form.name" placeholder="Название" style="flex:2">
+  <input v-model.number="prodModal.form.price" type="number" placeholder="Цена" style="flex:1">
+  <select v-model="prodModal.form.category" style="flex:1">
+    <option value="main">🍽 Блюдо</option><option value="drink">🥤 Напиток</option><option value="addon">🧂 Доп</option>
+    <option value="breakfast">🍳 Завтрак</option><option value="salad">🥗 Салат</option><option value="soup">🍲 Суп</option>
+    <option value="dessert">🍰 Десерт</option><option value="sauce">🌶 Соус</option><option value="snack">🥨 Закуска</option>
+    <option value="hot">🔥 Горячее</option><option value="bbq">🥩 Гриль</option>
+  </select>
+</div>
+<button class="btn btn-green btn-sm" style="margin-top:8px" v-on:click="addProductRow">+ Добавить позицию</button>
+<button class="btn btn-ghost" style="margin-top:8px" v-on:click="prodModal.show=false">Закрыть</button>
+</div></div>
+<div v-if="addMgrModal.show" class="modal" v-on:click.self="addMgrModal.show=false"><div class="glass box">
+<h3 style="margin-top:0">Новый управляющий</h3>
+<div class="field"><label>Имя</label><input v-model.trim="addMgrModal.name"></div>
+<div class="field"><label>Email</label><input v-model.trim="addMgrModal.email" type="email"></div>
+<div class="field"><label>Временный пароль</label><input v-model="addMgrModal.password" type="text" placeholder="мин. 6 символов"></div>
+<div class="field"><label>Роль</label><select v-model="addMgrModal.role">
+<option value="manager">Управляющий</option><option value="admin">Админ</option></select></div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="addManager" v-bind:disabled="busy">Создать аккаунт</button>
+<button class="btn btn-ghost" v-on:click="addMgrModal.show=false">Отмена</button></div>
+<p class="muted" style="font-size:11px;margin-top:10px">Передайте менеджеру email и пароль. Если в Supabase включено подтверждение email — придёт письмо.</p>
+<div v-if="addMgrModal.err" class="msg error" style="margin-top:10px">{{ addMgrModal.err }}</div>
+</div></div>
+<div v-if="mgrEditModal.show" class="modal" v-on:click.self="mgrEditModal.show=false"><div class="glass box">
+<h3 style="margin-top:0">Редактировать: {{ mgrEditModal.name }}</h3>
+<div class="field"><label>Имя</label><input v-model.trim="mgrEditModal.name"></div>
+<div class="field"><label>Роль</label><select v-model="mgrEditModal.role">
+<option value="manager">Управляющий</option><option value="admin">Админ</option></select></div>
+<div class="field">
+  <label class="checkbox-label" style="background:transparent;padding:0">
+    <input type="checkbox" v-model="mgrEditModal.allow_manage_delivery">
+    Разрешить управление доставкой (стоимость за км, мин. сумма для бесплатной доставки)
+  </label>
+</div>
+<div class="field">
+  <label class="checkbox-label" style="background:transparent;padding:0">
+    <input type="checkbox" v-model="mgrEditModal.allow_manage_design">
+    Разрешить управление дизайном (цвета, шрифты, стили)
+  </label>
+</div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveMgrEdit">Сохранить</button>
+<button class="btn btn-ghost" v-on:click="mgrEditModal.show=false">Отмена</button></div>
+</div></div>
+<div v-if="staffEditModal.show" class="modal" v-on:click.self="staffEditModal.show=false"><div class="glass box">
+<h3 style="margin-top:0">Редактировать: {{ staffEditModal.name }}</h3>
+<div class="field"><label>Заведение</label>
+<select v-model="staffEditModal.venue_id">
+<option v-for="v in venues" v-bind:key="v.id" v-bind:value="v.id">{{ v.name }}</option></select></div>
+<div class="field"><label>Имя</label><input v-model.trim="staffEditModal.name"></div>
+<div class="field"><label>Телефон</label><input v-model.trim="staffEditModal.phone"></div>
+<div class="field"><label>PIN</label><input v-model.trim="staffEditModal.pin"></div>
+<div class="row"><button class="btn btn-primary" style="flex:1" v-on:click="saveStaffEdit">Сохранить</button>
+<button class="btn btn-ghost" v-on:click="staffEditModal.show=false">Отмена</button></div>
+</div></div>
+<div v-if="secretDesignPanel" class="modal" v-on:click.self="secretDesignPanel=false">
+  <div class="glass box" style="max-width:1100px;max-height:90vh;overflow-y:auto">
+    <h3 style="margin-top:0">🎨 Профессиональная панель управления дизайном</h3>
+    <p class="muted" style="font-size:12px;margin-bottom:14px">
+      Здесь вы можете настроить внешний вид глобально или для конкретного заведения.
+      Изменения применяются после сохранения.
+      Ниже — пояснения, что именно меняет каждый параметр.
+    </p>
+    <div class="venue-selector">
+      <label>Настройка для:</label>
+      <select v-model="designTarget" @change="onDesignTargetChange">
+        <option value="global">🌐 Глобальный шаблон (все заведения)</option>
+        <option v-for="v in venues" :key="v.id" :value="v.id">{{ v.name }}</option>
+      </select>
+      <span v-if="designTarget !== 'global'" class="current-venue-name">
+        Настройки заведения: {{ getVenueName(designTarget) }}
+      </span>
+      <span v-else class="current-venue-name">Глобальные настройки</span>
+    </div>
+    <div class="glass card" style="margin-bottom:14px;border-color:#6366f1">
+      <h4>{{ designTarget === 'global' ? 'Глобальный шаблон' : 'Индивидуальные настройки заведения' }}</h4>
+      <div class="design-group">
+        <h4>🎨 Основные цвета</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Брендовый цвет <span class="color-preview" v-bind:style="{background:currentDesignTemplate.brand_color}"></span></label><input v-model="currentDesignTemplate.brand_color" type="color"><div class="hint">Главный цвет заведения. Используется для кнопок, заголовков, акцентных элементов.</div></div>
+          <div class="design-field"><label>Цвет кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_color}"></span></label><input v-model="currentDesignTemplate.button_color" type="color"><div class="hint">Цвет фона для всех кнопок действия.</div></div>
+          <div class="design-field"><label>Цвет заголовков <span class="color-preview" v-bind:style="{background:currentDesignTemplate.header_color}"></span></label><input v-model="currentDesignTemplate.header_color" type="color"><div class="hint">Цвет всех крупных заголовков.</div></div>
+          <div class="design-field"><label>Цвет фона страницы <span class="color-preview" v-bind:style="{background:currentDesignTemplate.background_color}"></span></label><input v-model="currentDesignTemplate.background_color" type="color"><div class="hint">Фон всей страницы заведения.</div></div>
+          <div class="design-field"><label>Цвет фона карточек <span class="color-preview" v-bind:style="{background:currentDesignTemplate.card_background}"></span></label><input v-model="currentDesignTemplate.card_background" type="color"><div class="hint">Фон карточек товаров.</div></div>
+          <div class="design-field"><label>Цвет текста <span class="color-preview" v-bind:style="{background:currentDesignTemplate.text_color}"></span></label><input v-model="currentDesignTemplate.text_color" type="color"><div class="hint">Основной цвет текста на странице.</div></div>
+          <div class="design-field"><label>Цвет акцентов <span class="color-preview" v-bind:style="{background:currentDesignTemplate.accent_color}"></span></label><input v-model="currentDesignTemplate.accent_color" type="color"><div class="hint">Дополнительный акцентный цвет.</div></div>
+          <div class="design-field"><label>Цвет границ <span class="color-preview" v-bind:style="{background:currentDesignTemplate.border_color}"></span></label><input v-model="currentDesignTemplate.border_color" type="color"><div class="hint">Цвет рамок и разделителей.</div></div>
+        </div>
+      </div>
+      <div class="design-group">
+        <h4>🖼️ Фон (градиент и изображение)</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Градиент (цвет 1) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_start}"></span></label><input v-model="currentDesignTemplate.gradient_start" type="color"><div class="hint">Первый цвет градиента фона.</div></div>
+          <div class="design-field"><label>Градиент (цвет 2) <span class="color-preview" v-bind:style="{background:currentDesignTemplate.gradient_end}"></span></label><input v-model="currentDesignTemplate.gradient_end" type="color"><div class="hint">Второй цвет градиента.</div></div>
+          <div class="design-field"><label>Направление градиента</label><select v-model="currentDesignTemplate.gradient_direction"><option value="to right">→ вправо</option><option value="to left">← влево</option><option value="to bottom">↓ вниз</option><option value="to top">↑ вверх</option><option value="135deg">↘ диагональ</option><option value="45deg">↗ диагональ</option></select><div class="hint">Как будет располагаться градиент.</div></div>
+          <div class="design-field"><label>Фоновое изображение (URL)</label><input v-model="currentDesignTemplate.background_image" placeholder="https://example.com/bg.jpg"><label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px"><span>📤 Загрузить</span><input type="file" accept="image/*" v-on:change="uploadBgImage" style="display:none"></label><div class="hint">Если указать ссылку на изображение, оно станет фоном страницы.</div></div>
+        </div>
+      </div>
+      <div class="design-group">
+        <h4>🔤 Типографика</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Шрифт</label><select v-model="currentDesignTemplate.font_family"><option value="Plus+Jakarta+Sans">Plus Jakarta Sans</option><option value="Inter">Inter</option><option value="Roboto">Roboto</option><option value="Montserrat">Montserrat</option><option value="Oswald">Oswald</option></select><div class="hint">Шрифт для всего текста.</div></div>
+          <div class="design-field"><label>Размер шрифта (px)</label><input v-model.number="currentDesignTemplate.font_size" type="number" min="12" max="24"><div class="hint">Базовый размер текста.</div></div>
+          <div class="design-field"><label>Жирность заголовков</label><select v-model="currentDesignTemplate.heading_weight"><option value="400">400</option><option value="600">600</option><option value="700">700</option><option value="800">800</option></select><div class="hint">Насыщенность шрифта заголовков.</div></div>
+          <div class="design-field"><label>Жирность текста</label><select v-model="currentDesignTemplate.body_weight"><option value="300">300</option><option value="400">400</option><option value="500">500</option><option value="600">600</option></select><div class="hint">Насыщенность основного текста.</div></div>
+          <div class="design-field"><label>Межстрочный интервал</label><select v-model="currentDesignTemplate.line_height"><option value="1.4">1.4</option><option value="1.6">1.6</option><option value="1.8">1.8</option><option value="2.0">2.0</option></select><div class="hint">Расстояние между строками.</div></div>
+          <div class="design-field"><label>Межбуквенный интервал (px)</label><input v-model.number="currentDesignTemplate.letter_spacing" type="number" min="0" max="4" step="0.5"><div class="hint">Расстояние между буквами.</div></div>
+        </div>
+      </div>
+      <div class="design-group">
+        <h4>🃏 Карточки товаров</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Внутренний отступ (px)</label><input v-model.number="currentDesignTemplate.card_padding" type="number" min="4" max="24"><div class="hint">Расстояние от края карточки до содержимого.</div></div>
+          <div class="design-field"><label>Высота изображения (px)</label><input v-model.number="currentDesignTemplate.card_image_height" type="number" min="80" max="300"><div class="hint">Высота фото блюда в карточке.</div></div>
+          <div class="design-field"><label>Выравнивание текста</label><select v-model="currentDesignTemplate.card_text_align"><option value="left">Слева</option><option value="center">По центру</option></select><div class="hint">Выравнивание внутри карточки.</div></div>
+          <div class="design-field" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><label><input type="checkbox" v-model="currentDesignTemplate.show_description"> Показывать описание</label><label><input type="checkbox" v-model="currentDesignTemplate.show_price"> Показывать цену</label></div>
+        </div>
+      </div>
+      <div class="design-group">
+        <h4>🔘 Кнопки</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Цвет текста кнопок <span class="color-preview" v-bind:style="{background:currentDesignTemplate.button_text_color}"></span></label><input v-model="currentDesignTemplate.button_text_color" type="color"><div class="hint">Цвет текста на кнопках.</div></div>
+          <div class="design-field"><label>Жирность текста кнопок</label><select v-model="currentDesignTemplate.button_weight"><option value="400">400</option><option value="600">600</option><option value="700">700</option></select><div class="hint">Насыщенность шрифта на кнопках.</div></div>
+          <div class="design-field"><label>Эффект при наведении</label><select v-model="currentDesignTemplate.button_hover"><option value="scale">Увеличение</option><option value="shadow">Тень</option><option value="none">Без эффекта</option></select><div class="hint">Реакция кнопки на наведение курсора.</div></div>
+        </div>
+      </div>
+      <div class="design-group">
+        <h4>⚙️ Дополнительно</h4>
+        <div class="design-grid">
+          <div class="design-field"><label>Толщина границ (px)</label><input v-model.number="currentDesignTemplate.border_width" type="number" min="0" max="4"><div class="hint">Толщина рамок.</div></div>
+          <div class="design-field"><label>Скругление карточек (px)</label><input v-model.number="currentDesignTemplate.border_radius" type="number" min="0" max="30"><div class="hint">Закругление углов карточек.</div></div>
+          <div class="design-field"><label>Скругление кнопок (px)</label><input v-model.number="currentDesignTemplate.button_radius" type="number" min="0" max="30"><div class="hint">Закругление углов кнопок.</div></div>
+          <div class="design-field"><label>Тень (px)</label><input v-model.number="currentDesignTemplate.shadow" type="number" min="0" max="20"><div class="hint">Размер тени. 0 — без тени.</div></div>
+          <div class="design-field"><label>Скорость анимации (s)</label><select v-model="currentDesignTemplate.transition_speed"><option value="0.1">0.1</option><option value="0.2">0.2</option><option value="0.3">0.3</option><option value="0.5">0.5</option></select><div class="hint">Время анимаций.</div></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:16px;flex-wrap:wrap;gap:8px">
+        <template v-if="designTarget === 'global'">
+          <button class="btn btn-primary btn-sm" v-on:click="saveGlobalDesign">💾 Сохранить глобальный шаблон</button>
+          <button class="btn btn-success btn-sm" v-on:click="applyDesignToAll">✅ Применить ко всем заведениям</button>
+        </template>
+        <template v-else>
+          <button class="btn btn-primary btn-sm" v-on:click="saveVenueDesign">💾 Сохранить для этого заведения</button>
+          <button class="btn btn-ghost btn-sm" v-on:click="applyGlobalToVenue">📥 Применить глобальный шаблон</button>
+          <button class="btn btn-danger btn-sm" v-on:click="resetVenueDesign">↺ Сбросить на глобальный</button>
+        </template>
+        <button class="btn btn-ghost btn-sm" v-on:click="resetAdminTemplate">↺ Сбросить глобальный шаблон</button>
+        <button class="btn btn-ghost btn-sm" v-on:click="secretDesignPanel=false">✖ Закрыть</button>
+      </div>
+    </div>
+    <h4>Текущие настройки заведений</h4>
+    <p class="muted" style="font-size:12px;">Ниже показаны активные настройки для каждого заведения.</p>
+    <div class="tblwrap">
+      <table class="tbl">
+        <tr><th>Заведение</th><th>Брендовый цвет</th><th>Цвет кнопок</th><th>Шрифт</th><th>Действие</th></tr>
+        <tr v-for="v in venues" v-bind:key="v.id">
+          <td><b>{{ v.name }}</b></td>
+          <td><span v-bind:style="{display:'inline-block',width:'30px',height:'30px',borderRadius:'6px',background:v.design_settings?.brand_color||'#6366f1'}"></span></td>
+          <td><span v-bind:style="{display:'inline-block',width:'30px',height:'30px',borderRadius:'6px',background:v.design_settings?.button_color||'#8b5cf6'}"></span></td>
+          <td>{{ v.design_settings?.font_family||'По умолчанию' }}</td>
+          <td><button class="btn btn-primary btn-sm" v-on:click="applyGlobalToVenueById(v.id)">📥 Применить глобальный шаблон</button></td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+<div v-if="previewModal.show" class="modal" @click.self="previewModal.show=false">
+  <div class="glass box" style="max-width:800px;max-height:90vh;overflow-y:auto;">
+    <h3 style="margin-top:0">👁 Предпросмотр: {{ selectedTemplate ? selectedTemplate.name : '' }}</h3>
+    <div v-if="previewModal.products.length === 0" class="muted" style="padding:20px;text-align:center;">Нет позиций</div>
+    <div v-for="(cat, catName) in groupedPreview" :key="catName" style="margin-bottom:20px;">
+      <h4 style="border-bottom:1px solid rgba(255,255,255,0.1);padding-bottom:6px;margin-bottom:10px;">{{ catName }}</h4>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+        <div v-for="p in cat" :key="p.name" class="glass card" style="padding:12px;border-radius:12px;">
+          <img :src="p.image_url || placeholder" style="width:100%;height:130px;object-fit:cover;border-radius:8px;background:#0e1219;" @error="$event.target.src=placeholder">
+          <div style="font-weight:600;margin-top:6px;">{{ p.name }}</div>
+          <div style="font-size:13px;color:#9ca3af;">{{ p.description || '' }}</div>
+          <div style="font-weight:700;color:#34d399;margin-top:4px;">{{ fmt(p.price) }} ₽</div>
+          <div style="font-size:11px;color:#64748b;">{{ p.is_available ? '✓ В наличии' : '✕ Скрыто' }}</div>
+        </div>
+      </div>
+    </div>
+    <div style="text-align:right;margin-top:12px;">
+      <button class="btn btn-ghost btn-sm" @click="previewModal.show=false">Закрыть</button>
+    </div>
+  </div>
+</div>

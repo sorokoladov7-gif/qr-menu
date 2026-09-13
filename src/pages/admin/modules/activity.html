@@ -1,0 +1,21 @@
+<div v-if="tab==='activity'" style="animation:cardFadeUp .4s ease-out">
+<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">👥 Активность заведений и управляющих</h3>
+<select v-model="statsPeriod" v-on:change="loadGlobalStats" style="width:auto">
+<option value="7">За 7 дней</option><option value="30">За 30 дней</option><option value="all">За всё время</option></select></div>
+<div v-if="ordersLoading" class="loading-orders"><div class="spinner"></div> Загрузка данных заказов…</div>
+<template v-else>
+<div class="glass card tblwrap" style="margin-bottom:14px"><h4 style="margin:0 0 14px">🏢 Активность заведений (заказы)</h4>
+<table class="tbl"><tr><th>Заведение</th><th>Заказов за период</th><th>Выручка за период</th><th>Последний заказ</th><th>Поваров</th><th>Курьеров</th><th>Официантов</th></tr>
+<tr v-for="v in venueActivity" v-bind:key="v.id"><td><b>{{ v.name }}</b></td>
+<td>{{ v.orders }}</td><td style="color:#34d399">{{ fmt(v.revenue) }} ₽</td>
+<td class="muted" style="font-size:12px">{{ v.lastOrder }}</td>
+<td>{{ v.cooks }}</td><td>{{ v.couriers }}</td><td>{{ v.waiters }}</td></tr>
+<tr v-if="!venueActivity.length"><td colspan="7" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
+<div class="glass card tblwrap" style="margin-bottom:14px"><h4 style="margin:0 0 14px">👤 Активность управляющих</h4>
+<table class="tbl"><tr><th>Имя</th><th>Email</th><th>Заведений</th><th>Заказов в заведениях</th><th>Выручка</th><th>Последний вход</th></tr>
+<tr v-for="m in managerActivity" v-bind:key="m.id"><td><b>{{ m.name }}</b></td><td class="muted">{{ m.email }}</td>
+<td>{{ m.venues }}</td><td>{{ m.orders }}</td><td style="color:#34d399">{{ fmt(m.revenue) }} ₽</td>
+<td class="muted" style="font-size:12px">{{ m.lastLogin }}</td></tr>
+<tr v-if="!managerActivity.length"><td colspan="6" class="muted" style="text-align:center;padding:20px">Нет данных</td></tr></table></div>
+</template>
+</div>
