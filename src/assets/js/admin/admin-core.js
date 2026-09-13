@@ -156,12 +156,19 @@
   })();
 })();
 
-(function(){
+(function loadSupportAfterAdminMount(){
   'use strict';
-  if(document.getElementById('qr-admin-support-loader'))return;
-  var s=document.createElement('script');
-  s.id='qr-admin-support-loader';
-  s.src='/src/assets/js/admin/admin-support.js';
-  s.async=true;
-  document.head.appendChild(s);
+  function load(){
+    if(document.getElementById('qr-admin-support-loader')) return;
+    var s=document.createElement('script');
+    s.id='qr-admin-support-loader';
+    s.src='/src/assets/js/admin/admin-support.js';
+    s.async=true;
+    document.head.appendChild(s);
+  }
+  if(document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(load, 0); }, {once:true});
+  } else {
+    setTimeout(load, 0);
+  }
 })();
