@@ -141,12 +141,12 @@
           self.showToast('Канонический API действий недоступен', 'error');
           return;
         }
-        runner({type:'delete_staff',payload:{venue_id:self.venue.id,id:staff.id,type:type}}).then(function(){
+        runner({type:'delete_staff',payload:{venue_id:self.venue.id,staff_id:staff.id,type:type}}).then(function(){
           self.showToast('Удалено');
           if(type==='cook')return self.loadCooks();
           if(type==='courier')return self.loadCouriers();
           return self.loadWaiters();
-        }).then(function(){self.loadStaffAnalytics();}).catch(function(e){self.showToast('Ошибка: '+(e.message||String(e)),'error');}).finally(function(){self.busy=false;});
+        }).then(function(){return self.loadStaffAnalytics();}).catch(function(e){self.showToast('Ошибка: '+(e.message||String(e)),'error');}).finally(function(){self.busy=false;});
       },
       delCook: function(c) { this.deleteStaffViaAction(c,'cook','повара'); },
       delCourier: function(c) { this.deleteStaffViaAction(c,'courier','курьера'); },
