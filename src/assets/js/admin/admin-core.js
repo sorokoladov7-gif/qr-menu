@@ -4,6 +4,17 @@
   if (window.__QR_ADMIN_CORE__) return;
   window.__QR_ADMIN_CORE__ = true;
 
+  function withTimeout(promise, ms, label) {
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise(function(_, reject) {
+        setTimeout(function() {
+          reject(new Error('timeout: ' + label + ' (' + ms + 'ms)'));
+        }, ms);
+      })
+    ]);
+  }
+
   var coreMixin = {
     data: function() {
       return {
@@ -37,7 +48,7 @@
         var self = this;
         self.ready = false;
         if (typeof requireAuth === 'function') {
-          requireAuth(['admin']).then(function(profile) {
+          withTimeout(requireAuth(['admin']), 12000, 'admin auth').then(function(profile) {
             self.profile = profile;
             if (!profile) { self.ready = true; return; }
             return self.loadBaseData();
@@ -73,7 +84,7 @@
           db.from('subscriptions').select('*')
         ];
         return Promise.all(requests.map(function(request, index) {
-          return Promise.resolve(request).catch(function(error) {
+          return withTimeout(request, 12000, 'base data #' + index).catch(function(error) {
             console.error('[QR Admin] base data request failed:', index, error);
             return {data: [], error: error};
           });
@@ -95,10 +106,10 @@
         if (self.ordersLoading) return;
         if (self.ordersLoaded && !force) return;
         self.ordersLoading = true;
-        db.from('orders')
+        withTimeout(db.from('orders')
           .select('venue_id,total_price,status,created_at,order_type,payment_method,cook_name,courier_name,waiter_name,cooking_started_at,ready_at,customer_phone')
           .order('created_at', {ascending:false})
-          .limit(800)
+          .limit(800), 12000, 'orders load')
           .then(function(r) {
             self.ordersAll = (r.data || []).reverse();
             self.ordersLoaded = true;
