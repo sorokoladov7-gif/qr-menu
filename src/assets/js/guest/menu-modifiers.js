@@ -1,4 +1,4 @@
-/* QR Menu — public modifier selector and order persistence. */
+/* QR MENU — public modifier selector and order persistence. */
 (function(){
   'use strict';
   if(!/(?:^|\/)menu\.html$/i.test(location.pathname)) return;
@@ -21,61 +21,26 @@
   var tries=0;var t=setInterval(function(){tries++;if(installRpcPatch()||tries>100){clearInterval(t);if(document.body)install();}},100);
 })();
 
-/* QR Menu — Smart Table guest/session live synchronization. The server resolves
-   the guest token against the QR table and active table_session; the browser
-   never supplies a trusted venue_id/table_id for synchronization. */
+/* QR MENU — Smart Table guest live state UI. */
 (function(){
   'use strict';
   if(!/(?:^|\/)menu\.html$/i.test(location.pathname))return;
-  if(window.__QR_SMART_TABLE_GUEST_SYNC__)return;
-  window.__QR_SMART_TABLE_GUEST_SYNC__=true;
-  var params=new URLSearchParams(location.search);
-  var tableToken=(params.get('token')||'').trim();
-  if(!tableToken)return;
-  var key='qr-smart-table-guest:'+tableToken;
-  var guestToken='';
-  try{guestToken=sessionStorage.getItem(key)||'';}catch(e){}
+  if(window.__QR_SMART_TABLE_LIVE_UI__)return;
+  window.__QR_SMART_TABLE_LIVE_UI__=true;
+  var params=new URLSearchParams(location.search),token=(params.get('token')||'').trim();
+  if(!token||!window.db)return;
+  var storageKey='qr-smart-table-guest:'+token,guestToken='';
+  try{guestToken=sessionStorage.getItem(storageKey)||'';}catch(e){}
   if(!guestToken)return;
-  var timer=null,busy=false,lastSession=null,lastOrderSignature='';
-  function rpc(name,args){return window.db&&typeof window.db.rpc==='function'?window.db.rpc(name,args):Promise.reject(new Error('Supabase client не найден'));}
-  function emit(data){
-    var state=window.QRSmartTable||{};
-    state.sync=data;
-    if(data&&data.joined){
-      state.sessionId=data.session_id||null;
-      state.guestId=data.guest_id||null;
-      state.context=data.context||state.context||null;
-      state.ready=true;
-    }else if(data&&data.joined===false){
-      state.sessionId=null;
-      state.guestId=null;
-      state.ready=!!state.context;
-    }
-    window.QRSmartTable=state;
-    try{window.dispatchEvent(new CustomEvent('qr-smart-table-sync',{detail:data}));}catch(e){}
+  var lastSignature='',busy=false;
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}
+  function status(s){return ({new:'Новый',cooking:'Готовится',ready:'Готов',delivery:'В доставке',arrived:'Курьер на месте',changed:'Изменён',done:'Завершён',cancelled:'Отменён'}[s]||s||'');}
+  function ensureHost(){var host=document.getElementById('qr-smart-table-live');if(host)return host;host=document.createElement('div');host.id='qr-smart-table-live';host.style.cssText='position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:10040;pointer-events:none;font-family:system-ui,-apple-system,sans-serif;';document.body.appendChild(host);return host;}
+  function render(data){var context=data&&data.context,table=context&&context.table,orders=Array.isArray(data&&data.orders)?data.orders:[];if(!table)return;var sessionId=data.session_id||table.session_id||null;var signature=JSON.stringify({sessionId:sessionId,status:table.status,orders:orders.map(function(o){return [o.id,o.status,o.updated_at,o.total];})});if(signature===lastSignature)return;lastSignature=signature;var host=ensureHost();var label=table.status==='occupied'?'🟢 Стол занят':table.status==='reserved'?'🟠 Стол забронирован':table.status==='waiting-for-order'?'🔵 Ожидается заказ':'⚪ Стол свободен';var body=orders.length?orders.slice(0,3).map(function(o){return '<div style="display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:5px 0"><span>Заказ #'+esc(String(o.id).slice(0,8))+'</span><b>'+esc(status(o.status))+'</b></div>';}).join(''):'<div style="font-size:12px;color:#cbd5e1">Активных заказов нет</div>';host.innerHTML='<div style="pointer-events:auto;max-width:560px;margin:auto;padding:12px 14px;border:1px solid rgba(148,163,184,.25);border-radius:16px;background:rgba(15,23,42,.94);box-shadow:0 14px 40px rgba(0,0,0,.32);backdrop-filter:blur(14px);color:#fff"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><b>🪑 Стол №'+esc(table.number)+'</b><span style="font-size:12px">'+label+'</span></div><div style="margin-top:6px;color:#94a3b8">'+(sessionId?'Текущая сессия активна':'Сессия не открыта')+'</div><div style="margin-top:6px">'+body+'</div></div>';
+    window.dispatchEvent(new CustomEvent('qr-smart-table-sync',{detail:data}));
+    if(orders.length)window.dispatchEvent(new CustomEvent('qr-smart-table-orders-updated',{detail:orders}));
   }
-  async function sync(){
-    if(document.hidden||busy)return;
-    busy=true;
-    try{
-      var r=await rpc('smart_table_guest_sync',{p_qr_token:tableToken,p_guest_token:guestToken,p_language:'ru'});
-      if(r.error)throw r.error;
-      var data=Array.isArray(r.data)?r.data[0]:r.data;
-      if(!data||data.ok===false)throw new Error('smart_table_guest_sync_failed');
-      emit(data);
-      var orders=data.orders||[];
-      var signature=orders.map(function(o){return [o.id,o.status,o.updated_at,o.total_price].join(':');}).join('|');
-      if(signature!==lastOrderSignature||data.session_id!==lastSession){
-        lastOrderSignature=signature;
-        lastSession=data.session_id||null;
-        try{window.dispatchEvent(new CustomEvent('qr-smart-table-orders-updated',{detail:{session_id:lastSession,orders:orders}}));}catch(e){}
-      }
-    }catch(e){
-      if(window.QRSmartTable)window.QRSmartTable.syncError=e;
-    }finally{busy=false;}
-  }
-  function stop(){if(timer){clearInterval(timer);timer=null;}}
-  function start(){sync();stop();timer=setInterval(sync,5000);}
-  document.addEventListener('visibilitychange',function(){if(document.hidden)stop();else start();});
+  async function sync(){if(document.hidden||busy)return;busy=true;try{var r=await db.rpc('smart_table_guest_sync',{p_qr_token:token,p_guest_token:guestToken,p_language:'ru'});if(r.error)throw r.error;var data=Array.isArray(r.data)?r.data[0]:r.data;if(!data||data.ok===false)throw new Error('smart_table_guest_sync_failed');render(data);if(window.QRSmartTable){window.QRSmartTable.sessionId=data.session_id||null;window.QRSmartTable.guestId=data.guest_id||null;window.QRSmartTable.context=data.context||window.QRSmartTable.context||null;window.QRSmartTable.liveOrders=data.orders||[];window.QRSmartTable.joined=!!data.joined;}}catch(e){console.warn('[QR Smart Table live]',e);}finally{busy=false;}}
+  function start(){sync();setInterval(sync,5000);document.addEventListener('visibilitychange',function(){if(!document.hidden)sync();});}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
