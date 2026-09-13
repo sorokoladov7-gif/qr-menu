@@ -34,6 +34,8 @@
 .qr-admin-support-head .sub{margin-top:4px;color:#94a3b8;font-size:11px}\
 .qr-admin-support-head .status{display:inline-flex;align-items:center;gap:6px;margin-top:6px;color:#94a3b8;font-size:10px}\
 .qr-admin-support-head .dot{width:7px;height:7px;border-radius:50%;background:#22c55e}\
+.qr-admin-support-close{border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.045);color:#cbd5e1;border-radius:9px;padding:7px 11px;cursor:pointer;font:inherit;white-space:nowrap}\
+.qr-admin-support-close:hover{background:rgba(255,255,255,.09);color:#fff}\
 .qr-admin-support-messages{flex:1;min-height:0;overflow:auto;padding:20px;display:flex;flex-direction:column;gap:10px}\
 .qr-admin-support-msg{max-width:min(760px,82%);padding:10px 13px;border-radius:13px;border:1px solid rgba(255,255,255,.07);white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.45;box-shadow:0 4px 18px rgba(0,0,0,.08)}\
 .qr-admin-support-msg.manager{align-self:flex-start;background:rgba(248,113,113,.08);border-bottom-left-radius:5px}\
@@ -112,13 +114,14 @@
   function renderChat(scroll){
     var t=state.threads.find(function(x){return x.id===state.selected;}),h=state.panel&&state.panel.querySelector('[data-admin-support-head]'),box=state.panel&&state.panel.querySelector('[data-admin-support-messages]');
     if(!h||!box)return;
-    if(!t){h.innerHTML='<div><div class="title">Поддержка</div><div class="sub">Выберите обращение управляющего слева</div></div>';box.innerHTML='<div class="qr-admin-support-empty">Выберите вопрос управляющего.</div>';return;}
+    if(!t){h.innerHTML='<div><div class="title">Поддержка</div><div class="sub">Выберите обращение управляющего слева</div></div><button type="button" class="qr-admin-support-close" data-admin-support-close>✕ Закрыть</button>';box.innerHTML='<div class="qr-admin-support-empty">Выберите вопрос управляющего.</div>';bindClose();return;}
     var n=t.manager.display_name||t.manager.email||'Управляющий';
-    h.innerHTML='<div><div class="title">'+esc(n)+'</div><div class="sub">'+esc(t.manager.email||'')+' · '+esc(t.subject||'Поддержка')+'</div><div class="status"><span class="dot"></span>'+esc(t.status==='in_progress'?'В работе':'Открыто')+'</div></div>';
+    h.innerHTML='<div><div class="title">'+esc(n)+'</div><div class="sub">'+esc(t.manager.email||'')+' · '+esc(t.subject||'Поддержка')+'</div><div class="status"><span class="dot"></span>'+esc(t.status==='in_progress'?'В работе':'Открыто')+'</div></div><button type="button" class="qr-admin-support-close" data-admin-support-close>✕ Закрыть</button>';
     box.innerHTML=state.messages.length?state.messages.map(function(m){return '<div class="qr-admin-support-msg '+(m.sender_role==='manager'?'manager':'admin')+'">'+esc(m.message)+'<span class="qr-admin-support-meta">'+(m.sender_role==='manager'?esc(n):'Администратор')+' · '+esc(fmt(m.created_at))+'</span></div>';}).join(''):'<div class="qr-admin-support-empty">Сообщений пока нет.</div>';
-    if(scroll)box.scrollTop=box.scrollHeight;
+    if(scroll)box.scrollTop=box.scrollHeight;bindClose();
   }
 
+  function bindClose(){var b=state.panel&&state.panel.querySelector('[data-admin-support-close]');if(b)b.onclick=function(e){e.preventDefault();e.stopPropagation();closeSupport();var p=vm();if(p)p.tab='';nav();};}
   function renderError(e){var box=state.panel&&state.panel.querySelector('[data-admin-support-messages]');if(box)box.innerHTML='<div class="qr-admin-support-empty qr-admin-support-error">Ошибка загрузки поддержки.<br><small>'+esc(e.message||e)+'</small></div>';}
 
   async function send(){
