@@ -12,48 +12,65 @@
     },
     methods: {
       loadOrders: function() {
-        var self=this;
-        if(!this.venue||!this.venue.id) return Promise.resolve([]);
-        return db.from('orders').select('*,items:order_items(*),addons:order_addons(*)')
-          .eq('venue_id',this.venue.id).order('created_at',{ascending:false}).limit(50)
+        var self=this, venueId=this.venue&&this.venue.id;
+        if(!venueId) return Promise.resolve([]);
+        return db.from('orders').select('*')
+          .eq('venue_id',venueId).order('created_at',{ascending:false}).limit(50)
           .then(function(r){
-            if(r&&r.error){
-              console.error('[Manager] orders:',r.error);
-              self.showToast&&self.showToast('Не удалось загрузить заказы: '+(r.error.message||'ошибка'),'error');
-              return [];
-            }
-            self.orders=(r&&r.data)||[];
-            return self.orders;
+            if(r&&r.error) throw r.error;
+            var rows=(r&&r.data)||[];
+            var ids=rows.map(function(o){return o.id;}).filter(Boolean);
+            if(!ids.length){self.orders=[];return self.orders;}
+            return Promise.all([
+              db.from('order_items').select('*').in('order_id',ids),
+              db.from('order_addons').select('*').in('order_id',ids)
+            ]).then(function(parts){
+              var itemResult=parts[0],addonResult=parts[1];
+              if(itemResult&&itemResult.error)throw itemResult.error;
+              if(addonResult&&addonResult.error)throw addonResult.error;
+              var items=(itemResult&&itemResult.data)||[],addons=(addonResult&&addonResult.data)||[];
+              var itemMap={},addonMap={};
+              items.forEach(function(x){(itemMap[x.order_id]||(itemMap[x.order_id]=[])).push(x);});
+              addons.forEach(function(x){(addonMap[x.order_id]||(addonMap[x.order_id]=[])).push(x);});
+              rows.forEach(function(o){o.items=itemMap[o.id]||[];o.addons=addonMap[o.id]||[];});
+              self.orders=rows;
+              return self.orders;
+            });
+          })
+          .catch(function(e){
+            console.error('[Manager] orders:',e);
+            self.showToast&&self.showToast('Не удалось загрузить заказы: '+(e&&e.message||'ошибка'),'error');
+            return [];
           });
       },
       setStatus: function(id,status) {
-        var self=this;
+        var self=this, venueId=this.venue&&this.venue.id;
+        if(!venueId||!id)return Promise.resolve();
         var u={status:status};
         if(status==='cooking')u.cooking_started_at=new Date().toISOString();
         if(status==='ready')u.ready_at=new Date().toISOString();
 
         if(!navigator.onLine && window.OfflineSync){
-          window.OfflineSync.add({operation:'update',table:'orders',payload:u,filters:{id:id},venue_id:self.venue&&self.venue.id})
+          return window.OfflineSync.add({operation:'update',table:'orders',payload:u,filters:{id:id,venue_id:venueId},venue_id:venueId})
             .then(function(){
               var local=self.orders.find(function(o){return o.id===id;});
               if(local)Object.keys(u).forEach(function(k){local[k]=u[k];});
               self.$forceUpdate&&self.$forceUpdate();
             });
-          return;
         }
 
-        var action=window.__QR_RUN_MANAGER_ACTION__;
-        if(typeof action!=='function'){
-          self.showToast&&self.showToast('Канал действий управляющего не загружен.','error');
-          return;
-        }
-        action({type:'update_order',payload:Object.assign({venue_id:self.venue&&self.venue.id,order_id:id},u)})
-          .then(function(){return self.loadOrders();})
+        /* Operational order changes go through Supabase RLS directly.
+           This avoids routing a normal CRUD mutation through the AI action endpoint. */
+        return db.from('orders').update(u).eq('id',id).eq('venue_id',venueId).select('*').maybeSingle()
+          .then(function(r){
+            if(r&&r.error)throw r.error;
+            if(!r||!r.data)throw new Error('Заказ не найден или нет доступа к заведению');
+            return self.loadOrders();
+          })
           .catch(function(e){
-            if(e&&e.message){
-              console.error('[Manager] order status:',e);
-              self.showToast&&self.showToast('Ошибка изменения статуса: '+e.message,'error');
-            }
+            console.error('[Manager] order status:',e);
+            self.showToast&&self.showToast('Ошибка изменения статуса: '+(e&&e.message||'ошибка'),'error');
+            throw e;
           });
       },
       orderBadge:function(s){return 'b-'+s;},
@@ -64,8 +81,7 @@
   };
   window.__QR_MANAGER_ORDERS_MIXIN__=ordersMixin;
 
-  /* The orders tab used to have no lifecycle hook after the manager refactor.
-     Load the selected venue's orders exactly when the tab becomes visible. */
+  /* Load the selected venue's orders when the tab becomes visible. */
   (function installOrdersTabLoader(){
     var lastKey='';
     var timer=setInterval(function(){
@@ -76,7 +92,7 @@
       var key=String(vm.venue.id);
       if(key===lastKey)return;
       lastKey=key;
-      vm.loadOrders().catch(function(e){console.error('[Manager] orders tab loader:',e);});
+      if(typeof vm.loadOrders==='function')vm.loadOrders().catch(function(e){console.error('[Manager] orders tab loader:',e);});
     },250);
     window.addEventListener('beforeunload',function(){clearInterval(timer);},{once:true});
   })();
