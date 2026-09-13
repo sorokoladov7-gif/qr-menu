@@ -9,28 +9,6 @@
   var fmt=function(v){try{return window.fmtDate?window.fmtDate(v):new Date(v).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
   var vm=function(){return window.__managerVue||null;};
 
-  function installCanonicalNav(){
-    if(!window.Vue||typeof window.Vue.createApp!=='function'||window.Vue.__QR_MANAGER_SUPPORT_NAV__)return;
-    window.Vue.__QR_MANAGER_SUPPORT_NAV__=true;
-    var original=window.Vue.createApp;
-    window.Vue.createApp=function(){
-      try{
-        var root=document.getElementById('app'),tabs=root&&root.querySelector('.tabs');
-        if(tabs&&!tabs.querySelector('[data-qr-support-nav]')){
-          var b=document.createElement('button');
-          b.type='button';
-          b.setAttribute('data-qr-support-nav','1');
-          b.setAttribute('v-bind:class',"{on:tab==='support'}");
-          b.setAttribute('v-on:click',"tab='support'");
-          b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
-          tabs.appendChild(b);
-        }
-      }catch(e){console.warn('[QR Manager Support] canonical nav:',e);}
-      return original.apply(this,arguments);
-    };
-  }
-  installCanonicalNav();
-
   function styles(){
     if(document.getElementById('qr-manager-support-style'))return;
     var s=document.createElement('style');s.id='qr-manager-support-style';s.textContent=''+
@@ -95,11 +73,17 @@
     if(state.pollTimer)clearInterval(state.pollTimer);state.pollTimer=setInterval(function(){if(vm()&&vm().tab==='support')loadMessages(false);},10000);
   }
   function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');if(!state.panel)open();}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
-  function navButton(){
-    var tabs=document.querySelector('#app .tabs');if(!tabs)return;
-    var b=tabs.querySelector('[data-qr-support-nav]');if(!b)return;
+  function ensureNavButton(){
+    var tabs=document.querySelector('#app .tabs');if(!tabs)return null;
+    var b=tabs.querySelector('[data-qr-support-nav]');
+    if(!b){
+      b=document.createElement('button');b.type='button';b.setAttribute('data-qr-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
+      b.addEventListener('click',function(){var v=vm();if(v){v.tab='support';}setTimeout(syncMode,0);});
+      tabs.appendChild(b);
+    }
     state.button=b;
     b.classList.toggle('on',!!(vm()&&vm().tab==='support'));
+    return b;
   }
   async function badge(){
     var v=vm();if(!v||!v.profile||v.profile.role!=='manager')return;
@@ -107,9 +91,9 @@
   function setBadge(n){if(!state.button)return;var b=state.button.querySelector('[data-support-badge]');if(!b)return;b.textContent=String(n);b.style.display=n?'inline-flex':'none';}
   function boot(){
     styles();
-    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}navButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});
-      if(!state.navObserver){state.navObserver=new MutationObserver(function(){navButton();});state.navObserver.observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});}
-      setInterval(function(){navButton();badge();syncMode();},1000);
+    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}ensureNavButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});
+      if(!state.navObserver){state.navObserver=new MutationObserver(function(){ensureNavButton();syncMode();});state.navObserver.observe(document.querySelector('#app')||document.body,{childList:true,subtree:true});}
+      setInterval(function(){ensureNavButton();badge();syncMode();},1000);
     };
     start();
   }
