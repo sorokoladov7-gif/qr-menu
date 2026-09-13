@@ -1,4 +1,4 @@
-const CACHE = 'qr-platform-v56';
+const CACHE = 'qr-platform-v57';
 const CORE = [
   '/', '/src/pages/guest/index.html', '/src/pages/guest/menu.html', '/src/pages/guest/menu-v2.html',
   '/src/pages/staff/demo-staff.html', '/src/pages/staff/hall.html', '/src/pages/staff/cook.html', '/src/pages/staff/courier.html', '/src/pages/staff/waiter.html',
@@ -9,10 +9,10 @@ const CORE = [
   '/src/assets/css/style.css', '/src/assets/js/shared/config.js', '/src/assets/js/shared/app.js', '/src/assets/js/staff/staff-auth.js',
   '/src/assets/js/manager/manager-hall.js', '/src/assets/js/guest/menu-table-flow.js', '/src/assets/js/admin/admin-design-access.js', '/src/assets/js/guest/design-runtime.js',
   '/src/assets/js/pwa/pwa-install.js', '/src/assets/js/shared/offline-sync.js', '/src/assets/js/guest/delivery-calc.js', '/src/assets/js/shared/qr-support.js',
-  '/src/assets/js/manager/manager-app.js', '/src/assets/js/manager/manager-core.js', '/src/assets/js/manager/manager-venues.js', '/src/assets/js/manager/manager-billing.js',
+  '/src/assets/js/manager/manager-app.js', '/src/assets/js/manager/manager-core.js', '/src/assets/js/manager/manager-support.js', '/src/assets/js/manager/manager-venues.js', '/src/assets/js/manager/manager-billing.js',
   '/src/assets/js/manager/manager-site-import.js', '/src/assets/js/manager/manager-ai.js', '/src/assets/js/manager/manager-hall-view.js',
   '/src/assets/pwa/manifest.webmanifest', '/src/assets/pwa/manifest-admin.webmanifest', '/src/assets/pwa/manifest-manager.webmanifest', '/src/assets/pwa/manifest-cook.webmanifest', '/src/assets/pwa/manifest-courier.webmanifest', '/src/assets/pwa/manifest-waiter.webmanifest',
-  '/src/assets/icons/icon-192.png', '/src/assets/icons/icon-512.png', '/src/assets/icons/icon-manager-192.png', '/src/assets/icons/icon-manager-512.png', '/src/assets/icons/icon-courier-192.png', '/src/assets/icons/icon-courier-512.png', '/src/assets/icons/icon-waiter-192.png', '/src/assets/icons/icon-waiter-512.png'
+  '/src/assets/icons/icon-192.png', '/src/assets/icons/icon-512.png', '/src/assets/icons/icon-manager-192.png', '/src/assets/icons/icon-manager-512.png', '/src/assets/icons/icon-courier-192.png', '/src/assets/icons/icon-courier-512.png', '/src/assets/icons/icon-waiter-192.png'
 ];
 
 self.addEventListener('install', event => event.waitUntil(caches.open(CACHE).then(cache => Promise.all(CORE.map(url => cache.add(url).catch(() => undefined)))).then(() => self.skipWaiting())));
@@ -21,21 +21,25 @@ self.addEventListener('activate', event => event.waitUntil(caches.keys().then(ke
 async function enhanceHtml(response) {
   const text = await response.text();
   if (!/<\/body>/i.test(text)) return new Response(text, { status: response.status, statusText: response.statusText, headers: response.headers });
-  let extra = '';
-  if (!/pwa-install\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
   const pathname = new URL(response.url).pathname;
+  let headExtra = '';
+  let extra = '';
+  if (pathname === '/src/pages/manager/manager.html') headExtra += '<script src="/src/assets/js/manager/manager-support.js?v=2" data-qr-manager-support="2"></script>';
+  if (!/pwa-install\.js/i.test(text)) extra += '<script src="/src/assets/js/pwa/pwa-install.js"></script><script src="/src/assets/js/shared/offline-sync.js"></script>';
   if (pathname === '/src/pages/guest/menu.html' && !/delivery-calc\.js/i.test(text)) extra += '<script src="/src/assets/js/guest/delivery-calc.js?v=24"></script>';
   if (pathname === '/src/pages/manager/manager.html' && !/manager-hall-ai\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-hall-ai.js?v=21" data-qr-manager-ai="21"></script>';
   if (pathname === '/src/pages/manager/manager.html' && !/js\/manager\/manager-ai\.js/i.test(text)) extra += '<script src="/src/assets/js/manager/manager-ai.js?v=4"></script>';
   if ((pathname === '/src/pages/manager/manager.html' || pathname === '/src/pages/admin/admin.html') && !/js\/shared\/qr-support\.js/i.test(text)) extra += '<script src="/src/assets/js/shared/qr-support.js?v=1"></script>';
-  return new Response(text.replace(/<\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
+  let out = text;
+  if (headExtra) out = out.replace(/<head([^>]*)>/i, '<head$1>' + headExtra);
+  return new Response(out.replace(/<\/body>/i, extra + '</body>'), { status: response.status, statusText: response.statusText, headers: response.headers });
 }
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   if (event.request.method !== 'GET' || url.origin !== location.origin) return;
   if (/supabase|qrserver|fonts\.googleapis|fonts\.gstatic/.test(url.hostname)) return;
-  const noStore = ['/src/pages/manager/manager.html','/src/pages/admin/admin.html','/src/assets/js/manager/manager-app.js','/src/assets/js/manager/manager-ai.js','/src/assets/js/shared/qr-support.js','/src/assets/js/manager/manager-site-import.js','/src/assets/js/manager/manager-billing.js','/src/assets/js/manager/manager-recipes.js','/src/assets/js/manager/manager-recept-ai.js'].includes(url.pathname);
+  const noStore = ['/src/pages/manager/manager.html','/src/pages/admin/admin.html','/src/assets/js/manager/manager-app.js','/src/assets/js/manager/manager-ai.js','/src/assets/js/manager/manager-support.js','/src/assets/js/shared/qr-support.js','/src/assets/js/manager/manager-site-import.js','/src/assets/js/manager/manager-billing.js','/src/assets/js/manager/manager-recipes.js','/src/assets/js/manager/manager-recept-ai.js'].includes(url.pathname);
   if (noStore) {
     event.respondWith(fetch(event.request,{cache:'no-store'}).then(response => {
       if ((url.pathname === '/src/pages/manager/manager.html' || url.pathname === '/src/pages/admin/admin.html') && response.ok && response.headers.get('content-type')?.includes('text/html')) return enhanceHtml(response.clone());
