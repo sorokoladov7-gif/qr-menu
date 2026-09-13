@@ -23,8 +23,6 @@ begin
   if nullif(trim(p_qr_token),'') is null then raise exception 'qr_token_required'; end if;
   if nullif(trim(p_guest_token),'') is null then raise exception 'guest_token_required'; end if;
 
-  -- Never trust a venue_id/table_id supplied by the browser. Resolve the QR
-  -- token first and require an active table.
   select * into v_table
     from public.venue_tables
    where qr_token=trim(p_qr_token)
@@ -32,9 +30,6 @@ begin
    limit 1;
   if v_table.id is null then raise exception 'table_not_found'; end if;
 
-  -- Resolve the guest by its hashed token. This is deliberately independent
-  -- of the URL venue/table parameters, so a changed URL cannot move a guest
-  -- into another venue/session.
   select * into v_guest
     from public.table_guest_sessions
    where token_hash=encode(digest(trim(p_guest_token),'sha256'),'hex')
@@ -48,9 +43,6 @@ begin
      where id=v_guest.table_session_id
        and status='active';
 
-    -- A guest token is valid only while its session is still the active
-    -- session of the QR table. Otherwise it must re-join through the normal
-    -- QR flow and cannot read another table's state.
     if v_session.id is null or v_session.table_id<>v_table.id then
       v_guest.id:=null;
     end if;
@@ -79,7 +71,7 @@ begin
     'order_type',o.order_type,
     'created_at',o.created_at,
     'updated_at',o.updated_at,
-    'total',coalesce(o.total,0)
+    'total_price',coalesce(o.total_price,0)
   ) order by o.created_at desc),'[]'::jsonb)
     into v_orders
     from public.orders o
@@ -100,6 +92,4 @@ $$;
 
 grant execute on function public.smart_table_guest_sync(text,text,text) to anon,authenticated;
 
--- A guest can only continue reading its own active session. The existing
--- QR-token resolver remains public for first-load discovery.
 commit;
