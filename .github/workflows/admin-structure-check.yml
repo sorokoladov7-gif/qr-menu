@@ -1,0 +1,16 @@
+name: Admin structure check
+on:
+  push:
+    branches: [refactor/admin-real-modular]
+permissions:
+  contents: read
+jobs:
+  structure:
+    if: contains(github.event.head_commit.message, '[admin-structure-check]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test tests/api/admin-modular-architecture.test.cjs
