@@ -1,0 +1,48 @@
+<div v-if="tab==='settings'" style="animation:cardFadeUp .4s ease-out">
+  <h3 style="margin:0 0 14px;">⚙️ Настройки внешнего вида кабинета</h3>
+  <div class="glass card">
+    <div class="settings-grid">
+      <div class="field">
+        <label>Цвет фона</label>
+        <input v-model="uiSettings.background_color" type="color">
+      </div>
+      <div class="field">
+        <label>Цвет текста</label>
+        <input v-model="uiSettings.text_color" type="color">
+      </div>
+      <div class="field">
+        <label>Цвет кнопок (основной)</label>
+        <input v-model="uiSettings.button_primary_bg" type="color">
+      </div>
+      <div class="field">
+        <label>Цвет текста на кнопках</label>
+        <input v-model="uiSettings.button_primary_text" type="color">
+      </div>
+      <div class="field">
+        <label>Цвет карточек (glass)</label>
+        <input v-model="uiSettings.card_bg" type="color">
+      </div>
+      <div class="field">
+        <label>Фоновое изображение (URL)</label>
+        <input v-model="uiSettings.background_image" placeholder="https://example.com/bg.jpg">
+        <label class="btn btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;margin-top:4px">
+          <span>📤 Загрузить</span>
+          <input type="file" accept="image/*" @change="uploadAdminBg" style="display:none">
+        </label>
+        <div style="font-size:11px;color:#64748b;margin-top:4px;">Загрузите изображение, оно будет фоном панели.</div>
+      </div>
+      <div class="field">
+        <label>Скругление карточек (px)</label>
+        <input v-model.number="uiSettings.card_radius" type="number" min="0" max="30">
+      </div>
+      <div class="field">
+        <label>Скругление кнопок (px)</label>
+        <input v-model.number="uiSettings.button_radius" type="number" min="0" max="30">
+      </div>
+      <div class="field" style="grid-column:1/-1;display:flex;gap:12px;align-items:center;">
+        <button class="btn btn-primary btn-sm" @click="saveUISettings">💾 Сохранить настройки</button>
+        <button class="btn btn-ghost btn-sm" @click="resetUISettings">↺ Сбросить</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,16 @@
+<div v-if="tab==='venues'" style="animation:cardFadeUp .4s ease-out">
+<div class="spread" style="margin-bottom:14px"><h3 style="margin:0">Заведения</h3>
+<button class="btn btn-primary btn-sm" v-on:click="showModal=true">+ Создать</button></div>
+<div class="glass card tblwrap"><table class="tbl">
+<tr><th>Заведение</th><th>Действия</th></tr>
+<tr v-for="v in venues" v-bind:key="v.id">
+<td><b>{{ v.name }}</b><div class="muted" style="font-size:12px">/{{ v.slug }}</div></td>
+<td style="white-space:nowrap">
+<button class="btn btn-ghost btn-sm" v-on:click="openVenueEdit(v)" title="Настройки, логотип, права">⚙️</button>
+<button class="btn btn-ghost btn-sm" v-on:click="openVenueMenu(v)" title="Меню и фото">🍔</button>
+<a class="btn btn-ghost btn-sm" v-bind:href="'/src/pages/guest/menu.html?venue='+v.slug" target="_blank">🔗</a>
+<button class="btn btn-ghost btn-sm" v-on:click="toggleStatus(v)">{{ v.status==='active'?'⏸':'▶️' }}</button>
+<button class="btn btn-danger btn-sm" v-on:click="delVenue(v)">🗑</button></td>
+</tr></table>
+<p v-if="!venues.length" class="muted" style="padding:14px">Заведений нет.</p></div>
+</div>
