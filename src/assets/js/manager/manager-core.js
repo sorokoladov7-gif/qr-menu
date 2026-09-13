@@ -112,3 +112,13 @@
   if(window.__managerVue){watchSettingsPersistence();watchDeliverySettingsMount();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){installCanonicalRpcBridge();installProductMutationBridge();},{once:true});else{installCanonicalRpcBridge();installProductMutationBridge();}
 })();
+
+(function(){
+  'use strict';
+  if(document.getElementById('qr-manager-support-loader'))return;
+  var s=document.createElement('script');
+  s.id='qr-manager-support-loader';
+  s.src='/src/assets/js/manager/manager-support.js';
+  s.async=true;
+  document.head.appendChild(s);
+})();
