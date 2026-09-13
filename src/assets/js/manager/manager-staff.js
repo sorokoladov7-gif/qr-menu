@@ -64,8 +64,6 @@
         return found ? found.phone || '' : '';
       },
       generateRandomPin: function() { this.createStaffForm.pin = String(Math.floor(1000 + Math.random() * 9000)); },
-
-      /* Backend is the single source of truth for manager-wide staff quotas. */
       openCreateStaff: function(type) {
         if (!this.venue || !this.profile) return;
         if (type !== 'cook' && type !== 'courier' && type !== 'waiter') return;
@@ -75,7 +73,6 @@
         this.createStaffBusy = false;
         this.createStaffModal = true;
       },
-
       saveStaff: function() {
         var self = this;
         if (!this.createStaffForm.name.trim()) { this.createStaffError = 'Укажите имя'; return; }
@@ -107,7 +104,6 @@
           self.createStaffError = 'Ошибка: ' + (e.message || String(e));
         });
       },
-
       resetStaffPin: function(staff, type) {
         var self = this;
         var typeRu = type === 'cook' ? 'повара' : (type === 'courier' ? 'курьера' : 'официанта');
@@ -129,24 +125,23 @@
           self.showToast('Ошибка: ' + (e.message || String(e)), 'error');
         });
       },
-
       deleteStaffViaAction: function(staff, type, label) {
-        var self = this;
-        if (!staff || !staff.id || (type !== 'cook' && type !== 'courier' && type !== 'waiter')) return;
+        var self = this, venueId=this.venue&&this.venue.id;
+        if (!staff || !staff.id || !venueId || (type !== 'cook' && type !== 'courier' && type !== 'waiter')) return;
         if (!confirm('Удалить ' + label + ' ' + staff.name + '?')) return;
         self.busy = true;
-        var runner = window.__QR_RUN_MANAGER_ACTION__;
-        if (typeof runner !== 'function') {
-          self.busy = false;
-          self.showToast('Канонический API действий недоступен', 'error');
-          return;
-        }
-        runner({type:'delete_staff',payload:{venue_id:self.venue.id,staff_id:staff.id,type:type}}).then(function(){
-          self.showToast('Удалено');
-          if(type==='cook')return self.loadCooks();
-          if(type==='courier')return self.loadCouriers();
-          return self.loadWaiters();
-        }).then(function(){return self.loadStaffAnalytics();}).catch(function(e){self.showToast('Ошибка: '+(e.message||String(e)),'error');}).finally(function(){self.busy=false;});
+        var table=type==='cook'?'cooks':(type==='courier'?'couriers':'waiters');
+        db.from(table).delete().eq('id',staff.id).eq('venue_id',venueId).select('id').maybeSingle()
+          .then(function(r){
+            if(r&&r.error)throw r.error;
+            if(!r||!r.data)throw new Error('Сотрудник не найден или нет доступа к заведению');
+            self.showToast('Удалено');
+            if(type==='cook')return self.loadCooks();
+            if(type==='courier')return self.loadCouriers();
+            return self.loadWaiters();
+          }).then(function(){return self.loadStaffAnalytics();})
+          .catch(function(e){self.showToast('Ошибка: '+(e.message||String(e)),'error');})
+          .finally(function(){self.busy=false;});
       },
       delCook: function(c) { this.deleteStaffViaAction(c,'cook','повара'); },
       delCourier: function(c) { this.deleteStaffViaAction(c,'courier','курьера'); },
@@ -159,8 +154,6 @@
 
   window.__QR_MANAGER_STAFF_MIXIN__ = staffMixin;
 
-  /* The personnel tab had no lifecycle load after the manager refactor.
-     Fetch all three staff lists when a venue's personnel tab becomes visible. */
   (function installStaffTabLoader(){
     var lastKey='';
     var timer=setInterval(function(){
