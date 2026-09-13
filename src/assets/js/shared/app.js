@@ -37,3 +37,87 @@ async function logout(){try{await db.auth.signOut();}catch(e){}sessionStorage.cl
 
 /* QR MENU — Manager AI assistant. Access is enforced server-side by /api/manager-ai. */
 (function(){'use strict';if(!/(?:^|\/)manager\.html$/i.test(location.pathname))return;var ID='qr-ai-assistant-loader';function load(){if(window.__QR_AI_ASSISTANT__||document.getElementById(ID))return;var s=document.createElement('script');s.id=ID;s.src='/src/assets/js/manager/qr-ai-assistant.js?v=2';s.async=false;s.onload=function(){console.log('[QR MENU] Manager AI assistant loaded');};s.onerror=function(){console.error('[QR MENU] Manager AI assistant failed to load:',s.src);};(document.head||document.documentElement).appendChild(s);}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',load,{once:true});else load();})();
+
+/* QR MENU — Smart Table 2.0 guest bridge. QR token is the authority for table/session context. */
+(function(){
+  'use strict';
+  if(!/(?:^|\/)menu\.html$/i.test(location.pathname))return;
+  if(window.__QR_SMART_TABLE_BRIDGE__)return;
+  window.__QR_SMART_TABLE_BRIDGE__=true;
+  var params=new URLSearchParams(location.search);
+  var venueSlug=params.get('venue');
+  var tableToken=(params.get('token')||'').trim();
+  var tableNumber=(params.get('table')||'').trim();
+  if(!tableToken)return;
+  var guestStorageKey='qr-smart-table-guest:'+tableToken;
+  var guestToken='';
+  try{guestToken=sessionStorage.getItem(guestStorageKey)||'';}catch(e){}
+  if(!guestToken){
+    guestToken=(window.crypto&&typeof window.crypto.randomUUID==='function')?window.crypto.randomUUID():('g-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2));
+    try{sessionStorage.setItem(guestStorageKey,guestToken);}catch(e){}
+  }
+  var state={venueId:null,sessionId:null,guestId:null,context:null,ready:false,error:null,busy:false};
+  window.QRSmartTable=state;
+
+  function rpc(name,args){return window.db&&typeof window.db.rpc==='function'?window.db.rpc(name,args):Promise.reject(new Error('Supabase client не найден'));}
+  function applyContext(context){
+    if(!context||!context.table)return;
+    state.context=context;
+    state.venueId=context.restaurant&&context.restaurant.id||state.venueId||null;
+    state.sessionId=context.table.session_id||state.sessionId||null;
+    var app=document.getElementById('app');
+    try{
+      var vm=app&&(app.__vueParentComponent&&app.__vueParentComponent.proxy||app.__vue_app__&&app.__vue_app__._instance&&app.__vue_app__._instance.proxy);
+      if(vm&&vm.form&&context.table.number!=null){
+        vm.form.type='table';
+        vm.form.table_number=String(context.table.number);
+        vm.form.table_token=tableToken;
+        vm.msg='🪑 Вы заказываете за столом №'+context.table.number;
+        vm.msgType='ok';
+      }
+    }catch(e){}
+  }
+  async function resolve(){
+    if(state.busy)return state.context;
+    state.busy=true;state.error=null;
+    try{
+      var r=await rpc('smart_table_get_context_by_token',{p_qr_token:tableToken,p_language:'ru'});
+      if(r.error)throw r.error;
+      var context=Array.isArray(r.data)?r.data[0]:r.data;
+      if(!context||context.ok===false)throw new Error('table_context_unavailable');
+      applyContext(context);
+      state.ready=true;
+      return context;
+    }catch(e){state.error=e;return null;}finally{state.busy=false;}
+  }
+  async function join(guestName){
+    var context=await resolve();
+    var venueId=context&&context.restaurant&&context.restaurant.id||state.venueId;
+    if(!venueId)throw new Error('table_context_unavailable');
+    var r=await rpc('smart_table_join',{p_venue_id:venueId,p_qr_token:tableToken,p_guest_token:guestToken,p_guest_name:guestName||null,p_language:'ru'});
+    if(r.error)throw r.error;
+    var data=Array.isArray(r.data)?r.data[0]:r.data;
+    if(!data||data.ok===false)throw new Error('table_join_failed');
+    state.venueId=venueId;state.sessionId=data.session_id||state.sessionId;state.guestId=data.guest_id||state.guestId;
+    if(data.context)applyContext(data.context);
+    state.ready=true;
+    return data;
+  }
+  var originalRpc=window.db&&typeof window.db.rpc==='function'?window.db.rpc.bind(window.db):null;
+  if(originalRpc){
+    window.db.rpc=function(name,args,options){
+      if(name!=='create_public_order'||!args||args.p_order_type!=='table'||!args.p_table_token)return originalRpc(name,args,options);
+      var guestName=args.p_customer_name||null;
+      return join(guestName).then(function(){return originalRpc(name,args,options);});
+    };
+  }
+  function poll(){
+    if(document.hidden)return;
+    resolve().catch(function(){});
+  }
+  function start(){
+    resolve();
+    setInterval(poll,5000);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
+})();
