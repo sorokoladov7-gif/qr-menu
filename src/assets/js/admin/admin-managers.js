@@ -1,147 +1,33 @@
-/* QR-Menu — менеджеры (админ) */
+/* QR-Menu — админ: раздел «Менеджеры» */
 (function(){
-  'use strict';
-  if(window.__QR_ADMIN_MANAGERS__) return;
-  window.__QR_ADMIN_MANAGERS__=true;
+'use strict';
+if(window.__QR_ADMIN_MANAGERS__)return;
+window.__QR_ADMIN_MANAGERS__=true;
 
-  var managersMixin={
-    data:function(){return{
-      managers:[],links:[],managerPeriods:{},
-      addMgrModal:{show:false,name:'',email:'',password:'',role:'manager',err:''},
-      mgrEditModal:{show:false,id:null,name:'',role:'manager',allow_manage_delivery:false,allow_manage_design:false}
-    }},
-    computed:{
-      managerVenuesMap:function(){
-        var map={},self=this;
-        (this.managers||[]).forEach(function(m){
-          var ids=(self.links||[]).filter(function(l){return l.manager_id===m.id}).map(function(l){return l.venue_id});
-          map[m.id]=ids.map(function(id){return (self.venues||[]).find(function(v){return v.id===id})}).filter(Boolean);
-        });
-        return map;
-      }
-    },
-    methods:{
-      addManager:function(){
-        var self=this;self.busy=true;self.addMgrModal.err='';
-        var temp=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,storageKey:'admin-temp',autoRefreshToken:false,detectSessionInUrl:false}});
-        temp.auth.signUp({email:self.addMgrModal.email,password:self.addMgrModal.password,options:{data:{display_name:self.addMgrModal.name,role:self.addMgrModal.role}}}).then(function(r){
-          self.busy=false;
-          if(r.error){self.addMgrModal.err='Ошибка: '+r.error.message;return;}
-          alert('Аккаунт создан! Передайте данные менеджеру.');self.addMgrModal.show=false;
-          self.addMgrModal={show:false,name:'',email:'',password:'',role:'manager',err:''};self.loadBaseData();
-        });
-      },
-      openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name,role:m.role,allow_manage_delivery:!!m.allow_manage_delivery,allow_manage_design:!!m.allow_manage_design}},
-      saveMgrEdit:function(){
-        var self=this;
-        db.from('profiles').update({display_name:self.mgrEditModal.name,role:self.mgrEditModal.role,allow_manage_delivery:self.mgrEditModal.allow_manage_delivery,allow_manage_design:self.mgrEditModal.allow_manage_design}).eq('id',self.mgrEditModal.id).then(function(r){
-          if(r.error){self.msg='Ошибка: '+r.error.message;return}self.mgrEditModal.show=false;self.loadBaseData();
-        });
-      },
-      toggleMgrVenue:function(mid,vid,on){var self=this,p=on?db.from('manager_venues').insert({manager_id:mid,venue_id:vid}):db.from('manager_venues').delete().eq('manager_id',mid).eq('venue_id',vid);p.then(function(){self.loadBaseData()})},
-      delManager:function(m){var self=this;if(!confirm('Удалить управляющего '+m.display_name+'?'))return;db.rpc('admin_delete_manager',{p_manager_id:m.id}).then(function(r){if(r.error){self.msg='Ошибка удаления: '+(r.error.message||r.error);return}self.loadBaseData()})},
-      isAssigned:function(m,v){return this.links.some(function(l){return l.manager_id===m&&l.venue_id===v})}
-    }
-  };
-  window.__QR_ADMIN_MANAGERS_MIXIN__=managersMixin;
+var mixin={data:function(){return{managers:[],links:[],managerPeriods:{},addMgrModal:{show:false,name:'',email:'',password:'',role:'manager',err:''},mgrEditModal:{show:false,id:null,name:'',role:'manager',allow_manage_delivery:false,allow_manage_design:false}}},computed:{managerVenuesMap:function(){var r={},s=this;(this.managers||[]).forEach(function(m){r[m.id]=(s.links||[]).filter(function(x){return x.manager_id===m.id}).map(function(x){return(s.venues||[]).find(function(v){return v.id===x.venue_id})}).filter(Boolean)});return r}},methods:{
+addManager:function(){var s=this;s.busy=true;var c=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{persistSession:false,storageKey:'admin-temp',autoRefreshToken:false,detectSessionInUrl:false}});c.auth.signUp({email:s.addMgrModal.email,password:s.addMgrModal.password,options:{data:{display_name:s.addMgrModal.name,role:s.addMgrModal.role}}}).then(function(r){s.busy=false;if(r.error){s.addMgrModal.err='Ошибка: '+r.error.message;return}alert('Аккаунт создан. Передайте данные менеджеру.');s.addMgrModal.show=false;s.addMgrModal={show:false,name:'',email:'',password:'',role:'manager',err:''};s.loadBaseData()})},
+openMgrEdit:function(m){this.mgrEditModal={show:true,id:m.id,name:m.display_name||'',role:m.role||'manager',allow_manage_delivery:!!m.allow_manage_delivery,allow_manage_design:!!m.allow_manage_design}},
+saveMgrEdit:function(){var s=this;db.from('profiles').update({display_name:s.mgrEditModal.name,role:s.mgrEditModal.role,allow_manage_delivery:s.mgrEditModal.allow_manage_delivery,allow_manage_design:s.mgrEditModal.allow_manage_design}).eq('id',s.mgrEditModal.id).then(function(r){if(r.error){s.msg='Ошибка: '+r.error.message;return}s.mgrEditModal.show=false;s.loadBaseData()})},
+toggleMgrVenue:function(mid,vid,on){var s=this,p=on?db.from('manager_venues').insert({manager_id:mid,venue_id:vid}):db.from('manager_venues').delete().eq('manager_id',mid).eq('venue_id',vid);p.then(function(){s.loadBaseData()})},
+delManager:function(m){var s=this;if(!confirm('Удалить управляющего '+(m.display_name||m.email)+'?'))return;db.rpc('admin_delete_manager',{p_manager_id:m.id}).then(function(r){if(r.error){s.msg='Ошибка удаления: '+r.error.message;return}s.loadBaseData()})},
+isAssigned:function(mid,vid){return(this.links||[]).some(function(x){return x.manager_id===mid&&x.venue_id===vid})}
+}};
+window.__QR_ADMIN_MANAGERS_MIXIN__=mixin;
 
-  var STYLE_ID='qr-admin-manager-directory-style',MODAL_ID='qr-admin-manager-details';
-  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;')}
-  function date(v){if(!v)return '—';var d=new Date(v);return isNaN(d.getTime())?'—':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
-  function money(v){return Number(v||0).toLocaleString('ru-RU',{maximumFractionDigits:0})}
-  function app(){return window.__QR_ADMIN_VUE_APP__}
-  function proxy(){var a=app();return a&&a._instance?a._instance.proxy:null}
-
-  function renameManagerLabels(){
-    var nodes=document.querySelectorAll('.tabs button,#qr-admin-shell .qr-nav button');
-    for(var i=0;i<nodes.length;i++){
-      var b=nodes[i],t=b.textContent||'';
-      if(t.indexOf('Управляющие')>=0){
-        b.innerHTML=b.innerHTML.replace(/Управляющие/g,'Менеджеры');
-      }
-    }
-    var hs=document.querySelectorAll('h3,h4,b,span');
-    for(var j=0;j<hs.length;j++){
-      if((hs[j].textContent||'').trim()==='Управляющие' && !hs[j].closest('.tbl')) hs[j].textContent='Менеджеры';
-    }
-  }
-
-  function addStyle(){
-    if(document.getElementById(STYLE_ID))return;
-    var s=document.createElement('style');s.id=STYLE_ID;s.textContent=
-      '.qr-manager-directory{margin:0 0 14px}.qr-manager-directory-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.qr-manager-card{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.025);cursor:pointer;transition:.2s}.qr-manager-card:hover{transform:translateY(-2px);border-color:rgba(99,102,241,.5);background:rgba(99,102,241,.07)}.qr-manager-avatar{width:44px;height:44px;min-width:44px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#6366f1,#8b5cf6);font-weight:800;color:#fff}.qr-manager-card-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qr-manager-card-meta{font-size:11px;color:#94a3b8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.qr-manager-card-count{margin-left:auto;font-size:11px;color:#c4b5fd;white-space:nowrap}.qr-manager-details{width:min(940px,calc(100vw - 24px));max-height:90vh;overflow:auto}.qr-manager-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0}.qr-manager-detail-item{padding:11px 12px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.025)}.qr-manager-detail-label{font-size:11px;color:#94a3b8;margin-bottom:4px}.qr-manager-detail-value{font-weight:700;word-break:break-word}.qr-manager-venue{padding:12px;border:1px solid rgba(255,255,255,.07);border-radius:12px;margin-top:9px;background:rgba(255,255,255,.02)}.qr-manager-venue-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.qr-manager-history{position:relative;margin:12px 0 4px;padding-left:20px}.qr-manager-history:before{content:"";position:absolute;left:5px;top:4px;bottom:4px;width:1px;background:rgba(148,163,184,.25)}.qr-manager-event{position:relative;padding:7px 0 7px 12px;font-size:12px}.qr-manager-event:before{content:"";position:absolute;left:-19px;top:12px;width:8px;height:8px;border-radius:50%;background:#8b5cf6}.qr-manager-staff{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.qr-manager-staff span{padding:5px 8px;border-radius:8px;background:rgba(255,255,255,.04);font-size:11px}.qr-manager-status{font-size:11px;padding:4px 8px;border-radius:999px;background:rgba(52,211,153,.1);color:#6ee7b7}.qr-manager-status.off{background:rgba(248,113,113,.1);color:#fca5a5}@media(max-width:640px){.qr-manager-directory-list{grid-template-columns:1fr}.qr-manager-detail-grid{grid-template-columns:1fr}.qr-manager-details{width:calc(100vw - 12px)}}';
-    document.head.appendChild(s);
-  }
-
-  function getSection(){
-    var root=document.getElementById('app');if(!root)return null;
-    var hs=root.querySelectorAll('h3');
-    for(var i=0;i<hs.length;i++){var t=(hs[i].textContent||'').trim();if(t==='Управляющие'||t==='Менеджеры'){var p=hs[i];while(p&&p!==root){if(p.querySelector&&p.querySelector('.tblwrap'))return p;p=p.parentElement}}}
-    return null;
-  }
-
-  function getModal(){
-    var m=document.getElementById(MODAL_ID);if(m)return m;
-    m=document.createElement('div');m.id=MODAL_ID;m.className='modal';m.style.display='none';
-    m.innerHTML='<div class="glass box qr-manager-details" role="dialog" aria-modal="true"><div class="spread" style="margin-bottom:12px"><div><div id="qr-manager-details-title" style="font-size:20px;font-weight:800">Менеджер</div><div id="qr-manager-details-email" class="muted" style="font-size:12px;margin-top:3px"></div></div><button class="btn btn-ghost btn-sm" data-manager-close>✕</button></div><div id="qr-manager-details-body"></div><div class="row" style="margin-top:14px;gap:8px"><button class="btn btn-primary" data-manager-edit>✏️ Редактировать</button><button class="btn btn-ghost" data-manager-close>Закрыть</button></div></div>';
-    m.addEventListener('click',function(e){
-      if(e.target===m||e.target.closest('[data-manager-close]'))m.style.display='none';
-      if(e.target.closest('[data-manager-edit]')){var p=proxy();if(p&&m.__manager){m.style.display='none';p.openMgrEdit(m.__manager)}}
-    });
-    document.body.appendChild(m);return m;
-  }
-
-  function showDetails(manager){
-    var p=proxy();if(!p)return;
-    var venues=(p.managerVenuesMap&&p.managerVenuesMap[manager.id])||[],orders=p.ordersAll||[],cooks=p.cooksAll||[],couriers=p.couriersAll||[],waiters=p.waitersAll||[];
-    var totalOrders=0,totalRevenue=0,staff=0;
-    venues.forEach(function(v){
-      var vo=orders.filter(function(o){return o.venue_id===v.id});totalOrders+=vo.length;totalRevenue+=vo.reduce(function(a,o){return a+Number(o.total_price||0)},0);
-      staff+=cooks.filter(function(x){return x.venue_id===v.id}).length+couriers.filter(function(x){return x.venue_id===v.id}).length+waiters.filter(function(x){return x.venue_id===v.id}).length;
-    });
-    var last=manager.last_login_at?new Date(manager.last_login_at):null,active=last&&!isNaN(last.getTime())&&(Date.now()-last.getTime()<2592000000);
-    var html='<div class="qr-manager-detail-grid"><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Статус</div><div class="qr-manager-detail-value"><span class="qr-manager-status '+(active?'':'off')+'">'+(active?'Активен':'Нет входа за 30 дней')+'</span></div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Регистрация</div><div class="qr-manager-detail-value">'+date(manager.created_at)+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Последний вход</div><div class="qr-manager-detail-value">'+date(manager.last_login_at)+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Роль</div><div class="qr-manager-detail-value">'+esc(manager.role||'manager')+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Заведений</div><div class="qr-manager-detail-value">'+venues.length+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Персонал</div><div class="qr-manager-detail-value">'+staff+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Доставка</div><div class="qr-manager-detail-value">'+(manager.allow_manage_delivery?'Разрешена':'Нет')+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Дизайн</div><div class="qr-manager-detail-value">'+(manager.allow_manage_design?'Разрешён':'Нет')+'</div></div></div>';
-    html+='<h4 style="margin:16px 0 8px">📈 Сводка</h4><div class="qr-manager-detail-grid"><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Заказов</div><div class="qr-manager-detail-value">'+totalOrders+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Выручка загруженных заказов</div><div class="qr-manager-detail-value">'+money(totalRevenue)+' ₽</div></div></div>';
-    html+='<h4 style="margin:16px 0 8px">🏢 Заведения</h4>';
-    if(!venues.length)html+='<div class="muted" style="padding:12px;text-align:center">Заведений пока нет.</div>';
-    venues.forEach(function(v){
-      var sub=(p.subscriptions||[]).find(function(s){return s.venue_id===v.id}),plan=(p.plans||[]).find(function(x){return x.id===v.plan}),vo=orders.filter(function(o){return o.venue_id===v.id}),rev=vo.reduce(function(a,o){return a+Number(o.total_price||0)},0),vc=cooks.filter(function(x){return x.venue_id===v.id}),vr=couriers.filter(function(x){return x.venue_id===v.id}),vw=waiters.filter(function(x){return x.venue_id===v.id});
-      html+='<div class="qr-manager-venue"><div class="qr-manager-venue-head"><div><b>'+esc(v.name||'Без названия')+'</b><div class="muted" style="font-size:11px;margin-top:3px">/'+esc(v.slug||'—')+'</div></div><span class="badge b-on">'+esc(plan?plan.name:(v.plan||'без тарифа'))+'</span></div><div class="qr-manager-detail-grid" style="margin-bottom:0"><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Создано</div><div class="qr-manager-detail-value">'+date(v.created_at)+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Подписка до</div><div class="qr-manager-detail-value">'+date(v.subscription_end||(sub&&sub.current_period_end))+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Заказов</div><div class="qr-manager-detail-value">'+vo.length+'</div></div><div class="qr-manager-detail-item"><div class="qr-manager-detail-label">Выручка</div><div class="qr-manager-detail-value">'+money(rev)+' ₽</div></div></div><div class="qr-manager-staff">'+vc.map(function(x){return '<span>👨‍🍳 '+esc(x.name||'Повар')+'</span>'}).join('')+vr.map(function(x){return '<span>🚗 '+esc(x.name||'Курьер')+'</span>'}).join('')+vw.map(function(x){return '<span>🤵 '+esc(x.name||'Официант')+'</span>'}).join('')+'</div></div>';
-    });
-    var events=[{d:manager.created_at,t:'Регистрация менеджера',s:manager.email||''}];
-    venues.forEach(function(v){events.push({d:v.created_at,t:'Создано заведение',s:v.name||'Без названия'});var sub=(p.subscriptions||[]).find(function(x){return x.venue_id===v.id});if(sub&&sub.created_at)events.push({d:sub.created_at,t:'Создана подписка',s:v.name||'Заведение'})});
-    if(manager.last_login_at)events.push({d:manager.last_login_at,t:'Последний вход',s:'Менеджер входил в кабинет'});
-    events.sort(function(a,b){return new Date(b.d||0)-new Date(a.d||0)});
-    html+='<h4 style="margin:18px 0 8px">🕒 История</h4><div class="qr-manager-history">'+events.map(function(e){return '<div class="qr-manager-event"><b>'+esc(e.t)+'</b><div>'+esc(e.s)+'</div><div class="muted">'+date(e.d)+'</div></div>'}).join('')+'</div>';
-    var m=getModal();m.__manager=manager;document.getElementById('qr-manager-details-title').textContent=manager.display_name||'Менеджер';document.getElementById('qr-manager-details-email').textContent=manager.email||'';document.getElementById('qr-manager-details-body').innerHTML=html;m.style.display='grid';
-  }
-
-  function render(){
-    renameManagerLabels();
-    var p=proxy();if(!p||p.tab!=='managers'||!Array.isArray(p.managers))return;
-    var s=getSection();if(!s)return;
-    addStyle();
-    var table=s.querySelector('.tblwrap'),box=s.querySelector('.qr-manager-directory');
-    if(!box){
-      box=document.createElement('div');box.className='qr-manager-directory glass card';
-      if(table){table.style.display='none';s.insertBefore(box,table)}else{s.appendChild(box)}
-    }
-    var oldCount=box.getAttribute('data-count');if(oldCount===String(p.managers.length)&&box.getAttribute('data-ready')==='1')return;
-    box.setAttribute('data-count',String(p.managers.length));box.setAttribute('data-ready','1');
-    box.innerHTML='<div class="spread" style="margin-bottom:10px"><div><b>Менеджеры</b><div class="muted" style="font-size:11px;margin-top:3px">Нажмите на менеджера, чтобы открыть полное досье</div></div><span class="muted" style="font-size:12px">Всего: '+p.managers.length+'</span></div><div class="qr-manager-directory-list"></div>';
-    var list=box.querySelector('.qr-manager-directory-list');
-    p.managers.forEach(function(m){
-      var card=document.createElement('div'),venues=(p.managerVenuesMap&&p.managerVenuesMap[m.id])||[],base=(m.display_name||m.email||'М').trim().split(/\s+/).slice(0,2),initials=base.map(function(x){return x.charAt(0)}).join('').toUpperCase();
-      card.className='qr-manager-card';card.innerHTML='<div class="qr-manager-avatar">'+esc(initials||'М')+'</div><div style="min-width:0;flex:1"><div class="qr-manager-card-name">'+esc(m.display_name||'Без имени')+'</div><div class="qr-manager-card-meta">'+esc(m.email||'')+'</div></div><div class="qr-manager-card-count">'+venues.length+' зав.</div>';
-      card.addEventListener('click',function(){showDetails(m)});list.appendChild(card);
-    });
-  }
-
-  function boot(){
-    addStyle();renameManagerLabels();
-    var obs=new MutationObserver(function(){renameManagerLabels();render()});
-    if(document.body)obs.observe(document.body,{childList:true,subtree:true,characterData:true});
-    setInterval(function(){renameManagerLabels();render()},1000);
-  }
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+var css='';
+function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function dt(v){if(!v)return'—';var d=new Date(v);return isNaN(d)?'—':d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}
+function rub(v){return Number(v||0).toLocaleString('ru-RU',{maximumFractionDigits:0})+' ₽'}
+function p(){var a=window.__QR_ADMIN_VUE_APP__;return a&&a._instance?a._instance.proxy:null}
+function section(){var root=document.getElementById('app');if(!root)return null;var hs=root.querySelectorAll('h3');for(var i=0;i<hs.length;i++){var t=(hs[i].textContent||'').trim();if(t==='Менеджеры'||t==='Управляющие'){var x=hs[i];while(x&&x!==root){if(x.querySelector&&x.querySelector('.tblwrap'))return x;x=x.parentElement}}}return null}
+function styles(){if(document.getElementById('qr-manager-real-style'))return;var s=document.createElement('style');s.id='qr-manager-real-style';s.textContent='.qr-manager-ui{margin-top:12px}.qr-manager-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}.qr-manager-item{border:1px solid rgba(148,163,184,.15);border-radius:16px;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018));padding:16px;cursor:pointer;transition:.2s;position:relative}.qr-manager-item:hover{transform:translateY(-3px);border-color:rgba(129,140,248,.55);box-shadow:0 14px 35px rgba(0,0,0,.2)}.qr-manager-top{display:flex;gap:12px;align-items:center}.qr-manager-avatar{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#4f46e5,#8b5cf6);font-weight:800;color:#fff}.qr-manager-name{font-size:15px;font-weight:800}.qr-manager-email{font-size:11px;color:#94a3b8;margin-top:3px;overflow:hidden;text-overflow:ellipsis}.qr-manager-status{margin-left:auto;font-size:10px;border-radius:99px;padding:4px 8px;background:rgba(52,211,153,.12);color:#6ee7b7}.qr-manager-status.off{background:rgba(248,113,113,.12);color:#fca5a5}.qr-manager-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:14px}.qr-manager-metric{padding:8px;border-radius:10px;background:rgba(255,255,255,.035);text-align:center}.qr-manager-metric b{display:block;font-size:15px}.qr-manager-metric span{font-size:9px;color:#94a3b8}.qr-manager-meta{font-size:11px;color:#94a3b8;margin-top:10px}.qr-manager-modal{position:fixed;inset:0;z-index:99999;background:rgba(2,6,23,.72);backdrop-filter:blur(8px);display:none;place-items:center;padding:12px}.qr-manager-modal.open{display:grid}.qr-manager-box{width:min(920px,100%);max-height:92vh;overflow:auto;border:1px solid rgba(148,163,184,.18);border-radius:18px;background:#0b1220;color:#f8fafc;box-shadow:0 25px 80px rgba(0,0,0,.5);padding:20px}.qr-manager-box h3{margin:0}.qr-manager-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:14px 0}.qr-manager-info{padding:11px;border:1px solid rgba(148,163,184,.12);border-radius:11px;background:rgba(255,255,255,.025)}.qr-manager-info small{display:block;color:#94a3b8;margin-bottom:4px}.qr-manager-venue{padding:13px;border:1px solid rgba(148,163,184,.12);border-radius:12px;margin-top:8px}.qr-manager-venue-head{display:flex;justify-content:space-between;gap:8px}.qr-manager-staff{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.qr-manager-staff span{font-size:10px;padding:4px 7px;border-radius:7px;background:rgba(255,255,255,.05)}.qr-manager-history{border-left:2px solid rgba(99,102,241,.35);padding-left:13px}.qr-manager-event{margin:10px 0;font-size:11px}.qr-manager-event b{font-size:12px}.qr-manager-actions{display:flex;gap:8px;margin-top:16px}@media(max-width:650px){.qr-manager-cards{grid-template-columns:1fr}.qr-manager-grid{grid-template-columns:repeat(2,1fr)}.qr-manager-box{padding:14px}.qr-manager-actions{flex-wrap:wrap}}';document.head.appendChild(s)}
+function labels(){document.querySelectorAll('#app .tabs button,#qr-admin-shell .qr-nav button').forEach(function(b){if((b.textContent||'').indexOf('Управляющие')>-1)b.innerHTML=b.innerHTML.replace(/Управляющие/g,'Менеджеры')});document.querySelectorAll('#app h3,#app h4').forEach(function(x){if((x.textContent||'').trim()==='Управляющие')x.textContent='Менеджеры'})}
+function modal(){var m=document.getElementById('qr-manager-real-modal');if(m)return m;m=document.createElement('div');m.id='qr-manager-real-modal';m.className='qr-manager-modal';m.innerHTML='<div class="qr-manager-box"><div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start"><div><h3 id="qrm-title">Менеджер</h3><div id="qrm-email" style="font-size:12px;color:#94a3b8;margin-top:4px"></div></div><button class="btn btn-ghost" data-qrm-close>✕</button></div><div id="qrm-body"></div><div class="qr-manager-actions"><button class="btn btn-primary" data-qrm-edit>✏️ Редактировать</button><button class="btn btn-ghost" data-qrm-close>Закрыть</button></div></div>';m.onclick=function(e){if(e.target===m||e.target.closest('[data-qrm-close]'))m.classList.remove('open');if(e.target.closest('[data-qrm-edit]')){var x=p();if(x&&m.__m){m.classList.remove('open');x.openMgrEdit(m.__m)}}};document.body.appendChild(m);return m}
+function details(m){var x=p();if(!x)return;var vs=(x.managerVenuesMap&&x.managerVenuesMap[m.id])||[],orders=x.ordersAll||[],staff=[].concat(x.cooksAll||[],x.couriersAll||[],x.waitersAll||[]),ord=0,rev=0,st=0;vs.forEach(function(v){var o=orders.filter(function(z){return z.venue_id===v.id});ord+=o.length;rev+=o.reduce(function(a,z){return a+Number(z.total_price||0)},0);st+=staff.filter(function(z){return z.venue_id===v.id}).length});var last=m.last_login_at?new Date(m.last_login_at):null,active=last&&!isNaN(last)&&Date.now()-last<2592000000;var h='<div class="qr-manager-grid"><div class="qr-manager-info"><small>Статус</small><b>'+(active?'Активен':'Нет входа 30 дней')+'</b></div><div class="qr-manager-info"><small>Регистрация</small><b>'+dt(m.created_at)+'</b></div><div class="qr-manager-info"><small>Последний вход</small><b>'+dt(m.last_login_at)+'</b></div><div class="qr-manager-info"><small>Роль</small><b>'+esc(m.role||'manager')+'</b></div><div class="qr-manager-info"><small>Заведений</small><b>'+vs.length+'</b></div><div class="qr-manager-info"><small>Персонал</small><b>'+st+'</b></div><div class="qr-manager-info"><small>Заказов</small><b>'+ord+'</b></div><div class="qr-manager-info"><small>Выручка</small><b>'+rub(rev)+'</b></div></div><h4>🏢 Заведения</h4>';
+if(!vs.length)h+='<div style="color:#94a3b8;padding:10px 0">У менеджера пока нет назначенных заведений.</div>';
+vs.forEach(function(v){var o=orders.filter(function(z){return z.venue_id===v.id}),ss=staff.filter(function(z){return z.venue_id===v.id});h+='<div class="qr-manager-venue"><div class="qr-manager-venue-head"><div><b>'+esc(v.name||'Без названия')+'</b><div style="font-size:10px;color:#94a3b8">Создано: '+dt(v.created_at)+'</div></div><span class="badge b-on">'+esc(v.plan||'тариф')+'</span></div><div style="font-size:11px;color:#94a3b8;margin-top:7px">Заказов: '+o.length+' · Выручка: '+rub(o.reduce(function(a,z){return a+Number(z.total_price||0)},0))+'</div><div class="qr-manager-staff">'+ss.map(function(z){return'<span>'+esc(z.name||z.full_name||'Сотрудник')+'</span>'}).join('')+'</div></div>'});
+h+='<h4 style="margin-top:18px">🕒 История</h4><div class="qr-manager-history"><div class="qr-manager-event"><b>Регистрация</b><br>'+dt(m.created_at)+'</div>'+vs.map(function(v){return'<div class="qr-manager-event"><b>Создано заведение: '+esc(v.name)+'</b><br>'+dt(v.created_at)+'</div>'}).join('')+(m.last_login_at?'<div class="qr-manager-event"><b>Последний вход</b><br>'+dt(m.last_login_at)+'</div>':'')+'</div>';var z=modal();z.__m=m;document.getElementById('qrm-title').textContent=m.display_name||'Менеджер';document.getElementById('qrm-email').textContent=m.email||'';document.getElementById('qrm-body').innerHTML=h;z.classList.add('open')}
+function render(){labels();var x=p(),s=section();if(!x||!s||!Array.isArray(x.managers))return;styles();var old=s.querySelector('.tblwrap'),ui=s.querySelector('.qr-manager-ui');if(!ui){ui=document.createElement('div');ui.className='qr-manager-ui';if(old)old.style.display='none';s.appendChild(ui)}var sig=x.managers.map(function(m){return m.id+':'+(m.display_name||'')}).join('|');if(ui.dataset.sig===sig)return;ui.dataset.sig=sig;var html='<div class="spread" style="margin-bottom:12px"><div><h3 style="margin:0">👤 Менеджеры</h3><div style="font-size:11px;color:#94a3b8;margin-top:3px">Карточки менеджеров · нажмите на карточку для полного досье</div></div><button class="btn btn-primary btn-sm" onclick="document.querySelector(\'[data-vue-add-manager]\')?.click()">+ Добавить менеджера</button></div><div class="qr-manager-cards">';(x.managers||[]).forEach(function(m){var vs=(x.managerVenuesMap&&x.managerVenuesMap[m.id])||[],name=(m.display_name||m.email||'Менеджер'),initial=name.split(/\s+/).slice(0,2).map(function(a){return a[0]}).join('').toUpperCase(),last=m.last_login_at?new Date(m.last_login_at):null,active=last&&!isNaN(last)&&Date.now()-last<2592000000,ords=(x.ordersAll||[]).filter(function(o){return vs.some(function(v){return v.id===o.venue_id})}).length;html+='<div class="qr-manager-item" data-mid="'+esc(m.id)+'"><div class="qr-manager-top"><div class="qr-manager-avatar">'+esc(initial||'М')+'</div><div style="min-width:0;flex:1"><div class="qr-manager-name">'+esc(name)+'</div><div class="qr-manager-email">'+esc(m.email||'')+'</div></div><span class="qr-manager-status '+(active?'':'off')+'">'+(active?'Активен':'Неактивен')+'</span></div><div class="qr-manager-metrics"><div class="qr-manager-metric"><b>'+vs.length+'</b><span>заведений</span></div><div class="qr-manager-metric"><b>'+ords+'</b><span>заказов</span></div><div class="qr-manager-metric"><b>'+((m.role||'manager')==='manager'?'Менеджер':esc(m.role))+'</b><span>роль</span></div></div><div class="qr-manager-meta">Регистрация: '+dt(m.created_at)+'<br>Последний вход: '+dt(m.last_login_at)+'</div></div>'});html+='</div>';ui.innerHTML=html;ui.querySelectorAll('.qr-manager-item').forEach(function(c){var m=(x.managers||[]).find(function(z){return z.id===c.dataset.mid});c.onclick=function(){details(m)}})}
+function boot(){styles();labels();render();setInterval(render,800)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(boot,600)},{once:true});else setTimeout(boot,600);
 })();
