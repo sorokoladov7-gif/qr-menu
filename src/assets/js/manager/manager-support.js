@@ -94,7 +94,7 @@
     var ta=state.panel.querySelector('textarea');state.panel.querySelector('[data-support-send]').addEventListener('click',send);ta.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});
     if(state.pollTimer)clearInterval(state.pollTimer);state.pollTimer=setInterval(function(){if(vm()&&vm().tab==='support')loadMessages(false);},10000);
   }
-  function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
+  function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');if(!state.panel)open();}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
   function navButton(){
     var tabs=document.querySelector('#app .tabs');if(!tabs)return;
     var b=tabs.querySelector('[data-qr-support-nav]');if(!b)return;
