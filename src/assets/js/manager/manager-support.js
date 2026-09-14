@@ -88,8 +88,19 @@
     if (!client || typeof client.rpc !== 'function') throw new Error('Supabase клиент не найден');
     var result = await client.rpc('manager_support_get_or_create_thread', {p_venue_id: venueId, p_subject:'Поддержка платформы'});
     if (result.error) throw result.error;
-    var row = Array.isArray(result.data) ? result.data[0] : result.data;
-    state.threadId = row && (row.id || row.thread_id);
+
+    // The SQL function returns uuid directly. Depending on the Supabase/PostgREST
+    // response shape it may arrive as a scalar string, a row object, or a one-row array.
+    var data = result.data;
+    var row = Array.isArray(data) ? data[0] : data;
+    if (typeof row === 'string') {
+      state.threadId = row.trim();
+    } else if (row && typeof row === 'object') {
+      state.threadId = row.id || row.thread_id || row.uuid || null;
+    } else {
+      state.threadId = null;
+    }
+
     if (!state.threadId) throw new Error('Не удалось открыть чат поддержки');
     return state.threadId;
   }
