@@ -1,162 +1,58 @@
-/* Manager support — messenger-like support tab */
+/* Manager support — realtime messenger */
 (function () {
   'use strict';
-
   if (window.__QR_MANAGER_SUPPORT_LOADED__) return;
   window.__QR_MANAGER_SUPPORT_LOADED__ = true;
 
-  var state = { panel: null, threadId: null, threadVenueId: null, timer: null, sending: false };
-
-  // The manager cabinet uses the canonical Supabase client exposed as window.db.
-  // window.supabase is the Supabase JS namespace/factory, not the configured client.
-  function db() { return window.db || window.__SUPABASE__ || null; }
-  function currentVenueId() {
-    var vm = window.__managerVue || window.__QR_MANAGER_VUE_APP__ || null;
-    var candidates = [
-      window.currentVenueId,
-      window.__currentVenueId,
-      window.__managerCurrentVenue && window.__managerCurrentVenue.id,
-      window.__managerSelectedVenue && window.__managerSelectedVenue.id,
-      window.managerState && window.managerState.venueId,
-      vm && vm.venue && vm.venue.id,
-      vm && vm.currentVenue && vm.currentVenue.id,
-      vm && vm.selectedVenue && vm.selectedVenue.id
-    ];
-    for (var i = 0; i < candidates.length; i++) {
-      if (candidates[i] != null && String(candidates[i]).trim()) return String(candidates[i]);
-    }
-    try {
-      var saved = localStorage.getItem('manager_venue_id') || localStorage.getItem('selectedVenueId');
-      if (saved && String(saved).trim()) return String(saved);
-    } catch (e) {}
+  var state = {panel:null, threadId:null, threadVenueId:null, timer:null, unreadTimer:null, typingTimer:null, typingStopTimer:null, channel:null, sending:false, open:false};
+  function db(){ return window.db || window.__SUPABASE__ || null; }
+  function currentVenueId(){
+    var vm=window.__managerVue||window.__QR_MANAGER_VUE_APP__||null;
+    var c=[window.currentVenueId,window.__currentVenueId,window.__managerCurrentVenue&&window.__managerCurrentVenue.id,window.__managerSelectedVenue&&window.__managerSelectedVenue.id,window.managerState&&window.managerState.venueId,vm&&vm.venue&&vm.venue.id,vm&&vm.currentVenue&&vm.currentVenue.id,vm&&vm.selectedVenue&&vm.selectedVenue.id];
+    for(var i=0;i<c.length;i++) if(c[i]!=null&&String(c[i]).trim()) return String(c[i]);
+    try{var s=localStorage.getItem('manager_venue_id')||localStorage.getItem('selectedVenueId');if(s&&String(s).trim())return String(s);}catch(e){}
     return null;
   }
-
-  function styles() {
-    if (document.getElementById('qr-support-styles')) return;
-    var s = document.createElement('style');
-    s.id = 'qr-support-styles';
-    s.textContent = `
-      #app .wrap.qr-support-mode { position:relative !important; min-height:0 !important; }
-      #app .wrap.qr-support-mode > *:not(.tabs):not(.qr-support-panel) { display:none !important; }
-      #app .wrap.qr-support-mode .qr-support-panel {
-        position:absolute !important; inset:0 !important; z-index:20 !important;
-        width:100% !important; min-width:0 !important; max-width:none !important;
-        height:100% !important; min-height:0 !important; margin:0 !important; padding:0 !important;
-        box-sizing:border-box !important; overflow:hidden !important;
-        display:flex !important; flex-direction:column !important;
-      }
-      .qr-support-head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 18px; border-bottom:1px solid rgba(127,127,127,.18); }
-      .qr-support-title { min-width:0; font-weight:700; font-size:16px; }
-      .qr-support-status { flex:0 0 auto; font-size:12px; opacity:.65; white-space:nowrap; }
-      .qr-support-body { flex:1 1 auto; min-height:0; height:auto !important; max-height:none !important; display:flex; flex-direction:column; }
-      .qr-support-messages { flex:1 1 auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding:18px; display:flex; flex-direction:column; gap:10px; -webkit-overflow-scrolling:touch; }
-      .qr-support-msg { max-width:min(760px,86%); padding:10px 13px; border-radius:14px; line-height:1.4; overflow-wrap:anywhere; word-break:break-word; }
-      .qr-support-msg.mine { align-self:flex-end; }
-      .qr-support-msg.theirs { align-self:flex-start; }
-      .qr-support-compose { flex:0 0 auto; display:flex; align-items:flex-end; gap:10px; padding:12px 14px; border-top:1px solid rgba(127,127,127,.18); background:inherit; }
-      .qr-support-compose textarea { flex:1 1 auto; min-width:0; min-height:44px; max-height:140px; resize:vertical; box-sizing:border-box; }
-      .qr-support-compose .btn { flex:0 0 auto; min-height:44px; }
-      @media (max-width:900px) {
-        #app .wrap.qr-support-mode .qr-support-panel {
-          position:fixed !important; top:0 !important; right:0 !important; bottom:0 !important; left:0 !important;
-          width:100vw !important; height:100vh !important; height:100dvh !important;
-          min-width:0 !important; max-width:none !important; min-height:0 !important; max-height:none !important;
-          margin:0 !important; padding:0 !important; border-radius:0 !important; box-sizing:border-box !important; z-index:10060 !important;
-        }
-        .qr-support-head { padding:12px 14px; }
-        .qr-support-messages { padding:12px; }
-        .qr-support-compose { padding:10px; gap:8px; align-items:stretch; flex-direction:column; }
-        .qr-support-compose textarea { width:100%; min-height:48px; max-height:120px; }
-        .qr-support-compose .btn { width:100%; min-height:46px; }
-        .qr-support-msg { max-width:94%; }
-      }
-    `;
+  function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;');}
+  function time(v){try{return new Date(v).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
+  function styles(){
+    if(document.getElementById('qr-support-styles'))return;
+    var s=document.createElement('style');s.id='qr-support-styles';s.textContent=`
+#app .wrap.qr-support-mode{position:relative!important;min-height:0!important}#app .wrap.qr-support-mode>.tabs{display:flex!important}#app .wrap.qr-support-mode>.qr-support-panel{display:flex!important}
+#app .wrap.qr-support-mode>*:not(.tabs):not(.qr-support-panel){display:none!important}.qr-support-panel{position:absolute!important;inset:0!important;z-index:20!important;display:flex!important;flex-direction:column!important;min-height:0!important;width:100%!important;height:100%!important;margin:0!important;padding:0!important;overflow:hidden!important}.qr-support-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid rgba(127,127,127,.18);flex:0 0 auto}.qr-support-head-main{min-width:0}.qr-support-title{font-weight:800;font-size:16px}.qr-support-sub{font-size:11px;opacity:.6;margin-top:3px}.qr-support-head-actions{display:flex;gap:6px}.qr-support-head-actions button{min-height:36px;border:1px solid rgba(127,127,127,.2);border-radius:9px;background:transparent;cursor:pointer;padding:0 10px}.qr-support-status{font-size:11px;opacity:.7;white-space:nowrap}.qr-support-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column}.qr-support-messages{flex:1;min-height:0;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:7px;-webkit-overflow-scrolling:touch}.qr-support-msg{max-width:min(760px,84%);padding:9px 12px;border-radius:14px;line-height:1.42;overflow-wrap:anywhere;white-space:pre-wrap}.qr-support-msg.mine{align-self:flex-end;background:#2563eb;color:#fff;border-bottom-right-radius:4px}.qr-support-msg.theirs{align-self:flex-start;background:rgba(127,127,127,.12);border-bottom-left-radius:4px}.qr-support-meta{display:block;text-align:right;margin-top:4px;font-size:9px;opacity:.58}.qr-support-compose{flex:0 0 auto;display:flex;align-items:flex-end;gap:8px;padding:10px 12px;border-top:1px solid rgba(127,127,127,.18)}.qr-support-compose textarea{flex:1;min-width:0;min-height:42px;max-height:140px;resize:none;box-sizing:border-box}.qr-support-compose button{min-height:42px;border-radius:10px}.qr-support-typing{height:20px;flex:0 0 20px;padding:0 16px;font-size:11px;opacity:.65}.qr-support-nav-badge{display:inline-flex;min-width:18px;height:18px;padding:0 5px;align-items:center;justify-content:center;margin-left:6px;border-radius:999px;background:#ef4444;color:#fff;font:800 10px system-ui}.qr-support-nav-badge.hidden{display:none}.qr-support-read{font-size:9px;margin-left:3px;opacity:.75}.qr-support-empty{opacity:.58;text-align:center;padding:32px 14px}.qr-support-error{color:#b42318;padding:20px}
+@media(max-width:900px){#app .wrap.qr-support-mode .qr-support-panel{position:fixed!important;inset:0!important;width:100vw!important;height:100dvh!important;z-index:10060!important;border-radius:0!important}.qr-support-head{padding:10px 12px}.qr-support-messages{padding:11px}.qr-support-msg{max-width:93%}.qr-support-compose{padding:8px;flex-direction:column;align-items:stretch}.qr-support-compose textarea{width:100%;min-height:48px}.qr-support-compose button{width:100%}.qr-support-head-actions .qr-support-close-chat{font-size:0}.qr-support-head-actions .qr-support-close-chat:after{content:'Закрыть';font-size:12px}}
+`;
     document.head.appendChild(s);
   }
-
-  function escapeHtml(value) { return String(value == null ? '' : value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#039;'); }
-  function formatTime(value) { if (!value) return ''; var d = new Date(value); if (isNaN(d.getTime())) return ''; return d.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }
-
-  async function ensureThread() {
-    var venueId = currentVenueId();
-    if (!venueId) throw new Error('Не удалось определить заведение. Сначала выберите заведение в кабинете.');
-    if (state.threadId && state.threadVenueId === String(venueId)) return state.threadId;
-    state.threadId = null;
-    state.threadVenueId = String(venueId);
-    var client = db();
-    if (!client || typeof client.rpc !== 'function') throw new Error('Supabase клиент не найден');
-    var result = await client.rpc('manager_support_get_or_create_thread', {p_venue_id: venueId, p_subject:'Поддержка платформы'});
-    if (result.error) throw result.error;
-
-    // The SQL function returns uuid directly. Depending on the Supabase/PostgREST
-    // response shape it may arrive as a scalar string, a row object, or a one-row array.
-    var data = result.data;
-    var row = Array.isArray(data) ? data[0] : data;
-    if (typeof row === 'string') {
-      state.threadId = row.trim();
-    } else if (row && typeof row === 'object') {
-      state.threadId = row.id || row.thread_id || row.uuid || null;
-    } else {
-      state.threadId = null;
-    }
-
-    if (!state.threadId) throw new Error('Не удалось открыть чат поддержки');
-    return state.threadId;
+  function badge(n){var b=document.querySelector('[data-manager-support-badge]');if(!b)return;b.textContent=String(Number(n)||0);b.classList.toggle('hidden',!(Number(n)||0));}
+  async function unread(){var c=db();if(!c)return;try{var r=await c.from('manager_support_messages').select('id').eq('sender_role','admin').is('read_at',null);if(!r.error)badge((r.data||[]).length);}catch(e){}}
+  async function ensureThread(){
+    var venue=currentVenueId();if(!venue)throw new Error('Не удалось определить заведение. Сначала выберите заведение в кабинете.');
+    if(state.threadId&&state.threadVenueId===String(venue))return state.threadId;
+    state.threadId=null;state.threadVenueId=String(venue);var c=db();if(!c||typeof c.rpc!=='function')throw new Error('Supabase клиент не найден');
+    var r=await c.rpc('manager_support_get_or_create_thread',{p_venue_id:venue,p_subject:'Поддержка платформы'});if(r.error)throw r.error;var d=r.data,row=Array.isArray(d)?d[0]:d;
+    state.threadId=typeof row==='string'?row.trim():(row&&(row.id||row.thread_id||row.uuid)||null);if(!state.threadId)throw new Error('Не удалось открыть чат поддержки');return state.threadId;
   }
-
-  async function loadMessages() {
-    if (!state.panel) return;
-    try {
-      var client=db(), threadId=await ensureThread();
-      var result=await client.from('manager_support_messages').select('*').eq('thread_id',threadId).order('created_at',{ascending:true});
-      if (result.error) throw result.error;
-      var box=state.panel.querySelector('.qr-support-messages'); if (!box) return;
-      var wasBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80, rows=result.data||[];
-      box.dataset.errorShown='';
-      box.innerHTML=rows.length?rows.map(function(m){var mine=!!(m.manager_id||m.sender_role==='manager'||m.sender_type==='manager');return '<div class="qr-support-msg '+(mine?'mine':'theirs')+'"><div>'+escapeHtml(m.message||m.text||'')+'</div><small style="opacity:.55;display:block;margin-top:4px">'+escapeHtml(formatTime(m.created_at))+'</small></div>';}).join(''):'<div style="opacity:.6;text-align:center;padding:32px 12px">Напишите вопрос — сообщение сразу появится у администратора.</div>';
-      if (wasBottom||!rows.length) box.scrollTop=box.scrollHeight;
-    } catch(e) {
-      var messages=state.panel.querySelector('.qr-support-messages');
-      if (messages&&!messages.dataset.errorShown) { messages.dataset.errorShown='1'; messages.innerHTML='<div style="padding:20px;color:#b42318">Ошибка загрузки поддержки: '+escapeHtml(e.message||e)+'</div>'; }
-    }
+  async function markRead(){if(!state.threadId)return;var c=db();if(!c)return;try{await c.rpc('manager_support_mark_read',{p_thread_id:state.threadId});await unread();}catch(e){}}
+  async function typing(on){if(!state.threadId)return;var c=db();if(!c)return;try{await c.rpc('manager_support_set_typing',{p_thread_id:state.threadId,p_is_typing:!!on});}catch(e){}}
+  async function loadTyping(){if(!state.panel||!state.threadId)return;var c=db();if(!c)return;try{var r=await c.rpc('manager_support_get_typing',{p_thread_id:state.threadId});if(r.error)throw r.error;var row=(r.data||[]).find(function(x){return x.sender_role==='admin'&&x.is_typing;});var el=state.panel.querySelector('.qr-support-typing');if(el)el.textContent=row?'Администратор печатает…':'';}catch(e){}}
+  function realtime(){
+    var c=db();if(!c||!c.channel||!state.threadId)return;
+    if(state.channel){try{c.removeChannel(state.channel);}catch(e){}}
+    state.channel=c.channel('manager-support-'+state.threadId).on('postgres_changes',{event:'*',schema:'public',table:'manager_support_messages',filter:'thread_id=eq.'+state.threadId},function(){loadMessages(true);}).on('postgres_changes',{event:'*',schema:'public',table:'manager_support_typing',filter:'thread_id=eq.'+state.threadId},function(){loadTyping();}).subscribe();
   }
-
-  async function send() {
-    if (state.sending||!state.panel) return;
-    var input=state.panel.querySelector('textarea'), text=input&&input.value.trim(); if (!text) return;
-    state.sending=true; var button=state.panel.querySelector('.qr-support-send'); if (button) button.disabled=true;
-    try { var client=db(), threadId=await ensureThread(); var result=await client.rpc('manager_support_send',{p_thread_id:threadId,p_message:text}); if(result.error)throw result.error; input.value=''; await loadMessages(); input.focus(); }
-    catch(e) { alert('Не удалось отправить сообщение: '+(e.message||e)); }
-    finally { state.sending=false; if(button)button.disabled=false; }
+  async function loadMessages(keepBottom){if(!state.panel)return;try{var c=db(),id=await ensureThread();var box=state.panel.querySelector('.qr-support-messages');if(!c||!box)return;var wasBottom=box.scrollHeight-box.scrollTop-box.clientHeight<90;var r=await c.from('manager_support_messages').select('id,thread_id,sender_id,sender_role,message,created_at,read_at').eq('thread_id',id).order('created_at',{ascending:true});if(r.error)throw r.error;var rows=r.data||[];box.innerHTML=rows.length?rows.map(function(m){var mine=m.sender_role==='manager';var read=m.read_at?'✓✓':'✓';return '<div class="qr-support-msg '+(mine?'mine':'theirs')+'"><div>'+esc(m.message)+'</div><span class="qr-support-meta">'+esc(time(m.created_at))+(mine?'<span class="qr-support-read">'+read+'</span>':'')+'</span></div>';}).join(''):'<div class="qr-support-empty">Напишите вопрос — администратор увидит его сразу.</div>';if(wasBottom||keepBottom||!rows.length)box.scrollTop=box.scrollHeight;await markRead();loadTyping();}catch(e){var box2=state.panel&&state.panel.querySelector('.qr-support-messages');if(box2&&!box2.dataset.errorShown){box2.dataset.errorShown='1';box2.innerHTML='<div class="qr-support-error">Ошибка загрузки поддержки: '+esc(e.message||e)+'</div>';}}}
+  async function send(){if(state.sending||!state.panel)return;var ta=state.panel.querySelector('textarea'),text=ta&&ta.value.trim();if(!text)return;state.sending=true;typing(false);var b=state.panel.querySelector('.qr-support-send');if(b)b.disabled=true;try{var c=db(),id=await ensureThread(),r=await c.rpc('manager_support_send',{p_thread_id:id,p_message:text});if(r.error)throw r.error;ta.value='';ta.style.height='';await loadMessages(true);}catch(e){alert('Не удалось отправить сообщение: '+(e.message||e));}finally{state.sending=false;if(b)b.disabled=false;ta&&ta.focus();}}
+  async function closeChat(){try{if(state.threadId)await typing(false);}catch(e){}if(state.threadId){var c=db();try{await c.rpc('manager_support_set_status',{p_thread_id:state.threadId,p_status:'closed'});}catch(e){}}closeSupport();}
+  function createPanel(){
+    state.panel=document.createElement('div');state.panel.className='glass card qr-support-panel';state.panel.innerHTML='<div class="qr-support-head"><div class="qr-support-head-main"><div class="qr-support-title">Поддержка</div><div class="qr-support-sub">Чат с администрацией</div></div><div class="qr-support-head-actions"><span class="qr-support-status">● онлайн</span><button type="button" class="qr-support-close-chat" title="Закрыть чат">✕ Закрыть</button></div></div><div class="qr-support-body"><div class="qr-support-messages"></div><div class="qr-support-typing"></div><div class="qr-support-compose"><textarea class="input" rows="1" maxlength="8000" placeholder="Напишите сообщение администрации…"></textarea><button class="btn qr-support-send" type="button">Отправить</button></div></div>';
+    state.panel.querySelector('.qr-support-send').onclick=send;state.panel.querySelector('.qr-support-close-chat').onclick=closeChat;var ta=state.panel.querySelector('textarea');ta.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});ta.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,140)+'px';typing(true);clearTimeout(state.typingStopTimer);state.typingStopTimer=setTimeout(function(){typing(false);},1200);});ta.addEventListener('blur',function(){typing(false);});
   }
-
-  function createPanel() {
-    state.panel=document.createElement('div'); state.panel.className='glass card qr-support-panel';
-    state.panel.innerHTML=`<div class="qr-support-head"><div class="qr-support-title">Поддержка</div><div class="qr-support-status">Онлайн</div></div><div class="qr-support-body"><div class="qr-support-messages"></div><div class="qr-support-compose"><textarea class="input" placeholder="Напишите вопрос администрации…" rows="2"></textarea><button class="btn qr-support-send" type="button">Отправить</button></div></div>`;
-    state.panel.querySelector('.qr-support-send').addEventListener('click',send);
-    state.panel.querySelector('textarea').addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});
-  }
-
-  function closeMobileNav() { if(window.matchMedia&&window.matchMedia('(max-width:900px)').matches){document.body.classList.remove('nav-open');document.documentElement.style.overflow='';document.body.style.overflow='';} }
-
-  function syncMode() {
-    var wrap=document.querySelector('#app .wrap'); if(!wrap)return;
-    var active=!!(document.querySelector('[data-tab="support"].active')||document.querySelector('.tab-support.active'));
-    wrap.classList.toggle('qr-support-mode',active);
-    if(active){closeMobileNav();if(!state.panel)createPanel();if(state.panel.parentNode!==wrap)wrap.appendChild(state.panel);loadMessages();if(state.timer)clearInterval(state.timer);state.timer=setInterval(loadMessages,10000);}
-    else{if(state.timer)clearInterval(state.timer);state.timer=null;if(state.panel&&state.panel.parentNode)state.panel.parentNode.removeChild(state.panel);state.panel=null;}
-  }
-
-  function addNavButton() {
-    var tabs=document.querySelector('#app .tabs'); if(!tabs||tabs.querySelector('[data-tab="support"]'))return;
-    var button=document.createElement('button'); button.type='button';button.className='tab tab-support';button.dataset.tab='support';button.textContent='🛟 Поддержка';
-    button.addEventListener('click',function(){closeMobileNav();tabs.querySelectorAll('.tab').forEach(function(el){el.classList.remove('active');});button.classList.add('active');tabs.querySelectorAll('[data-tab-panel]').forEach(function(el){el.hidden=true;});syncMode();});
-    tabs.appendChild(button);
-  }
-
-  function boot(){styles();addNavButton();syncMode();}
-  var observer=new MutationObserver(function(){addNavButton();syncMode();});
-  function init(){boot();var root=document.getElementById('app');if(root)observer.observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+  function closeMobileNav(){if(window.matchMedia&&window.matchMedia('(max-width:900px)').matches){document.body.classList.remove('nav-open');document.documentElement.style.overflow='';document.body.style.overflow='';}}
+  function stop(){if(state.timer)clearInterval(state.timer);if(state.unreadTimer)clearInterval(state.unreadTimer);if(state.typingTimer)clearInterval(state.typingTimer);state.timer=state.unreadTimer=state.typingTimer=null;if(state.channel){try{db().removeChannel(state.channel);}catch(e){}state.channel=null;}state.open=false;state.threadId=null;state.threadVenueId=null;state.panel=null;}
+  function closeSupport(){stop();var wrap=document.querySelector('#app .wrap');if(wrap)wrap.classList.remove('qr-support-mode');var tabs=document.querySelector('#app .tabs');if(tabs)tabs.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});}
+  function sync(){var b=document.querySelector('[data-tab="support"]');if(!b)return;var active=b.classList.contains('active');if(active&&!state.open){styles();createPanel();state.open=true;var wrap=document.querySelector('#app .wrap');if(wrap){wrap.classList.add('qr-support-mode');wrap.appendChild(state.panel);}closeMobileNav();ensureThread().then(function(){realtime();loadMessages(true);});state.timer=setInterval(function(){loadMessages(false);},8000);state.typingTimer=setInterval(loadTyping,1500);markRead();}else if(!active&&state.open){stop();var w=document.querySelector('#app .wrap');if(w)w.classList.remove('qr-support-mode');}}
+  function addNavButton(){var tabs=document.querySelector('#app .tabs');if(!tabs)return;var b=tabs.querySelector('[data-tab="support"]');if(!b){b=document.createElement('button');b.type='button';b.className='tab tab-support';b.dataset.tab='support';b.innerHTML='🛟 Поддержка<span class="qr-support-nav-badge hidden" data-manager-support-badge>0</span>';b.onclick=function(){closeMobileNav();tabs.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active');});b.classList.add('active');tabs.querySelectorAll('[data-tab-panel]').forEach(function(x){x.hidden=true;});sync();};tabs.appendChild(b);}}
+  function boot(){styles();addNavButton();unread();state.unreadTimer=setInterval(unread,5000);var root=document.getElementById('app');if(root)new MutationObserver(function(){addNavButton();sync();}).observe(root,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
