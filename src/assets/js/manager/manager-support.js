@@ -5,11 +5,11 @@
   if (window.__QR_MANAGER_SUPPORT_LOADED__) return;
   window.__QR_MANAGER_SUPPORT_LOADED__ = true;
 
-  var state = { panel: null, threadId: null, threadVenueId: null, timer: null, sending: false };
+  var state = { panel: null, threadId: null, timer: null, sending: false };
 
-  function db() { return window.db || window.supabase || window.__SUPABASE__ || null; }
+  function db() { return window.supabase || window.__SUPABASE__ || null; }
   function currentVenueId() {
-    return window.currentVenueId || window.__currentVenueId || (window.managerState && window.managerState.venueId) || (window.__managerVue && window.__managerVue.venue && window.__managerVue.venue.id) || null;
+    return window.currentVenueId || window.__currentVenueId || (window.managerState && window.managerState.venueId) || null;
   }
 
   function styles() {
@@ -69,13 +69,9 @@
   }
 
   async function ensureThread() {
-    var venueId=currentVenueId();
-    if (!venueId) throw new Error('Не удалось определить заведение');
-    if (state.threadId && state.threadVenueId===String(venueId)) return state.threadId;
-    state.threadId=null;
-    state.threadVenueId=String(venueId);
-    var client=db();
-    if (!client || typeof client.rpc!=='function') throw new Error('Supabase клиент не найден');
+    if (state.threadId) return state.threadId;
+    var client=db(), venueId=currentVenueId();
+    if (!client || !venueId) throw new Error('Не удалось определить заведение');
     var result=await client.rpc('manager_support_get_or_create_thread',{p_venue_id:venueId,p_subject:'Поддержка платформы'});
     if (result.error) throw result.error;
     var row=Array.isArray(result.data)?result.data[0]:result.data;
@@ -94,7 +90,6 @@
       if (!box) return;
       var wasBottom=box.scrollHeight-box.scrollTop-box.clientHeight<80;
       var rows=result.data||[];
-      box.dataset.errorShown='';
       box.innerHTML=rows.length?rows.map(function(m){
         var mine=!!(m.manager_id||m.sender_role==='manager'||m.sender_type==='manager');
         return '<div class="qr-support-msg '+(mine?'mine':'theirs')+'"><div>'+escapeHtml(m.message||m.text||'')+'</div><small style="opacity:.55;display:block;margin-top:4px">'+escapeHtml(formatTime(m.created_at))+'</small></div>';
@@ -146,12 +141,8 @@
 
   function syncMode() {
     var wrap=document.querySelector('#app .wrap');
-    var tabs=document.querySelector('#app .tabs');
-    var supportButton=tabs&&tabs.querySelector('[data-tab="support"]');
     if (!wrap) return;
-    var active=!!(supportButton&&supportButton.classList.contains('active'));
-    if (!active && supportButton && tabs.querySelector('button.on')) supportButton.classList.remove('active');
-    active=!!(supportButton&&supportButton.classList.contains('active'));
+    var active=!!(document.querySelector('[data-tab="support"].active')||document.querySelector('.tab-support.active'));
     wrap.classList.toggle('qr-support-mode',active);
     if(active) {
       closeMobileNav();
@@ -175,7 +166,7 @@
     button.type='button'; button.className='tab tab-support'; button.dataset.tab='support'; button.textContent='🛟 Поддержка';
     button.addEventListener('click',function(){
       closeMobileNav();
-      tabs.querySelectorAll('.tab').forEach(function(el){el.classList.remove('active','on');});
+      tabs.querySelectorAll('.tab').forEach(function(el){el.classList.remove('active');});
       button.classList.add('active');
       tabs.querySelectorAll('[data-tab-panel]').forEach(function(el){el.hidden=true;});
       syncMode();
