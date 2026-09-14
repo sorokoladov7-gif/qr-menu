@@ -7,7 +7,9 @@
 
   var state = { panel: null, threadId: null, threadVenueId: null, timer: null, sending: false };
 
-  function db() { return window.supabase || window.__SUPABASE__ || null; }
+  // The manager cabinet uses the canonical Supabase client exposed as window.db.
+  // window.supabase is the Supabase JS namespace/factory, not the configured client.
+  function db() { return window.db || window.__SUPABASE__ || null; }
   function currentVenueId() {
     var vm = window.__managerVue || window.__QR_MANAGER_VUE_APP__ || null;
     var candidates = [
