@@ -1,92 +1,335 @@
-/* QR-Menu — поддержка управляющего */
-(function(){
+/* Manager support — messenger-like support tab */
+(function () {
   'use strict';
-  if(window.__QR_MANAGER_SUPPORT__) return;
-  window.__QR_MANAGER_SUPPORT__=true;
 
-  var state={threadId:null,messages:[],loading:false,sending:false,pollTimer:null,button:null,panel:null};
-  var esc=function(v){return window.esc?window.esc(v):String(v==null?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});};
-  var fmt=function(v){try{return window.fmtDate?window.fmtDate(v):new Date(v).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}catch(e){return '';}};
-  var vm=function(){return window.__managerVue||null;};
+  if (window.__QR_MANAGER_SUPPORT_LOADED__) return;
+  window.__QR_MANAGER_SUPPORT_LOADED__ = true;
 
-  function styles(){
-    if(document.getElementById('qr-manager-support-style'))return;
-    var s=document.createElement('style');s.id='qr-manager-support-style';s.textContent=''+
-      '.qr-support-badge{display:inline-flex;min-width:18px;height:18px;padding:0 5px;align-items:center;justify-content:center;border-radius:999px;background:#f87171;color:#fff;font:800 10px/1 system-ui;margin-left:6px}'+
-      '.qr-support-mode > *:not(.tabs):not(.qr-support-panel){display:none!important}.qr-support-panel{position:relative;min-height:520px;padding:0!important;overflow:hidden}'+
-      '.qr-support-head{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08)}'+
-      '.qr-support-title{font-size:18px;font-weight:800}.qr-support-sub{margin-top:3px;color:#94a3b8;font-size:12px}'+
-      '.qr-support-body{display:flex;flex-direction:column;height:calc(100vh - 260px);min-height:420px;max-height:700px}'+
-      '.qr-support-messages{flex:1;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:10px}'+
-      '.qr-support-msg{max-width:min(760px,86%);padding:11px 13px;border-radius:14px;border:1px solid rgba(255,255,255,.07);line-height:1.45;font-size:13px;white-space:pre-wrap;word-break:break-word}'+
-      '.qr-support-msg.manager{align-self:flex-end;background:rgba(99,102,241,.13);border-color:rgba(99,102,241,.22)}'+
-      '.qr-support-msg.admin{align-self:flex-start;background:rgba(255,255,255,.035)}'+
-      '.qr-support-meta{display:block;margin-top:6px;color:#94a3b8;font-size:10px}.qr-support-empty{margin:auto;color:#94a3b8;text-align:center;padding:30px}'+
-      '.qr-support-compose{display:flex;gap:10px;padding:14px 18px;border-top:1px solid rgba(255,255,255,.08);background:rgba(8,12,22,.55)}'+
-      '.qr-support-compose textarea{flex:1;min-height:52px;max-height:150px;resize:vertical;border-radius:12px;padding:11px 12px;background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.09);color:#eef2f7;font:inherit;outline:none}'+
-      '.qr-support-compose textarea:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12)}'+
-      '@media(max-width:700px){.qr-support-body{height:calc(100vh - 245px);min-height:420px}.qr-support-compose{flex-direction:column}.qr-support-compose .btn{width:100%}.qr-support-msg{max-width:94%}}';
+  var state = {
+    panel: null,
+    threadId: null,
+    timer: null,
+    sending: false
+  };
+
+  function db() {
+    return window.supabase || window.__SUPABASE__ || null;
+  }
+
+  function currentVenueId() {
+    return window.currentVenueId || window.__currentVenueId || (window.managerState && window.managerState.venueId) || null;
+  }
+
+  function styles() {
+    if (document.getElementById('qr-support-styles')) return;
+    var s = document.createElement('style');
+    s.id = 'qr-support-styles';
+    s.textContent = `
+      /* The support tab is a real messenger workspace, not a narrow card. */
+      #app .wrap.qr-support-mode {
+        position: relative !important;
+        min-height: 0 !important;
+      }
+      #app .wrap.qr-support-mode > *:not(.tabs):not(.qr-support-panel) {
+        display: none !important;
+      }
+      #app .wrap.qr-support-mode .qr-support-panel {
+        position: absolute !important;
+        inset: 0 !important;
+        z-index: 20;
+        width: 100% !important;
+        max-width: none !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+      }
+      .qr-support-head {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid rgba(127,127,127,.18);
+      }
+      .qr-support-title {
+        min-width: 0;
+        font-weight: 700;
+        font-size: 16px;
+      }
+      .qr-support-status {
+        flex: 0 0 auto;
+        font-size: 12px;
+        opacity: .65;
+        white-space: nowrap;
+      }
+      .qr-support-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        height: auto !important;
+        max-height: none !important;
+        display: flex;
+        flex-direction: column;
+      }
+      .qr-support-messages {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        -webkit-overflow-scrolling: touch;
+      }
+      .qr-support-msg {
+        max-width: min(760px, 86%);
+        padding: 10px 13px;
+        border-radius: 14px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
+        word-break: break-word;
+      }
+      .qr-support-msg.mine {
+        align-self: flex-end;
+      }
+      .qr-support-msg.theirs {
+        align-self: flex-start;
+      }
+      .qr-support-compose {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: flex-end;
+        gap: 10px;
+        padding: 12px 14px;
+        border-top: 1px solid rgba(127,127,127,.18);
+        background: inherit;
+      }
+      .qr-support-compose textarea {
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 44px;
+        max-height: 140px;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+      .qr-support-compose .btn {
+        flex: 0 0 auto;
+        min-height: 44px;
+      }
+      @media (max-width: 700px) {
+        #app .wrap.qr-support-mode .qr-support-panel {
+          position: absolute !important;
+          inset: 0 !important;
+          border-radius: 0 !important;
+        }
+        .qr-support-head {
+          padding: 12px 14px;
+        }
+        .qr-support-messages {
+          padding: 12px;
+        }
+        .qr-support-compose {
+          padding: 10px;
+          gap: 8px;
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .qr-support-compose textarea {
+          width: 100%;
+          min-height: 48px;
+          max-height: 120px;
+        }
+        .qr-support-compose .btn {
+          width: 100%;
+          min-height: 46px;
+        }
+        .qr-support-msg {
+          max-width: 94%;
+        }
+      }
+    `;
     document.head.appendChild(s);
   }
 
-  function currentVenueId(){var v=vm();return v&&v.venue&&v.venue.id?v.venue.id:null;}
-  async function ensureThread(){
-    if(state.threadId)return state.threadId;
-    var r=await db.rpc('manager_support_get_or_create_thread',{p_venue_id:currentVenueId(),p_subject:'Поддержка платформы'});
-    if(r.error)throw r.error;
-    state.threadId=r.data;
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  function formatTime(value) {
+    if (!value) return '';
+    var d = new Date(value);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function ensureThread() {
+    if (state.threadId) return state.threadId;
+    var client = db();
+    var venueId = currentVenueId();
+    if (!client || !venueId) throw new Error('Не удалось определить заведение');
+
+    var result = await client.rpc('manager_support_get_or_create_thread', {
+      p_venue_id: venueId,
+      p_subject: 'Поддержка платформы'
+    });
+    if (result.error) throw result.error;
+    var row = Array.isArray(result.data) ? result.data[0] : result.data;
+    state.threadId = row && (row.id || row.thread_id);
+    if (!state.threadId) throw new Error('Не удалось открыть чат поддержки');
     return state.threadId;
   }
-  async function loadMessages(scrollBottom){
-    if(state.loading)return;
-    state.loading=true;
-    try{
-      var id=await ensureThread();
-      var r=await db.from('manager_support_messages').select('id,thread_id,sender_id,sender_role,message,created_at,read_at').eq('thread_id',id).order('created_at',{ascending:true});
-      if(r.error)throw r.error;
-      state.messages=r.data||[];renderMessages(scrollBottom);
-    }catch(e){renderError(e);}
-    finally{state.loading=false;}
+
+  async function loadMessages() {
+    if (!state.panel) return;
+    try {
+      var client = db();
+      var threadId = await ensureThread();
+      var result = await client
+        .from('manager_support_messages')
+        .select('*')
+        .eq('thread_id', threadId)
+        .order('created_at', { ascending: true });
+      if (result.error) throw result.error;
+
+      var box = state.panel.querySelector('.qr-support-messages');
+      if (!box) return;
+      var wasBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+      var rows = result.data || [];
+      box.innerHTML = rows.length ? rows.map(function (m) {
+        var mine = !!(m.manager_id || m.sender_role === 'manager' || m.sender_type === 'manager');
+        return '<div class="qr-support-msg ' + (mine ? 'mine' : 'theirs') + '">' +
+          '<div>' + escapeHtml(m.message || m.text || '') + '</div>' +
+          '<small style="opacity:.55;display:block;margin-top:4px">' + escapeHtml(formatTime(m.created_at)) + '</small>' +
+        '</div>';
+      }).join('') : '<div style="opacity:.6;text-align:center;padding:32px 12px">Напишите вопрос — сообщение сразу появится у администратора.</div>';
+
+      if (wasBottom || !rows.length) box.scrollTop = box.scrollHeight;
+    } catch (e) {
+      var messages = state.panel.querySelector('.qr-support-messages');
+      if (messages && !messages.dataset.errorShown) {
+        messages.dataset.errorShown = '1';
+        messages.innerHTML = '<div style="padding:20px;color:#b42318">Ошибка загрузки поддержки: ' + escapeHtml(e.message || e) + '</div>';
+      }
+    }
   }
-  function renderMessages(scrollBottom){
-    if(!state.panel)return;
-    var box=state.panel.querySelector('[data-support-messages]');if(!box)return;
-    box.innerHTML=state.messages.length?state.messages.map(function(m){return '<div class="qr-support-msg '+(m.sender_role==='manager'?'manager':'admin')+'">'+esc(m.message)+'<span class="qr-support-meta">'+(m.sender_role==='manager'?'Вы':'Администратор')+' · '+esc(fmt(m.created_at))+'</span></div>';}).join(''):'<div class="qr-support-empty">Напишите вопрос — сообщение сразу появится у администратора.</div>';
-    if(scrollBottom)box.scrollTop=box.scrollHeight;
+
+  async function send() {
+    if (state.sending || !state.panel) return;
+    var input = state.panel.querySelector('textarea');
+    var text = input && input.value.trim();
+    if (!text) return;
+
+    state.sending = true;
+    var button = state.panel.querySelector('.qr-support-send');
+    if (button) button.disabled = true;
+    try {
+      var client = db();
+      var threadId = await ensureThread();
+      var result = await client.rpc('manager_support_send', {
+        p_thread_id: threadId,
+        p_message: text
+      });
+      if (result.error) throw result.error;
+      input.value = '';
+      await loadMessages();
+      input.focus();
+    } catch (e) {
+      alert('Не удалось отправить сообщение: ' + (e.message || e));
+    } finally {
+      state.sending = false;
+      if (button) button.disabled = false;
+    }
   }
-  function renderError(e){if(!state.panel)return;var box=state.panel.querySelector('[data-support-messages]');if(box)box.innerHTML='<div class="qr-support-empty">Не удалось загрузить поддержку.<br><small>'+esc(e&&e.message||e)+'</small></div>';}
-  async function send(){
-    if(state.sending)return;
-    var ta=state.panel&&state.panel.querySelector('textarea');if(!ta)return;
-    var text=String(ta.value||'').trim();if(!text)return;
-    state.sending=true;ta.disabled=true;
-    try{var id=await ensureThread();var r=await db.rpc('manager_support_send',{p_thread_id:id,p_message:text});if(r.error)throw r.error;ta.value='';await loadMessages(true);}catch(e){alert('Не удалось отправить сообщение: '+(e.message||e));}finally{state.sending=false;ta.disabled=false;ta.focus();}
+
+  function createPanel() {
+    state.panel = document.createElement('div');
+    state.panel.className = 'glass card qr-support-panel';
+    state.panel.innerHTML = `
+      <div class="qr-support-head">
+        <div class="qr-support-title">Поддержка</div>
+        <div class="qr-support-status">Онлайн</div>
+      </div>
+      <div class="qr-support-body">
+        <div class="qr-support-messages"></div>
+        <div class="qr-support-compose">
+          <textarea class="input" placeholder="Напишите вопрос администрации…" rows="2"></textarea>
+          <button class="btn qr-support-send" type="button">Отправить</button>
+        </div>
+      </div>
+    `;
+    state.panel.querySelector('.qr-support-send').addEventListener('click', send);
+    state.panel.querySelector('textarea').addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        send();
+      }
+    });
   }
-  function open(){
+
+  function syncMode() {
+    var wrap = document.querySelector('#app .wrap');
+    if (!wrap) return;
+    var active = !!(document.querySelector('[data-tab="support"].active') || document.querySelector('.tab-support.active'));
+    wrap.classList.toggle('qr-support-mode', active);
+    if (active) {
+      if (!state.panel) createPanel();
+      if (state.panel.parentNode !== wrap) wrap.appendChild(state.panel);
+      loadMessages();
+      if (state.timer) clearInterval(state.timer);
+      state.timer = setInterval(loadMessages, 10000);
+    } else {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = null;
+      if (state.panel && state.panel.parentNode) state.panel.parentNode.removeChild(state.panel);
+      state.panel = null;
+    }
+  }
+
+  function addNavButton() {
+    var tabs = document.querySelector('#app .tabs');
+    if (!tabs || tabs.querySelector('[data-tab="support"]')) return;
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tab tab-support';
+    button.dataset.tab = 'support';
+    button.textContent = '🛟 Поддержка';
+    button.addEventListener('click', function () {
+      tabs.querySelectorAll('.tab').forEach(function (el) { el.classList.remove('active'); });
+      button.classList.add('active');
+      tabs.querySelectorAll('[data-tab-panel]').forEach(function (el) { el.hidden = true; });
+      syncMode();
+    });
+    tabs.appendChild(button);
+  }
+
+  function boot() {
     styles();
-    var v=vm();if(!v||!v.profile||v.profile.role!=='manager')return;
-    if(state.panel)state.panel.remove();
-    state.panel=document.createElement('div');state.panel.className='glass card qr-support-panel';state.panel.innerHTML='<div class="qr-support-head"><div><div class="qr-support-title">Поддержка</div><div class="qr-support-sub">Связь с администратором платформы</div></div><span class="badge">Онлайн</span></div><div class="qr-support-body"><div class="qr-support-messages" data-support-messages><div class="qr-support-empty">Загрузка…</div></div><div class="qr-support-compose"><textarea maxlength="8000" placeholder="Опишите вопрос или проблему…"></textarea><button class="btn btn-primary" type="button" data-support-send>Отправить</button></div></div>';
-    var wrap=document.querySelector('#app .wrap');if(!wrap){state.panel=null;return;}wrap.classList.add('qr-support-mode');wrap.appendChild(state.panel);
-    loadMessages(true);
-    var ta=state.panel.querySelector('textarea');state.panel.querySelector('[data-support-send]').addEventListener('click',send);ta.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();send();}});
-    if(state.pollTimer)clearInterval(state.pollTimer);state.pollTimer=setInterval(function(){if(vm()&&vm().tab==='support')loadMessages(false);},10000);
+    addNavButton();
+    syncMode();
   }
-  function syncMode(){var v=vm(),wrap=document.querySelector('#app .wrap');if(!wrap)return;if(v&&v.tab==='support'){wrap.classList.add('qr-support-mode');}else{wrap.classList.remove('qr-support-mode');if(state.panel){state.panel.remove();state.panel=null;}}}
-  function navButton(){
-    var tabs=document.querySelector('#app .tabs');if(!tabs)return;
-    if(tabs.querySelector('[data-qr-support-nav]'))return;
-    var b=document.createElement('button');b.type='button';b.setAttribute('data-qr-support-nav','1');b.innerHTML='🛟 Поддержка<span class="qr-support-badge" data-support-badge style="display:none">0</span>';
-    b.addEventListener('click',function(){var v=vm();if(v)v.tab='support';Array.prototype.forEach.call(tabs.querySelectorAll('button'),function(x){x.classList.remove('on');});b.classList.add('on');open();});tabs.appendChild(b);state.button=b;
+
+  var observer = new MutationObserver(function () {
+    addNavButton();
+    syncMode();
+  });
+
+  function init() {
+    boot();
+    var root = document.getElementById('app');
+    if (root) observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
   }
-  async function badge(){
-    var v=vm();if(!v||!v.profile||v.profile.role!=='manager')return;
-    try{var r=await db.from('manager_support_threads').select('id,status,last_message_at').eq('manager_id',v.profile.id).neq('status','closed').order('last_message_at',{ascending:false}).limit(1).maybeSingle();if(r.error)throw r.error;var id=r.data&&r.data.id;if(!id){setBadge(0);return;}var m=await db.from('manager_support_messages').select('sender_role').eq('thread_id',id).order('created_at',{ascending:false}).limit(1).maybeSingle();if(m.error)throw m.error;setBadge(m.data&&m.data.sender_role==='admin'?1:0);}catch(e){console.warn('[QR Manager Support] badge:',e);}}
-  function setBadge(n){if(!state.button)return;var b=state.button.querySelector('[data-support-badge]');if(!b)return;b.textContent=String(n);b.style.display=n?'inline-flex':'none';}
-  function boot(){
-    var start=function(){var v=vm();if(!v||!v.profile){setTimeout(start,300);return;}navButton();badge();window.addEventListener('qr-manager-venue-selected',function(){badge();});setInterval(function(){navButton();badge();syncMode();},1000);};
-    start();
-  }
-  window.addEventListener('qr-manager-vue-ready',boot,{once:true});
-  if(window.__managerVue)setTimeout(boot,0);
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })();
